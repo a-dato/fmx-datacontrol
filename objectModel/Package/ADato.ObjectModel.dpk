@@ -1,0 +1,56 @@
+package ADato.ObjectModel;
+
+{$R *.res}
+{$IFDEF IMPLICITBUILDING This IFDEF should not be used by users}
+{$ALIGN 8}
+{$ASSERTIONS ON}
+{$BOOLEVAL OFF}
+{$DEBUGINFO OFF}
+{$EXTENDEDSYNTAX ON}
+{$IMPORTEDDATA ON}
+{$IOCHECKS ON}
+{$LOCALSYMBOLS ON}
+{$LONGSTRINGS ON}
+{$OPENSTRINGS ON}
+{$OPTIMIZATION OFF}
+{$OVERFLOWCHECKS ON}
+{$RANGECHECKS ON}
+{$REFERENCEINFO ON}
+{$SAFEDIVIDE OFF}
+{$STACKFRAMES ON}
+{$TYPEDADDRESS OFF}
+{$VARSTRINGCHECKS ON}
+{$WRITEABLECONST OFF}
+{$MINENUMSIZE 1}
+{$IMAGEBASE $400000}
+{$DEFINE DEBUG}
+{$ENDIF IMPLICITBUILDING}
+{$RUNONLY}
+{$IMPLICITBUILD ON}
+
+requires
+  rtl,
+  ADato.DN4D,
+  ADato.DataModel,
+  fmx;
+
+contains
+  ADato.ObjectModel.DataModel.impl in '..\ADato.ObjectModel.DataModel.impl.pas',
+  ADato.ObjectModel.impl in '..\ADato.ObjectModel.impl.pas',
+  ADato.ObjectModel.intf in '..\ADato.ObjectModel.intf.pas',
+  ADato.ObjectModel.List.impl in '..\ADato.ObjectModel.List.impl.pas',
+  ADato.ObjectModel.List.intf in '..\ADato.ObjectModel.List.intf.pas',
+  ADato.ObjectModel.List.Tracking.impl in '..\ADato.ObjectModel.List.Tracking.impl.pas',
+  ADato.ObjectModel.List.Tracking.intf in '..\ADato.ObjectModel.List.Tracking.intf.pas',
+  ADato.ObjectModel.TrackInterfaces in '..\ADato.ObjectModel.TrackInterfaces.pas',
+  ADato.Packages.intf in '..\ADato.Packages.intf.pas',
+  ADato.PropertyAccessibility.Intf in '..\ADato.PropertyAccessibility.Intf.pas',
+  ADato.EditableObjectModelContext.impl in '..\ADato.EditableObjectModelContext.impl.pas',
+  ADato.Models.VirtualListItemDelegate in '..\ADato.Models.VirtualListItemDelegate.pas',
+  ADato.MultiObjectModelContextSupport.impl in '..\ADato.MultiObjectModelContextSupport.impl.pas',
+  ADato.MultiObjectModelContextSupport.intf in '..\ADato.MultiObjectModelContextSupport.intf.pas',
+  ADato.ObjectModel.Binders in '..\ADato.ObjectModel.Binders.pas',
+  ADato.Bitmap.impl in '..\ADato.Bitmap.impl.pas',
+  ADato.Bitmap.intf in '..\ADato.Bitmap.intf.pas';
+
+end.

@@ -1,0 +1,145 @@
+object Form1: TForm1
+  Left = 0
+  Top = 0
+  Caption = 'Form1'
+  ClientHeight = 487
+  ClientWidth = 699
+  FormFactor.Width = 320
+  FormFactor.Height = 480
+  FormFactor.Devices = [Desktop]
+  DesignerMasterStyle = 0
+  object Layout1: TLayout
+    Align = Top
+    Size.Width = 699.000000000000000000
+    Size.Height = 41.000000000000000000
+    Size.PlatformDefault = False
+    TabOrder = 1
+    object Button2: TButton
+      Position.X = 8.000000000000000000
+      Position.Y = 11.000000000000000000
+      Size.Width = 136.000000000000000000
+      Size.Height = 22.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 0
+      Text = 'model<ICompany>'
+      TextSettings.Trimming = None
+      OnClick = Button2Click
+    end
+  end
+  object Layout2: TLayout
+    Align = Right
+    Position.X = 500.000000000000000000
+    Position.Y = 41.000000000000000000
+    Size.Width = 199.000000000000000000
+    Size.Height = 446.000000000000000000
+    Size.PlatformDefault = False
+    TabOrder = 2
+    object edName: TEdit
+      Touch.InteractiveGestures = [LongTap, DoubleTap]
+      TabOrder = 1
+      Position.X = 8.000000000000000000
+      Position.Y = 24.000000000000000000
+      Size.Width = 183.000000000000000000
+      Size.Height = 22.000000000000000000
+      Size.PlatformDefault = False
+      object Label1: TLabel
+        Position.Y = -16.000000000000000000
+        TextSettings.Trimming = None
+        Text = 'Name'
+        TabOrder = 0
+      end
+    end
+    object edLocation: TEdit
+      Touch.InteractiveGestures = [LongTap, DoubleTap]
+      TabOrder = 0
+      Position.X = 8.000000000000000000
+      Position.Y = 81.000000000000000000
+      Size.Width = 183.000000000000000000
+      Size.Height = 22.000000000000000000
+      Size.PlatformDefault = False
+      object lblLocation: TLabel
+        Position.Y = -16.000000000000000000
+        TextSettings.Trimming = None
+        Text = 'Location'
+        TabOrder = 0
+      end
+    end
+    object edFounded: TDateEdit
+      Date = 45299.000000000000000000
+      Position.X = 8.000000000000000000
+      Position.Y = 136.000000000000000000
+      Size.Width = 183.000000000000000000
+      Size.Height = 22.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 2
+      object Founded: TLabel
+        Position.Y = -25.000000000000000000
+        TextSettings.Trimming = None
+        Text = 'Founded'
+        TabOrder = 15
+      end
+    end
+  end
+  object DataControl1: TDataControl
+    Align = Client
+    HitTest = True
+    Size.Width = 500.000000000000000000
+    Size.Height = 446.000000000000000000
+    Size.PlatformDefault = False
+    TabOrder = 5
+    Options = [TreeOption_ShowHeaders, TreeOption_ShowHeaderGrid]
+    RowHeightDefault = 30.000000000000000000
+    HeaderHeight = 24.000000000000000000
+    AutoExtraColumnSizeMax = -1.000000000000000000
+    Columns_ = 
+      '<Columns><Item type="TDCTreeColumn"><Caption>Name</Caption><Prop' +
+      'ertyName>Name</PropertyName><InfoControlClass>Text</InfoControlC' +
+      'lass><WidthSettings><WidthType>AlignToContent</WidthType><Width>' +
+      '0</Width><WidthMin>0</WidthMin><WidthMax>0</WidthMax></WidthSett' +
+      'ings><Visualisation><Visible>True</Visible><Frozen>False</Frozen' +
+      '><ReadOnly>False</ReadOnly><Selectable>True</Selectable><AllowRe' +
+      'size>False</AllowResize><AllowHide>False</AllowHide><HideWhenEmp' +
+      'ty>False</HideWhenEmpty></Visualisation><SortAndFilter><Sort>Non' +
+      'e</Sort><ShowSortMenu>False</ShowSortMenu><ShowFilterMenu>False<' +
+      '/ShowFilterMenu></SortAndFilter><SubControlSettings><SubInfoCont' +
+      'rolClass>Custom</SubInfoControlClass></SubControlSettings><Hiera' +
+      'rchy><ShowHierarchy>False</ShowHierarchy><Indent>0</Indent></Hie' +
+      'rarchy></Item><Item type="TDCTreeColumn"><Caption>Location</Capt' +
+      'ion><PropertyName>Location</PropertyName><InfoControlClass>Text<' +
+      '/InfoControlClass><WidthSettings><WidthType>AlignToContent</Widt' +
+      'hType><Width>0</Width><WidthMin>0</WidthMin><WidthMax>0</WidthMa' +
+      'x></WidthSettings><Visualisation><Visible>True</Visible><Frozen>' +
+      'False</Frozen><ReadOnly>False</ReadOnly><Selectable>True</Select' +
+      'able><AllowResize>False</AllowResize><AllowHide>False</AllowHide' +
+      '><HideWhenEmpty>False</HideWhenEmpty></Visualisation><SortAndFil' +
+      'ter><Sort>None</Sort><ShowSortMenu>False</ShowSortMenu><ShowFilt' +
+      'erMenu>False</ShowFilterMenu></SortAndFilter><SubControlSettings' +
+      '><SubInfoControlClass>Custom</SubInfoControlClass></SubControlSe' +
+      'ttings><Hierarchy><ShowHierarchy>False</ShowHierarchy><Indent>0<' +
+      '/Indent></Hierarchy></Item><Item type="TDCTreeColumn"><Caption>F' +
+      'ounded</Caption><PropertyName>Founded</PropertyName><InfoControl' +
+      'Class>Text</InfoControlClass><WidthSettings><WidthType>AlignToCo' +
+      'ntent</WidthType><Width>0</Width><WidthMin>0</WidthMin><WidthMax' +
+      '>0</WidthMax></WidthSettings><Visualisation><Visible>True</Visib' +
+      'le><Frozen>False</Frozen><ReadOnly>False</ReadOnly><Selectable>T' +
+      'rue</Selectable><AllowResize>False</AllowResize><AllowHide>False' +
+      '</AllowHide><HideWhenEmpty>False</HideWhenEmpty></Visualisation>' +
+      '<SortAndFilter><Sort>None</Sort><ShowSortMenu>False</ShowSortMen' +
+      'u><ShowFilterMenu>False</ShowFilterMenu></SortAndFilter><SubCont' +
+      'rolSettings><SubInfoControlClass>Custom</SubInfoControlClass></S' +
+      'ubControlSettings><Hierarchy><ShowHierarchy>False</ShowHierarchy' +
+      '><Indent>0</Indent></Hierarchy></Item></Columns>'#13#10
+  end
+  object ActionList1: TActionList
+    Left = 427
+    Top = 145
+    object acExpand: TAction
+      Text = 'Expand'
+      ShortCut = 16453
+    end
+    object acCollapse: TAction
+      Text = 'Collapse'
+      ShortCut = 16454
+    end
+  end
+end

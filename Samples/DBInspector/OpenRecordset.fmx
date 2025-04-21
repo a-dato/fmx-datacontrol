@@ -1,0 +1,347 @@
+object OpenRecordSetFrame: TOpenRecordSetFrame
+  Size.Width = 856.000000000000000000
+  Size.Height = 547.000000000000000000
+  Size.PlatformDefault = False
+  object Rectangle1: TRectangle
+    Align = Client
+    Fill.Color = claWhite
+    Size.Width = 856.000000000000000000
+    Size.Height = 547.000000000000000000
+    Size.PlatformDefault = False
+    Stroke.Kind = None
+    object Rectangle2: TRectangle
+      Align = Bottom
+      Corners = []
+      Fill.Color = claWhite
+      Padding.Left = 3.000000000000000000
+      Padding.Top = 3.000000000000000000
+      Padding.Right = 3.000000000000000000
+      Padding.Bottom = 3.000000000000000000
+      Position.Y = 440.000000000000000000
+      Sides = [Top]
+      Size.Width = 856.000000000000000000
+      Size.Height = 107.000000000000000000
+      Size.PlatformDefault = False
+      Stroke.Color = xFFABABAB
+      XRadius = 3.000000000000000000
+      YRadius = 3.000000000000000000
+      object lyExecutionLog: TLayout
+        Align = Bottom
+        Position.X = 3.000000000000000000
+        Position.Y = 54.000000000000000000
+        Size.Width = 850.000000000000000000
+        Size.Height = 50.000000000000000000
+        Size.PlatformDefault = False
+        TabOrder = 3
+        object Logging: TMemo
+          Touch.InteractiveGestures = [Pan, LongTap, DoubleTap]
+          DataDetectorTypes = []
+          ReadOnly = True
+          ShowScrollBars = False
+          Align = Bottom
+          Position.Y = -1.000000000000000000
+          Size.Width = 850.000000000000000000
+          Size.Height = 51.000000000000000000
+          Size.PlatformDefault = False
+          StyleLookup = 'MyMemostyle'
+          TabOrder = 1
+          Viewport.Width = 850.000000000000000000
+          Viewport.Height = 51.000000000000000000
+        end
+        object lblExecutionLog: TLabel
+          Align = Contents
+          StyledSettings = [Family, Style]
+          Margins.Right = 1.000000000000000000
+          Margins.Bottom = 1.000000000000000000
+          Size.Width = 849.000000000000000000
+          Size.Height = 49.000000000000000000
+          Size.PlatformDefault = False
+          TextSettings.Font.Size = 9.000000000000000000
+          TextSettings.FontColor = claGray
+          TextSettings.HorzAlign = Trailing
+          TextSettings.VertAlign = Trailing
+          TextSettings.Trimming = None
+          Text = 'Execution log'
+          TabOrder = 0
+        end
+      end
+      object DataEditor: TMemo
+        Touch.InteractiveGestures = [Pan, LongTap, DoubleTap]
+        DataDetectorTypes = []
+        ReadOnly = True
+        Align = Client
+        Margins.Left = 3.000000000000000000
+        Margins.Top = 3.000000000000000000
+        Margins.Right = 3.000000000000000000
+        Margins.Bottom = 3.000000000000000000
+        Size.Width = 781.000000000000000000
+        Size.Height = 45.000000000000000000
+        Size.PlatformDefault = False
+        StyleLookup = 'MyMemostyle'
+        TabOrder = 2
+        Viewport.Width = 781.000000000000000000
+        Viewport.Height = 45.000000000000000000
+      end
+      object lblCellEditor: TLabel
+        Align = Client
+        StyledSettings = [Family, Style]
+        Margins.Right = 1.000000000000000000
+        Margins.Bottom = 1.000000000000000000
+        Size.Width = 786.000000000000000000
+        Size.Height = 50.000000000000000000
+        Size.PlatformDefault = False
+        TextSettings.Font.Size = 9.000000000000000000
+        TextSettings.FontColor = claGray
+        TextSettings.HorzAlign = Trailing
+        TextSettings.VertAlign = Trailing
+        TextSettings.Trimming = None
+        Text = 'Cell value'
+        TabOrder = 0
+        TabStop = False
+      end
+      object btnCopy: TButton
+        Align = Right
+        Margins.Left = 3.000000000000000000
+        Margins.Top = 3.000000000000000000
+        Margins.Right = 3.000000000000000000
+        Margins.Bottom = 14.000000000000000000
+        Position.X = 793.000000000000000000
+        Position.Y = 6.000000000000000000
+        Size.Width = 57.000000000000000000
+        Size.Height = 34.000000000000000000
+        Size.PlatformDefault = False
+        TabOrder = 1
+        Text = 'Copy cell'
+        TextSettings.Trimming = None
+        OnClick = btnCopyClick
+      end
+    end
+    object Rectangle3: TRectangle
+      Align = Client
+      Fill.Kind = None
+      Padding.Left = 3.000000000000000000
+      Padding.Top = 3.000000000000000000
+      Padding.Right = 3.000000000000000000
+      Padding.Bottom = 3.000000000000000000
+      Size.Width = 856.000000000000000000
+      Size.Height = 430.000000000000000000
+      Size.PlatformDefault = False
+      Stroke.Kind = None
+      XRadius = 3.000000000000000000
+      YRadius = 3.000000000000000000
+      object lyDataPanel: TLayout
+        Align = Client
+        Size.Width = 850.000000000000000000
+        Size.Height = 306.000000000000000000
+        Size.PlatformDefault = False
+        TabOrder = 2
+        object DataGrid: TDataControl
+          Align = Client
+          HitTest = True
+          Size.Width = 850.000000000000000000
+          Size.Height = 306.000000000000000000
+          Size.PlatformDefault = False
+          TabOrder = 0
+          SelectionType = CellSelection
+          Options = [TreeOption_ShowHeaders, TreeOption_ShowVertGrid, TreeOption_ShowHorzGrid, TreeOption_AllowAddNewRows, TreeOption_AllowDeleteRows]
+          RowHeightFixed = 24.000000000000000000
+          RowHeightDefault = 24.000000000000000000
+          HeaderHeight = 24.000000000000000000
+          AutoExtraColumnSizeMax = -1.000000000000000000
+          CellSelected = DataGridCellSelected
+          EditRowEnd = DataGridEditRowEnd
+          EditCellStart = DataGridEditCellStart
+          EditCellEnd = DataGridEditCellEnd
+        end
+      end
+      object Layout1: TLayout
+        Align = Top
+        Position.X = 3.000000000000000000
+        Position.Y = 3.000000000000000000
+        Size.Width = 850.000000000000000000
+        Size.Height = 33.000000000000000000
+        Size.PlatformDefault = False
+        TabOrder = 1
+        object btnExecute: TSpeedButton
+          Action = acExecute
+          Align = Left
+          ImageIndex = -1
+          Size.Width = 33.000000000000000000
+          Size.Height = 33.000000000000000000
+          Size.PlatformDefault = False
+          StyleLookup = 'playtoolbutton'
+          TextSettings.Trimming = None
+        end
+        object Button1: TButton
+          Action = acAbort
+          Align = Left
+          ImageIndex = -1
+          Margins.Left = 6.000000000000000000
+          Margins.Top = 6.000000000000000000
+          Margins.Bottom = 6.000000000000000000
+          Position.X = 63.000000000000000000
+          Position.Y = 6.000000000000000000
+          Size.Width = 80.000000000000000000
+          Size.Height = 21.000000000000000000
+          Size.PlatformDefault = False
+          TabOrder = 0
+          TextSettings.Trimming = None
+        end
+        object SpeedButton2: TSpeedButton
+          Action = acNextRecordSet
+          Align = Left
+          ImageIndex = -1
+          Position.X = 33.000000000000000000
+          Scale.X = 0.800000011920929000
+          Scale.Y = 0.800000011920929000
+          Size.Width = 30.000000000000000000
+          Size.Height = 41.250000000000000000
+          Size.PlatformDefault = False
+          StyleLookup = 'escapetoolbutton'
+          TextSettings.Trimming = None
+        end
+        object lblConnection: TLabel
+          Align = Right
+          Margins.Right = 8.000000000000000000
+          Position.X = 530.000000000000000000
+          Size.Width = 312.000000000000000000
+          Size.Height = 33.000000000000000000
+          Size.PlatformDefault = False
+          TextSettings.HorzAlign = Trailing
+          TextSettings.Trimming = None
+          Text = 'Connection: None'
+          TabOrder = 9
+        end
+        object cbRecordCount: TComboBox
+          Align = Left
+          Items.Strings = (
+            '10'
+            '100'
+            '1000'
+            '10000'
+            '<all>')
+          ItemIndex = 1
+          Margins.Left = 8.000000000000000000
+          Position.X = 221.000000000000000000
+          Size.Width = 65.000000000000000000
+          Size.Height = 33.000000000000000000
+          Size.PlatformDefault = False
+          TabOrder = 11
+        end
+        object Label1: TLabel
+          Align = Left
+          Position.X = 143.000000000000000000
+          Size.Width = 70.000000000000000000
+          Size.Height = 33.000000000000000000
+          Size.PlatformDefault = False
+          TextSettings.HorzAlign = Trailing
+          TextSettings.Trimming = None
+          Text = 'Records'
+          TabOrder = 14
+        end
+        object lblEditing: TLabel
+          Align = Left
+          StyledSettings = [Family, Size]
+          Margins.Left = 15.000000000000000000
+          Margins.Right = 8.000000000000000000
+          Position.X = 301.000000000000000000
+          Size.Width = 59.000000000000000000
+          Size.Height = 33.000000000000000000
+          Size.PlatformDefault = False
+          TextSettings.Font.StyleExt = {00070000000000000004000000}
+          TextSettings.FontColor = claDarkorange
+          TextSettings.Trimming = None
+          Text = 'Editing...'
+          TabOrder = 8
+        end
+      end
+      object SqlQuery: TMemo
+        Touch.InteractiveGestures = [Pan, LongTap, DoubleTap]
+        DataDetectorTypes = []
+        Align = Top
+        Position.X = 3.000000000000000000
+        Position.Y = 36.000000000000000000
+        Size.Width = 850.000000000000000000
+        Size.Height = 80.000000000000000000
+        Size.PlatformDefault = False
+        TabOrder = 0
+        Viewport.Width = 850.000000000000000000
+        Viewport.Height = 80.000000000000000000
+      end
+      object splitSqlSourcePanel: TSplitter
+        Align = Top
+        Cursor = crVSplit
+        MinSize = 20.000000000000000000
+        Position.X = 3.000000000000000000
+        Position.Y = 116.000000000000000000
+        Size.Width = 850.000000000000000000
+        Size.Height = 5.000000000000000000
+        Size.PlatformDefault = False
+      end
+    end
+    object Splitter1: TSplitter
+      Align = Bottom
+      Cursor = crVSplit
+      MinSize = 20.000000000000000000
+      Position.Y = 430.000000000000000000
+      Size.Width = 856.000000000000000000
+      Size.Height = 10.000000000000000000
+      Size.PlatformDefault = False
+    end
+  end
+  object TimerIsEditing: TTimer
+    Interval = 250
+    OnTimer = TimerIsEditingTimer
+    Left = 528
+    Top = 232
+  end
+  object fdConnection: TFDConnection
+    Left = 88
+    Top = 136
+  end
+  object TheQuery: TFDQuery
+    AfterCancel = TheQueryAfterCancel
+    Connection = fdConnection
+    FetchOptions.AssignedValues = [evRecsMax]
+    FetchOptions.RecsMax = 10
+    ResourceOptions.AssignedValues = [rvCmdExecMode]
+    Left = 184
+    Top = 136
+  end
+  object DataSource1: TDataSource
+    DataSet = TheQuery
+    Left = 256
+    Top = 136
+  end
+  object ActionList1: TActionList
+    OnUpdate = ActionList1Update
+    Left = 488
+    Top = 137
+    object acAbort: TAction
+      Text = 'Abort'
+      ShortCut = 119
+      OnExecute = acAbortExecute
+    end
+    object acNextRecordSet: TAction
+      Text = 'Next'
+      Hint = 'Open next record set'
+      ShortCut = 121
+      OnExecute = acNextRecordSetExecute
+    end
+    object acExecute: TAction
+      Text = 'Execute'
+      Hint = 'Execute'
+      ShortCut = 120
+      OnExecute = acExecuteExecute
+    end
+  end
+  object DatasetDataModel1: TDatasetDataModel
+    DataLinks = <
+      item
+        DataSource = DataSource1
+      end>
+    Left = 376
+    Top = 137
+    DataModel = '<DataModel><Columns/></DataModel>'#13#10
+  end
+end
