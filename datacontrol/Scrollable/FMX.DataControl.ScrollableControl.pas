@@ -10,16 +10,11 @@ uses
   System.UITypes,
   System.Types,
 
-  {$IFDEF WASM}
-  ADato.WASM,
-  {$ELSE}
   FMX.Layouts,
   FMX.StdCtrls,
   FMX.Types,
   FMX.Controls,
   FMX.Objects,
-  {$ENDIF}
-
   FMX.DataControl.ScrollableControl.Intf;
 
 type
@@ -281,7 +276,7 @@ end;
 
 function TDCScrollableControl.CanRealignContent: Boolean;
 begin
-  Result := True;
+  Result := (_updateCount = 0);
 end;
 
 function TDCScrollableControl.CanRealignScrollCheck: Boolean;

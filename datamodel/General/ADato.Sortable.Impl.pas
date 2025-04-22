@@ -1,4 +1,4 @@
-{$I ..\Source\Adato.inc}
+{$I Adato.inc}
 
 unit ADato.Sortable.Impl;
 
@@ -6,7 +6,7 @@ interface
 
 uses
   {$IFDEF DELPHI}
-  System.Collections.Generic.Casting, 
+  System.Collections.Generic.Casting,
   System.Collections.ListInterface.impl,
   {$ENDIF}
   System_,
@@ -57,8 +57,7 @@ type
     function GetEnumerator: IEnumerator<T>;
 
     // ISortable
-    function  get_OnComparingChanged: TOnComparingChanged;
-    procedure set_OnComparingChanged(const Value: TOnComparingChanged);
+    function  get_OnComparingChanged: IOnDataChangeDelegate;
     function  get_Comparer: IListComparer;
     function  get_Data: IList;
 
@@ -172,7 +171,7 @@ begin
   Result := (_data as IList).Item[Transpose(Index)];
 end;
 
-function CComparableList<T>.get_OnComparingChanged: TOnComparingChanged;
+function CComparableList<T>.get_OnComparingChanged: IOnDataChangeDelegate;
 begin
   if _comparer <> nil then
     Result := _comparer.OnComparingChanged else
@@ -245,11 +244,6 @@ end;
 procedure CComparableList<T>.set_Item_object(Index: Integer; const Value: CObject);
 begin
   (_data as IList).Item[Transpose(Index)] := Value;
-end;
-
-procedure CComparableList<T>.set_OnComparingChanged(const Value: TOnComparingChanged);
-begin
-  _comparer.OnComparingChanged := Value;
 end;
 
 procedure CComparableList<T>.set_Item(Index: Integer; const Value: T);
