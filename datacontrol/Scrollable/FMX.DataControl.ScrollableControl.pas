@@ -10,11 +10,16 @@ uses
   System.UITypes,
   System.Types,
 
+  {$IFDEF WASM}
+  ADato.WASM,
+  {$ELSE}
   FMX.Layouts,
   FMX.StdCtrls,
   FMX.Types,
   FMX.Controls,
   FMX.Objects,
+  {$ENDIF}
+
   FMX.DataControl.ScrollableControl.Intf;
 
 type
