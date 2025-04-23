@@ -6,6 +6,7 @@ uses
   System_, System.Collections.Generic, ADato.Data.DataModel.intf;
 
 type
+  {$M+}
   ICompany = interface(IBaseInterface)
     ['{21E9FA90-85E1-4173-9DCB-019A489AFB18}']
     function  get_Name: string;
