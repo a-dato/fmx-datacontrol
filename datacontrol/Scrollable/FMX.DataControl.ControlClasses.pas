@@ -19,19 +19,6 @@ uses
   System_;
 
 type
-//  TTextClass = class of TControl;
-//  TControlClass = class of TControl;
-//  TCheckBoxClass = class of TCheckBox;
-//  TRadioButtonClass = class of TRadioButton;
-//  TButtonClass = class of TButton;
-//  TGlyphClass = class of TGlyph;
-//  TEditClass = class of TEdit;
-//  TMemoClass = class of TMemo;
-//  TDateEditClass = class of TDateEdit;
-//  TComboEditClass = class of TComboEdit;
-//  TRectangleClass = class of TRectangle;
-//  TLineClass = class of TLine;
-
   TDateTimeEditOnKeyDownOverride = class(TDateEdit)
   protected
     procedure KeyDown(var Key: Word; var KeyChar: System.WideChar; Shift: TShiftState); override;
@@ -90,15 +77,6 @@ type
 var
   // see Initialization section
   DataControlClassFactory: IDataControlClassFactory;
-
-//  ScrollableRowControl_DefaultTextClass: TTextClass;
-//  ScrollableRowControl_DefaultCheckboxClass: TCheckBoxClass;
-//  ScrollableRowControl_DefaultRadioButtonClass: TRadioButtonClass;
-//  ScrollableRowControl_DefaultButtonClass: TButtonClass;
-//  ScrollableRowControl_DefaultGlyphClass: TGlyphClass;
-//  ScrollableRowControl_DefaultRectangleClass: TRectangleClass;
-//  ScrollableRowControl_LineClass: TLineClass;
-
 
   DEFAULT_GREY_COLOR: TAlphaColor;
   DEFAULT_WHITE_COLOR: TAlphaColor;
