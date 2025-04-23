@@ -29,7 +29,6 @@ type
   public
     _editingInfo: ITreeEditingInfo;
     _cellEditor: IDCCellEditor;
-    _forceRealignAfterAdding: Boolean;
 
     _checkedItems: Dictionary<IDCTreeColumn, List<Integer>>;
 
@@ -198,7 +197,7 @@ end;
 
 function TEditableDataControl.CanRealignContent: Boolean;
 begin
-  Result := inherited and (not IsEditOrNew or _forceRealignAfterAdding);
+  Result := inherited and not _editingInfo.CellIsEditing;
 end;
 
 function TEditableDataControl.CheckCanChangeRow: Boolean;
@@ -260,7 +259,7 @@ begin
   // check cancel edit
   else if (Key = vkEscape) then
   begin
-    if _editingInfo.RowIsEditing then
+    if IsEditOrNew then
     begin
       CancelEdit;
       Key := 0;
@@ -289,8 +288,14 @@ begin
 
     if Key <> 0 then
     begin
-      if (Key in [vkUp, vkDown, vkPrior, vkEnd, vkTab]) and not CheckCanChangeRow then
-        Exit;
+      if (Key in [vkUp, vkDown, vkPrior, vkEnd, vkTab]) and IsEditOrNew then
+      begin
+        var pt := _paintTime;
+        if not CheckCanChangeRow then
+          Exit;
+
+        _paintTime := pt;
+      end;
 
       inherited;
 
@@ -651,30 +656,49 @@ begin
     end;
   end;
 
-  var newDataItem: CObject;
+  var newDataItem: CObject := nil;
+  var newDataIndex := 0;
+  var newViewListIndex := Self.Current;
+
   if ViewIsDataModelView then
   begin
     var location: IDataRow := nil;
-    if (Current < GetDataModelView.Rows.Count) and (GetDataModelView.Rows.Count > 0) then
-      location := GetDataModelView.Rows[Current].Row;
+    if (newViewListIndex < GetDataModelView.Rows.Count) and (GetDataModelView.Rows.Count > 0) then
+      location := GetDataModelView.Rows[newViewListIndex].Row;
 
-    var dataRow := GetDataModelView.DataModel.AddNew(location, Position);
+    // make sure ViewChanged is not called at this point
+    var dataRow: IDataRow;
+    inc(_updateCount);
+    try
+//      if NewItem <> nil then
+//        dataRow := GetDataModelView.DataModel.Add(NewItem, location, Position) else
+        dataRow := GetDataModelView.DataModel.AddNew(location, Position);
+    finally
+      dec(_updateCount);
+    end;
 
     if dataRow <> nil then
     begin
       // dataModel can have it's own "OnAddNewRow" where the Data can be created
       if NewItem <> nil then
+      begin
         dataRow.Data := NewItem;
+        GetDataModelView.DataModel.AddKey(dataRow);
+      end;
 
       _view.RecalcSortedRows;
+      newDataIndex := dataRow.get_Index;
 
       var drv := GetDataModelView.FindRow(dataRow);
       if drv <> nil then
       begin
         _editingInfo.StartRowEdit(drv.Row.get_Index, drv, True);
 
-        Current := drv.ViewIndex;
-        _view.ResetView(Current);
+        newDataItem := drv;
+        newViewListIndex := drv.ViewIndex;
+
+        GetDataModelView.Refresh;
+        _view.ResetView;
       end;
     end;
   end
@@ -683,16 +707,15 @@ begin
     if NewItem = nil then
       Exit(False);
 
-    var crrnt := Self.Current;
-    if (crrnt = -1) or (Position = InsertPosition.After) then
-      inc(crrnt);
+    if (newViewListIndex = -1) or (Position = InsertPosition.After) then
+      inc(newViewListIndex);
 
-    _view.GetViewList.Insert(crrnt, NewItem);
-    _view.ResetView(crrnt);
+    _view.GetViewList.Insert(newViewListIndex, NewItem);
+    _view.ResetView;
 
-    Self.Current := crrnt;
-    _editingInfo.StartRowEdit(_view.OriginalData.Count - 1, NewItem, True);
-
+    newDataItem := newItem;
+    newDataIndex := _view.OriginalData.IndexOf(NewItem);
+    _editingInfo.StartRowEdit(newDataIndex, NewItem, True);
   end;
 
   Result := _editingInfo.IsNew;
@@ -701,12 +724,14 @@ begin
     // let the view know that we started with editing
     _view.StartEdit(_editingInfo.EditItem);
 
-    _forceRealignAfterAdding := True;
-    try
-      DoRealignContent;
-    finally
-      _forceRealignAfterAdding := False;
-    end;
+    CalculateScrollBarMax;
+
+    var requestedSelection := _selectionInfo.Clone as ITreeSelectionInfo;
+    requestedSelection.UpdateLastSelection(newDataIndex, newViewListIndex, newDataItem);
+    ScrollSelectedIntoView(requestedSelection);
+
+    for var row in _view.ActiveViewRows do
+      VisualizeRowSelection(row);
   end;
 end;
 
@@ -765,7 +790,7 @@ begin
     _view.RecalcSortedRows;
 
     if _view.ViewCount > 0 then
-      Self.Current := CMath.Max(0, CMath.Min(_view.ViewCount -1, currentIndex - 1)) else
+      Self.Current := CMath.Max(0, CMath.Min(_view.ViewCount -1, currentIndex)) else
       Self.Current := -1;
   end;
 end;
@@ -842,6 +867,9 @@ begin
     Exit;
   end;
 
+  var isModelRemove := False;
+  var wasNew := IsNew;
+
   var notify: IEditableModel;
   if (_Model <> nil) and Interfaces.Supports<IEditableModel>(_Model, notify) then
   begin
@@ -854,12 +882,23 @@ begin
       u.EndUpdate
     end else
       notify.CancelEdit;
-  end
-  else if ViewIsDataModelView then
-    GetDataModelView.DataModel.CancelEdit(GetActiveRow.DataItem.AsType<IDataRowView>.Row);
+
+    isModelRemove := True;
+  end;
 
   _view.EndEdit;
   _editingInfo.RowEditingFinished;
+
+  if not isModelRemove then
+  begin
+    if ViewIsDataModelView then
+    begin
+      GetDataModelView.DataModel.CancelEdit(GetActiveRow.DataItem.AsType<IDataRowView>.Row);
+      Exit;
+    end
+    else if wasNew then // remove item from list
+      TryDeleteSelectedRows;
+  end;
 
   DoDataItemChangedInternal(GetActiveRow.DataItem); //, GetActiveRow.DataIndex);
 end;
@@ -1122,12 +1161,12 @@ end;
 
 function TEditableDataControl.IsEditOrNew: Boolean;
 begin
-  Result := _editingInfo.RowIsEditing;
+  Result := _editingInfo.RowIsEditing or _editingInfo.IsNew;
 end;
 
 function TEditableDataControl.IsNew: Boolean;
 begin
-  Result := _editingInfo.RowIsEditing and _editingInfo.IsNew;
+  Result := _editingInfo.IsNew;
 end;
 
 function TEditableDataControl.ItemCheckedInColumn(const Item: CObject; const Column: IDCTreeColumn): Boolean;
@@ -1303,14 +1342,15 @@ begin
 
     _view.EndEdit;
     _editingInfo.RowEditingFinished;
-    DoDataItemChanged(editItem, dataIndex);
 
     // it can be that the EditRowStart is activated by user event that triggers this EditRowEnd
+    // for excample by clicking a checkbox on a next row or inserting a new row by "INSERT"
     // therefor we have to wait a little
-//    TThread.ForceQueue(nil, procedure
-//    begin
-//      DoDataItemChanged(editItem, dataIndex);
-//    end);
+    TThread.ForceQueue(nil, procedure
+    begin
+      if not IsEditOrNew then
+        DoDataItemChanged(editItem, dataIndex);
+    end);
   end;
 end;
 
@@ -1409,8 +1449,8 @@ end;
 
 procedure TEditableDataControl.SetSingleSelectionIfNotExists;
 begin
-  if IsNew then
-    Exit;
+//  if IsNew then
+//    Exit;
 
   if _selectionInfo.HasSelection and IsEdit then
     Exit;

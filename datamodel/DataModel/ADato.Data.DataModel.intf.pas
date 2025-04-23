@@ -667,6 +667,7 @@ type
     function  PickList(const Column: IDataModelColumn; const Row: IDataRow) : IList; {$IFDEF DELPHI}overload;{$ENDIF}
     function  PickList(const PropertyName: CString; const Row: IDataRow) : IList; {$IFDEF DELPHI}overload;{$ENDIF}
     procedure ReplaceKey(const OldKey, NewKey: CObject);
+    procedure AddKey(const DataRow: IDataRow);
     procedure Remove(const Row: IDataRow);
     function  RowIndex(const Row: IDataRow): Integer;
     function  GetRowType(const Row: IDataRow): RowTypeFlag;

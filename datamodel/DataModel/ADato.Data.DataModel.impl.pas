@@ -557,6 +557,7 @@ type
     function  PickList(const PropertyName: CString; const Row: IDataRow) : IList; {$IFDEF DELPHI}overload;{$ENDIF} virtual;
     procedure &Remove(const Row: IDataRow); {$IFDEF DELPHI}reintroduce;{$ENDIF} virtual;
     procedure ReplaceKey(const OldKey, NewKey: CObject);
+    procedure AddKey(const DataRow: IDataRow);
     function  RowIndex(const Row: IDataRow): Integer; virtual;
     function  GetRowType(const Row: IDataRow): RowTypeFlag;
     procedure SetFieldValue(const Column: IDataModelColumn; const Row: IDataRow; const Data: CObject); virtual;
@@ -2289,6 +2290,14 @@ begin
 
   _keys.Remove(OldKey);
   _keys.Add(NewKey, dr);
+end;
+
+procedure TDataModel.AddKey(const DataRow: IDataRow);
+begin
+  if _keys.ContainsKey(DataRow.Data) then
+    Exit;
+
+  _keys.Add(DataRow.Data, DataRow);
 end;
 
 function TDataModel.IndexOf(const AValue: CObject): Integer;
