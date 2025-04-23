@@ -9,7 +9,8 @@ uses
   System.Collections.Generic, System.Actions, FMX.ActnList,
   FMX.DataControl.ScrollableControl, FMX.DataControl.ScrollableRowControl,
   FMX.DataControl.Static, FMX.DataControl.Editable, FMX.DataControl.Impl,
-  FMX.DateTimeCtrls, FMX.StdCtrls, FMX.Edit, FMX.Controls.Presentation;
+  FMX.DateTimeCtrls, FMX.StdCtrls, FMX.Edit, FMX.Controls.Presentation,
+  FMX.DataControl.Events;
 
 type
   {$M+}
@@ -31,6 +32,7 @@ type
     Founded: TLabel;
     DataControl1: TDataControl;
     procedure Button2Click(Sender: TObject);
+    procedure DataControl1RowAdding(const Sender: TObject; e: DCAddingNewEventArgs);
   private
     function CreateCompanyList: List<ICompany>;
   protected
@@ -119,6 +121,11 @@ begin
     c.Founded := CDateTime.Now.AddDays(i);
     Result.Add(c);
   end;
+end;
+
+procedure TForm1.DataControl1RowAdding(const Sender: TObject; e: DCAddingNewEventArgs);
+begin
+;
 end;
 
 { TCompany }
