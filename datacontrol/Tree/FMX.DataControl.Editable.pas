@@ -1331,7 +1331,14 @@ begin
         Exit(False);
     end
     else if ViewIsDataModelView then
-      GetDataModelView.DataModel.EndEdit(ARow.DataItem.AsType<IDataRowView>.Row);
+    begin
+      inc(_updateCount);
+      try
+        GetDataModelView.DataModel.EndEdit(ARow.DataItem.AsType<IDataRowView>.Row);
+      finally
+        dec(_updateCount);
+      end;
+    end;
 
     var ix := _view.GetViewList.IndexOf(_editingInfo.EditItem);
     if ix <> -1 then
