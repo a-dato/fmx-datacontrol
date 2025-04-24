@@ -279,6 +279,7 @@ type
     ListChangedType_PropertyDescriptorAdded=5,
     ListChangedType_PropertyDescriptorChanged=7,
     ListChangedType_PropertyDescriptorDeleted=6,
+    ListChangedType_Exception=9,
     ListChangedType_Reset=0
   );
 
@@ -293,6 +294,7 @@ type
     PropertyDescriptorChanged = ListChangedTypeFlag.ListChangedType_PropertyDescriptorChanged;
     PropertyDescriptorDeleted = ListChangedTypeFlag.ListChangedType_PropertyDescriptorDeleted;
     Reset = ListChangedTypeFlag.ListChangedType_Reset;
+    Exception = ListChangedTypeFlag.ListChangedType_Exception;
 
   private
     Value: ListChangedTypeFlag;

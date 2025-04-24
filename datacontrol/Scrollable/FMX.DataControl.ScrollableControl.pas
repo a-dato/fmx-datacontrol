@@ -130,7 +130,7 @@ type
 
     procedure CalculateScrollBarMax; virtual; abstract;
     procedure ScrollManualInstant(YChange: Integer);
-    procedure ScrollManualTryAnimated(YChange: Integer);
+    procedure ScrollManualTryAnimated(YChange: Integer; CumulativeYChangeFromPrevChange: Boolean);
 
     procedure UpdateScrollbarMargins;
 
@@ -602,7 +602,7 @@ begin
 //  var cycles: Integer := Trunc(offset / scrollDistance) + 1;
 
   _mouseWheelSmoothScrollSpeedUp := CMath.Min(_mouseWheelSmoothScrollSpeedUp + 1, 8);
-  ScrollManualTryAnimated(ifThen(goUp, 1, -1) * scrollDistance); // Round(cycles * scrollDistance));
+  ScrollManualTryAnimated(ifThen(goUp, 1, -1) * scrollDistance, _mouseWheelSmoothScrollTimer.Enabled);
 end;
 
 procedure TDCScrollableControl.MouseWheelSmoothScrollingTimer(Sender: TObject);
@@ -688,39 +688,19 @@ procedure TDCScrollableControl.Paint;
 begin
   inherited;
 
-
-//  {$IFDEF DEBUG}
-//  _stopwatch2.Stop;
-//  Log('time between PaintCHildren and Paint done: ' + _stopwatch2.ElapsedMilliseconds.ToString + ' ms');
-//  _stopwatch2 := TStopwatch.StartNew;
-//  {$ENDIF}
+  if _paintTime = -1 then
+    _paintTime := 0;
 end;
 
 procedure TDCScrollableControl.PaintChildren;
 begin
-//  {$IFDEF DEBUG}
-//  _stopwatch2.Stop;
-//  Log('time between realign and paint: ' + _stopwatch2.ElapsedMilliseconds.ToString + ' ms');
-//  _stopwatch2 := TStopwatch.StartNew;
-//  {$ENDIF}
-
   var stopwatch := TStopwatch.StartNew;
 
   inherited;
 
   stopwatch.Stop;
 
-  if stopwatch.ElapsedMilliseconds > 0 then
-    _paintTime := stopwatch.ElapsedMilliseconds;
-
-//  {$IFDEF DEBUG}
-//  var w: Word := vkNext;
-//  KeyDown(w, '', []);
-//  {$ENDIF}
-
-//  {$IFDEF DEBUG}
-//  Log('_paintTime: ' + _paintTime.ToString);
-//  {$ENDIF}
+  _paintTime := stopwatch.ElapsedMilliseconds;
 end;
 
 procedure TDCScrollableControl.Painting;
@@ -789,12 +769,12 @@ begin
     RestartWaitForRealignTimer(0);
 end;
 
-procedure TDCScrollableControl.ScrollManualTryAnimated(YChange: Integer);
+procedure TDCScrollableControl.ScrollManualTryAnimated(YChange: Integer; CumulativeYChangeFromPrevChange: Boolean);
 begin
   if (_scrollingType <> TScrollingType.None) then
     Exit;
 
-  if not _mouseWheelSmoothScrollTimer.Enabled then
+  if not CumulativeYChangeFromPrevChange then
   begin
     _mouseWheelDistanceToGo := 0;
     _mouseWheelCycle := 0;
@@ -807,12 +787,12 @@ begin
   var forceGoImmediate: Boolean;
   if YChange > 0 then
   begin
-    forceGoImmediate := (_mouseWheelDistanceToGo + YChange > _vertScrollBar.ViewportSize*0.5);
+    forceGoImmediate := (_mouseWheelDistanceToGo + YChange > (oneRowHeight*1.5));
     tryGoImmediate := (_mouseWheelDistanceToGo < YChange) or (_mouseWheelDistanceToGo + YChange > oneRowHeight);
   end
   else
   begin
-    forceGoImmediate := (_mouseWheelDistanceToGo + YChange < -_vertScrollBar.ViewportSize*0.5);
+    forceGoImmediate := (_mouseWheelDistanceToGo + YChange < (-oneRowHeight*1.5));
     tryGoImmediate := (_mouseWheelDistanceToGo > YChange) or (_mouseWheelDistanceToGo + YChange < -oneRowHeight);
   end;
 
@@ -823,7 +803,10 @@ begin
   // stop smooth scrolling and go fast
   if forceGoImmediate or (_mouseWheelSmoothScrollTimer.Enabled and tryGoImmediate) then
   begin
-    _mouseWheelDistanceToGo := _mouseWheelDistanceToGo + IfThen((_mouseWheelSmoothScrollTimer.Enabled and tryGoImmediate), Round((YChange*_mouseWheelSmoothScrollSpeedUp)), YChange);
+    if CumulativeYChangeFromPrevChange then
+      _mouseWheelDistanceToGo := _mouseWheelDistanceToGo + IfThen((_mouseWheelSmoothScrollTimer.Enabled and tryGoImmediate), Round((YChange*_mouseWheelSmoothScrollSpeedUp)), YChange) else
+      _mouseWheelDistanceToGo := YChange;
+
     _scrollStopWatch_wheel_lastSpin := TStopWatch.StartNew;
 
     Log('mousewheel: ' + _mouseWheelDistanceToGo.ToString);

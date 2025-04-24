@@ -264,6 +264,7 @@ procedure TTreeEditingInfo.RowEditingFinished;
 begin
   _dataIndex := -1;
   _editItem := nil;
+  _isNew := False;
 end;
 
 { TDCCellEditor }

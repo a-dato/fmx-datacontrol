@@ -251,6 +251,7 @@ type
 
     property View: IDataViewList read get_View;
     property NotSelectableItems: IList read get_NotSelectableItems write set_NotSelectableItems;
+    property ItemType: &Type read _itemType write _itemType;
 
   published
     property SelectionType: TSelectionType read get_SelectionType write set_SelectionType default RowSelection;
@@ -582,7 +583,7 @@ begin
     Exit;
 
   for var row in _view.ActiveViewRows do
-    if (row.DataIndex = _selectionInfo.DataIndex)then
+    if (row.DataIndex = _selectionInfo.DataIndex) then
       Exit(row);
 
   Result := nil;
@@ -1240,7 +1241,7 @@ begin
     if prevRow <> nil then
       TopVirtualYPosition := TopVirtualYPosition - thisRow.Height;
 
-    var aboveViewPortRange := TopVirtualYPosition <= StartY;
+    var aboveViewPortRange := (TopVirtualYPosition <= StartY) or (thisRow.ViewListIndex = 0);
     if aboveViewPortRange then
     begin
       if not addOneRowAbove or (thisRow.ViewListIndex = 0) then
@@ -1379,7 +1380,8 @@ begin
           _scrollbarRefToTopHeightChangeSinceViewLoading := _scrollbarRefToTopHeightChangeSinceViewLoading + change;
       end;
     end;
-  end;
+  end else
+    VisualizeRowSelection(Row);
 
   rowInfo := _view.RowLoadedInfo(Row.ViewListIndex) {reload the rowInfo, for it can be changed};
 
@@ -1528,7 +1530,7 @@ begin
   ResetView(ViewListIndex+1);
 
   if DoExpand then
-    ScrollManualTryAnimated(-Trunc(virtualYPos - _vertScrollBar.Value))
+    ScrollManualTryAnimated(-Trunc(virtualYPos - _vertScrollBar.Value), False);
 end;
 
 procedure TDCScrollableRowControl.OnItemAddedByUser(const Item: CObject; Index: Integer);
@@ -1668,25 +1670,15 @@ begin
 
     if CalculateViewFrom = TCalculateViewFrom.Top then
     begin
-//      var change := _view.ActiveViewRows[0].VirtualYPosition - _vertScrollBar.Value;
-//      ScrollManualTryAnimated(Round(change));
-//      _vertScrollBar.Value := _view.ActiveViewRows[0].VirtualYPosition
     end
     else if CalculateViewFrom = TCalculateViewFrom.Bottom then
     begin
-//      var row := _view.ActiveViewRows[_view.ActiveViewRows.Count - 1];
-//
-//      var change := (_vertScrollBar.Value + _vertScrollBar.ViewportSize) - (row.VirtualYPosition + row.Height);
-//      ScrollManualTryAnimated(Round(change));
-
-//      _vertScrollBar.Value := (row.VirtualYPosition + row.Height) - _vertScrollBar.ViewportSize;
     end
     else if not scrollBarIsAtBottom then
       _vertScrollBar.Value := _vertScrollBar.Value + _scrollbarRefToTopHeightChangeSinceViewLoading
     else if scrollBarWillGetHigher then
       _vertScrollBar.Value := _vertScrollBar.Value + _scrollbarMaxChangeSinceViewLoading
     else ; // do nothing, for setting _vertScrollBar.Max lower already updated _vertScrollbar.Value
-        //_vertScrollBar.Value := _vertScrollBar.Max - _vertScrollBar.ViewportSize;
   finally
     dec(_scrollUpdateCount);
   end;
@@ -1869,8 +1861,7 @@ begin
       if _view.ViewCount > 0 then
       begin
         var alignBottomTop := (StartY > 0) and
-          ((StopY > _vertScrollBar.Max - _view.GetRowHeight(_view.ViewCount - 1)) or
-          (CalculateViewFrom = TCalculateViewFrom.Bottom));
+          ((StopY > _vertScrollBar.Max - _view.GetRowHeight(_view.ViewCount - 1)) or (CalculateViewFrom = TCalculateViewFrom.Bottom));
 
         var referenceRow := _view.ProvideReferenceRowForViewRange(StartY, StopY, alignBottomTop);
 
@@ -2022,7 +2013,7 @@ begin
       else //if virtualYPos > _vertScrollBar.Value then
       begin
         var startY := CMath.Max(virtualYPos + 2 - _vertScrollBar.ViewportSize, 0);
-        var stopY := CMath.Min(virtualYPos + 2, _vertScrollBar.Max);
+        var stopY := CMath.Min(CMath.Max(virtualYPos + 2, startY + _vertScrollBar.ViewportSize), _vertScrollBar.Max);
         RealignFromSelectionChange(startY, stopY, TCalculateViewFrom.Bottom);
       end;
     end;
@@ -2054,7 +2045,7 @@ begin
     end;
 
     if not SameValue(yChange, 0) then
-      ScrollManualTryAnimated(Round(yChange));
+      ScrollManualTryAnimated(Round(yChange), False);
 //    begin
 //      var checkY := IfThen(yChange > 0, yChange, -yChange);
 //
@@ -2178,10 +2169,10 @@ begin
     Result := get_Model.ObjectModel.GetType
   else if not _itemType.IsUnknown then
     Result := _itemType
-  else if {(TreeOption.AssumeObjectTypesDiffer in tree.Options) or} (_view = nil) or (_view.OriginalData.Count = 0) then
-    Result := &Type.Unknown
+  else if (_view <> nil) and (_view.OriginalData.Count > 0) then
+    Result := ConvertToDataItem(_view.OriginalData[0]).GetType
   else
-    Result := _view.OriginalData[0].GetType;
+    Result := &Type.Unknown
 end;
 
 function TDCScrollableRowControl.GetPropValue(const PropertyName: CString; const DataItem: CObject; const DataModel: IDataModel = nil): CObject;
