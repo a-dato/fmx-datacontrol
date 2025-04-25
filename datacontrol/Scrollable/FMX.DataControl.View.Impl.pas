@@ -151,8 +151,8 @@ begin
     begin
       if ItemType.IsInterfaceType then
         _comparer := CComparableList<IInterface>.Create(DataList as IList<IInterface>, CComparableList<CObject>.CreateReusableComparer)
-      else if ItemType.IsObjectType then
-        _comparer := CComparableList<TObject>.Create(DataList as IList<TObject>, CComparableList<CObject>.CreateReusableComparer)
+//      else if ItemType.IsObjectType then
+//        Assert(1=2) //_comparer := CComparableList<TObject>.Create(DataList as IList<TObject>, CComparableList<CObject>.CreateReusableComparer)
       else
       begin
         var data: IList<CObject> := CList<CObject>.Create(DataList.Count);

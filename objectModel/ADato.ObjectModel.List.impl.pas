@@ -61,6 +61,8 @@ type
     function  get_ObjectModelContext: IObjectModelContext;
   public
     constructor Create;
+
+    function  SelectedAsList: IList;
   end;
 
   TSingleObjectContextSupport = class(TBaseInterfacedObject, IObjectModelContextSupport)
@@ -167,6 +169,20 @@ end;
 function TObjectListModel<T>.HasMultiSelection: Boolean;
 begin
   Result := (_multiSelect <> nil) and (_multiSelect.Count > 0);
+end;
+
+function TObjectListModel<T>.SelectedAsList: IList;
+begin
+  if HasMultiSelection then
+    Exit(_multiSelect.Context as IList);
+
+  var selectedItem := get_ObjectContext;
+  if selectedItem <> nil then
+  begin
+    Result := CList<CObject>.Create(1);
+    Result.Add(selectedItem);
+  end else
+    Result := nil;
 end;
 
 function TObjectListModel<T>.ContextCanChange : Boolean;

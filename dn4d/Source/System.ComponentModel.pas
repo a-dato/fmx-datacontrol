@@ -651,6 +651,9 @@ begin
   if AObject = nil then
     Exit(nil);
 
+  if CString.Equals(_PropertyDescriptor, '[Object]') then
+    Exit(AObject);
+
   var prop := AObject.GetType.PropertyByName(_PropertyDescriptor);
   if prop = nil then
     raise Exception.Create(CString.Format('No property with name {0}', _PropertyDescriptor));

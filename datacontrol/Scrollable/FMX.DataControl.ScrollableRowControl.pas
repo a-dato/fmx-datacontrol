@@ -33,7 +33,7 @@ type
   protected
     _dataList: IList;
     _dataModelView: IDataModelView;
-    _model: IObjectListModel;
+    [unsafe] _model: IObjectListModel;
 
     function  get_DataList: IList;
     procedure set_DataList(const Value: IList);
@@ -1601,8 +1601,9 @@ function TDCScrollableRowControl.ConvertToDataItem(const Item: CObject): CObject
 begin
   var drv: IDataRowView;
   if ViewIsDataModelView and Item.TryAsType<IDataRowView>(drv) then
-    Result := drv.Row.Data else
-    Result := Item;
+    Exit(drv.Row.Data);
+
+  Result := Item;
 end;
 
 function TDCScrollableRowControl.ViewIsDataModelView: Boolean;
@@ -2088,7 +2089,14 @@ begin
 
   var dataIndexes := _selectionInfo.SelectedDataIndexes;
   for var index in dataIndexes do
-    Result.Add(_view.OriginalData[index]);
+  begin
+    var item := _view.OriginalData[index];
+
+    var dr: IDataRow;
+    if ViewIsDataModelView and item.TryAsType<IDataRow>(dr) then
+      Result.Add(dr.Data) else
+      Result.Add(item);
+  end;
 end;
 
 function TDCScrollableRowControl.SelectedRowIfInView: IDCRow;

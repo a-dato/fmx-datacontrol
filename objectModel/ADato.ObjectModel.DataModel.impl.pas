@@ -146,6 +146,8 @@ type
   public
     constructor Create(HandleModelObjectContextExternally: Boolean; const CreatorFunc: TFunc<CObject> = nil); reintroduce;
     destructor Destroy; override;
+
+    function  SelectedAsList: IList;
   end;
 
   TDataModelObjectModel = class(TBaseInterfacedObject, IObjectModel)
@@ -697,6 +699,20 @@ begin
     end else
       Result.Add(pair.Key, pair.Value);
   end;
+end;
+
+function TDataModelObjectListModel.SelectedAsList: IList;
+begin
+  if HasMultiSelection then
+    Exit(_multiSelect.Context as IList);
+
+  var selectedItem := get_ObjectContext;
+  if selectedItem <> nil then
+  begin
+    Result := CList<CObject>.Create(1);
+    Result.Add(selectedItem);
+  end else
+    Result := nil;
 end;
 
 procedure TDataModelObjectListModel.set_Context(const Value: IList);

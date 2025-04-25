@@ -81,7 +81,7 @@ uses
 procedure CComparableList<T>.Add(const item: T);
 begin
   _data.Add(item);
-  _comparer.ResetSortedRows(False);
+  _comparer.ResetSortedRows(True);
 end;
 
 function CComparableList<T>.Add(const Value: CObject): Integer;
@@ -202,7 +202,7 @@ end;
 procedure CComparableList<T>.Insert(index: Integer; const Value: CObject);
 begin
   _data.Insert(index, Value.AsType<T>);
-  _comparer.ResetSortedRows(False);
+  _comparer.ResetSortedRows(True);
 end;
 
 procedure CComparableList<T>.Insert(index: Integer; const item: T);
@@ -233,7 +233,7 @@ end;
 procedure CComparableList<T>.RemoveAt(index: Integer);
 begin
   _data.RemoveAt(Transpose(Index));
-  _comparer.ResetSortedRows(False);
+  _comparer.ResetSortedRows(True);
 end;
 
 procedure CComparableList<T>.RemoveRange(index, count: Integer);

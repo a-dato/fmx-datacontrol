@@ -162,6 +162,8 @@ type
     function HasMultiSelection: Boolean;
     function ListHoldsObjectType: Boolean;
 
+    function  SelectedAsList: IList;
+
     property Context: IList read get_Context write set_Context;
     property ObjectContext: CObject read get_ObjectContext write set_ObjectContext;
     property ObjectModelContext: IObjectModelContext read get_ObjectModelContext; // write set_ObjectModelContext;
