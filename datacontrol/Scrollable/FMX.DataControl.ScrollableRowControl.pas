@@ -1649,11 +1649,14 @@ begin
     try
       if dataIndex <> -1 then
         _selectionInfo.UpdateSingleSelection(dataIndex {not changed}, newViewListIndex, _selectionInfo.DataItem {not changed}) else
-        _selectionInfo.ClearAllSelections;  // when all items are deleted
+        _selectionInfo.ClearAllSelections;  // when selection is removed from datalist
 
     finally
       _selectionInfo.EndUpdate(True {ignore change event});
     end;
+
+    if (dataIndex = -1) then
+      SetSingleSelectionIfNotExists;
   end;
 end;
 

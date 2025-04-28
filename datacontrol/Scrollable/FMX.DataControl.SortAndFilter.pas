@@ -234,7 +234,7 @@ end;
 
 function TComparerForEvents.Compare(const Left, Right: CObject): Integer;
 begin
-  if _column.SortType = TSortType.RowComparer then
+  if _column.SortType = TSortType.ColumnCellComparer then
     Result := _rowAndCellCompare_TreeControl.DoOnCompareColumnCells(_Column, Left, Right) else
     Result := _rowAndCellCompare_TreeControl.DoOnCompareRows(Left, Right);
 end;
