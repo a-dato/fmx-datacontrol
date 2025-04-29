@@ -746,6 +746,18 @@ end;
 
 procedure TDCScrollableRowControl.ClearSelections;
 begin
+  AtomicIncrement(_internalSelectCount);
+  try
+    if (_model <> nil) then
+    begin
+      var convertedDataItem := ConvertToDataItem(Self.DataItem);
+      if _model.ObjectContext = convertedDataItem then
+        _model.ObjectContext := nil; // trigger a ContextChanged event for multiselect change event
+    end;
+  finally
+    AtomicDecrement(_internalSelectCount);
+  end;
+
   _selectionInfo.LastSelectionEventTrigger := TSelectionEventTrigger.External;
   _selectionInfo.BeginUpdate;
   try
@@ -1535,8 +1547,8 @@ end;
 
 procedure TDCScrollableRowControl.OnItemAddedByUser(const Item: CObject; Index: Integer);
 begin
-  if (_dataList <> nil) and ((_dataList.Count - 1 < Index) or not CObject.Equals(_dataList[Index], Item)) then
-    _dataList.Insert(Index, Item);
+  if (_view <> nil) and (_view.GetDataIndex(Item) = -1) then
+    _view.GetViewList.Insert(Index, Item);
 
   if (_view <> nil) then
   begin
@@ -1552,8 +1564,12 @@ end;
 
 procedure TDCScrollableRowControl.OnItemRemovedByUser(const Item: CObject; Index: Integer);
 begin
-  if (_dataList <> nil) and (_dataList.Count > Index) and CObject.Equals(_dataList[Index], Item) then
-    _dataList.RemoveAt(Index);
+  if (_view <> nil) then
+  begin
+    var vlIndex := _view.GetViewListIndex(Item);
+    if vlIndex <> -1 then
+      _view.GetViewList.RemoveAt(vlIndex);
+  end;
 
   if (_view <> nil) then
   begin
@@ -1580,7 +1596,7 @@ begin
         _model.MultiSelect.Context := SelectedItems else
         _model.MultiSelect.Context := nil;
 
-      _model.ObjectContext := ConvertToDataItem(Self.DataItem);
+      _model.ObjectContext := convertedDataItem;
     end
     else if (GetDataModelView <> nil) and (Self.DataItem <> nil) and (Self.DataItem.IsOfType<IDataRowView>) then
       GetDataModelView.CurrencyManager.Current := Self.DataItem.AsType<IDataRowView>.ViewIndex;
@@ -2065,6 +2081,18 @@ end;
 procedure TDCScrollableRowControl.SelectAll;
 begin
   Assert(TDCTreeOption.MultiSelect in _options);
+
+  AtomicIncrement(_internalSelectCount);
+  try
+    if (_model <> nil) then
+    begin
+      var convertedDataItem := ConvertToDataItem(Self.DataItem);
+      if _model.ObjectContext = convertedDataItem then
+        _model.ObjectContext := nil; // trigger a ContextChanged event for multiselect change event
+    end;
+  finally
+    AtomicDecrement(_internalSelectCount);
+  end;
 
   var currentSelection := _selectionInfo.Clone;
 
