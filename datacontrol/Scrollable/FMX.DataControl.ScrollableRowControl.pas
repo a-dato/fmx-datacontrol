@@ -746,18 +746,6 @@ end;
 
 procedure TDCScrollableRowControl.ClearSelections;
 begin
-  AtomicIncrement(_internalSelectCount);
-  try
-    if (_model <> nil) then
-    begin
-      var convertedDataItem := ConvertToDataItem(Self.DataItem);
-      if _model.ObjectContext = convertedDataItem then
-        _model.ObjectContext := nil; // trigger a ContextChanged event for multiselect change event
-    end;
-  finally
-    AtomicDecrement(_internalSelectCount);
-  end;
-
   _selectionInfo.LastSelectionEventTrigger := TSelectionEventTrigger.External;
   _selectionInfo.BeginUpdate;
   try
@@ -2081,18 +2069,6 @@ end;
 procedure TDCScrollableRowControl.SelectAll;
 begin
   Assert(TDCTreeOption.MultiSelect in _options);
-
-  AtomicIncrement(_internalSelectCount);
-  try
-    if (_model <> nil) then
-    begin
-      var convertedDataItem := ConvertToDataItem(Self.DataItem);
-      if _model.ObjectContext = convertedDataItem then
-        _model.ObjectContext := nil; // trigger a ContextChanged event for multiselect change event
-    end;
-  finally
-    AtomicDecrement(_internalSelectCount);
-  end;
 
   var currentSelection := _selectionInfo.Clone;
 
