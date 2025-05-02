@@ -560,6 +560,7 @@ type
     function  GetHashCode: Integer;
     function  GetItem(const Index: Integer) : CObject;
     function  IsNull: Boolean; inline;
+    function  IsEmpty: Boolean;
     function  ToString(const Format: CString; NullsAllowed: Boolean = False): CString; overload;
     function  ToString(NullsAllowed: Boolean = False): CString; overload;
     class function ReferenceEquals(const a: CObject; const b: CObject) : Boolean; static;
@@ -9109,6 +9110,13 @@ begin
   else
     Result := False;
   end;
+end;
+
+function CObject.IsEmpty: Boolean;
+begin
+  Result := IsNull or
+    (IsDateTime and (AsType<CDateTime>.Ticks = 0)) or
+    (IsTimeSpan and (AsType<CTimeSpan>.Ticks = 0));
 end;
 
 function CObject.IsNumeric: Boolean;
