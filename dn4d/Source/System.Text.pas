@@ -23,6 +23,8 @@ type
   end;
 
   Encoding = interface(IBaseInterface)
+    function GetBytes(const Value: CString): ByteArray;
+
     function GetChars(  const bytes: ByteArray;
                         byteIndex: Integer;
                         byteCount: Integer;
@@ -44,7 +46,6 @@ type
 
     public
       constructor Create(encoding: Encoding);
-
       function GetChars(  const bytes: ByteArray;
                           byteIndex: Integer;
                           byteCount: Integer;
@@ -56,6 +57,8 @@ type
                           var chars: CharArray;
                           charIndex: Integer;
                           flush: boolean): Integer; overload;
+
+      class function UTF8: Encoding;
     end;
 
     DefaultEncoder = class(TBaseInterfacedObject, Encoder{, ISerializable, IObjectReference})
@@ -73,6 +76,7 @@ type
     class var _utf8Encoding: Encoding;
 
   protected
+    function GetBytes(const Value: CString): ByteArray;
     function GetChars(  const bytes: ByteArray;
                         index: Integer;
                         count: Integer): CharArray; overload;
@@ -232,7 +236,7 @@ end;
 
 function UnicodeEncoding.GetMaxCharCount(byteCount: Integer): Integer;
 begin
-  Result := byteCOunt * 2;
+  Result := byteCount * 2;
 end;
 
 { UTF8Encoding }
@@ -298,6 +302,11 @@ begin
   Result := self.GetChars(bytes, byteIndex, byteCount, chars, charIndex, false);
 end;
 
+function CEncoding.GetBytes(const Value: CString): ByteArray;
+begin
+
+end;
+
 function CEncoding.DefaultDecoder.GetChars(
   const bytes: ByteArray;
   byteIndex: Integer;
@@ -307,6 +316,11 @@ function CEncoding.DefaultDecoder.GetChars(
   flush: boolean): Integer;
 begin
   Result := self.m_encoding.GetChars(bytes, byteIndex, byteCount, chars, charIndex)
+end;
+
+class function CEncoding.DefaultDecoder.UTF8: Encoding;
+begin
+  Result := UTF8Encoding.Create(False);
 end;
 
 { CEncoding.DefaultEncoder }

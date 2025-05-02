@@ -428,6 +428,10 @@ type
     function  GetFormat(AClass: TClass): IBaseInterface; overload;
     function  get_DateTimeFormat: DateTimeFormatInfo;
     procedure set_DateTimeFormat(const Value: DateTimeFormatInfo);
+    class function  get_DefaultThreadCurrentCulture: CultureInfo; static;
+    class procedure set_DefaultThreadCurrentCulture(const Value: CultureInfo); static;
+    class function  get_DefaultThreadCurrentUICulture: CultureInfo; static;
+    class procedure set_DefaultThreadCurrentUICulture(const Value: CultureInfo); static;
     function  get_IsNeutralCulture: boolean;
     function  get_LCID: Integer;
     function  get_Parent: CultureInfo;
@@ -447,6 +451,7 @@ type
     class procedure _Create; static;
     constructor Create(culture: Integer; useUserOverride: boolean); overload;
     constructor Create(culture: Integer); overload;
+    constructor Create(const Name: CString); overload;
 
     class function GetLangID(culture: Integer): Integer; static;
     class function GetSortID(lcid: Integer): Integer; static;
@@ -455,6 +460,14 @@ type
 
     public property Calendar: Calendar
       read get_Calendar;
+
+    class property DefaultThreadCurrentCulture: CultureInfo
+      read  get_DefaultThreadCurrentCulture
+      write set_DefaultThreadCurrentCulture;
+    class property DefaultThreadCurrentUICulture: CultureInfo
+      read  get_DefaultThreadCurrentUICulture
+      write set_DefaultThreadCurrentUICulture;
+
     property LCID: Integer
       read get_LCID;
     public property DateTimeFormat: DateTimeFormatInfo
@@ -3784,6 +3797,11 @@ begin
   self.m_isInherited := (inherited GetType <> Global.GetTypeOf<CultureInfo>)
 end;
 
+constructor CCultureInfo.Create(const Name: CString);
+begin
+  Create(LocaleNameToLCID(PWideChar(Name.ToString), 0));
+end;
+
 class procedure CCultureInfo.CheckNeutral(culture: CultureInfo);
 begin
   if (culture.IsNeutralCulture) then
@@ -4134,12 +4152,33 @@ begin
   end
 end;
 
+class function CCultureInfo.get_DefaultThreadCurrentCulture: CultureInfo;
+begin
+  Result := UserDefaultCulture;
+end;
+
+class function CCultureInfo.get_DefaultThreadCurrentUICulture: CultureInfo;
+begin
+  Result := UserDefaultUICulture;
+end;
+
 procedure CCultureInfo.set_DateTimeFormat(const Value: DateTimeFormatInfo);
 begin
   self.VerifyWritable;
   if (value = nil) then
     raise ArgumentNullException.Create('value', Environment.GetResourceString('ArgumentNull_Obj'));
   self.dateTimeInfo := value
+end;
+
+class procedure CCultureInfo.set_DefaultThreadCurrentCulture(const Value: CultureInfo);
+begin
+  m_userDefaultCulture := Value;
+  FormatSettings := FormatSettings.Create(Value.Name);
+end;
+
+class procedure CCultureInfo.set_DefaultThreadCurrentUICulture(const Value: CultureInfo);
+begin
+  m_userDefaultUICulture := Value;
 end;
 
 function CCultureInfo.get_IsNeutralCulture: boolean;

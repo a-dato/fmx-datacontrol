@@ -171,6 +171,14 @@ type
     constructor Create(const path: CString; mode: FileMode; access: FileAccess; share: FileShare); overload;
   end;
 
+  MemoryStream = interface(Stream)
+
+  end;
+
+  CMemoryStream = class(CStream, MemoryStream)
+
+  end;
+
   BinaryReader = interface(IBaseInterface)
     function  get_BaseStream: Stream;
     function  get_Position: Int64;
@@ -257,6 +265,24 @@ type
     constructor Create(AStream: Stream);
     function ReadBuffer: Integer;
     function ReadToEnd: CString;
+  end;
+
+  TextWriter = interface
+    procedure WriteLine(const Value: CString); overload;
+    procedure WriteLine(const Format: CString; const Args: array of CObject); overload;
+  end;
+
+  StreamWriter = interface(TextWriter)
+  end;
+
+  CStreamWriter = class(TInterfacedObject, StreamWriter)
+  protected
+    _Stream: Stream;
+
+  public
+    constructor Create(const AStream: Stream);
+    procedure WriteLine(const Value: CString); overload;
+    procedure WriteLine(const Format: CString; const Args: array of CObject); overload;
   end;
 
   UnmanagedMemoryStream = class
@@ -942,6 +968,24 @@ end;
 constructor UnmanagedMemoryStreamWrapper.Create(stream: UnmanagedMemoryStream);
 begin
 
+end;
+
+{ CStreamWriter }
+
+constructor CStreamWriter.Create(const AStream: Stream);
+begin
+  _Stream := AStream;
+end;
+
+procedure CStreamWriter.WriteLine(const Format: CString; const Args: array of CObject);
+begin
+
+end;
+
+procedure CStreamWriter.WriteLine(const Value: CString);
+begin
+//  if not CString.IsNullOrEmpty(Value) then
+//    _Stream.Write()
 end;
 
 end.
