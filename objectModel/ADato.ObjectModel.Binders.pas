@@ -501,12 +501,14 @@ begin
   // if has selection, there will first be a Delete change action executed, before SetText is called.
   // This method will prevent executing NotifyModel twice
 
+  // UPDATE: goed wrong when using Backspace!!
+
   {$IFDEF DELPHI}
 //  var ispropertyEditMultiSelectDropdown := ((_Control.Owner is TPropertyEditPanelEx) and (_Control.Owner as TPropertyEditPanelEx).DropDownButtonShowing);
 //  if ispropertyEditMultiSelectDropdown then
 //    Exit;
 
-  Result := _Control.IsFocused and _Control.HasSelection;
+  Result := False; //_Control.IsFocused and _Control.HasSelection;
   {$ENDIF}
 end;
 

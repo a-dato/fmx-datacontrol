@@ -1128,7 +1128,8 @@ begin
       if resetProp or (prop = nil) then
       begin
         prop := _cachedType.PropertyByName(PropName);
-        Assert(prop <> nil, 'Please make sure property is published and {M+} is assigned');
+        if prop = nil then
+          Assert(prop <> nil, 'Please make sure property is published and {M+} is assigned');
 
         if not IsSubProp then
           _cachedProp := prop else

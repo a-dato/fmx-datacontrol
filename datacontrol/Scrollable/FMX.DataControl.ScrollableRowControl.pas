@@ -1586,6 +1586,10 @@ begin
         _model.MultiSelect.Context := SelectedItems else
         _model.MultiSelect.Context := nil;
 
+      var convertedDataItem := ConvertToDataItem(Self.DataItem);
+      if _model.ObjectContext = convertedDataItem then
+        _model.ObjectContext := nil; // trigger a ContextChanged event for multiselect change event
+
       _model.ObjectContext := convertedDataItem;
     end
     else if (GetDataModelView <> nil) and (Self.DataItem <> nil) and (Self.DataItem.IsOfType<IDataRowView>) then
