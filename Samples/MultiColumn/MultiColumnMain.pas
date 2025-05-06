@@ -10,7 +10,7 @@ uses
   FMX.DataControl.ScrollableControl, FMX.DataControl.ScrollableRowControl,
   FMX.DataControl.Static, FMX.DataControl.Editable, FMX.DataControl.Impl,
   FMX.DateTimeCtrls, FMX.StdCtrls, FMX.Edit, FMX.Controls.Presentation,
-  FMX.DataControl.Events;
+  FMX.DataControl.Events, ADato.Controls.FMX.Tree.Intf;
 
 type
   {$M+}
@@ -32,6 +32,10 @@ type
     Founded: TLabel;
     DataControl1: TDataControl;
     procedure Button2Click(Sender: TObject);
+    procedure DataControl1CellLoading(const Sender: TObject; e:
+        DCCellLoadingEventArgs);
+    procedure DataControl1ColumnsChanged(const Sender: TObject; e:
+        ColumnChangedByUserEventArgs);
     procedure DataControl1RowAdding(const Sender: TObject; e: DCAddingNewEventArgs);
   private
     function CreateCompanyList: List<ICompany>;
@@ -121,6 +125,23 @@ begin
     c.Founded := CDateTime.Now.AddDays(i);
     Result.Add(c);
   end;
+end;
+
+procedure TForm1.DataControl1CellLoading(const Sender: TObject; e: DCCellLoadingEventArgs);
+begin
+//  if (e.Cell.Column.Caption = 'Name') and (e.Cell.Row.DataItem <> nil) then
+//  begin
+//    e.LoadDefaultData := True;
+//    var l := TLabel.Create(nil);
+//    l.Text := 'Hello';
+//    e.Cell.Control := l;
+//    e.Cell.InfoControl := l;
+//  end;
+end;
+
+procedure TForm1.DataControl1ColumnsChanged(const Sender: TObject; e: ColumnChangedByUserEventArgs);
+begin
+;
 end;
 
 procedure TForm1.DataControl1RowAdding(const Sender: TObject; e: DCAddingNewEventArgs);

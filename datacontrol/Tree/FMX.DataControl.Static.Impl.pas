@@ -316,8 +316,7 @@ type
     function  ColumnLayoutToJSON: TJSONObject;
     procedure RestoreColumnLayoutFromJSON(const Value: TJSONObject);
 
-    function  Add(const Value: CObject): Integer; override;
-    procedure Insert(index: Integer; const value: CObject); overload; override;
+    procedure InsertItem(index: Integer; const value: IDCTreeColumn); overload; override;
 
   public
     constructor Create(const Owner: IColumnsControl); overload; virtual;
@@ -568,7 +567,6 @@ type
     procedure ClearMultiSelections; override;
   end;
 
-
   TDataControlWaitForRepaintInfo = class(TWaitForRepaintInfo, IDataControlWaitForRepaintInfo)
   private
     _viewStateFlags: TTreeViewStateFlags;
@@ -697,16 +695,10 @@ begin
   Result := _treeControl;
 end;
 
-function TDCTreeColumnList.Add(const Value: CObject): Integer;
+procedure TDCTreeColumnList.InsertItem(index: Integer; const value: IDCTreeColumn);
 begin
-  Result := inherited;
-  Value.AsType<TDCTreeColumn>.set_treeControl(_treeControl);
-end;
-
-procedure TDCTreeColumnList.Insert(index: Integer; const value: CObject);
-begin
+  Value.TreeControl := _treeControl;
   inherited;
-  Value.AsType<TDCTreeColumn>.set_treeControl(_treeControl);
 end;
 
 function TDCTreeColumnList.ColumnLayoutToJSON: TJSONObject;

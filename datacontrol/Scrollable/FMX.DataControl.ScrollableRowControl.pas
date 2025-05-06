@@ -33,7 +33,9 @@ type
   protected
     _dataList: IList;
     _dataModelView: IDataModelView;
-    [unsafe] _model: IObjectListModel;
+    // KV 04_05 Datacontrol should keep a lock on the model.
+    // It will be released otherwise
+    {[unsafe]} _model: IObjectListModel;
 
     function  get_DataList: IList;
     procedure set_DataList(const Value: IList);

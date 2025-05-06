@@ -2092,6 +2092,10 @@ begin
     case cell.Column.InfoControlClass of
       TInfoControlClass.Text: (ctrl as ICaption).Text := CStringToString(formattedValue.ToString(True));
       TInfoControlClass.CheckBox: (ctrl as IIsChecked).IsChecked := formattedValue.AsType<Boolean>;
+    else
+      var cp: ICaption;
+      if Interfaces.Supports<ICaption>(ctrl, cp) then
+        cp.Text := CStringToString(formattedValue.ToString(True));
     end;
   end;
 
@@ -2295,7 +2299,7 @@ var
   function AssignDefaultColumn: IDCTreeColumn;
   begin
     Result := TDCTreeColumn.Create;
-    Result.TreeControl := Self;
+    // Result.TreeControl := Self;
     Result.WidthSettings.WidthType := TDCColumnWidthType.AlignToContent;
     Result.WidthSettings.WidthMax := 400;
     _columns.Add(Result);
