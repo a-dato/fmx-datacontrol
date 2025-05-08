@@ -242,6 +242,7 @@ type
 
     function  BaseType: &Type;
     function  CompareTo(const Other: &Type) : Integer;
+    class function From<T>: &Type; static;
     function  GetHashCode: Integer;
     function  Equals(const Other: &Type): Boolean;
     function  IsOfType<T> : Boolean;
@@ -2687,7 +2688,7 @@ type
 
   function TypeFromName(const typeName: CString; throwOnError: Boolean): &Type;
   function TypeToString(const _type: &Type): CString;
-  function TypeOf(const O: CObject) : &Type; overload;
+  function typeof(const O: CObject) : &Type; overload;
 
   procedure GlobalInitialization;
   procedure GlobalFinalization;
@@ -2783,10 +2784,10 @@ asm
 end;
 {$ENDIF}
 
-// Implements the X# way of handling type info. Calling TypeOf on a interface
+// Implements the C# way of handling type info. Calling TypeOf on a interface
 // returns the type info for the interface. Calling CObject.GetType will
 // return the type of the implementing class.
-function TypeOf(const O: CObject) : &Type;
+function typeof(const O: CObject) : &Type;
 begin
   if O.IsInterface then
     Result := &Type.Create(O.FValue.TypeInfo) else
@@ -3452,6 +3453,11 @@ function &Type.CompareTo(const Other: &Type): Integer;
 begin
   CheckNullReference;
   Result := 0;
+end;
+
+class function &Type.From<T>: &Type;
+begin
+  Result := &Type.Create(TypeInfo(T));
 end;
 
 function &Type.GetHashCode: Integer;
