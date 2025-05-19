@@ -230,7 +230,6 @@ type
   private
     _TypeInfo: PTypeInfo;
 
-    // _properties: PropertyInfoArray;
     _GetPropertiesExternal: TGetPropertiesExternal;
 
     procedure CheckNullReference;
