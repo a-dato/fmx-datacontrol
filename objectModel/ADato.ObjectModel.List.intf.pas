@@ -147,6 +147,7 @@ type
     {$ENDIF}
     function  get_Context: IList;
     procedure set_Context(const Value: IList);
+    function  get_ObjectType: &Type;
     function  get_ObjectContext: CObject;
     procedure set_ObjectContext(const Value: CObject);
     function  get_ObjectModel: IObjectModel;
@@ -178,6 +179,7 @@ type
     event OnContextChanging: ListContextChangingEventHandler;
     event OnContextChanged: ListContextChangedEventHandler;
     {$ENDIF}
+    property ObjectType: &Type read get_ObjectType;
     property ObjectModel: IObjectModel read get_ObjectModel write set_ObjectModel;
     property MultiSelect: IObjectModelMultiSelect read get_MultiSelect;
   end;
