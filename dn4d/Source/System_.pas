@@ -10609,6 +10609,13 @@ begin
     Exit(Format('%m', [_value]));
   if (c = 'd') or (c = 'D') then
     Exit(Format('%d', [Round(_value)]));
+  if (c = 'f') or (c = 'F') then
+  begin
+    var decimals: Integer := 2;
+    if (formatString.Length > 1) then
+      CInteger.TryParse(formatString.Substring(1), decimals);
+    Exit(FloatToStrF(_value, ffFixed, 8, decimals));
+  end;
   if (c = 'p') or (c = 'P') then
     Exit(Format('%d%%', [Round(_value * 100)]));
 

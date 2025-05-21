@@ -173,7 +173,7 @@ end;
 
 constructor TObjectListModelWithChangeTracking<T>.Create(const CreatorFunc: TFunc<T>);
 begin
-  Create;
+  inherited Create;
 
   _CreatorFunc := CreatorFunc;
 end;
