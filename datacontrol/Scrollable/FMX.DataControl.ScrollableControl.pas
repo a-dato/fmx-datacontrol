@@ -47,6 +47,8 @@ type
     procedure OnHorzScrollBarChange(Sender: TObject); virtual;
     procedure OnScrollBarChange(Sender: TObject);
 
+    function  MouseIsDown: Boolean;
+
     procedure RestartWaitForRealignTimer(const AdditionalContentTime: Integer; OnlyForRealignWhenScrollingStopped: Boolean = False);
 
   // scrolling events
@@ -359,6 +361,8 @@ end;
 
 procedure TDCScrollableControl.DoMouseLeave;
 begin
+  _clickEnable := False;
+
   inherited;
 
   TryExecuteMouseScrollBoostOnMouseEventStopped;
@@ -507,8 +511,16 @@ begin
   UpdateMouseScrollingLastMoves(True, PointF(X, Y));
 end;
 
+function TDCScrollableControl.MouseIsDown: Boolean;
+begin
+  Result := _clickEnable;
+end;
+
 procedure TDCScrollableControl.MouseMove(Shift: TShiftState; X, Y: Single);
 begin
+  if not _clickEnable then
+    Exit;
+
   inherited;
 
   // no mouse down is detected

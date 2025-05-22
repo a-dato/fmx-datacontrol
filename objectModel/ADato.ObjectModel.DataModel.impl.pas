@@ -615,30 +615,56 @@ procedure TDataModelObjectListModel.ResetContextFromChangedItems;
     if Level > MaxLevel then
       Exit;
 
-    var pair: KeyValuePair<CObject, TObjectListChangeType>;
-    for pair in get_ChangedItems do
+    var foundItems: List<CObject> := CList<CObject>.Create;
+    while True do
     begin
-      var obj := pair.Key;
-      var dr := _dataModel.FindByKey(obj);
-      var rowInfo := _originalDataRows[obj];
+      var foundCount := foundItems.Count;
 
-      if rowInfo.Level <> Level then
-        Continue;
+      var pair: KeyValuePair<CObject, TObjectListChangeType>;
+      for pair in get_ChangedItems do
+      begin
+        var obj := pair.Key;
+        if foundItems.Contains(obj) then
+          Continue;
 
-      case pair.Value of
-        TObjectListChangeType.Added: begin
-          if dr <> nil then
-            _dataModel.Remove(dr);
+        var dr := _dataModel.FindByKey(obj);
+        var rowInfo := _originalDataRows[obj];
+
+        if rowInfo.Level <> Level then
+          Continue;
+
+        case pair.Value of
+          TObjectListChangeType.Added: begin
+            if dr <> nil then
+              _dataModel.Remove(dr);
+
+            foundItems.Add(obj);
+          end;
+          TObjectListChangeType.Changed: begin
+            if dr <> nil then
+              _dataModel.Remove(dr);
+
+            // re-index
+            if _dataModel.FindByKey(rowInfo.Location) <> nil then
+            begin
+              _dataModel.Add(obj, rowInfo.Location, rowInfo.Position);
+              foundItems.Add(obj);
+            end;
+          end;
+          TObjectListChangeType.Removed:
+            if _dataModel.FindByKey(rowInfo.Location) <> nil then
+            begin
+              _dataModel.Add(obj, rowInfo.Location, rowInfo.Position);
+              foundItems.Add(obj);
+            end;
         end;
-        TObjectListChangeType.Changed: begin
-          if dr <> nil then
-            _dataModel.Remove(dr);
+      end;
 
-          // re-index
-          _dataModel.Add(obj, rowInfo.Location, rowInfo.Position);
-        end;
-        TObjectListChangeType.Removed:
-          _dataModel.Add(obj, rowInfo.Location, rowInfo.Position);
+      // no insertlocations found anymore
+      if foundCount = foundItems.Count then
+      begin
+        Assert(foundCount = get_ChangedItems.Count);
+        Break;
       end;
     end;
 

@@ -119,6 +119,8 @@ type
 //    _viewChangedIndex: Integer;
 //    _waitingForViewChange: Boolean;
     _resetViewRec: TResetViewRec;
+    _canDragDrop: Boolean;
+    _dragObject: CObject;
 
     _tryFindNewSelectionInDataModel: Boolean;
 
@@ -140,6 +142,7 @@ type
     procedure InnerInitRow(const Row: IDCRow); virtual;
     procedure InitRow(const Row: IDCRow; const IsAboveRefRow: Boolean = False);
 
+    procedure MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Single); override;
     procedure MouseMove(Shift: TShiftState; X, Y: Single); override;
     procedure DoMouseLeave; override;
 
@@ -198,10 +201,15 @@ type
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
 
+    // drag & drop
+    procedure BeginDrag;
+
     procedure ExecuteKeyFromExternal(var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
 
     function  ConvertToDataItem(const Item: CObject): CObject;
     function  ConvertedDataItem: CObject;
+
+    procedure TriggerFilterOrSortChanged(FilterChanged, SortChanged: Boolean);
 
     procedure AddSortDescription(const Sort: IListSortDescription; const ClearOtherSort: Boolean);
     procedure AddFilterDescription(const Filter: IListFilterDescription; const ClearOtherFlters: Boolean);
@@ -229,6 +237,7 @@ type
     function  SelectedRowIfInView: IDCRow;
     function  SelectionCount: Integer;
     function  SelectedItems: List<CObject>;
+    function  DraggedItems: List<CObject>;
 
     procedure AssignSelection(const SelectedItems: IList);
     // end public selection
@@ -259,6 +268,7 @@ type
     property SelectionType: TSelectionType read get_SelectionType write set_SelectionType default RowSelection;
     property Options: TDCTreeOptions read _options write set_Options;
     property AllowNoneSelected: Boolean read _allowNoneSelected write set_AllowNoneSelected default False;
+    property CanDragDrop: Boolean read _canDragDrop write _canDragDrop default False;
 
     property RowHeightFixed: Single read _rowHeightFixed write _rowHeightFixed;
     property RowHeightDefault: Single read get_rowHeightDefault write _rowHeightDefault;
@@ -280,7 +290,8 @@ uses
 
   FMX.DataControl.View.Impl,
   FMX.DataControl.ScrollableControl.Intf, FMX.Graphics,
-  FMX.DataControl.ControlClasses, FMX.ControlCalculations, FMX.ActnList;
+  FMX.DataControl.ControlClasses, FMX.ControlCalculations, FMX.ActnList,
+  FMX.Platform, System.Rtti, FMX.Forms;
 
 { TDCScrollableRowControl }
 
@@ -383,11 +394,48 @@ begin
     VisualizeRowSelection(row);
 end;
 
-procedure TDCScrollableRowControl.MouseMove(Shift: TShiftState; X, Y: Single);
+procedure TDCScrollableRowControl.MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Single);
 begin
   inherited;
 
+  _dragObject := nil;
+end;
+
+procedure TDCScrollableRowControl.MouseMove(Shift: TShiftState; X, Y: Single);
+begin
+  if not _canDragDrop then
+    inherited;
+
   UpdateHoverRect(PointF(X, Y - _content.Position.Y));
+
+  if _canDragDrop and MouseIsDown then
+  begin
+    var moved := (X > _mousePositionOnMouseDown.X + 5) or (X < _mousePositionOnMouseDown.X - 5) or (Y < _mousePositionOnMouseDown.Y + 5) or (Y < _mousePositionOnMouseDown.Y - 5);
+    if not moved then
+      Exit;
+
+    var row := GetRowByMouseY(Y - _content.Position.Y);
+    if (row <> nil) and not _selectionInfo.IsSelected(row.DataIndex) then
+      _dragObject := ConvertToDataItem(row.DataItem)
+    else
+      row := GetActiveRow;
+
+    if row = nil then
+      Exit;
+
+//    Self.Root.BeginInternalDrag(Self, bm);
+
+    // copied from FMX.Forms => .Root.BeginInternalDrag(Self, bm);
+    var D: TDragObject;
+    var DDService: IFMXDragDropService;
+
+    Self.Root.SetCaptured(nil);
+    D.Source := row.Control;
+    D.Files := nil;
+    D.Data := TValue.From<IList>(DraggedItems as IList);
+    if TPlatformServices.Current.SupportsPlatformService(IFMXDragDropService, DDService) then
+      DDService.BeginDragDrop(Self.Root as TCommonCustomForm, D, FMX.Graphics.TBitmap(row.Control.MakeScreenshot));
+  end;
 end;
 
 procedure TDCScrollableRowControl.DoMouseLeave;
@@ -442,6 +490,17 @@ begin
 
     _rowAligned(Self, rowEventArgs);
   end;
+end;
+
+procedure TDCScrollableRowControl.TriggerFilterOrSortChanged(FilterChanged, SortChanged: Boolean);
+begin
+  var refreshInfo := GetInitializedWaitForRefreshInfo;
+
+  if FilterChanged then
+    refreshInfo.FilterDescriptions := _view.GetFilterDescriptions; // triggers refreshcontrol
+
+  if SortChanged then
+    refreshInfo.SortDescriptions := _view.GetSortDescriptions; // triggers refreshcontrol
 end;
 
 function TDCScrollableRowControl.TrySelectItem(const RequestedSelectionInfo: IRowSelectionInfo; Shift: TShiftState): Boolean;
@@ -1175,6 +1234,11 @@ begin
     ResetView(_resetViewRec.FromIndex, _resetViewRec.OneRowOnly);
 end;
 
+procedure TDCScrollableRowControl.BeginDrag;
+begin
+  BeginAutoDrag;
+end;
+
 procedure TDCScrollableRowControl.AlignRowsFromReferenceToBottom(const TopReferenceRow: IDCRow; const StartY, StopY: Single);
 begin
   var thisRow := TopReferenceRow;
@@ -1833,6 +1897,16 @@ begin
     _hoverRect.Visible := False;
 
   inherited;
+end;
+
+function TDCScrollableRowControl.DraggedItems: List<CObject>;
+begin
+  if _dragObject <> nil then
+  begin
+    Result := CList<CObject>.Create;
+    Result.Add(_dragObject);
+  end else
+    Result := SelectedItems;
 end;
 
 procedure TDCScrollableRowControl.DoViewLoadingFinished;
