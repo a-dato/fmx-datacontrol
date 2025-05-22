@@ -79,6 +79,7 @@ type
     // IObjectListModel
     function  get_Context: IList; virtual;
     procedure set_Context(const Value: IList); virtual;
+    function  get_ObjectType: &Type;
     function  get_ObjectContext: CObject; virtual;
     procedure set_ObjectContext(const Value: CObject); virtual;
     function  get_ObjectModel: IObjectModel;
@@ -488,6 +489,11 @@ begin
     _multiSelect := TObjectModelMultiSelect.Create(Self);
 
   Result := _multiSelect;
+end;
+
+function TDataModelObjectListModel.get_ObjectType: &Type;
+begin
+  Result := &Type.Unknown;
 end;
 
 function TDataModelObjectListModel.get_ObjectContext: CObject;

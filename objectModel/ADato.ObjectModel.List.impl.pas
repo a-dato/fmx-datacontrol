@@ -31,6 +31,7 @@ type
     _ObjectModelContext: IObjectModelContext;
     _multiSelect: IObjectModelMultiSelect;
 
+    procedure Initialize; virtual;
     function  CreateObjectModel : IObjectModel; virtual;
     function  CreateObjectModelContext : IObjectModelContext; virtual;
     procedure ResetModelProperties;
@@ -49,6 +50,7 @@ type
     // IObjectListModel
     function  get_Context: IList; virtual;
     procedure set_Context(const Value: IList); virtual;
+    function  get_ObjectType: &Type;
     function  get_ObjectContext: CObject; virtual;
     procedure set_ObjectContext(const Value: CObject); virtual;
     function  get_OnContextCanChange: ListContextCanChangeEventHandler;
@@ -60,7 +62,8 @@ type
 
     function  get_ObjectModelContext: IObjectModelContext;
   public
-    constructor Create;
+    constructor Create; overload; virtual;
+    constructor Create(const AType: &Type); overload;
 
     function  SelectedAsList: IList;
   end;
@@ -85,10 +88,20 @@ uses
   ADato.ListComparer.Impl;
 
 { TObjectListModel<T> }
+constructor TObjectListModel<T>.Create(const AType: &Type);
+begin
+  _ObjectType := AType;
+  Initialize;
+end;
 
 constructor TObjectListModel<T>.Create;
 begin
   _ObjectType := Global.GetTypeOf<T>;
+  Initialize;
+end;
+
+procedure TObjectListModel<T>.Initialize;
+begin
   {$IFDEF DELPHI}
   _OnContextCanChange := ListContextCanChangeEventDelegate.Create;
   _OnContextChanging := ListContextChangingEventDelegate.Create;
@@ -119,11 +132,10 @@ begin
   Result := _Context;
 end;
 
-// IObjectListModel<T>
-//function TObjectListModel<T>.get_Context_T: IList<T>;
-//begin
-//  Result := get_Context as IList<T>;
-//end;
+function TObjectListModel<T>.get_ObjectType: &Type;
+begin
+  Result := _ObjectType;;
+end;
 
 function TObjectListModel<T>.get_ObjectContext: CObject;
 begin

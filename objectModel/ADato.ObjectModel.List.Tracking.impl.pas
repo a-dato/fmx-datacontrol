@@ -47,6 +47,7 @@ type
     _UpdateCount  : Integer;
     _StoreChangedItems: Boolean;
 
+    procedure Initialize; override;
     procedure BeginUpdate;
     procedure EndUpdate;
     function  CreateObjectModelContext : IObjectModelContext; override;
@@ -97,11 +98,6 @@ type
     // IAddNewSupport
     function CreateInstance: CObject;
   public
-    constructor Create; reintroduce; overload;
-
-    // Duplicate of Create(const ContextUpdater: IObjectModelContextUpdater; const CreatorFunc: TFunc<T> = nil); overload;
-    // constructor Create(const ContextUpdater: IObjectModelContextUpdater); overload;
-
     constructor Create(const CreatorFunc: TFunc<T> = nil); overload;
 
     destructor Destroy; override;
@@ -175,19 +171,19 @@ begin
   Result := (_Context <> nil) and (_Context.Count > 0);
 end;
 
-constructor TObjectListModelWithChangeTracking<T>.Create;
+constructor TObjectListModelWithChangeTracking<T>.Create(const CreatorFunc: TFunc<T>);
 begin
   inherited Create;
 
-  _StoreChangedItems := True;
-  _ChangedItems := CDictionary<CObject, TObjectListChangeType>.Create;
+  _CreatorFunc := CreatorFunc;
 end;
 
-constructor TObjectListModelWithChangeTracking<T>.Create(const CreatorFunc: TFunc<T>);
+procedure TObjectListModelWithChangeTracking<T>.Initialize;
 begin
-  Create;
+  inherited;
 
-  _CreatorFunc := CreatorFunc;
+  _StoreChangedItems := True;
+  _ChangedItems := CDictionary<CObject, TObjectListChangeType>.Create;
 end;
 
 destructor TObjectListModelWithChangeTracking<T>.Destroy;
