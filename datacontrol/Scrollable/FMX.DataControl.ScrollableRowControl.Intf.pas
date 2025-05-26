@@ -4,7 +4,7 @@ interface
 
 uses
   System_, FMX.Controls, System.Collections.Generic, System.SysUtils,
-  System.ComponentModel;
+  System.ComponentModel, ADato.Data.DataModel.intf;
 
 type
   TSelectionType = (HideSelection, CellSelection, RowSelection);
@@ -46,6 +46,10 @@ type
     procedure set_SelectionType(const Value: TSelectionType);
 
     procedure OnSelectionInfoChanged;
+
+    function  ViewIsDataModelView: Boolean;
+    function  GetDataModelView: IDataModelView;
+    function  GetDataModel: IDataModel;
 
     property AllowNoneSelected: Boolean read get_AllowNoneSelected write set_AllowNoneSelected;
     property SelectionType: TSelectionType read get_SelectionType write set_SelectionType;
@@ -106,6 +110,7 @@ type
     procedure set_DataIndex(const Value: Integer);
     function  get_DataItem: CObject;
     procedure set_DataItem(const Value: CObject);
+    function  get_ConvertedDataItem: CObject;
     function  get_ViewPortIndex: Integer;
     procedure set_ViewPortIndex(const Value: Integer);
     function  get_ViewListIndex: Integer;
@@ -137,6 +142,7 @@ type
 
     property DataIndex: Integer read get_DataIndex write set_DataIndex;
     property DataItem: CObject read get_DataItem write set_DataItem;
+    property ConvertedDataItem: CObject read get_ConvertedDataItem;
     property ViewPortIndex: Integer read get_ViewPortIndex write set_ViewPortIndex;
     property ViewListIndex: Integer read get_ViewListIndex write set_ViewListIndex;
     property VirtualYPosition: Single read get_VirtualYPosition write set_VirtualYPosition;

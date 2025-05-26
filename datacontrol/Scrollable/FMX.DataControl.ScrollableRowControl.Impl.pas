@@ -11,6 +11,7 @@ type
   TDCRow = class(TBaseInterfacedObject, IDCRow)
   protected
     _dataItem: CObject;
+    _convertedDataItem: CObject;
     _dataIndex: Integer;
     _viewPortIndex: Integer;
     _viewListIndex: Integer;
@@ -27,6 +28,7 @@ type
     procedure set_DataIndex(const Value: Integer);
     function  get_DataItem: CObject;
     procedure set_DataItem(const Value: CObject);
+    function  get_ConvertedDataItem: CObject;
     function  get_ViewPortIndex: Integer;
     procedure set_ViewPortIndex(const Value: Integer);
     function  get_ViewListIndex: Integer;
@@ -239,6 +241,11 @@ begin
   Result := _control;
 end;
 
+function TDCRow.get_ConvertedDataItem: CObject;
+begin
+  Result := _convertedDataItem;
+end;
+
 function TDCRow.get_CustomTag: CObject;
 begin
   Result := _customTag;
@@ -377,6 +384,16 @@ end;
 procedure TDCRow.set_DataItem(const Value: CObject);
 begin
   _dataItem := Value;
+
+  var drv: IDataRowView;
+  var dr: IDataRow;
+
+  if _dataItem.TryAsType<IDataRowView>(drv) then
+    _convertedDataItem := drv.Row.Data
+  else if _dataItem.TryAsType<IDataRow>(dr) then
+    _convertedDataItem := dr.Data
+  else
+    _convertedDataItem := _dataItem;
 end;
 
 procedure TDCRow.set_Enabled(const Value: Boolean);

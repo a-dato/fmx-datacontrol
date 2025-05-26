@@ -213,13 +213,15 @@ type
 
     procedure AddSortDescription(const Sort: IListSortDescription; const ClearOtherSort: Boolean);
     procedure AddFilterDescription(const Filter: IListFilterDescription; const ClearOtherFlters: Boolean);
-    function  ViewIsDataModelView: Boolean;
 
     procedure DoDataItemChangedInternal(const DataItem: CObject); virtual;
     procedure DoDataItemChanged(const DataItem: CObject; const DataIndex: Integer);
 
     function  VisibleRows: List<IDCRow>;
+
+    function  ViewIsDataModelView: Boolean;
     function  GetDataModelView: IDataModelView;
+    function  GetDataModel: IDataModel;
 
     // start public selection
     procedure SelectAll; virtual;
@@ -598,6 +600,18 @@ begin
       Exit(row);
 
   Result := nil;
+end;
+
+function TDCScrollableRowControl.GetDataModel: IDataModel;
+var
+  dm: IDataModel;
+begin
+  if interfaces.Supports<IDataModel>(_dataList, dm) then
+    Result := dm
+  else if _dataModelView <> nil then
+    Result := _dataModelView.DataModel
+  else
+    Result := nil;
 end;
 
 function TDCScrollableRowControl.GetDataModelView: IDataModelView;

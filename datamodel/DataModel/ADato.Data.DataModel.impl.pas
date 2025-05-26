@@ -3534,7 +3534,7 @@ begin
   if not Result and (_internalfilterDescriptions <> nil) then
     for var internalFilter in _internalfilterDescriptions do
     begin
-      var filterableData := internalFilter.GetFilterableValue(dataRow.Data);
+      var filterableData := internalFilter.GetFilterableValue(dataRow);
       if not internalFilter.IsMatch(filterableData) then
         Result := True;
     end;

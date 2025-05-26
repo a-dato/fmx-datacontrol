@@ -1108,13 +1108,17 @@ begin
   begin
     var drv: IDataRowView;
     var dr: IDataRow;
+    var rowCtrl: IRowsControl;
 
     if CString.Equals(PropName, COLUMN_SHOW_DEFAULT_OBJECT_TEXT) then
       data := Cell.Row.DataItem
-    else if Cell.Row.DataItem.TryAsType<IDataRowView>(drv) then
-      data := drv.DataView.DataModel.GetPropertyValue(PropName, drv.Row)
-    else if Cell.Row.DataItem.TryAsType<IDataRow>(dr) then
-      data := dr.Table.GetPropertyValue(PropName, dr)
+    else if interfaces.Supports<IRowsControl>(_treeControl, rowCtrl) and rowCtrl.ViewIsDataModelView then
+    begin
+      if Cell.Row.DataItem.TryAsType<IDataRowView>(drv) then
+        data := rowCtrl.GetDataModel.GetPropertyValue(PropName, drv.Row)
+      else if Cell.Row.DataItem.TryAsType<IDataRow>(dr) then
+        data := rowCtrl.GetDataModel.GetPropertyValue(PropName, dr);
+    end
     else begin
       var aType := _treeControl.GetItemType;
       var prop: _PropertyInfo := nil;

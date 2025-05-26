@@ -1854,7 +1854,14 @@ begin
   begin
     // nothing special to do
     ScrollSelectedIntoView(RequestedSelectionInfo);
-    currentSelection.SelectedLayoutColumn := requestedSelection.SelectedLayoutColumn;
+
+    // ignore change event, for no row change took place
+    currentSelection.BeginUpdate;
+    try
+      currentSelection.SelectedLayoutColumn := requestedSelection.SelectedLayoutColumn;
+    finally
+      currentSelection.EndUpdate(True);
+    end;
 
     DoCellSelected(GetActiveCell, _selectionInfo.LastSelectionEventTrigger);
     Exit(True);
