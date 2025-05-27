@@ -701,6 +701,10 @@ begin
   if (dataIndex = -1) or _selectionInfo.IsSelected(dataIndex) then
     Exit;
 
+  // for example when items are reset (set to nil) and after that this Select Item is called.
+  if (_waitForRepaintInfo <> nil) and (TTreeRowState.RowChanged in _waitForRepaintInfo.RowStateFlags) then
+    _waitForRepaintInfo.RowStateFlags := _waitForRepaintInfo.RowStateFlags - [TTreeRowState.RowChanged];
+
   if ClearOtherSelections then
     ClearSelections;
 

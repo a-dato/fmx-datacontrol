@@ -624,7 +624,7 @@ begin
   if not CanSelect(DataIndex) then
     Exit;
 
-  _multiSelection.Clear;
+  ClearMultiSelections;
   UpdateLastSelection(DataIndex, ViewListIndex, DataItem);
 end;
 
