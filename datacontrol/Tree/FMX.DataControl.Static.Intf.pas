@@ -386,6 +386,7 @@ type
     procedure UpdateColumnWidth(const FlatColumnIndex: Integer; const Width: Single);
     procedure RecalcColumnWidthsBasic;
     procedure RecalcColumnWidthsAutoFit;
+    procedure ResetColumnDataAvailability(OnlyForInsertedRows: Boolean);
 
     function  HasFrozenColumns: Boolean;
     function  ContentOverFlow: Integer;

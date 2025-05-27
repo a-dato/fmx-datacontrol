@@ -1610,8 +1610,8 @@ begin
     dec(_internalSelectCount);
   end;
 
-  // only clear row info below this row, because all rows above stay the same!
-  ResetView(ViewListIndex+1);
+  // only clear row info from this row and below, because all rows above stay the same!
+  ResetView(ViewListIndex);
 
   if DoExpand then
     ScrollManualTryAnimated(-Trunc(virtualYPos - _vertScrollBar.Value), False);

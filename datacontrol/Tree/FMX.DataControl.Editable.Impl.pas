@@ -305,8 +305,12 @@ begin
 
   _cell.InfoControl.Visible := False;
 
-  _editor.OnKeyDown := OnEditorKeyDown;
-  _editor.OnExit := OnEditorExit;
+  // otherwise
+  if not (Self is TDCCellDropDownEditor) then
+  begin
+    _editor.OnKeyDown := OnEditorKeyDown;
+    _editor.OnExit := OnEditorExit;
+  end;
 
   _cell.Control.AddObject(_editor);
 
@@ -588,7 +592,8 @@ begin
   var extraPadding := 10; // Padding to compensate for space between item text and border of dropdown area on the left and right.
   ce.ItemWidth := CMath.Max(ce.Width, newItemWidth + comboEditScrollbarPadding + extraPadding);
 
-  ce.DropDown;
+  if not ce.DroppedDown then
+    ce.DropDown;
 
   if PickList <> nil then
   begin

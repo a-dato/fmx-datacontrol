@@ -411,6 +411,8 @@ type
     procedure RecalcColumnWidthsBasic;
     procedure RecalcColumnWidthsAutoFit;
 
+    procedure ResetColumnDataAvailability(OnlyForInsertedRows: Boolean);
+
     procedure ForceRecalc;
 
     function  HasFrozenColumns: Boolean;
@@ -1703,9 +1705,6 @@ begin
   _layoutColumns := CList<IDCTreeLayoutColumn>.Create;
   for var clmn in ColumnControl.ColumnList do
   begin
-//    clmn.WidthSettings.WidthType := TDCColumnWidthType.Pixel;
-//    clmn.WidthSettings.Width := 150;
-
     var lyColumn: IDCTreeLayoutColumn := TTreeLayoutColumn.Create(clmn, ColumnControl);
     _layoutColumns.Add(lyColumn);
   end;
@@ -2041,6 +2040,15 @@ end;
 procedure TDCTreeLayout.ForceRecalc;
 begin
   _recalcRequired := True;
+end;
+
+procedure TDCTreeLayout.ResetColumnDataAvailability(OnlyForInsertedRows: Boolean);
+begin
+  for var lyClmn in _layoutColumns do
+    if not OnlyForInsertedRows or (lyClmn.ContainsData = TColumnContainsData.No) then
+      lyClmn.ContainsData := TColumnContainsData.Unknown;
+
+  _flatColumns := nil;
 end;
 
 procedure TDCTreeLayout.UpdateColumnWidth(const FlatColumnIndex: Integer; const Width: Single);
@@ -2690,6 +2698,7 @@ begin
     _selectable := _src.Selectable;
     _allowHide := _src.AllowHide;
     _allowResize := _src.AllowResize;
+    _hideWhenEmpty := _src.HideWhenEmpty;
     _format := _src.Format;
   end;
 end;

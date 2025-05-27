@@ -1313,6 +1313,7 @@ begin
   if (_treeLayout = nil) or (_columns.Count = 0) or columnsChanged then
     InitLayout;
 
+  _treeLayout.ResetColumnDataAvailability(True);
   if _treeLayout.RecalcRequired then
   begin
     _treeLayout.RecalcColumnWidthsBasic;
@@ -2378,6 +2379,21 @@ begin
 end;
 
 procedure TStaticDataControl.OnExpandCollapseHierarchy(Sender: TObject);
+
+  procedure DoCollapseOrExpandRowQueued([weak] View: IBaseInterface; ViewListIndex: Integer; SetExpanded: Boolean);
+  begin
+    // await full mouse click
+    TThread.ForceQueue(nil, procedure
+    begin
+      if View = nil then
+        Exit;
+
+      Self.Current := ViewListIndex;
+      _treeLayout.ResetColumnDataAvailability(False);
+      DoCollapseOrExpandRow(ViewListIndex, SetExpanded);
+    end);
+  end;
+
 begin
   var viewListIndex := (Sender as TControl).Tag;
 
@@ -2406,8 +2422,7 @@ begin
     end;
   end;
 
-  Self.Current := viewListIndex;
-  DoCollapseOrExpandRow(viewListIndex, setExpanded);
+  DoCollapseOrExpandRowQueued(_view, viewListIndex, setExpanded);
 end;
 
 function TStaticDataControl.OnGetCellDataForSorting(const Cell: IDCTreeCell): CObject;
