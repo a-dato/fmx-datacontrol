@@ -1725,7 +1725,7 @@ begin
   RecalcColumnWidthsBasic;
 
   Result := 0.0;
-  for var clmn in _flatColumns do
+  for var clmn in get_FlatColumns do
   begin
     // frozen columns are the first columns in the list
     if not clmn.Column.Frozen then
@@ -2044,11 +2044,20 @@ end;
 
 procedure TDCTreeLayout.ResetColumnDataAvailability(OnlyForInsertedRows: Boolean);
 begin
+  var recalcNeeded := False;
   for var lyClmn in _layoutColumns do
+  begin
     if not OnlyForInsertedRows or (lyClmn.ContainsData = TColumnContainsData.No) then
+    begin
       lyClmn.ContainsData := TColumnContainsData.Unknown;
 
-  _flatColumns := nil;
+      if lyClmn.Column.Visualisation.HideWhenEmpty then
+        recalcNeeded := True;
+    end;
+  end;
+
+  if recalcNeeded then
+    _flatColumns := nil;
 end;
 
 procedure TDCTreeLayout.UpdateColumnWidth(const FlatColumnIndex: Integer; const Width: Single);
