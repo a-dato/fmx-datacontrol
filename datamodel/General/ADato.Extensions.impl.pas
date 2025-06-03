@@ -12,7 +12,6 @@ uses
   {$ENDIF}
   System_,
   ADato.Extensions.intf,
-  //System.ComponentModel,
   System.Collections.Generic;
 
 type

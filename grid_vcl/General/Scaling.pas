@@ -34,14 +34,14 @@ begin
     Result := Scaled(24, PPI);
 end;
 
-class function TSCaler.Scaled(aValue: Integer; PPI: Integer): Integer;
+class function TScaler.Scaled(aValue: Integer; PPI: Integer): Integer;
 begin
   if PPI = DefaultPPI then
     Result := aValue else
     Result := MulDiv(aValue, PPI, DefaultPPI)
 end;
 
-class function TSCaler.Scaled(aValue: Single; PPI: Integer) : Single;
+class function TScaler.Scaled(aValue: Single; PPI: Integer) : Single;
 begin
   if PPI = DefaultPPI then
     Result := aValue else
