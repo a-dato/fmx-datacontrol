@@ -1583,23 +1583,24 @@ begin
 
     if Key = vkPrior then
     begin
+      if Current = 0 then
+        Exit;
+
       var rowZero := _view.ActiveViewRows[0];
       if rowZero.ViewListIndex = 0 then
-      begin
-        Current := 0;
-        Exit;
+        Current := 0
+      else begin
+        var available := _vertScrollBar.ViewportSize;
+        var newViewListIndex := -1;
+
+        var stopY := CMath.Max(rowZero.VirtualYPosition + rowZero.Height - 2, _vertScrollBar.ViewportSize);
+        var startY := stopY - _vertScrollBar.ViewportSize;
+
+        RealignFromSelectionChange(startY, stopY, TCalculateViewFrom.Bottom);
+
+        viewListIndex := _view.ActiveViewRows[0].ViewListIndex;
+        InternalSetCurrent(viewListIndex, TSelectionEventTrigger.Key, Shift);
       end;
-
-      var available := _vertScrollBar.ViewportSize;
-      var newViewListIndex := -1;
-
-      var stopY := CMath.Max(rowZero.VirtualYPosition + rowZero.Height - 2, _vertScrollBar.ViewportSize);
-      var startY := stopY - _vertScrollBar.ViewportSize;
-
-      RealignFromSelectionChange(startY, stopY, TCalculateViewFrom.Bottom);
-
-      viewListIndex := _view.ActiveViewRows[0].ViewListIndex;
-      InternalSetCurrent(viewListIndex, TSelectionEventTrigger.Key, Shift);
 
       Key := 0;
       Exit;
@@ -1607,6 +1608,9 @@ begin
 
     else if Key = vkNext then
     begin
+      if Current = _view.ViewCount - 1 then
+        Exit;
+
       var rowBottom := _view.ActiveViewRows[_view.ActiveViewRows.Count - 1];
 
       var startY := CMath.Min(rowBottom.VirtualYPosition + 2{+ rowBottom.Height}, _vertScrollBar.Max - _vertScrollBar.ViewportSize);

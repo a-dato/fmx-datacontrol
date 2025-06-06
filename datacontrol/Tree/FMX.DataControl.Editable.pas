@@ -105,7 +105,7 @@ type
 
     function  DoEditRowStart(const ARow: IDCTreeRow; var DataItem: CObject; IsNew: Boolean) : Boolean;
     function  DoEditRowEnd(const ARow: IDCTreeRow): Boolean;
-    function  DoCellParsing(const Cell: IDCTreeCell; var AValue: CObject): Boolean;
+    function  DoCellParsing(const Cell: IDCTreeCell; IsCheckOnEndEdit: Boolean; var AValue: CObject): Boolean;
 
     function  DoAddingNew(out NewObject: CObject) : Boolean;
     function  DoUserDeletingRow(const Item: CObject) : Boolean;
@@ -951,22 +951,31 @@ begin
   if _editingInfo.CellIsEditing then
   begin
     var EditRowEnd := False;
+
+    var val := _cellEditor.Value;
+    if not DoCellParsing(_cellEditor.Cell, True, {var} val) then
+    begin
+      CancelEdit(True);
+      Exit(False);
+    end else
+      _cellEditor.Value := val;
+
     if Assigned(_editCellEnd) then
     begin
       var endEditArgs: DCEndEditEventArgs;
-      AutoObject.Guard(DCEndEditEventArgs.Create(_cellEditor.Cell, _cellEditor.Value, _cellEditor.Editor, _editingInfo.EditItem), endEditArgs);
+      AutoObject.Guard(DCEndEditEventArgs.Create(_cellEditor.Cell, val, _cellEditor.Editor, _editingInfo.EditItem), endEditArgs);
       endEditArgs.EndRowEdit := False;
 
       _editCellEnd(Self, endEditArgs);
 
       if endEditArgs.Accept then
-        _cellEditor.Value := endEditArgs.Value else
+        val := endEditArgs.Value else
         Exit(False);
 
       EditRowEnd := endEditArgs.EndRowEdit;
     end;
 
-    SetCellData(_cellEditor.Cell, _cellEditor.Value);
+    SetCellData(_cellEditor.Cell, val);
 
     // KV: 24/01/2025
     // Update the actual contents of the cell after the data in the cell has changed
@@ -1362,7 +1371,7 @@ begin
   end;
 end;
 
-function TEditableDataControl.DoCellParsing(const Cell: IDCTreeCell; var AValue: CObject) : Boolean;
+function TEditableDataControl.DoCellParsing(const Cell: IDCTreeCell; IsCheckOnEndEdit: Boolean; var AValue: CObject) : Boolean;
 var
   e: DCCellParsingEventArgs;
 
@@ -1370,7 +1379,7 @@ begin
   Result := True;
   if Assigned(_cellParsing) then
   begin
-    AutoObject.Guard(DCCellParsingEventArgs.Create(Cell, AValue), e);
+    AutoObject.Guard(DCCellParsingEventArgs.Create(Cell, AValue, IsCheckOnEndEdit), e);
     _cellParsing(Self, e);
 
     if e.DataIsValid then

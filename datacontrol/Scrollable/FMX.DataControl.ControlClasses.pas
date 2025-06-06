@@ -210,7 +210,7 @@ initialization
   DEFAULT_ROW_SELECTION_INACTIVE_COLOR := TAlphaColor($88778899);
   DEFAULT_ROW_HOVER_COLOR := TAlphaColor($335B8BCD);
 
-  DEFAULT_HEADER_BACKGROUND := TAlphaColors.White;
+  DEFAULT_HEADER_BACKGROUND := TAlphaColors.Null;
   DEFAULT_HEADER_STROKE := TAlphaColors.Grey;
   DEFAULT_CELL_STROKE := TAlphaColors.Lightgray;
 
