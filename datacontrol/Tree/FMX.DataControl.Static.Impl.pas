@@ -1929,34 +1929,52 @@ begin
 
   // step 1: hide all columns that do not fit on the right
   var minimumTotalWidth := 0.0;
-  for layoutClmn in get_FlatColumns do
-  begin
-    var minColumnWidth: Single;
-    case layoutClmn.Column.WidthType of
-      Percentage:
-        if SameValue(layoutClmn.Column.CustomWidth, -1) then
-          minColumnWidth := layoutClmn.Column.WidthMin else
-          minColumnWidth := layoutClmn.Width;
-      Pixel:
-        minColumnWidth := layoutClmn.Width;
-      AlignToContent:
-      begin
-        var available := _columnsControl.Control.Width - minimumTotalWidth;
-        if (available < layoutClmn.Width) and (available >= layoutClmn.Column.WidthMin) and (layoutClmn.Column.WidthMin > 0) then
-          layoutClmn.Width := available;
 
-        minColumnWidth := layoutClmn.Width;
-      end;
-    end;
-
-    if minimumTotalWidth + minColumnWidth > _columnsControl.Control.Width then
+  for var ix := 0 to 1 do
+    for layoutClmn in get_FlatColumns do
     begin
-      layoutClmn.HideColumnInView := True;
-      Continue;
-    end;
+      var minColumnWidth: Single;
+      case layoutClmn.Column.WidthType of
+        Percentage:
+        begin
+          // already at round 0
+          if ix = 1 then
+            Continue;
 
-    minimumTotalWidth := minimumTotalWidth + minColumnWidth;
-  end;
+          if SameValue(layoutClmn.Column.CustomWidth, -1) then
+            minColumnWidth := layoutClmn.Column.WidthMin else
+            minColumnWidth := layoutClmn.Width;
+        end;
+        Pixel:
+        begin
+          // already at round 0
+          if ix = 1 then
+            Continue;
+
+          minColumnWidth := layoutClmn.Width;
+        end;
+        AlignToContent:
+        begin
+          // calculate in round 1
+          if ix = 0 then
+            Continue;
+
+          var available := _columnsControl.Control.Width - minimumTotalWidth;
+          if (available < layoutClmn.Width) and (available >= layoutClmn.Column.WidthMin) and (layoutClmn.Column.WidthMin > 0) then
+            layoutClmn.Width := available;
+
+          minColumnWidth := layoutClmn.Width;
+        end;
+      end;
+
+      if minimumTotalWidth + minColumnWidth > _columnsControl.Control.Width then
+      begin
+        layoutClmn.HideColumnInView := True;
+        Continue;
+      end;
+
+      minimumTotalWidth := minimumTotalWidth + minColumnWidth;
+    end;
 
   var widthLeft := _columnsControl.Control.Width - minimumTotalWidth;
   Assert(widthLeft >= 0);

@@ -369,7 +369,7 @@ end;
 
 function TDCCellEditor.ParseValue(var AValue: CObject): Boolean;
 begin
-  Result := _editorHandler.DoCellParsing(_cell, AValue);
+  Result := _editorHandler.DoCellParsing(_cell, False, AValue);
 end;
 
 //procedure TDCCellEditor.set_Value(const Value: CObject);
@@ -475,7 +475,7 @@ end;
 
 procedure TDCCellDateTimeEditor.BeginEdit(const EditValue: CObject);
 begin
-  _editor := DataControlClassFactory.CreateEdit(nil);
+  _editor := DataControlClassFactory.CreateDateEdit(nil);
   _cell.Control.AddObject(_editor);
 
   _editor.TabStop := false;

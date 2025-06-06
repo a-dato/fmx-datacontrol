@@ -226,8 +226,9 @@ type
   public
     DataIsValid: Boolean;
     Value: CObject;
+    IsCheckOnEndEdit: Boolean;
 
-    constructor Create(const ACell: IDCTreeCell; const AValue: CObject);
+    constructor Create(const ACell: IDCTreeCell; const AValue: CObject; AIsCheckOnEndEdit: Boolean);
 
     property Cell: IDCTreeCell read  _Cell;
   end;
@@ -410,12 +411,13 @@ end;
 
 { DCCellParsingEventArgs }
 
-constructor DCCellParsingEventArgs.Create(const ACell: IDCTreeCell; const AValue: CObject);
+constructor DCCellParsingEventArgs.Create(const ACell: IDCTreeCell; const AValue: CObject; AIsCheckOnEndEdit: Boolean);
 begin
   inherited Create(ACell);
 
   Value := AValue;
   DataIsValid := True;
+  IsCheckOnEndEdit := AIsCheckOnEndEdit;
 end;
 
 { DCRowEventArgs }
