@@ -405,6 +405,16 @@ begin
           if not treeRow.ContentCellSizes.TryGetValue(flatClmn.Index, w) and treeRow.Cells.TryGetValue(flatClmn.Index, cell) then
           begin
             w := CalculateCellWidth(flatClmn, cell);
+
+//            var settings: ITextSettings;
+//            if  (w > flatClmn.Column.WidthMax) and
+//                (Interfaces.Supports<ITextSettings>(cell.InfoControl, settings) or Interfaces.Supports<ITextSettings>(cell.SubInfoControl, settings)) and
+//                settings.TextSettings.WordWrap then
+//            begin
+//              Calcula
+//            end;
+
+
             treeRow.ContentCellSizes.Add(flatClmn.Index, w);
           end;
 
@@ -1748,7 +1758,7 @@ procedure TStaticDataControl.DoTreePositioned(const TotalColumnWidth: Single);
 begin
   if Assigned(_onTreePositioned) then
   begin
-    var args := DCTreePositionArgs.Create(TotalColumnWidth);
+    var args := DCTreePositionArgs.Create(TotalColumnWidth, Self);
     try
       _onTreePositioned(Self, args);
     finally
@@ -2268,12 +2278,15 @@ begin
     if cell.Column.InfoControlClass = TInfoControlClass.Text then
     begin
       var txt := cell.InfoControl as TText;
-      var cellHeight := TextControlHeight(txt, (txt as ITextSettings).TextSettings, (txt as ICaption).Text);
+      var cellHeight := TextControlHeight(txt, (txt as ITextSettings).TextSettings, (txt as ICaption).Text, -1, -1, IfThen(cell.Column.WidthMax > 0, cell.Column.WidthMax, -1));
       if cellHeight > Result then
         Result := cellHeight;
     end;
 
   Result := Result + 2*ROW_CONTENT_MARGIN;
+
+  if (_rowHeightMax > 0) and (_rowHeightMax < Result) then
+    Result := _rowHeightMax;
 end;
 
 procedure TStaticDataControl.GetSortAndFilterImages(out ImageList: TCustomImageList; out FilterIndex, SortAscIndex, SortDescIndex: Integer);

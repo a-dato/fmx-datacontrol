@@ -266,6 +266,7 @@ type
     procedure set_Item(Index: Integer; const Value: IDCTreeColumn);
 
     function  FindIndexByCaption(const Caption: CString) : Integer;
+    function  FindIndexByTag(const Tag: CObject) : Integer;
     function  FindColumnByCaption(const Caption: CString) : IDCTreeColumn;
     function  FindColumnByPropertyName(const Name: CString) : IDCTreeColumn;
     function  FindColumnByTag(const Value: CObject) : IDCTreeColumn;

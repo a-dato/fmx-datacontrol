@@ -160,7 +160,7 @@ uses
   FMX.DataControl.ControlClasses, FMX.StdCtrls, System.TypInfo, FMX.Controls,
   System.Math, ADato.Collections.Specialized,
   System.Reflection, FMX.ActnList, FMX.Platform,
-  FMX.DataControl.ScrollableRowControl;
+  FMX.DataControl.ScrollableRowControl, FMX.Graphics;
 
 { TEditableDataControl }
 
@@ -1106,6 +1106,7 @@ begin
       _cellEditor := TDCCellDateTimeEditor.Create(self, Cell)
 
     else begin
+      var settings: ITextSettings;
       if StartEditArgs.MultilineEdit then
         _cellEditor := TDCTextCellMultilineEditor.Create(self, Cell) else
         _cellEditor := TDCTextCellEditor.Create(self, Cell);

@@ -108,6 +108,7 @@ type
     procedure OnTextCellEditorChangeTracking(Sender: TObject);
 
     procedure InternalBeginEdit(const EditValue: CObject);
+    procedure OnEditorKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState); override;
 
   public
     procedure BeginEdit(const EditValue: CObject); override;
@@ -124,6 +125,7 @@ type
     procedure OnTextCellEditorChangeTracking(Sender: TObject);
 
     procedure InternalBeginEdit(const EditValue: CObject);
+    procedure OnEditorKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState); override;
   public
     procedure BeginEdit(const EditValue: CObject); override;
     function  TryBeginEditWithUserKey(UserKey: string): Boolean; override;
@@ -200,7 +202,7 @@ uses
   FMX.Edit, FMX.DataControl.ControlClasses, FMX.DateTimeCtrls, FMX.ComboEdit,
   System.Math, FMX.Memo, FMX.DataControl.ScrollableRowControl.Intf,
   FMX.StdCtrls, FMX.Graphics, System.UITypes, FMX.ActnList,
-  ADato.Data.DataModel.intf;
+  ADato.Data.DataModel.intf, FMX.ControlCalculations;
 
 { TTreeEditingInfo }
 
@@ -382,7 +384,21 @@ procedure TDCTextCellEditor.BeginEdit(const EditValue: CObject);
 begin
   InternalBeginEdit(EditValue);
 
-  TEdit(_editor).SelectAll;
+  var settings: ITextSettings;
+  var ed := TEdit(_editor);
+
+  ed.TextSettings.WordWrap := Interfaces.Supports<ITextSettings>(_cell.InfoControl, settings) and settings.TextSettings.WordWrap;
+  if ed.TextSettings.WordWrap then
+  begin
+    // check if only 1 line is needed, or multiple
+    var startWithOneLine := _cell.Control.Width > TextControlWidth(_cell.InfoControl, settings.TextSettings, (_cell.InfoControl as ICaption).Text);
+
+    if startWithOneLine then
+      ed.TextSettings.VertAlign := TTextAlign.Center else
+      ed.TextSettings.VertAlign := TTextAlign.Trailing;
+  end;
+
+  ed.SelectAll;
 end;
 
 function TDCTextCellEditor.get_Value: CObject;
@@ -403,6 +419,27 @@ begin
   TEdit(_editor).OnChangeTracking := OnTextCellEditorChangeTracking;
 
   inherited BeginEdit(EditValue);
+end;
+
+procedure TDCTextCellEditor.OnEditorKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
+begin
+  if (Key in [vkUp, vkDown]) {and TEdit(_editor).TextSettings.WordWrap} then
+  begin
+    var ed := TEdit(_editor);
+    if (Key = vkUp) and (ed.CaretPosition > 0) then
+    begin
+      ed.CaretPosition := 0;
+      Key := 0;
+    end
+    else if (Key = vkDown) and (ed.CaretPosition < Length(ed.Text)) then
+    begin
+      ed.CaretPosition := Length(ed.Text);
+      Key := 0;
+    end;
+  end;
+
+  if Key <> 0 then
+    inherited;
 end;
 
 procedure TDCTextCellEditor.OnTextCellEditorChangeTracking(Sender: TObject);
@@ -694,6 +731,15 @@ begin
   TMemo(_editor).ShowScrollBars := false;
   TMemo(_editor).OnChangeTracking := OnTextCellEditorChangeTracking;
   inherited BeginEdit(EditValue);
+end;
+
+procedure TDCTextCellMultilineEditor.OnEditorKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
+begin
+  if (Key in [vkUp, vkDown]) then
+  begin
+    // do nothing at all..
+  end else
+    inherited;
 end;
 
 procedure TDCTextCellMultilineEditor.OnTextCellEditorChangeTracking(Sender: TObject);

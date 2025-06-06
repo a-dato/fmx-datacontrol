@@ -309,6 +309,7 @@ type
     function  get_TreeControl: IColumnsControl;
 //    procedure OnCollectionChanged(e: NotifyCollectionChangedEventArgs); override;
     function  FindIndexByCaption(const Caption: CString) : Integer;
+    function  FindIndexByTag(const Tag: CObject) : Integer;
     function  FindColumnByCaption(const Caption: CString) : IDCTreeColumn;
     function  FindColumnByPropertyName(const Name: CString) : IDCTreeColumn;
     function  FindColumnByTag(const Value: CObject) : IDCTreeColumn;
@@ -685,7 +686,20 @@ var
 begin
   for i := 0 to Self.Count - 1 do
   begin
-    if CString.Equals(Self[i].Caption, Caption) then
+    if not CString.IsNullOrEmpty(Caption) and CString.Equals(Self[i].Caption, Caption) then
+      Exit(i);
+  end;
+
+  Result := -1;
+end;
+
+function TDCTreeColumnList.FindIndexByTag(const Tag: CObject): Integer;
+var
+  i: Integer;
+begin
+  for i := 0 to Self.Count - 1 do
+  begin
+    if (Tag <> nil) and CObject.Equals(Self[i].Tag, Tag) then
       Exit(i);
   end;
 
@@ -820,7 +834,7 @@ begin
     begin
       col := jv as TJSONObject;
 
-      if not col.TryGetValue<string>('Caption', caption) then continue;
+      if not col.TryGetValue<string>('Caption', caption) or CString.IsNullOrEmpty(caption) then continue;
       if not col.TryGetValue<string>('Tag', tag_string) then tag_string := '';
 
       if not col.TryGetValue<string>('Property', propertyName) then propertyName := '';
@@ -835,7 +849,6 @@ begin
       if not col.TryGetValue<Boolean>('ReadOnly', readonly) then readonly := False;
       if not col.TryGetValue<Boolean>('Checkbox', checkbox) then checkbox := False;
       if not col.TryGetValue<Integer>('Index', index) then index := -1;
-
 
       n := FindIndexByCaption(caption);
       if n = -1 then
@@ -1396,7 +1409,7 @@ begin
     if Cell.ExpandButton <> nil then
     begin
       cell.ExpandButton.Position.Y := ROW_CONTENT_MARGIN;
-      cell.ExpandButton.Position.X := ROW_CONTENT_MARGIN;
+      cell.ExpandButton.Position.X := ROW_CONTENT_MARGIN + (indentPerLevel * cell.Row.ParentCount);
       spaceUsed := indentPerLevel * (cell.Row.ParentCount {can be 0} + 1);
     end
     else if Cell.Column.ShowHierarchy then

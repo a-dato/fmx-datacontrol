@@ -126,6 +126,7 @@ type
 
     procedure DoRealignContent; virtual;
     function  RealignedButNotPainted: Boolean;
+    procedure BeforePainting; virtual;
 
     procedure SetBasicVertScrollBarValues; virtual;
     procedure SetBasicHorzScrollBarValues; virtual;
@@ -266,6 +267,15 @@ end;
 procedure TDCScrollableControl.AfterRealignContent;
 begin
   _realignState := TRealignState.AfterRealign;
+end;
+
+procedure TDCScrollableControl.BeforePainting;
+begin
+  if _realignContentRequested and CanRealignContent then
+  begin
+    SetBasicVertScrollBarValues;
+    DoRealignContent;
+  end;
 end;
 
 procedure TDCScrollableControl.BeforeRealignContent;
@@ -549,13 +559,17 @@ begin
     inherited;
 
     var doMouseClick := True;
-    var pixelsPerSecond := 0.0;
 
     if _vertScrollBar.Visible then
       doMouseClick := not TryExecuteMouseScrollBoostOnMouseEventStopped;
 
+    if doMouseClick then
+      doMouseClick :=
+        (X > _mousePositionOnMouseDown.X - 5) and (X < _mousePositionOnMouseDown.X + 5) and
+        (Y > _mousePositionOnMouseDown.Y - 5) and (Y < _mousePositionOnMouseDown.Y + 5);
+
     // determine the mouseUp as a click event
-    if doMouseClick and (pixelsPerSecond > -2) and (pixelsPerSecond < 2) then
+    if doMouseClick then
       UserClicked(Button, Shift, X, Y - _content.Position.Y);
 
     if _scrollStopWatch_mouse.IsRunning then
@@ -575,7 +589,7 @@ begin
 
   ScrollManualInstant(scrollBy);
 
-  if (_mouseRollingBoostDistanceToGo > -5) and (_mouseRollingBoostDistanceToGo < 5) then
+  if (_mouseRollingBoostDistanceToGo >= -5) and (_mouseRollingBoostDistanceToGo <= 5) then
     _mouseRollingBoostTimer.Enabled := False;
 end;
 
@@ -717,12 +731,7 @@ end;
 
 procedure TDCScrollableControl.Painting;
 begin
-  if _realignContentRequested and CanRealignContent then
-  begin
-    SetBasicVertScrollBarValues;
-    DoRealignContent;
-  end;
-
+  BeforePainting;
   inherited;
 end;
 
@@ -775,7 +784,9 @@ begin
 
   if CanRealignScrollCheck then
   begin
-    _scrollingType := TScrollingType.Other;
+    if not SameValue(YChange, 0) then
+      _scrollingType := TScrollingType.Other;
+
     DoRealignContent;
   end else
     RestartWaitForRealignTimer(0);
