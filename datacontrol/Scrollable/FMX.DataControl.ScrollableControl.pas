@@ -566,7 +566,7 @@ begin
     if doMouseClick then
       doMouseClick :=
         (X > _mousePositionOnMouseDown.X - 5) and (X < _mousePositionOnMouseDown.X + 5) and
-        (Y > _mousePositionOnMouseDown.Y - 5) and (Y < _mousePositionOnMouseDown.Y + 5);
+        ((Y - _content.Position.Y) > _mousePositionOnMouseDown.Y - 5) and ((Y - _content.Position.Y) < _mousePositionOnMouseDown.Y + 5);
 
     // determine the mouseUp as a click event
     if doMouseClick then
