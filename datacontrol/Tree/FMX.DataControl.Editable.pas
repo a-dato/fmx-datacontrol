@@ -1080,9 +1080,7 @@ end;
 
 procedure TEditableDataControl.ShowEditor(const Cell: IDCTreeCell; const StartEditArgs: DCStartEditEventArgs; const UserValue: string = '');
 var
-  pickList: IList;
   dataType: &Type;
-//  editor: IDCCellEditor;
 begin
   Assert(_cellEditor = nil);
 

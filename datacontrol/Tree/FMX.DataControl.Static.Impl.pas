@@ -1933,7 +1933,7 @@ begin
   for var ix := 0 to 1 do
     for layoutClmn in get_FlatColumns do
     begin
-      var minColumnWidth: Single;
+      var minColumnWidth: Single := -1;
       case layoutClmn.Column.WidthType of
         Percentage:
         begin
@@ -1967,13 +1967,16 @@ begin
         end;
       end;
 
-      if minimumTotalWidth + minColumnWidth > _columnsControl.Control.Width then
+      if not SameValue(minColumnWidth, -1) then
       begin
-        layoutClmn.HideColumnInView := True;
-        Continue;
-      end;
+        if minimumTotalWidth + minColumnWidth > _columnsControl.Control.Width then
+        begin
+          layoutClmn.HideColumnInView := True;
+          Continue;
+        end;
 
-      minimumTotalWidth := minimumTotalWidth + minColumnWidth;
+        minimumTotalWidth := minimumTotalWidth + minColumnWidth;
+      end;
     end;
 
   var widthLeft := _columnsControl.Control.Width - minimumTotalWidth;

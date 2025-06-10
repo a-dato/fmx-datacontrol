@@ -1442,8 +1442,6 @@ begin
 end;
 
 procedure TDCScrollableRowControl.InitRow(const Row: IDCRow; const IsAboveRefRow: Boolean = False);
-var
-  oldRowHeight: Single;
 begin
   var rowInfo := _view.RowLoadedInfo(Row.ViewListIndex);
   var rowNeedsReload := Row.IsScrollingIntoView or not rowInfo.InnerCellsAreApplied or (rowInfo.ControlNeedsResizeSoft and (_scrollingType = TScrollingType.None));
@@ -1456,6 +1454,7 @@ begin
 
   Row.OwnerIsScrolling := _scrollingType <> TScrollingType.None;
 
+  var oldRowHeight: Single := -1;
   if rowNeedsReload then
   begin
     oldRowHeight := _view.GetRowHeight(Row.ViewListIndex);
@@ -1590,9 +1589,6 @@ begin
       if rowZero.ViewListIndex = 0 then
         Current := 0
       else begin
-        var available := _vertScrollBar.ViewportSize;
-        var newViewListIndex := -1;
-
         var stopY := CMath.Max(rowZero.VirtualYPosition + rowZero.Height - 2, _vertScrollBar.ViewportSize);
         var startY := stopY - _vertScrollBar.ViewportSize;
 

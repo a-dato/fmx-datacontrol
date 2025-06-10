@@ -127,7 +127,6 @@ type
 //    procedure OnSelectionCheckBoxChange(Sender: TObject);
     procedure UpdateSelectionCheckboxes(const Row: IDCRow);
     function  SelectionCheckBoxColumn: IDCTreeLayoutColumn;
-    procedure ExternalColumnsChanged;
 
     procedure SetColumnSelectionIfNoneExists;
     procedure set_AutoCenterTree(const Value: Boolean);
@@ -1765,11 +1764,6 @@ begin
       args.Free;
     end;
   end;
-end;
-
-procedure TStaticDataControl.ExternalColumnsChanged;
-begin
-
 end;
 
 function TStaticDataControl.FlatColumnByColumn(const Column: IDCTreeColumn): IDCTreeLayoutColumn;

@@ -611,21 +611,8 @@ begin
 
   Handled := True;
 
-  // Delphi way of calculating wheel distance
-  // see: TStyledCustomScrollBox.MouseWheel
-  var offset: Double;
-  if _vertScrollBar <> nil then
-    offset := _vertScrollBar.SmallChange else
-    offset := _content.Height / ScrollBigStepsDivider;
-
-  offset := offset * WheelDelta / WheelDeltaDivider;
-
   var goUp := WheelDelta > 0;
-  if not goUp then
-    offset := offset * -1; // make it positive
-
   var scrollDIstance := Round(DefaultMoveDistance(not goUp));
-//  var cycles: Integer := Trunc(offset / scrollDistance) + 1;
 
   _mouseWheelSmoothScrollSpeedUp := CMath.Min(_mouseWheelSmoothScrollSpeedUp + 1, 8);
   ScrollManualTryAnimated(ifThen(goUp, 1, -1) * scrollDistance, _mouseWheelSmoothScrollTimer.Enabled);
