@@ -946,9 +946,9 @@ type
     procedure Add(const Key: CString; const Value: ICssHelper); reintroduce; {$IFDEF DELPHI}overload;{$ENDIF}
     function TryGetValue(const Key: CString; out Value: ICssHelper): Boolean; reintroduce; {$IFDEF DELPHI}overload;{$ENDIF} virtual;
 
-    property Item[const Key: CString]: ICssHelper
-      read get_Item
-      write set_Item; default;
+//    property Item[const Key: CString]: ICssHelper
+//      read get_Item
+//      write set_Item; default;
     {$ENDIF}
   end;
 

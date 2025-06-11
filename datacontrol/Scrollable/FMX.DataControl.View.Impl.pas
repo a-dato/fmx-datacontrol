@@ -693,7 +693,6 @@ end;
 procedure TDataViewList.ReindexActiveRow(const Row: IDCRow);
 begin
   var correctIndex := 0;
-  var doMinusOne := False;
   for var ix := 0 to _activeRows.Count - 1 do
   begin
     var r := _activeRows[ix];

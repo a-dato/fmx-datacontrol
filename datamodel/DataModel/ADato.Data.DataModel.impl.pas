@@ -4079,7 +4079,7 @@ end;
 
 procedure TDataModelView.set_RowProperties(const Row: IDataRow; const Value: IRowProperties);
 var
-  defaultProperties, current: IRowProperties;
+  current: IRowProperties;
 
 begin
   current := get_RowProperties(Row);
