@@ -303,8 +303,13 @@ begin
         Exit;
     end;
 
-    if not (Key in [vkUp, vkDown, vkLeft, vkRight, vkPrior, vkEnd, vkHome, vkEnd, vkShift, vkControl, vkMenu, vkTab, vkReturn]) then
-      StartEditCell(GetActiveCell, KeyChar);
+    if KeyChar.IsLetterOrDigit then
+    begin
+      var canEditCell := not GetActiveCell.Column.ReadOnly and not (TDCTreeOption.ReadOnly in _options);
+      if canEditCell then
+        StartEditCell(GetActiveCell, KeyChar) else
+        TryScrollToCellByKey(Key, KeyChar);
+    end;
   end;
 end;
 
