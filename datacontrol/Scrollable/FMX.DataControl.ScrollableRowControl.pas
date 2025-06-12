@@ -1284,9 +1284,11 @@ begin
 
   inherited;
 
-  if _waitForRepaintInfo <> nil then
+  var repInfo := _waitForRepaintInfo;
+  var customDataItem: CObject := get_DataItem;
+
+  if repInfo <> nil then
   begin
-    var repInfo := _waitForRepaintInfo;
     if sortChanged then
       _view.ApplySort(repInfo.SortDescriptions);
 
@@ -1295,25 +1297,33 @@ begin
 
     // reset view
     if (sortChanged or filterChanged) then
+    begin
       ResetView;
 
+      // CalculateScrollBarMax is already done in inherited, but at that point the view is not correct yet
+      if filterChanged then
+        CalculateScrollBarMax;
+    end;
+
+    var viewIndex: Integer := -1;
     if TTreeRowState.RowChanged in repInfo.RowStateFlags then
     begin
-      // check scrollToPosition
-      // note: item can be filtered out
-      var viewIndex: Integer;
       if repInfo.DataItem <> nil then
         viewIndex := _view.GetViewListIndex(repInfo.DataItem) else
         viewIndex := repInfo.Current;
+    end;
 
-      if (viewIndex <> -1) and (_view.ViewCount > 0) then
-      begin
-        _selectionInfo.BeginUpdate;
-        try
-          _selectionInfo.UpdateLastSelection(_view.GetDataIndex(viewIndex), viewIndex, _view.GetViewList[viewIndex]);
-        finally
-          _selectionInfo.EndUpdate(True {ignore events});
-        end;
+    // if filter changed, we try to scroll back to the last selected dataitem
+    if (viewIndex = -1) and filterChanged and (customDataItem <> nil) then
+      viewIndex := _view.GetViewListIndex(customDataItem);
+
+    if (viewIndex <> -1) and (_view.ViewCount > 0) then
+    begin
+      _selectionInfo.BeginUpdate;
+      try
+        _selectionInfo.UpdateLastSelection(_view.GetDataIndex(viewIndex), viewIndex, _view.GetViewList[viewIndex]);
+      finally
+        _selectionInfo.EndUpdate(True {ignore events});
       end;
     end;
   end;
@@ -1471,24 +1481,11 @@ begin
 
       var rr := Row.Control as TRectangle;
       if (TreeOption_ShowHorzGrid in _options) then
-      begin
-    //    if Row.ViewPortIndex = 0 then
-    //      rr.Sides := [TSide.Bottom] else
-        rr.Sides := [TSide.Bottom];
-      end else
+        rr.Sides := [TSide.Bottom] else
         rr.Sides := [];
-
-      if (TreeOption_AlternatingRowBackground in _options) then
-      begin
-        rr.Fill.Kind := TBrushKind.Solid;
-
-        if Row.IsOddRow then
-          rr.Fill.Color := DEFAULT_GREY_COLOR else
-          rr.Fill.Color := DEFAULT_WHITE_COLOR;
-      end else
-        rr.Fill.Color := TAlphaColors.Null;
     end;
 
+    DataControlClassFactory.HandleRowBackground(TRectangle(Row.Control), (TreeOption_AlternatingRowBackground in _options) and not Row.IsOddRow);
     Row.Control.Position.X := 0;
 
     if not rowInfo.ControlNeedsResizeSoft then
@@ -2233,6 +2230,11 @@ begin
     end;
 
     var selRow := _view.GetActiveRowIfExists(_selectionInfo.ViewListIndex);
+
+    {$IFDEF DEBUG}
+    if selRow = nil then
+      Exit;
+      {$ENDIF}
     var yChange := 0.0;
 
     // if row (partly) above or fully below current view, then make it the top top row
@@ -2335,7 +2337,14 @@ begin
   begin
     viewListIndex := _view.GetViewListIndex(_selectionInfo.DataItem);
     if (viewListIndex <> -1) and (viewListIndex = _selectionInfo.ViewListIndex) then
-      Exit; // current selection is still valid
+    begin
+      if (_waitForRepaintInfo = nil) or (_view.GetActiveRowIfExists(viewListIndex) <> nil {in current viewport}) then
+        Exit; // nothing to do
+
+//      // if filtered, scroll to new pos...
+//      if not (TTreeRowState.FilterChanged in _waitForRepaintInfo.RowStateFlags) and not (TTreeRowState.RowChanged in _waitForRepaintInfo.RowStateFlags) then
+//        Exit; // current selection is still valid
+    end;
 
     if viewListIndex = -1 then
       viewListIndex := CMath.Min(_selectionInfo.ViewListIndex - 1, _view.ViewCount - 1);

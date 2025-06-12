@@ -395,6 +395,7 @@ type
     function  RecalcRequired: Boolean;
 
     procedure ForceRecalc;
+    procedure SetTreeIsScrolling(const IsScrolling: Boolean);
 //
 //   {  Tree has 3 different column collections:
 //      - TreeControl.Columns =  all, visible + Hidden
