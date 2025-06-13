@@ -299,6 +299,7 @@ type
     function  RadioInsteadOfCheck: Boolean;
 
     procedure GetSortAndFilterImages(out ImageList: TCustomImageList; out FilterIndex, SortAscIndex, SortDescIndex: Integer);
+    function  IsSortingOrFiltering: Boolean;
 
     property HeaderHeight: Single read get_headerHeight write set_HeaderHeight;
     property HeaderTextTopMargin: Single read get_headerTextTopMargin write set_headerTextTopMargin;
