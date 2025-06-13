@@ -875,7 +875,7 @@ begin
   if (flatColumn = nil) then
     Exit;
 
-  if Button = TMouseButton.mbRight then
+  {$IF not (Defined(ANDROID) or Defined(IOS))}if Button = TMouseButton.mbRight then{$ENDIF}
   begin
     if flatColumn.Column.ShowSortMenu or flatColumn.Column.ShowFilterMenu or flatColumn.Column.AllowHide then
       ShowHeaderPopupMenu(flatColumn);
