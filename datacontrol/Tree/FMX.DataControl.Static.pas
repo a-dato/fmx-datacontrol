@@ -999,7 +999,14 @@ begin
 
   var filterDescription: IListFilterDescription := TTreeFilterDescription.Create(LayoutColumn, OnGetCellDataForSorting);
 
-  for var item in _view.OriginalData do
+  var orgDataList := _view.OriginalData;
+
+  // do it this way to make sure that DataModel returns IDataRow, and not the CObjectss
+  var dm: IDataModel;
+  if ViewIsDataModelView and interfaces.Supports<IDataModel>(orgDataList, dm) then
+    orgDataList := dm.Rows as IList;
+
+  for var item in orgDataList do
   begin
     var obj := filterDescription.GetFilterableValue(item);
     if obj = nil then
@@ -2242,7 +2249,9 @@ begin
 
   if not Cell.IsHeaderCell and (LayoutColumn.Column.InfoControlClass <> TInfoControlClass.Text) and (LayoutColumn.Column.SubInfoControlClass <> TInfoControlClass.Text) then
   begin
-    Result := 35;
+    if Cell.Control <> nil then
+      Result := Cell.Control.Width else
+      Result := 35;
     Exit;
   end;
 

@@ -2001,7 +2001,7 @@ begin
   var autoFitWidthType := TDCColumnWidthType.Pixel;
   for layoutClmn in get_FlatColumns do
   begin
-    if not ColumnCanAddWidth(layoutClmn) then
+    if (layoutClmn.Column.WidthType <> TDCColumnWidthType.Percentage) and not ColumnCanAddWidth(layoutClmn) then
       Continue;
 
     case layoutClmn.Column.WidthType of
