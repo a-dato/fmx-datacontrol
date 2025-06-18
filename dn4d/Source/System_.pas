@@ -827,15 +827,15 @@ type
     const
       NumberBufferBytes: Integer = $72;
 
-    private
-      baseAddress: PByte;
-      digits: PWideChar;
-      precision: Integer;
-      scale: Integer;
-      sign: boolean;
+//    private
+//      baseAddress: PByte;
+//      digits: PWideChar;
+//      precision: Integer;
+//      scale: Integer;
+//      sign: boolean;
 
-      constructor Create(stackBuffer: PByte);
-      function PackForNative: PByte;
+//      constructor Create(stackBuffer: PByte);
+//      function PackForNative: PByte;
     end;
 
   public
@@ -11023,6 +11023,8 @@ begin
       Result := Word(ASet);
     otSLong, otULong:
       Result := Integer(ASet);
+    else
+      Result := 0;
   end;
 end;
 
@@ -11465,24 +11467,24 @@ begin
 end;
 
 { Number.NumberBuffer }
-constructor Number.NumberBuffer.Create(stackBuffer: PByte);
-begin
-  self.baseAddress := stackBuffer;
-  self.digits := PWideChar(Integer(stackBuffer) + 12);
-  self.precision := 0;
-  self.scale := 0;
-  self.sign := false
-end;
+//constructor Number.NumberBuffer.Create(stackBuffer: PByte);
+//begin
+//  self.baseAddress := stackBuffer;
+//  self.digits := PWideChar(Integer(stackBuffer) + 12);
+//  self.precision := 0;
+//  self.scale := 0;
+//  self.sign := false
+//end;
 
-function Number.NumberBuffer.PackForNative: PByte;
-begin
-  raise NotImplementedException.Create;
-//  baseAddress := PInteger(self.baseAddress);
-//  baseAddress[0] := self.precision;
-//  baseAddress[1] := self.scale;
-//  baseAddress[2] :=  {pseudo} (if self.sign then 1 else 0);
-//  Result := self.baseAddress
-end;
+//function Number.NumberBuffer.PackForNative: PByte;
+//begin
+//  raise NotImplementedException.Create;
+////  baseAddress := PInteger(self.baseAddress);
+////  baseAddress[0] := self.precision;
+////  baseAddress[1] := self.scale;
+////  baseAddress[2] :=  {pseudo} (if self.sign then 1 else 0);
+////  Result := self.baseAddress
+//end;
 
 { CTimeSpan }
 constructor CTimeSpan.Create(Value: Int64);

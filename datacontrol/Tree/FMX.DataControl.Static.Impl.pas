@@ -398,6 +398,7 @@ type
     _layoutColumns: List<IDCTreeLayoutColumn>;
     _flatColumns: List<IDCTreeLayoutColumn>;
     _overflow: Single;
+    _isScrolling: Boolean;
 
     function  get_LayoutColumns: List<IDCTreeLayoutColumn>;
     function  get_FlatColumns: List<IDCTreeLayoutColumn>;
@@ -420,6 +421,8 @@ type
     function  ContentOverFlow: Integer;
     function  FrozenColumnWidth: Single;
     function  RecalcRequired: Boolean;
+
+    procedure SetTreeIsScrolling(const IsScrolling: Boolean);
   end;
 
   TDCTreeCell = class(TBaseInterfacedObject, IDCTreeCell)
@@ -616,7 +619,7 @@ implementation
 uses
   FMX.DataControl.ControlClasses, FMX.ActnList,
   ADato.Data.DataModel.intf, FMX.Types, System.Math,
-  FMX.Graphics, FMX.ControlCalculations, System.ClassHelpers;
+  FMX.Graphics, FMX.ControlCalculations, System.ClassHelpers, FMX.Ani;
 
 { TDCTreeColumnList }
 
@@ -1377,6 +1380,8 @@ begin
   Assert(not _HideColumnInView);
 
   Cell.HideCellInView := False;
+  //doanimate
+//  FMX.Ani.TAnimator.AnimateFloatDelay(Cell.Control, 'Width', get_Width, 0.3, 0.5);
   Cell.Control.Width := get_Width;
   Cell.Control.Height := Cell.Row.Control.Height;
   Cell.Control.Position.Y := 0;
@@ -1847,7 +1852,8 @@ begin
 
   var columnsToCalculate: List<Integer> := CList<Integer>.Create;
   for layoutClmn in get_FlatColumns do
-    columnsToCalculate.Add(layoutClmn.Index);
+    if not _isScrolling or SameValue(layoutClmn.Width, 0) then
+      columnsToCalculate.Add(layoutClmn.Index);
 
   var totalWidth := _columnsControl.Content.Width;
   var widthLeft := totalWidth;
@@ -1935,7 +1941,7 @@ begin
   for var ix := 0 to 1 do
     for layoutClmn in get_FlatColumns do
     begin
-      var minColumnWidth: Single;
+      var minColumnWidth: Single := -1;
       case layoutClmn.Column.WidthType of
         Percentage:
         begin
@@ -1969,13 +1975,16 @@ begin
         end;
       end;
 
-      if minimumTotalWidth + minColumnWidth > _columnsControl.Control.Width then
+      if not SameValue(minColumnWidth, -1) then
       begin
-        layoutClmn.HideColumnInView := True;
-        Continue;
-      end;
+        if minimumTotalWidth + minColumnWidth - 1 > _columnsControl.Control.Width then
+        begin
+          layoutClmn.HideColumnInView := True;
+          Continue;
+        end;
 
-      minimumTotalWidth := minimumTotalWidth + minColumnWidth;
+        minimumTotalWidth := minimumTotalWidth + minColumnWidth;
+      end;
     end;
 
   var widthLeft := _columnsControl.Control.Width - minimumTotalWidth;
@@ -1994,7 +2003,7 @@ begin
   var autoFitWidthType := TDCColumnWidthType.Pixel;
   for layoutClmn in get_FlatColumns do
   begin
-    if not ColumnCanAddWidth(layoutClmn) then
+    if (layoutClmn.Column.WidthType <> TDCColumnWidthType.Percentage) and not ColumnCanAddWidth(layoutClmn) then
       Continue;
 
     case layoutClmn.Column.WidthType of
@@ -2045,7 +2054,7 @@ begin
     begin
       var flatClmn := addableColumns[ix];
       var extraWidthPerColumn := widthLeft / addableColumns.Count;
-      if (_flatColumns.Count = potentialCount) and (_columnsControl.AutoExtraColumnSizeMax >= 0) then
+      if (_flatColumns.Count = potentialCount) and ((_columnsControl.AutoExtraColumnSizeMax/potentialCount) > extraWidthPerColumn) then
         extraWidthPerColumn := CMath.Min(extraWidthPerColumn, _columnsControl.AutoExtraColumnSizeMax);
 
       // percentageColumns are set back to minimum width
@@ -2091,6 +2100,11 @@ begin
 
   if recalcNeeded then
     _flatColumns := nil;
+end;
+
+procedure TDCTreeLayout.SetTreeIsScrolling(const IsScrolling: Boolean);
+begin
+  _isScrolling := IsScrolling;
 end;
 
 procedure TDCTreeLayout.UpdateColumnWidth(const FlatColumnIndex: Integer; const Width: Single);

@@ -127,7 +127,6 @@ type
 //    procedure OnSelectionCheckBoxChange(Sender: TObject);
     procedure UpdateSelectionCheckboxes(const Row: IDCRow);
     function  SelectionCheckBoxColumn: IDCTreeLayoutColumn;
-    procedure ExternalColumnsChanged;
 
     procedure SetColumnSelectionIfNoneExists;
     procedure set_AutoCenterTree(const Value: Boolean);
@@ -170,6 +169,8 @@ type
 
     function  FlatColumnByColumn(const Column: IDCTreeColumn): IDCTreeLayoutColumn;
     function  FlatColumnIndexByLayoutIndex(const LayoutIndex: Integer): Integer;
+
+    procedure TryScrollToCellByKey(var Key: Word; var KeyChar: WideChar);
 
     function  CalculateRowHeight(const Row: IDCTreeRow): Single;
     function  CalculateCellWidth(const LayoutColumn: IDCTreeLayoutColumn; const Cell: IDCTreeCell): Single;
@@ -270,8 +271,9 @@ uses
   {$IFDEF APP_PLATFORM}
   , App.intf
   , System.ClassHelpers
+  , System.JSON
   {$ENDIF}
-  , System.JSON;
+  ;
 
 { TStaticDataControl }
 
@@ -410,16 +412,6 @@ begin
           if not treeRow.ContentCellSizes.TryGetValue(flatClmn.Index, w) and treeRow.Cells.TryGetValue(flatClmn.Index, cell) then
           begin
             w := CalculateCellWidth(flatClmn, cell);
-
-//            var settings: ITextSettings;
-//            if  (w > flatClmn.Column.WidthMax) and
-//                (Interfaces.Supports<ITextSettings>(cell.InfoControl, settings) or Interfaces.Supports<ITextSettings>(cell.SubInfoControl, settings)) and
-//                settings.TextSettings.WordWrap then
-//            begin
-//              Calcula
-//            end;
-
-
             treeRow.ContentCellSizes.Add(flatClmn.Index, w);
           end;
 
@@ -478,7 +470,7 @@ begin
   begin
     var clmn := GetSelectableFlatColumnByMouseX(MousePos.X);
 
-    _hoverRect.Visible := (clmn <> nil);
+    _hoverRect.Visible := (clmn <> nil) and (_scrollingType = TScrollingType.None);
     if not _hoverRect.Visible then Exit;
 
     // y positions already set in "inherited"
@@ -591,18 +583,24 @@ begin
       flatClmn.UpdateCellControlsPositions(cell);
 
       var leftPos := flatClmn.Left;
+      var xPos: Single;
       if hasFrozenColumns and cell.Column.Frozen then
       begin
         cell.Control.Parent := treeRow.FrozenColumnRowControl;
-        cell.Control.Position.X := leftPos;
+        xPos := leftPos;
       end else
       begin
         cell.Control.Parent := treeRow.NonFrozenColumnRowControl;
 
         if _horzScrollBar.Visible and (_horzScrollBar.Opacity > 0) then
-          cell.Control.Position.X := leftPos - {frozenColumnWidth - }_horzScrollBar.Value else
-          cell.Control.Position.X := leftPos - frozenColumnWidth;
+          xPos := leftPos - {frozenColumnWidth - }_horzScrollBar.Value else
+          xPos := leftPos - frozenColumnWidth;
       end;
+
+      //doanimate
+//      if (cell.Control.Position.X - 20 > xPos) and (cell.Control.Position.X +20 > xPos - 20) then
+//        FMX.Ani.TAnimator.AnimateFloatDelay(cell.Control, 'Position.X', xPos, 0.3, 0.5) else
+      cell.Control.Position.X := xPos;
 
       if cell.ExpandButton <> nil then
         cell.ExpandButton.Position.Y := ((cell.Row.Height - cell.ExpandButton.Height) / 2) + 0.5;
@@ -911,7 +909,16 @@ procedure TStaticDataControl.UpdateColumnSort(const Column: IDCTreeColumn; SortD
 begin
   var flatColumn := Self.FlatColumnByColumn(Column);
   if flatColumn = nil then
-    Exit;
+  begin
+    if _realignContentRequested and CanRealignContent then
+    begin
+      DoRealignContent;
+      flatColumn := Self.FlatColumnByColumn(Column);
+    end;
+
+    if flatColumn = nil then
+      Exit;
+  end;
 
   // keep this var in the methods scope
   // for "ActiveSort" is a weak referenced variable
@@ -997,7 +1004,14 @@ begin
 
   var filterDescription: IListFilterDescription := TTreeFilterDescription.Create(LayoutColumn, OnGetCellDataForSorting);
 
-  for var item in _view.OriginalData do
+  var orgDataList := _view.OriginalData;
+
+  // do it this way to make sure that DataModel returns IDataRow, and not the CObjectss
+  var dm: IDataModel;
+  if ViewIsDataModelView and interfaces.Supports<IDataModel>(orgDataList, dm) then
+    orgDataList := dm.Rows as IList;
+
+  for var item in orgDataList do
   begin
     var obj := filterDescription.GetFilterableValue(item);
     if obj = nil then
@@ -1329,6 +1343,7 @@ begin
     InitLayout;
 
   _treeLayout.ResetColumnDataAvailability(True);
+
   if _treeLayout.RecalcRequired then
   begin
     _treeLayout.RecalcColumnWidthsBasic;
@@ -1772,11 +1787,6 @@ begin
   end;
 end;
 
-procedure TStaticDataControl.ExternalColumnsChanged;
-begin
-
-end;
-
 function TStaticDataControl.FlatColumnByColumn(const Column: IDCTreeColumn): IDCTreeLayoutColumn;
 begin
   Result := nil;
@@ -1842,6 +1852,29 @@ begin
   end;
 
   Result := treeRow;
+end;
+
+procedure TStaticDataControl.TryScrollToCellByKey(var Key: Word; var KeyChar: WideChar);
+begin
+//  var gotit := False;
+//
+//  for i := lbItems.ItemIndex + 1 to lbItems.Items.Count - 1 do
+//    if lbItems.Items[i].StartsWith(KeyChar, True) then
+//    begin
+//      gotit := True;
+//      lbItems.ItemIndex := i;
+//      break;
+//    end;
+//
+//  if not gotit and (lbItems.ItemIndex > 0) then
+//  begin
+//    for i := 0 to lbItems.ItemIndex do
+//      if lbItems.Items[i].StartsWith(KeyChar, True) then
+//      begin
+//        lbItems.ItemIndex := i;
+//        break;
+//      end;
+//  end;
 end;
 
 function TStaticDataControl.TrySelectItem(const RequestedSelectionInfo: IRowSelectionInfo; Shift: TShiftState): Boolean;
@@ -2264,7 +2297,9 @@ begin
 
   if not Cell.IsHeaderCell and (LayoutColumn.Column.InfoControlClass <> TInfoControlClass.Text) and (LayoutColumn.Column.SubInfoControlClass <> TInfoControlClass.Text) then
   begin
-    Result := 35;
+    if Cell.Control <> nil then
+      Result := Cell.Control.Width else
+      Result := 35;
     Exit;
   end;
 

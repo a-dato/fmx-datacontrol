@@ -28,7 +28,11 @@ uses
   ADato.PropertyAccessibility.Intf,
   ADato.ObjectModel.intf,
   System.Collections,
-  System.Collections.Generic, System.UITypes, App.PropertyDescriptor.intf;
+  System.Collections.Generic, System.UITypes
+  {$IFDEF APP_PLATFORM}
+  , App.PropertyDescriptor.intf
+  {$ENDIF}
+  ;
 
 type
   IControlBinding = interface(IBaseInterface)

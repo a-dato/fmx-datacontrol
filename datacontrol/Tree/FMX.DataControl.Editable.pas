@@ -42,6 +42,7 @@ type
     procedure InternalSetCurrent(const Index: Integer; const EventTrigger: TSelectionEventTrigger; Shift: TShiftState; SortOrFilterChanged: Boolean = False); override;
 
     function  CanRealignContent: Boolean; override;
+    function  CanEditCell(const Cell: IDCTreeCell): Boolean;
 
     procedure ShowEditor(const Cell: IDCTreeCell; const StartEditArgs: DCStartEditEventArgs; const UserValue: string = '');
     procedure HideEditor;
@@ -242,17 +243,25 @@ begin
       Exit;
   end;
 
-  // check start edit
-  if (Key in [vkF2, vkReturn]) and not _editingInfo.CellIsEditing then
+  // check cell edit
+  if (Key in [vkF2, vkReturn]) and CanEditCell(GetActiveCell) then
   begin
-    StartEditCell(GetActiveCell);
+    if not _editingInfo.CellIsEditing then
+      StartEditCell(GetActiveCell)
+    else if Key = vkReturn then
+      EndEditCell;
+
     Key := 0;
   end
 
-  // check end edit
-  else if (Key = vkReturn) and _editingInfo.CellIsEditing then
+  // check enter
+  else if (Key = vkReturn) then
   begin
-    EndEditCell;
+    if Assigned(OnDblClick) then
+      OnDblClick(Self)
+    else
+      DoCellSelected(GetActiveCell, TSelectionEventTrigger.Key);
+
     Key := 0;
   end
 
@@ -303,8 +312,12 @@ begin
         Exit;
     end;
 
-    if not (Key in [vkUp, vkDown, vkLeft, vkRight, vkPrior, vkEnd, vkHome, vkEnd, vkShift, vkControl, vkMenu, vkTab, vkReturn]) then
-      StartEditCell(GetActiveCell, KeyChar);
+    if KeyChar.IsLetterOrDigit then
+    begin
+      if CanEditCell(GetActiveCell) then
+        StartEditCell(GetActiveCell, KeyChar) else
+        TryScrollToCellByKey(Key, KeyChar);
+    end;
   end;
 end;
 
@@ -1014,6 +1027,11 @@ begin
   DoDataItemChangedInternal(GetActiveRow.DataItem); //, GetActiveRow.DataIndex);
 end;
 
+function TEditableDataControl.CanEditCell(const Cell: IDCTreeCell): Boolean;
+begin
+  Result := not Cell.Column.ReadOnly and not (TDCTreeOption.ReadOnly in _options);
+end;
+
 procedure TEditableDataControl.EndEditFromExternal;
 begin
   if (_internalSelectCount > 0) or not IsEditOrNew then
@@ -1080,9 +1098,7 @@ end;
 
 procedure TEditableDataControl.ShowEditor(const Cell: IDCTreeCell; const StartEditArgs: DCStartEditEventArgs; const UserValue: string = '');
 var
-  pickList: IList;
   dataType: &Type;
-//  editor: IDCCellEditor;
 begin
   Assert(_cellEditor = nil);
 
