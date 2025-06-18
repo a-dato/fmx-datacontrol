@@ -1098,7 +1098,9 @@ begin
   Result := CellValue;
   if not FormatApplied and (Result <> nil) then
   begin
-    if Result.GetType.IsDateTime and CDateTime(Result).Equals(CDateTime.MinValue) then
+    //    if Result.GetType.IsDateTime and CDateTime(Result).Equals(CDateTime.MinValue) then
+    //      Result := nil
+    if Result.IsDateTime and CDateTime(Result).Equals(CDateTime.MinValue) then
       Result := nil
 
     else if not CString.IsNullOrEmpty(get_format) or (_formatProvider <> nil) then
@@ -1108,7 +1110,7 @@ begin
         formatSpec := CString.Concat('{0:', get_format, '}') else
         formatSpec := '{0}';
 
-      Result := CString.Format(_FormatProvider, formatSpec, [Result]);
+      Result := CString.Format(_formatProvider, formatSpec, [Result]);
     end;
   end;
 end;
@@ -1454,10 +1456,10 @@ function TTreeLayoutColumn.CreateInfoControl(const Cell: IDCTreeCell; const Cont
 begin
   Result := nil;
   case ControlClassType of
-    Custom:
+    TInfoControlClass.Custom:
       Exit;
 
-    Text: begin
+    TInfoControlClass.Text: begin
       var txt := DataControlClassFactory.CreateText(Cell.Control);
       var settings: ITextSettings := txt as ITextSettings;
       settings.TextSettings.HorzAlign := TTextAlign.Leading;
@@ -1470,7 +1472,7 @@ begin
       Result := txt;
     end;
 
-    CheckBox: begin
+    TInfoControlClass.CheckBox: begin
       var check: IIsChecked;
       if Cell.Column.IsSelectionColumn and _treeControl.RadioInsteadOfCheck  then
         check := DataControlClassFactory.CreateRadioButton(Cell.Control) else
@@ -1481,13 +1483,13 @@ begin
       Result.HitTest := False;
     end;
 
-    Button: begin
+    TInfoControlClass.Button: begin
       var btn := DataControlClassFactory.CreateButton(Cell.Control);
       btn.Align := TAlignLayout.None;
       Result := btn;
     end;
 
-    Glyph: begin
+    TInfoControlClass.Glyph: begin
       var glyph := DataControlClassFactory.CreateGlyph(Cell.Control);
       glyph.Align := TAlignLayout.None;
       Result := glyph;
