@@ -1310,8 +1310,8 @@ begin
       headerCell.FilterControl := TGlyph.Create(Cell.Control);
       headerCell.FilterControl.Align := TAlignLayout.None;
       headerCell.FilterControl.HitTest := False;
-      headerCell.FilterControl.Width := CELL_MIN_INDENT;
-      headerCell.FilterControl.Height := CELL_MIN_INDENT;
+      headerCell.FilterControl.Width := HEADER_IMG_SIZE;
+      headerCell.FilterControl.Height := HEADER_IMG_SIZE;
       (headerCell.FilterControl as TGlyph).Images := imgList;
       (headerCell.FilterControl as TGlyph).ImageIndex := filterIndex;
 
@@ -1330,8 +1330,8 @@ begin
         headerCell.SortControl := TGlyph.Create(Cell.Control);
         headerCell.SortControl.Align := TAlignLayout.None;
         headerCell.SortControl.HitTest := False;
-        headerCell.SortControl.Width := CELL_MIN_INDENT;
-        headerCell.SortControl.Height := CELL_MIN_INDENT;
+        headerCell.SortControl.Width := HEADER_IMG_SIZE;
+        headerCell.SortControl.Height := HEADER_IMG_SIZE;
         (headerCell.SortControl as TGlyph).Images := imgList;
         Cell.Control.AddObject(headerCell.SortControl);
       end;
@@ -1393,19 +1393,19 @@ begin
 
     if headerCell.FilterControl <> nil then
     begin
-      headerCell.FilterControl.Position.Y := (headerCell.Control.Height - CELL_MIN_INDENT)/2;
+      headerCell.FilterControl.Position.Y := (headerCell.Control.Height - HEADER_IMG_SIZE)/2;
       headerCell.FilterControl.Position.X := startYPos;
-      headerCell.FilterControl.Width := CELL_MIN_INDENT;
-      headerCell.FilterControl.Height := CELL_MIN_INDENT;
+      headerCell.FilterControl.Width := HEADER_IMG_SIZE;
+      headerCell.FilterControl.Height := HEADER_IMG_SIZE;
 
-      startYPos := startYPos - CELL_MIN_INDENT - (2*ROW_CONTENT_MARGIN);
+      startYPos := startYPos - HEADER_IMG_SIZE - (2*ROW_CONTENT_MARGIN);
     end;
     if headerCell.SortControl <> nil then
     begin
-      headerCell.SortControl.Position.Y := (headerCell.Control.Height - CELL_MIN_INDENT)/2;
+      headerCell.SortControl.Position.Y := (headerCell.Control.Height - HEADER_IMG_SIZE)/2;
       headerCell.SortControl.Position.X := startYPos;
-      headerCell.SortControl.Width := CELL_MIN_INDENT;
-      headerCell.SortControl.Height := CELL_MIN_INDENT;
+      headerCell.SortControl.Width := HEADER_IMG_SIZE;
+      headerCell.SortControl.Height := HEADER_IMG_SIZE;
     end;
   end
   else begin
@@ -1535,7 +1535,7 @@ begin
         splitterLy.Cursor := crSizeWE;
         splitterLy.HitTest := True;
         splitterLy.Width := 1;
-        splitterLy.TouchTargetExpansion.Rect := RectF(3, 0, 3, 0);
+        splitterLy.TouchTargetExpansion.Rect := RectF(10, 0, 6, 0);
 
         rect.AddObject(splitterLy);
         headerCell.ResizeControl := splitterLy;
@@ -1965,7 +1965,8 @@ begin
           if ix = 0 then
             Continue;
 
-          var available := _columnsControl.Control.Width - minimumTotalWidth;
+
+          var available := _columnsControl.Content.Width - minimumTotalWidth;
           if (available < layoutClmn.Width) and (available >= layoutClmn.Column.WidthMin) and (layoutClmn.Column.WidthMin > 0) then
             layoutClmn.Width := available;
 
@@ -1975,7 +1976,7 @@ begin
 
       if not SameValue(minColumnWidth, -1) then
       begin
-        if minimumTotalWidth + minColumnWidth - 1 > _columnsControl.Control.Width then
+        if minimumTotalWidth + minColumnWidth - 0.01 > _columnsControl.Content.Width then
         begin
           layoutClmn.HideColumnInView := True;
           Continue;
@@ -1985,7 +1986,7 @@ begin
       end;
     end;
 
-  var widthLeft := _columnsControl.Control.Width - minimumTotalWidth;
+  var widthLeft := _columnsControl.Content.Width - minimumTotalWidth;
   Assert(widthLeft >= 0);
 
   var potentialCount := 0;
@@ -2916,9 +2917,11 @@ procedure THeaderColumnResizeControl.DoSplitterMouseMove(Sender: TObject; Shift:
 begin
   var NewSize := X - _columnResizeControl.Position.X;
   if NewSize < _headerCell.Column.WidthMin then
-    NewSize := _headerCell.Column.WidthMin
-  else if (_headerCell.Column.WidthMax > _headerCell.Column.WidthMin) and (NewSize > _headerCell.Column.WidthMax) then
-    NewSize := _headerCell.Column.WidthMax;
+    NewSize := _headerCell.Column.WidthMin;
+
+  // we accept a column to be more width than maxWidth
+//  else if (_headerCell.Column.WidthMax > _headerCell.Column.WidthMin) and (NewSize > _headerCell.Column.WidthMax) then
+//    NewSize := _headerCell.Column.WidthMax;
 
   _columnResizeControl.Size.Width := NewSize;
   _columnResizeFullHeaderControl.Repaint;

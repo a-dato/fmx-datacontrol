@@ -315,7 +315,11 @@ begin
     if KeyChar.IsLetterOrDigit then
     begin
       if CanEditCell(GetActiveCell) then
-        StartEditCell(GetActiveCell, KeyChar) else
+      begin
+        StartEditCell(GetActiveCell, KeyChar);
+        KeyChar := #0;
+      end
+      else
         TryScrollToCellByKey(Key, KeyChar);
     end;
   end;
@@ -711,7 +715,7 @@ begin
         newViewListIndex := drv.ViewIndex;
 
         GetDataModelView.Refresh;
-        _view.ResetView;
+        ResetView;
       end;
     end;
   end
@@ -724,7 +728,7 @@ begin
       inc(newViewListIndex);
 
     _view.GetViewList.Insert(newViewListIndex, NewItem);
-    _view.ResetView;
+    ResetView;
 
     newDataItem := newItem;
     newDataIndex := _view.OriginalData.IndexOf(NewItem);
@@ -737,14 +741,16 @@ begin
     // let the view know that we started with editing
     _view.StartEdit(_editingInfo.EditItem);
 
-    CalculateScrollBarMax;
+//    CalculateScrollBarMax;
 
-    var requestedSelection := _selectionInfo.Clone as ITreeSelectionInfo;
-    requestedSelection.UpdateLastSelection(newDataIndex, newViewListIndex, newDataItem);
-    ScrollSelectedIntoView(requestedSelection);
-
-    for var row in _view.ActiveViewRows do
-      VisualizeRowSelection(row);
+    Self.DataItem := newDataItem;
+//    _forceCurrentIntoView := True;
+//    var requestedSelection := _selectionInfo.Clone as ITreeSelectionInfo;
+//    requestedSelection.UpdateLastSelection(newDataIndex, newViewListIndex, newDataItem);
+//    ScrollSelectedIntoView(requestedSelection);
+//
+//    for var row in _view.ActiveViewRows do
+//      VisualizeRowSelection(row);
   end;
 end;
 

@@ -567,6 +567,7 @@ type
 
 const
   CELL_MIN_INDENT = 10;
+  HEADER_IMG_SIZE = 14;
 
 resourcestring
   COLUMN_SHOW_DEFAULT_OBJECT_TEXT = '[object]';

@@ -69,7 +69,7 @@ type
     function  InsertNewRowBeneeth: IDCRow;
     function  InsertNewRowFromIndex(const ViewListIndex, ViewPortIndex: Integer): IDCRow;
     procedure ReindexActiveRow(const Row: IDCRow);
-    function  ProvideReferenceRowForViewRange(const StartY, StopY: Single; BottomTop: Boolean): IDCRow;
+    function  ProvideReferenceRowForViewRange(const StartY, StopY: Single; BottomTop: Boolean; PrefferedIndex: Integer = -1): IDCRow;
 
     function  GetSortDescriptions: List<IListSortDescription>;
     function  GetFilterDescriptions: List<IListFilterDescription>;
@@ -570,7 +570,7 @@ begin
   AddNewRowToActiveRows(Result, 0);
 end;
 
-function TDataViewList.ProvideReferenceRowForViewRange(const StartY, StopY: Single; BottomTop: Boolean): IDCRow;
+function TDataViewList.ProvideReferenceRowForViewRange(const StartY, StopY: Single; BottomTop: Boolean; PrefferedIndex: Integer = -1): IDCRow;
 
   function RowInRange(const Row: IDCRow): Boolean;
   begin
@@ -581,13 +581,10 @@ begin
   if (_activeRows <> nil) and (_activeRows.Count > 0) then
   begin
     if not BottomTop and RowInRange(_activeRows[0]) then
-    begin
       Exit(_activeRows[0])
-    end
+
     else if RowInRange(_activeRows[_activeRows.Count - 1]) then
-    begin
       Exit(_activeRows[_activeRows.Count - 1]);
-    end;
   end;
 
 //  if (_activeRows <> nil) and (_activeRows.Count > 0) then
@@ -626,7 +623,7 @@ begin
     if h = -1 then
       h := defaultHeight;
 
-    if ((checkPos >= pos) and (checkPos < pos + h)) or (ix = viewListCount - 1) then
+    if (PrefferedIndex = ix) or ((PrefferedIndex = -1) and ((checkPos >= pos) and (checkPos < pos + h)) or (ix = viewListCount - 1)) then
     begin
       Result.ViewListIndex := ix;
       Result.DataItem := GetDataItem(ix);
