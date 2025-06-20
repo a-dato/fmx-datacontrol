@@ -549,7 +549,7 @@ begin
     ctrlClass := ctrlClass.ClassParent;
     if ctrlClass = TFmxObject then
     begin
-      Assert(1=2, 'Binding needs implementation');
+      Assert(1=2, 'No binding class registered for type: ' + Control.ClassName);
       Exit(nil);
     end;
   end;
@@ -697,9 +697,14 @@ begin
 
   BeginUpdate;
   try
-    if _Descriptor <> nil then
+    if (_Descriptor <> nil) and (Value <> nil) then
     begin
-      var props := AProperty.Name.Split(['.']);
+      // Obj   -> IProject
+      // Value -> Customer
+      // var props := AProperty.Name.Split(['.']);
+      var o := _Descriptor.Formatter.Format(Obj, Value, nil);
+      if o <> nil then
+        _Control.Text := CStringToString(o);
     end;
 
   finally
