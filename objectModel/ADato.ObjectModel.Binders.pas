@@ -386,7 +386,7 @@ uses
   FMX.Ani,
   {$ENDIF}
   ADato.Duration,
-  ADato.Data.DataModel.intf;
+  ADato.Data.DataModel.intf, ADato.ClientType;
 
 function TryConvertToUserFriendlyText(const Value: CObject; const PropertyInfo: _PropertyInfo; out AResult: CString): Boolean;
 var
@@ -1052,11 +1052,13 @@ begin
     var textCtrl: ITextActions;
     if interfaces.Supports<ITextActions>(_control, textCtrl) then
     begin
-      textCtrl.SelectAll;
-      textCtrl.GoToTextEnd;
+      if not (TClientType.Current.IsPhoneOrTablet and (_control is TEdit) or (_control is TMemo)) then
+      begin
+        textCtrl.SelectAll;
+        textCtrl.GoToTextEnd;
+      end;
     end;
   end;
-
 
   inherited;
 end;
