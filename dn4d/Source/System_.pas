@@ -672,6 +672,8 @@ type
     class function Supports<T>(const Value: TObject; out Intf) : Boolean; overload;
     class function Supports<T>(const Value: CObject): Boolean; overload;
     class function Supports<T>(const Value: CObject; out Intf) : Boolean; overload;
+    class function Supports<T>(const Value: Variant): Boolean; overload;
+    class function Supports<T>(const Value: Variant; out Intf) : Boolean; overload;
 
     class procedure Call<T>(const Value: IInterface; Proc: TProc<T>);
     class function TryCall<T>(const Value: IInterface; Proc: TProc<T>) : Boolean;
@@ -4980,7 +4982,18 @@ begin
   var tp := TypeInfo(T);
   var g := TypeToGuid(tp);
   Result := Interfaces.Supports(Value, g, Intf);
-  //Result := Interfaces.Supports(Value, TypeToGuid(TypeInfo(T)), Intf);
+end;
+
+class function Interfaces.Supports<T>(const Value: Variant): Boolean;
+begin
+  Result := VarSupports(Value, TypeToGuid(TypeInfo(T)));
+end;
+
+class function Interfaces.Supports<T>(const Value: Variant; out Intf) : Boolean;
+begin
+  var tp := TypeInfo(T);
+  var g := TypeToGuid(tp);
+  Result := VarSupports(Value, TypeToGuid(TypeInfo(T)), Intf);
 end;
 
 { CRandom }

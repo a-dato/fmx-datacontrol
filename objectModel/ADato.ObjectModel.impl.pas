@@ -162,10 +162,23 @@ type
     property Name: CString read get_Name; {$IFDEF DOTNET}override;{$ENDIF}
   public
     constructor Create(const AProperty: _PropertyInfo);
+
     {$IFDEF DELPHI}
     destructor Destroy; override;
     {$ENDIF}
   end;
+
+  {$IFDEF APP_PLATFORM}
+  TObjectModelSubPropertyWrapper = class(TObjectModelPropertyWrapper)
+  protected
+    FParentProperty: _PropertyInfo;
+
+    function  GetObjectProperty(const obj: CObject): _PropertyInfo; override;
+
+  public
+    constructor Create(const AParentProperty: _PropertyInfo; const AProperty: _PropertyInfo);
+  end;
+  {$ENDIF}
 
 implementation
 
@@ -770,6 +783,21 @@ procedure TObjectModelContext.InvokeOnPropertyChanged(const Sender: IObjectModel
 begin
   _OnPropertyChanged.Invoke(Sender, Context, AProperty);
 end;
+{$ENDIF}
+
+
+{$IFDEF APP_PLATFORM}
+constructor TObjectModelSubPropertyWrapper.Create(const AParentProperty: _PropertyInfo; const AProperty: _PropertyInfo);
+begin
+  inherited Create(AProperty);
+  FParentProperty := AParentProperty;
+end;
+
+function TObjectModelSubPropertyWrapper.GetObjectProperty(const obj: CObject): _PropertyInfo;
+begin
+  Result := FParentProperty;
+end;
+
 {$ENDIF}
 
 end.
