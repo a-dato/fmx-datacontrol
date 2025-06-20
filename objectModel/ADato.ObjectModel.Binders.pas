@@ -401,7 +401,7 @@ uses
   FMX.Ani,
   {$ENDIF}
   ADato.Duration,
-  ADato.Data.DataModel.intf, ADato.ClientType, System.JSON;
+  ADato.Data.DataModel.intf, System.JSON;
 
 function TryConvertToUserFriendlyText(const Value: CObject; const PropertyInfo: _PropertyInfo; out AResult: CString): Boolean;
 var
@@ -1189,7 +1189,8 @@ begin
     var textCtrl: ITextActions;
     if interfaces.Supports<ITextActions>(_control, textCtrl) then
     begin
-      if not (TClientType.Current.IsPhoneOrTablet and (_control is TEdit) or (_control is TMemo)) then
+      var isPhoneOrTablet := {$IF Defined(ANDROID) or Defined(IOS)}True{$ELSE}False{$ENDIF};
+      if (not isPhoneOrTablet) or (textCtrl is TEdit) or (textCtrl is TMemo) then
       begin
         textCtrl.SelectAll;
         textCtrl.GoToTextEnd;
