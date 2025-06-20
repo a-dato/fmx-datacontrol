@@ -270,8 +270,13 @@ uses
   FMX.DataControl.ScrollableRowControl.Impl, ADato.Data.DataModel.impl,
   FMX.DataControl.SortAndFilter,
   FMX.DataControl.Static.PopupMenu,
-  FMX.ActnList, FMX.DataControl.ScrollableControl.Intf,
-  ADato.FMX.Ani.PointAnimation, FMX.Ani;
+  FMX.ActnList, FMX.DataControl.ScrollableControl.Intf
+  {$IFDEF APP_PLATFORM}
+  , App.intf
+  , System.ClassHelpers
+  , System.JSON
+  {$ENDIF}
+  ;
 
 { TStaticDataControl }
 
@@ -2150,11 +2155,54 @@ begin
   end;
 
   var formattedValue: CObject := nil;
+
   if ctrl <> nil then
   begin
     var formatApplied: Boolean;
     var cellValue := ProvideCellData(cell, propName, IsSubProp);
     DoCellFormatting(cell, False, {var} cellValue, {out} formatApplied);
+
+    {$IFDEF APP_PLATFORM}
+    if not CString.IsNullOrEmpty(propName) and not formatApplied and (cellValue <> nil) and (_app <> nil) and (cell.Column.InfoControlClass = TInfoControlClass.Text) then
+    begin
+      var js := TJSONObject.ParseJSONValue(cellValue.ToString(True));
+      try
+        var s: string;
+        if js.TryGetValue<string>('Value', s) then
+        begin
+          (ctrl as ICaption).Text := s;
+          Exit;
+        end;
+
+      finally
+        js.Free;
+      end;
+
+//      var item_type := GetItemType;
+//      if item_type <> nil then
+//      begin
+//        var prop := item_type.PropertyByName(propName);
+//        if prop <> nil then
+//        begin
+//          var tp := prop.GetType;
+//          var ot := _app.Config.ObjectType[tp];
+//          if ot <> nil then
+//          begin
+//            var descr := ot.PropertyDescriptor[tp.Name];
+//            if descr <> nil then
+//            begin
+//              var fmt := descr.Formatter;
+//              if fmt <> nil then
+//              begin
+//                (ctrl as ICaption).Text := CStringToString(fmt.Format(cellValue, FlatColumn.Column.Format));
+//                Exit;
+//              end;
+//            end;
+//          end;
+//        end;
+//      end;
+    end;
+    {$ENDIF}
 
     formattedValue := FlatColumn.Column.GetDefaultCellData(cell, cellValue, formatApplied);
     case cell.Column.InfoControlClass of
