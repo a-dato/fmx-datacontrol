@@ -107,8 +107,8 @@ type
 
     _popupMenuClosed: TNotifyEvent;
 
-    procedure DoCellLoaded(const Cell: IDCTreeCell; RequestForSort: Boolean; var ManualRowHeight: Single);
-    function  DoCellLoading(const Cell: IDCTreeCell; RequestForSort: Boolean; var ManualRowHeight: Single): Boolean;
+    procedure DoCellLoaded(const Cell: IDCTreeCell; RequestForSort: Boolean; var OverrideRowHeight: Single);
+    function  DoCellLoading(const Cell: IDCTreeCell; RequestForSort: Boolean; var OverrideRowHeight: Single): Boolean;
     procedure DoCellFormatting(const Cell: IDCTreeCell; RequestForSort: Boolean; var Value: CObject; out FormatApplied: Boolean);
     function  DoCellCanChange(const OldCell, NewCell: IDCTreeCell): Boolean; virtual;
     procedure DoCellChanging(const OldCell, NewCell: IDCTreeCell);
@@ -136,6 +136,7 @@ type
   protected
     _forceRealignRowAfterScrolling: Boolean;
     _totalColumnWidth: Single;
+    _singleLineHeight: SIngle;
 
     procedure FastColumnAlignAfterColumnChange;
 
@@ -171,6 +172,8 @@ type
     function  FlatColumnIndexByLayoutIndex(const LayoutIndex: Integer): Integer;
 
     procedure TryScrollToCellByKey(var Key: Word; var KeyChar: WideChar);
+
+    function  TextForSizeCalc(const Text: string): string;
 
     function  CalculateRowHeight(const Row: IDCTreeRow): Single;
     function  CalculateCellWidth(const LayoutColumn: IDCTreeLayoutColumn; const Cell: IDCTreeCell): Single;
@@ -294,6 +297,9 @@ begin
     _treeLayout.RecalcColumnWidthsAutoFit;
 
   InitHeader;
+
+  if _treeLayout.FlatColumns.Count = 0 then
+    Exit;
 
   var selInfo := (_selectionInfo as ITreeSelectionInfo);
   var lastFlatColumn := _treeLayout.FlatColumns[_treeLayout.FlatColumns.Count - 1];
@@ -1353,6 +1359,7 @@ begin
   inherited;
 
   BeginDefaultTextLayout;
+  _singleLineHeight := -1; // reset to recalculate
 end;
 
 procedure TStaticDataControl.ColumnsChanged(Sender: TObject; e: NotifyCollectionChangedEventArgs);
@@ -1414,8 +1421,7 @@ begin
   DoColumnsChanged(Column);
 
   _treeLayout.ForceRecalc;
-  AfterRealignContent;
-  RealignFinished;
+  ResetView; // rowheighst need to be recalculated..
 end;
 
 function TStaticDataControl.Content: TControl;
@@ -1676,18 +1682,19 @@ begin
   end;
 end;
 
-procedure TStaticDataControl.DoCellLoaded(const Cell: IDCTreeCell; RequestForSort: Boolean; var ManualRowHeight: Single);
+procedure TStaticDataControl.DoCellLoaded(const Cell: IDCTreeCell; RequestForSort: Boolean; var OverrideRowHeight: Single);
 begin
   if Assigned(_CellLoaded) then
   begin
     var args := DCCellLoadedEventArgs.Create(Cell, TDCTreeOption.ShowVertGrid in  _options, _scrollingType <> TScrollingType.None);
     try
       args.RequestValueForSorting := RequestForSort;
+      args.OverrideRowHeight := OverrideRowHeight;
 
       _CellLoaded(Self, args);
 
-      if args.OverrideRowHeight > ManualRowHeight then
-        ManualRowHeight := args.OverrideRowHeight;
+      if args.OverrideRowHeight <> -1 {> ManualRowHeight} then
+        OverrideRowHeight := args.OverrideRowHeight;
 
       if args.RealignTreeAfterScrolling then
         _forceRealignRowAfterScrolling := True;
@@ -1697,7 +1704,7 @@ begin
   end;
 end;
 
-function TStaticDataControl.DoCellLoading(const Cell: IDCTreeCell; RequestForSort: Boolean; var ManualRowHeight: Single) : Boolean;
+function TStaticDataControl.DoCellLoading(const Cell: IDCTreeCell; RequestForSort: Boolean; var OverrideRowHeight: Single) : Boolean;
 begin
   Result := True; // LoadDefaultData
 
@@ -1706,12 +1713,13 @@ begin
     var args := DCCellLoadingEventArgs.Create(Cell, TDCTreeOption.ShowVertGrid in  _options, _scrollingType <> TScrollingType.None);
     try
       args.RequestValueForSorting := RequestForSort;
+      args.OverrideRowHeight := OverrideRowHeight;
 
       _CellLoading(Self, args);
       Result := args.LoadDefaultData;
 
-      if args.OverrideRowHeight > ManualRowHeight then
-        ManualRowHeight := args.OverrideRowHeight;
+      if args.OverrideRowHeight <> -1 {> ManualRowHeight} then
+        OverrideRowHeight := args.OverrideRowHeight;
 
       if args.RealignTreeAfterScrolling then
         _forceRealignRowAfterScrolling := True;
@@ -1854,6 +1862,11 @@ begin
   Result := treeRow;
 end;
 
+function TStaticDataControl.TextForSizeCalc(const Text: string): string;
+begin
+  Result := Text + ' _';
+end;
+
 procedure TStaticDataControl.TryScrollToCellByKey(var Key: Word; var KeyChar: WideChar);
 begin
 //  var gotit := False;
@@ -1917,6 +1930,10 @@ begin
   end
   else if not rowChange and not clmnChange then
   begin
+    // nothing special to do
+    ScrollSelectedIntoView(RequestedSelectionInfo);
+
+    // nothing special to do
     DoCellSelected(GetActiveCell, _selectionInfo.LastSelectionEventTrigger);
     Exit(True);
   end;
@@ -2286,13 +2303,17 @@ begin
   if _forceRealignRowAfterScrolling then
     _view.NotifyRowControlsNeedReload(Row, True {force reload after scrolling is done});
 
-  Row.Control.Height := CMath.Max(manualHeight, CalculateRowHeight(Row as IDCTreeRow));
+  if manualHeight <> -1 then
+    Row.Control.Height := manualHeight else
+    Row.Control.Height := CalculateRowHeight(Row as IDCTreeRow);
 
   inherited;
 end;
 
 function TStaticDataControl.CalculateCellWidth(const LayoutColumn: IDCTreeLayoutColumn; const Cell: IDCTreeCell): Single;
 begin
+  Assert(LayoutColumn.Column.WidthType = TDCColumnWidthType.AlignToContent);
+
   Result := 0;
 
   if not Cell.IsHeaderCell and (LayoutColumn.Column.InfoControlClass <> TInfoControlClass.Text) and (LayoutColumn.Column.SubInfoControlClass <> TInfoControlClass.Text) then
@@ -2305,24 +2326,24 @@ begin
 
   if Cell.IsHeaderCell or (LayoutColumn.Column.InfoControlClass = TInfoControlClass.Text) then
   begin
-    var ctrl := Cell.InfoControl;
+    var txt := Cell.InfoControl as TText;
 
     var customMargins := 6.0;
-    if (ctrl.Margins.Left > 0) or (ctrl.Margins.Right > 0) then
-      customMargins := ctrl.Margins.Left + ctrl.Margins.Right;
+    if (txt.Margins.Left > 0) or (txt.Margins.Right > 0) then
+      customMargins := txt.Margins.Left + txt.Margins.Right;
 
-    Result := TextControlWidth(ctrl, (ctrl as ITextSettings).TextSettings, (ctrl as ICaption).Text) + (2*ROW_CONTENT_MARGIN) + customMargins;
+    Result := TextControlWidth(txt, txt.TextSettings, TextForSizeCalc(txt.Text)) + (2*ROW_CONTENT_MARGIN) + customMargins;
   end;
 
   if not Cell.IsHeaderCell and (Cell.Column.SubInfoControlClass = TInfoControlClass.Text) then
   begin
-    var subCtrl := Cell.SubInfoControl;
+    var subTxt := Cell.SubInfoControl as TText;
 
     var customMargins := 6.0;
-    if (subCtrl.Margins.Left > 0) or (subCtrl.Margins.Right > 0) then
-      customMargins := subCtrl.Margins.Left + subCtrl.Margins.Right;
+    if (subTxt.Margins.Left > 0) or (subTxt.Margins.Right > 0) then
+      customMargins := subTxt.Margins.Left + subTxt.Margins.Right;
 
-    var subWidth := TextControlWidth(subCtrl, (subCtrl as ITextSettings).TextSettings, (subCtrl as ICaption).Text) + (2*ROW_CONTENT_MARGIN) + customMargins;
+    var subWidth := TextControlWidth(subTxt, subTxt.TextSettings, TextForSizeCalc(subTxt.Text)) + (2*ROW_CONTENT_MARGIN) + customMargins;
 
     Result := CMath.Max(Result, subWidth);
   end;
@@ -2355,13 +2376,29 @@ begin
     if calculatedheight <> -1 then
       Exit(calculatedheight);
   end;
-
+//
   Result := 0.0;
   for var cell in Row.Cells.Values do
     if cell.Column.InfoControlClass = TInfoControlClass.Text then
     begin
       var txt := cell.InfoControl as TText;
-      var cellHeight := TextControlHeight(txt, (txt as ITextSettings).TextSettings, (txt as ICaption).Text, -1, -1, IfThen(cell.Column.WidthMax > 0, cell.Column.WidthMax, -1));
+
+      var maxWidth := IfThen(cell.Column.WidthMax > 0, cell.Column.WidthMax, -1);
+      if cell.Column.CustomWidth > 0 then
+        maxWidth := cell.Column.CustomWidth;
+
+      var isSingleLine := not txt.WordWrap or ((cell.Column.WidthType = TDCColumnWidthType.AlignToContent) and (maxWidth = -1));
+
+      var cellHeight: Single;
+      if not isSingleLine or (_singleLineHeight = -1) then
+      begin
+        cellHeight := TextControlHeight(txt, txt.TextSettings, TextForSizeCalc(txt.Text), -1, -1, maxWidth);
+        if isSingleLine then
+          _singleLineHeight := cellHeight;
+      end
+      else
+        cellHeight := _singleLineHeight;
+
       if cellHeight > Result then
         Result := cellHeight;
     end;
@@ -2467,7 +2504,7 @@ begin
     if _treeLayout <> nil then
       _treeLayout.ForceRecalc;
     if _autoFitColumns and (_view <> nil) then
-      _view.ClearViewRecInfo;
+      ResetView;
   end;
 
   if HeightChanged then

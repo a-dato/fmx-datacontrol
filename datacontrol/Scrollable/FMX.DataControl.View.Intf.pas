@@ -49,7 +49,7 @@ type
     function  InsertNewRowBeneeth: IDCRow;
     function  InsertNewRowFromIndex(const ViewListIndex, ViewPortIndex: Integer): IDCRow;
     procedure ReindexActiveRow(const Row: IDCRow);
-    function  ProvideReferenceRowForViewRange(const StartY, StopY: Single; BottomTop: Boolean): IDCRow;
+    function  ProvideReferenceRowForViewRange(const StartY, StopY: Single; BottomTop: Boolean; PrefferedIndex: Integer = -1): IDCRow;
 
     procedure RemoveRowFromActiveView(const Row: IDCRow);
 
