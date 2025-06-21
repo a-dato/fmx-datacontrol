@@ -702,9 +702,13 @@ begin
       // Obj   -> IProject
       // Value -> Customer
       // var props := AProperty.Name.Split(['.']);
-      var o := _Descriptor.Formatter.Format(Obj, Value, nil);
+      var o := _Descriptor.Formatter.Unmarshal(Obj, Value);
       if o <> nil then
-        _Control.Text := CStringToString(o);
+      begin
+        var fmt := _Descriptor.Formatter.Format(Obj, o, nil);
+        if fmt <> nil then
+          _Control.Text := CStringToString(fmt);
+      end;
     end;
 
   finally

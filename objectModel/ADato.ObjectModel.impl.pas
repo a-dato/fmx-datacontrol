@@ -16,7 +16,11 @@ uses
   System.Collections.Generic,
   System.Collections,
   System.ComponentModel,
-  ADato.ObjectModel.intf;
+  ADato.ObjectModel.intf
+  {$IFDEF APP_PLATFORM}
+  , App.PropertyDescriptor.intf
+  {$ENDIF}
+  ;
 
 type
   TOrdinalTypeObjectModel = {$IFDEF DOTNET}public{$ENDIF}class(TBaseInterfacedObject, IObjectModel)
@@ -169,14 +173,17 @@ type
   end;
 
   {$IFDEF APP_PLATFORM}
-  TObjectModelSubPropertyWrapper = class(TObjectModelPropertyWrapper)
+  TObjectModelMarshalledPropertyWrapper = class(TObjectModelPropertyWrapper)
   protected
     FParentProperty: _PropertyInfo;
+    FParentDescriptor: IPropertyDescriptor;
+    FPropertyDescriptor: IPropertyDescriptor;
 
     function  GetObjectProperty(const obj: CObject): _PropertyInfo; override;
 
   public
-    constructor Create(const AParentProperty: _PropertyInfo; const AProperty: _PropertyInfo);
+    constructor Create(const AParentProperty: _PropertyInfo; const AParentDescriptor: IPropertyDescriptor;
+                        const AProperty: _PropertyInfo; const APropertyDescriptor: IPropertyDescriptor);
   end;
   {$ENDIF}
 
@@ -787,13 +794,17 @@ end;
 
 
 {$IFDEF APP_PLATFORM}
-constructor TObjectModelSubPropertyWrapper.Create(const AParentProperty: _PropertyInfo; const AProperty: _PropertyInfo);
+constructor TObjectModelMarshalledPropertyWrapper.Create(const AParentProperty: _PropertyInfo; const AParentDescriptor: IPropertyDescriptor;
+                        const AProperty: _PropertyInfo; const APropertyDescriptor: IPropertyDescriptor);
 begin
   inherited Create(AProperty);
+
   FParentProperty := AParentProperty;
+  FParentDescriptor := AParentDescriptor;
+  FPropertyDescriptor := APropertyDescriptor;
 end;
 
-function TObjectModelSubPropertyWrapper.GetObjectProperty(const obj: CObject): _PropertyInfo;
+function TObjectModelMarshalledPropertyWrapper.GetObjectProperty(const obj: CObject): _PropertyInfo;
 begin
   Result := FParentProperty;
 end;
