@@ -702,7 +702,7 @@ begin
       // Obj   -> IProject
       // Value -> Customer
       // var props := AProperty.Name.Split(['.']);
-      var o := _Descriptor.Formatter.Unmarshal(Obj, Value);
+      var o := _Descriptor.Marshaller.Unmarshal(Obj, Value);
       if o <> nil then
       begin
         var fmt := _Descriptor.Formatter.Format(Obj, o, nil);
@@ -813,7 +813,7 @@ begin
   begin
     var item := _picklist[ix];
     if (item <> nil) and (_Descriptor <> nil) then
-      Result := _Descriptor.Formatter.Marshal(get_ObjectModelContext.Context, item);
+      Result := _Descriptor.Marshaller.Marshal(get_ObjectModelContext.Context, item);
   end;
   {$ELSEIF DELPHI}
   var ix := _Control.ItemIndex;

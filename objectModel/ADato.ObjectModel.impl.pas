@@ -173,6 +173,31 @@ type
   end;
 
   {$IFDEF APP_PLATFORM}
+  TPropertyWithDescriptor = class(CPropertyInfo, IPropertyDescriptor)
+  protected
+    _PropertyDescriptor: IPropertyDescriptor;
+
+    function  GetValue(const obj: CObject; const index: array of CObject): CObject; override;
+    procedure SetValue(const obj: CObject; const Value: CObject; const index: array of CObject; ExecuteTriggers: Boolean = false); override;
+
+  public
+    constructor Create(const AOwnerType: &Type; const AType: &Type; APropInfo: IPropInfo; const ADescriptor: IPropertyDescriptor);
+
+    property PropertyDescriptor: IPropertyDescriptor read _PropertyDescriptor implements IPropertyDescriptor;
+  end;
+
+  TNestedProperty = class(CPropertyInfo)
+  protected
+    _subProperty: _PropertyInfo;
+    [weak]_parentProperty: _PropertyInfo;
+
+//    function  GetValue(const obj: CObject; const index: array of CObject): CObject; override;
+//    procedure SetValue(const obj: CObject; const Value: CObject; const index: array of CObject; ExecuteTriggers: Boolean = false); override;
+
+  public
+//    constructor Create(const AParent: _PropertyInfo; const ASubProperty: _PropertyInfo);
+  end;
+
   TObjectModelMarshalledPropertyWrapper = class(TObjectModelPropertyWrapper)
   protected
     FParentProperty: _PropertyInfo;
@@ -794,6 +819,21 @@ end;
 
 
 {$IFDEF APP_PLATFORM}
+constructor TPropertyWithDescriptor.Create(const AOwnerType: &Type; const AType: &Type; APropInfo: IPropInfo; const ADescriptor: IPropertyDescriptor);
+begin
+  inherited Create(AOwnerType, AType, APropInfo);
+end;
+
+function TPropertyWithDescriptor.GetValue(const obj: CObject; const index: array of CObject): CObject;
+begin
+  Result := inherited;
+end;
+
+procedure TPropertyWithDescriptor.SetValue(const obj: CObject; const Value: CObject; const index: array of CObject; ExecuteTriggers: Boolean = false);
+begin
+  inherited;
+end;
+
 constructor TObjectModelMarshalledPropertyWrapper.Create(const AParentProperty: _PropertyInfo; const AParentDescriptor: IPropertyDescriptor;
                         const AProperty: _PropertyInfo; const APropertyDescriptor: IPropertyDescriptor);
 begin
