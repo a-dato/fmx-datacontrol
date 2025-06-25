@@ -43,7 +43,7 @@ type
     procedure OnEditorKeyDown(var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
     procedure OnEditorExit;
 
-    function  DoCellParsing(const Cell: IDCTreeCell; var AValue: CObject): Boolean;
+    function  DoCellParsing(const Cell: IDCTreeCell; IsCheckOnEndEdit: Boolean; var AValue: CObject): Boolean;
   end;
 
   IDCCellEditor = interface

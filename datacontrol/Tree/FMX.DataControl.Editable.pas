@@ -54,6 +54,7 @@ type
     procedure InternalSetCurrent(const Index: Integer; const EventTrigger: TSelectionEventTrigger; Shift: TShiftState; SortOrFilterChanged: Boolean = False); override;
 
     function  CanRealignContent: Boolean; override;
+    function  CanEditCell(const Cell: IDCTreeCell): Boolean;
 
     procedure ShowEditor(const Cell: IDCTreeCell; const StartEditArgs: DCStartEditEventArgs; const UserValue: string = '');
     procedure HideEditor;
@@ -117,7 +118,7 @@ type
 
     function  DoEditRowStart(const ARow: IDCTreeRow; var DataItem: CObject; IsNew: Boolean) : Boolean;
     function  DoEditRowEnd(const ARow: IDCTreeRow): Boolean;
-    function  DoCellParsing(const Cell: IDCTreeCell; var AValue: CObject): Boolean;
+    function  DoCellParsing(const Cell: IDCTreeCell; IsCheckOnEndEdit: Boolean; var AValue: CObject): Boolean;
 
     function  DoAddingNew(out NewObject: CObject) : Boolean;
     function  DoUserDeletingRow(const Item: CObject) : Boolean;
@@ -185,7 +186,7 @@ uses
   FMX.DataControl.ControlClasses, 
   ADato.Collections.Specialized,
   System.Reflection, 
-  FMX.DataControl.ScrollableRowControl;
+  FMX.DataControl.ScrollableRowControl, FMX.Graphics;
 
 { TEditableDataControl }
 
@@ -268,17 +269,25 @@ begin
       Exit;
   end;
 
-  // check start edit
-  if (Key in [vkF2, vkReturn]) and not _editingInfo.CellIsEditing then
+  // check cell edit
+  if (Key in [vkF2, vkReturn]) and CanEditCell(GetActiveCell) then
   begin
-    StartEditCell(GetActiveCell);
+    if not _editingInfo.CellIsEditing then
+      StartEditCell(GetActiveCell)
+    else if Key = vkReturn then
+      EndEditCell;
+
     Key := 0;
   end
 
-  // check end edit
-  else if (Key = vkReturn) and _editingInfo.CellIsEditing then
+  // check enter
+  else if (Key = vkReturn) then
   begin
-    EndEditCell;
+    if Assigned(OnDblClick) then
+      OnDblClick(Self)
+    else
+      DoCellSelected(GetActiveCell, TSelectionEventTrigger.Key);
+
     Key := 0;
   end
 
@@ -329,8 +338,16 @@ begin
         Exit;
     end;
 
-    if not (Key in [vkUp, vkDown, vkLeft, vkRight, vkPrior, vkEnd, vkHome, vkEnd, vkShift, vkControl, vkMenu, vkTab, vkReturn]) then
-      StartEditCell(GetActiveCell, KeyChar);
+    if KeyChar.IsLetterOrDigit then
+    begin
+      if CanEditCell(GetActiveCell) then
+      begin
+        StartEditCell(GetActiveCell, KeyChar);
+        KeyChar := #0;
+      end
+      else
+        TryScrollToCellByKey(Key, KeyChar);
+    end;
   end;
 end;
 
@@ -724,7 +741,7 @@ begin
         newViewListIndex := drv.ViewIndex;
 
         GetDataModelView.Refresh;
-        _view.ResetView;
+        ResetView;
       end;
     end;
   end
@@ -737,7 +754,7 @@ begin
       inc(newViewListIndex);
 
     _view.GetViewList.Insert(newViewListIndex, NewItem);
-    _view.ResetView;
+    ResetView;
 
     newDataItem := newItem;
     newDataIndex := _view.OriginalData.IndexOf(NewItem);
@@ -750,15 +767,16 @@ begin
     // let the view know that we started with editing
     _view.StartEdit(_editingInfo.EditItem);
 
-    CalculateScrollBarMax;
+//    CalculateScrollBarMax;
 
-    var requestedSelection := _selectionInfo.Clone as ITreeSelectionInfo;
-    requestedSelection.UpdateLastSelection(newDataIndex, newViewListIndex, newDataItem);
-    ScrollSelectedIntoView(requestedSelection);
-
-    var row: IDCRow;
-    for row in _view.ActiveViewRows do
-      VisualizeRowSelection(row);
+    Self.DataItem := newDataItem;
+//    _forceCurrentIntoView := True;
+//    var requestedSelection := _selectionInfo.Clone as ITreeSelectionInfo;
+//    requestedSelection.UpdateLastSelection(newDataIndex, newViewListIndex, newDataItem);
+//    ScrollSelectedIntoView(requestedSelection);
+//
+//    for var row in _view.ActiveViewRows do
+//      VisualizeRowSelection(row);
   end;
 end;
 
@@ -984,22 +1002,31 @@ begin
   if _editingInfo.CellIsEditing then
   begin
     var EditRowEnd := False;
+
+    var val := _cellEditor.Value;
+    if not DoCellParsing(_cellEditor.Cell, True, {var} val) then
+    begin
+      CancelEdit(True);
+      Exit(False);
+    end else
+      _cellEditor.Value := val;
+
     if Assigned(_editCellEnd) then
     begin
       var endEditArgs: DCEndEditEventArgs;
-      AutoObject.Guard(DCEndEditEventArgs.Create(_cellEditor.Cell, _cellEditor.Value, _cellEditor.Editor, _editingInfo.EditItem), endEditArgs);
+      AutoObject.Guard(DCEndEditEventArgs.Create(_cellEditor.Cell, val, _cellEditor.Editor, _editingInfo.EditItem), endEditArgs);
       endEditArgs.EndRowEdit := False;
 
       _editCellEnd(Self, endEditArgs);
 
       if endEditArgs.Accept then
-        _cellEditor.Value := endEditArgs.Value else
+        val := endEditArgs.Value else
         Exit(False);
 
       EditRowEnd := endEditArgs.EndRowEdit;
     end;
 
-    SetCellData(_cellEditor.Cell, _cellEditor.Value);
+    SetCellData(_cellEditor.Cell, val);
 
     // KV: 24/01/2025
     // Update the actual contents of the cell after the data in the cell has changed
@@ -1036,6 +1063,11 @@ begin
   _editingInfo.RowEditingFinished;
 
   DoDataItemChangedInternal(GetActiveRow.DataItem); //, GetActiveRow.DataIndex);
+end;
+
+function TEditableDataControl.CanEditCell(const Cell: IDCTreeCell): Boolean;
+begin
+  Result := not Cell.Column.ReadOnly and not (TDCTreeOption.ReadOnly in _options);
 end;
 
 procedure TEditableDataControl.EndEditFromExternal;
@@ -1105,9 +1137,7 @@ end;
 
 procedure TEditableDataControl.ShowEditor(const Cell: IDCTreeCell; const StartEditArgs: DCStartEditEventArgs; const UserValue: string = '');
 var
-  pickList: IList;
   dataType: &Type;
-//  editor: IDCCellEditor;
 begin
   Assert(_cellEditor = nil);
 
@@ -1140,6 +1170,7 @@ begin
       _cellEditor := TDCCellDateTimeEditor.Create(self, Cell)
 
     else begin
+      var settings: ITextSettings;
       if StartEditArgs.MultilineEdit then
         _cellEditor := TDCTextCellMultilineEditor.Create(self, Cell) else
         _cellEditor := TDCTextCellEditor.Create(self, Cell);
@@ -1397,7 +1428,7 @@ begin
   end;
 end;
 
-function TEditableDataControl.DoCellParsing(const Cell: IDCTreeCell; var AValue: CObject) : Boolean;
+function TEditableDataControl.DoCellParsing(const Cell: IDCTreeCell; IsCheckOnEndEdit: Boolean; var AValue: CObject) : Boolean;
 var
   e: DCCellParsingEventArgs;
 
@@ -1405,7 +1436,7 @@ begin
   Result := True;
   if Assigned(_cellParsing) then
   begin
-    AutoObject.Guard(DCCellParsingEventArgs.Create(Cell, AValue), e);
+    AutoObject.Guard(DCCellParsingEventArgs.Create(Cell, AValue, IsCheckOnEndEdit), e);
     _cellParsing(Self, e);
 
     if e.DataIsValid then

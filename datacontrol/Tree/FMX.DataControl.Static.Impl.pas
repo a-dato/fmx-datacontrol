@@ -331,6 +331,7 @@ type
     function  get_TreeControl: IColumnsControl;
 //    procedure OnCollectionChanged(e: NotifyCollectionChangedEventArgs); override;
     function  FindIndexByCaption(const Caption: CString) : Integer;
+    function  FindIndexByTag(const Tag: CObject) : Integer;
     function  FindColumnByCaption(const Caption: CString) : IDCTreeColumn;
     function  FindColumnByPropertyName(const Name: CString) : IDCTreeColumn;
     function  FindColumnByTag(const Value: CObject) : IDCTreeColumn;
@@ -419,6 +420,7 @@ type
     _layoutColumns: List<IDCTreeLayoutColumn>;
     _flatColumns: List<IDCTreeLayoutColumn>;
     _overflow: Single;
+    _isScrolling: Boolean;
 
     function  get_LayoutColumns: List<IDCTreeLayoutColumn>;
     function  get_FlatColumns: List<IDCTreeLayoutColumn>;
@@ -441,6 +443,8 @@ type
     function  ContentOverFlow: Integer;
     function  FrozenColumnWidth: Single;
     function  RecalcRequired: Boolean;
+
+    procedure SetTreeIsScrolling(const IsScrolling: Boolean);
   end;
 
   TDCTreeCell = class(TBaseInterfacedObject, IDCTreeCell)
@@ -641,6 +645,7 @@ uses
   System.Math,
   FMX.Graphics,
   System.ClassHelpers,
+  FMX.Ani,
   {$ELSE}
   Wasm.FMX.ActnList,
   Wasm.FMX.Types,
@@ -720,7 +725,20 @@ var
 begin
   for i := 0 to Self.Count - 1 do
   begin
-    if CString.Equals(Self[i].Caption, Caption) then
+    if not CString.IsNullOrEmpty(Caption) and CString.Equals(Self[i].Caption, Caption) then
+      Exit(i);
+  end;
+
+  Result := -1;
+end;
+
+function TDCTreeColumnList.FindIndexByTag(const Tag: CObject): Integer;
+var
+  i: Integer;
+begin
+  for i := 0 to Self.Count - 1 do
+  begin
+    if (Tag <> nil) and CObject.Equals(Self[i].Tag, Tag) then
       Exit(i);
   end;
 
@@ -859,7 +877,7 @@ begin
     begin
       col := jv as TJSONObject;
 
-      if not col.TryGetValue<string>('Caption', caption) then continue;
+      if not col.TryGetValue<string>('Caption', caption) or CString.IsNullOrEmpty(caption) then continue;
       if not col.TryGetValue<string>('Tag', tag_string) then tag_string := '';
 
       if not col.TryGetValue<string>('Property', propertyName) then propertyName := '';
@@ -874,7 +892,6 @@ begin
       if not col.TryGetValue<Boolean>('ReadOnly', readonly) then readonly := False;
       if not col.TryGetValue<Boolean>('Checkbox', checkbox) then checkbox := False;
       if not col.TryGetValue<Integer>('Index', index) then index := -1;
-
 
       n := FindIndexByCaption(caption);
       if n = -1 then
@@ -1124,7 +1141,9 @@ begin
   Result := CellValue;
   if not FormatApplied and (Result <> nil) then
   begin
-    if Result.GetType.IsDateTime and CDateTime(Result).Equals(CDateTime.MinValue) then
+    //    if Result.GetType.IsDateTime and CDateTime(Result).Equals(CDateTime.MinValue) then
+    //      Result := nil
+    if Result.IsDateTime and CDateTime(Result).Equals(CDateTime.MinValue) then
       Result := nil
 
     else if not CString.IsNullOrEmpty(get_format) or (_formatProvider <> nil) then
@@ -1134,7 +1153,7 @@ begin
         formatSpec := CString.Concat('{0:', get_format, '}') else
         formatSpec := '{0}';
 
-      Result := CString.Format(_FormatProvider, formatSpec, [Result]);
+      Result := CString.Format(_formatProvider, formatSpec, [Result]);
     end;
   end;
 end;
@@ -1333,8 +1352,8 @@ begin
       headerCell.FilterControl := TGlyph.Create(Cell.Control);
       headerCell.FilterControl.Align := TAlignLayout.None;
       headerCell.FilterControl.HitTest := False;
-      headerCell.FilterControl.Width := CELL_MIN_INDENT;
-      headerCell.FilterControl.Height := CELL_MIN_INDENT;
+      headerCell.FilterControl.Width := HEADER_IMG_SIZE;
+      headerCell.FilterControl.Height := HEADER_IMG_SIZE;
       (headerCell.FilterControl as TGlyph).Images := imgList;
       (headerCell.FilterControl as TGlyph).ImageIndex := filterIndex;
 
@@ -1353,8 +1372,8 @@ begin
         headerCell.SortControl := TGlyph.Create(Cell.Control);
         headerCell.SortControl.Align := TAlignLayout.None;
         headerCell.SortControl.HitTest := False;
-        headerCell.SortControl.Width := CELL_MIN_INDENT;
-        headerCell.SortControl.Height := CELL_MIN_INDENT;
+        headerCell.SortControl.Width := HEADER_IMG_SIZE;
+        headerCell.SortControl.Height := HEADER_IMG_SIZE;
         (headerCell.SortControl as TGlyph).Images := imgList;
         Cell.Control.AddObject(headerCell.SortControl);
       end;
@@ -1401,6 +1420,8 @@ begin
   Assert(not _HideColumnInView);
 
   Cell.HideCellInView := False;
+  //doanimate
+//  FMX.Ani.TAnimator.AnimateFloatDelay(Cell.Control, 'Width', get_Width, 0.3, 0.5);
   Cell.Control.Width := get_Width;
   Cell.Control.Height := Cell.Row.Control.Height;
   Cell.Control.Position.Y := 0;
@@ -1414,19 +1435,19 @@ begin
 
     if headerCell.FilterControl <> nil then
     begin
-      headerCell.FilterControl.Position.Y := (headerCell.Control.Height - CELL_MIN_INDENT)/2;
+      headerCell.FilterControl.Position.Y := (headerCell.Control.Height - HEADER_IMG_SIZE)/2;
       headerCell.FilterControl.Position.X := startYPos;
-      headerCell.FilterControl.Width := CELL_MIN_INDENT;
-      headerCell.FilterControl.Height := CELL_MIN_INDENT;
+      headerCell.FilterControl.Width := HEADER_IMG_SIZE;
+      headerCell.FilterControl.Height := HEADER_IMG_SIZE;
 
-      startYPos := startYPos - CELL_MIN_INDENT - (2*ROW_CONTENT_MARGIN);
+      startYPos := startYPos - HEADER_IMG_SIZE - (2*ROW_CONTENT_MARGIN);
     end;
     if headerCell.SortControl <> nil then
     begin
-      headerCell.SortControl.Position.Y := (headerCell.Control.Height - CELL_MIN_INDENT)/2;
+      headerCell.SortControl.Position.Y := (headerCell.Control.Height - HEADER_IMG_SIZE)/2;
       headerCell.SortControl.Position.X := startYPos;
-      headerCell.SortControl.Width := CELL_MIN_INDENT;
-      headerCell.SortControl.Height := CELL_MIN_INDENT;
+      headerCell.SortControl.Width := HEADER_IMG_SIZE;
+      headerCell.SortControl.Height := HEADER_IMG_SIZE;
     end;
   end
   else begin
@@ -1435,7 +1456,7 @@ begin
     if Cell.ExpandButton <> nil then
     begin
       cell.ExpandButton.Position.Y := ROW_CONTENT_MARGIN;
-      cell.ExpandButton.Position.X := ROW_CONTENT_MARGIN;
+      cell.ExpandButton.Position.X := ROW_CONTENT_MARGIN + (indentPerLevel * cell.Row.ParentCount);
       spaceUsed := indentPerLevel * (cell.Row.ParentCount {can be 0} + 1);
     end
     else if Cell.Column.ShowHierarchy then
@@ -1480,10 +1501,10 @@ function TTreeLayoutColumn.CreateInfoControl(const Cell: IDCTreeCell; const Cont
 begin
   Result := nil;
   case ControlClassType of
-    Custom:
+    TInfoControlClass.Custom:
       Exit;
 
-    Text: begin
+    TInfoControlClass.Text: begin
       var txt := DataControlClassFactory.CreateText(Cell.Control);
       var settings: ITextSettings := txt as ITextSettings;
       settings.TextSettings.HorzAlign := TTextAlign.Leading;
@@ -1496,7 +1517,7 @@ begin
       Result := txt;
     end;
 
-    CheckBox: begin
+    TInfoControlClass.CheckBox: begin
       var check: IIsChecked;
       if Cell.Column.IsSelectionColumn and _treeControl.RadioInsteadOfCheck  then
         check := DataControlClassFactory.CreateRadioButton(Cell.Control) else
@@ -1507,13 +1528,13 @@ begin
       Result.HitTest := False;
     end;
 
-    Button: begin
+    TInfoControlClass.Button: begin
       var btn := DataControlClassFactory.CreateButton(Cell.Control);
       btn.Align := TAlignLayout.None;
       Result := btn;
     end;
 
-    Glyph: begin
+    TInfoControlClass.Glyph: begin
       var glyph := DataControlClassFactory.CreateGlyph(Cell.Control);
       glyph.Align := TAlignLayout.None;
       Result := glyph;
@@ -1556,7 +1577,7 @@ begin
         splitterLy.Cursor := crSizeWE;
         splitterLy.HitTest := True;
         splitterLy.Width := 1;
-        splitterLy.TouchTargetExpansion.Rect := RectF(3, 0, 3, 0);
+        splitterLy.TouchTargetExpansion.Rect := RectF(10, 0, 6, 0);
 
         rect.AddObject(splitterLy);
         headerCell.ResizeControl := splitterLy;
@@ -1881,7 +1902,8 @@ begin
 
   var columnsToCalculate: List<Integer> := CList<Integer>.Create;
   for layoutClmn in get_FlatColumns do
-    columnsToCalculate.Add(layoutClmn.Index);
+    if not _isScrolling or SameValue(layoutClmn.Width, 0) then
+      columnsToCalculate.Add(layoutClmn.Index);
 
   var totalWidth := _columnsControl.Content.Width;
   var widthLeft := totalWidth;
@@ -1971,36 +1993,58 @@ begin
 
   // step 1: hide all columns that do not fit on the right
   var minimumTotalWidth := 0.0;
-  for layoutClmn in get_FlatColumns do
-  begin
-    var minColumnWidth: Single;
-    case layoutClmn.Column.WidthType of
-      Percentage:
-        if SameValue(layoutClmn.Column.CustomWidth, -1) then
-          minColumnWidth := layoutClmn.Column.WidthMin else
-          minColumnWidth := layoutClmn.Width;
-      Pixel:
-        minColumnWidth := layoutClmn.Width;
-      AlignToContent:
-      begin
-        var available := _columnsControl.Control.Width - minimumTotalWidth;
-        if (available < layoutClmn.Width) and (available >= layoutClmn.Column.WidthMin) and (layoutClmn.Column.WidthMin > 0) then
-          layoutClmn.Width := available;
 
-        minColumnWidth := layoutClmn.Width;
+  for var ix := 0 to 1 do
+    for layoutClmn in get_FlatColumns do
+    begin
+      var minColumnWidth: Single := -1;
+      case layoutClmn.Column.WidthType of
+        Percentage:
+        begin
+          // already at round 0
+          if ix = 1 then
+            Continue;
+
+          if SameValue(layoutClmn.Column.CustomWidth, -1) then
+            minColumnWidth := layoutClmn.Column.WidthMin else
+            minColumnWidth := layoutClmn.Width;
+        end;
+        Pixel:
+        begin
+          // already at round 0
+          if ix = 1 then
+            Continue;
+
+          minColumnWidth := layoutClmn.Width;
+        end;
+        AlignToContent:
+        begin
+          // calculate in round 1
+          if ix = 0 then
+            Continue;
+
+
+          var available := _columnsControl.Content.Width - minimumTotalWidth;
+          if (available < layoutClmn.Width) and (available >= layoutClmn.Column.WidthMin) and (layoutClmn.Column.WidthMin > 0) then
+            layoutClmn.Width := available;
+
+          minColumnWidth := layoutClmn.Width;
+        end;
+      end;
+
+      if not SameValue(minColumnWidth, -1) then
+      begin
+        if minimumTotalWidth + minColumnWidth - 0.01 > _columnsControl.Content.Width then
+        begin
+          layoutClmn.HideColumnInView := True;
+          Continue;
+        end;
+
+        minimumTotalWidth := minimumTotalWidth + minColumnWidth;
       end;
     end;
 
-    if minimumTotalWidth + minColumnWidth > _columnsControl.Control.Width then
-    begin
-      layoutClmn.HideColumnInView := True;
-      Continue;
-    end;
-
-    minimumTotalWidth := minimumTotalWidth + minColumnWidth;
-  end;
-
-  var widthLeft := _columnsControl.Control.Width - minimumTotalWidth;
+  var widthLeft := _columnsControl.Content.Width - minimumTotalWidth;
   Assert(widthLeft >= 0);
 
   var potentialCount := 0;
@@ -2017,7 +2061,7 @@ begin
   var autoFitWidthType := TDCColumnWidthType.Pixel;
   for layoutClmn in get_FlatColumns do
   begin
-    if not ColumnCanAddWidth(layoutClmn) then
+    if (layoutClmn.Column.WidthType <> TDCColumnWidthType.Percentage) and not ColumnCanAddWidth(layoutClmn) then
       Continue;
 
     case layoutClmn.Column.WidthType of
@@ -2069,7 +2113,7 @@ begin
     begin
       var flatClmn := addableColumns[ix];
       var extraWidthPerColumn := widthLeft / addableColumns.Count;
-      if (_flatColumns.Count = potentialCount) and (_columnsControl.AutoExtraColumnSizeMax >= 0) then
+      if (_flatColumns.Count = potentialCount) and ((_columnsControl.AutoExtraColumnSizeMax/potentialCount) > extraWidthPerColumn) then
         extraWidthPerColumn := CMath.Min(extraWidthPerColumn, _columnsControl.AutoExtraColumnSizeMax);
 
       // percentageColumns are set back to minimum width
@@ -2116,6 +2160,11 @@ begin
 
   if recalcNeeded then
     _flatColumns := nil;
+end;
+
+procedure TDCTreeLayout.SetTreeIsScrolling(const IsScrolling: Boolean);
+begin
+  _isScrolling := IsScrolling;
 end;
 
 procedure TDCTreeLayout.UpdateColumnWidth(const FlatColumnIndex: Integer; const Width: Single);
@@ -2930,9 +2979,11 @@ procedure THeaderColumnResizeControl.DoSplitterMouseMove(Sender: TObject; Shift:
 begin
   var NewSize := X - _columnResizeControl.Position.X;
   if NewSize < _headerCell.Column.WidthMin then
-    NewSize := _headerCell.Column.WidthMin
-  else if (_headerCell.Column.WidthMax > _headerCell.Column.WidthMin) and (NewSize > _headerCell.Column.WidthMax) then
-    NewSize := _headerCell.Column.WidthMax;
+    NewSize := _headerCell.Column.WidthMin;
+
+  // we accept a column to be more width than maxWidth
+//  else if (_headerCell.Column.WidthMax > _headerCell.Column.WidthMin) and (NewSize > _headerCell.Column.WidthMax) then
+//    NewSize := _headerCell.Column.WidthMax;
 
   _columnResizeControl.Size.Width := NewSize;
   _columnResizeFullHeaderControl.Repaint;

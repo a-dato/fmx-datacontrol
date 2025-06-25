@@ -672,6 +672,8 @@ type
     class function Supports<T>(const Value: TObject; out Intf) : Boolean; overload;
     class function Supports<T>(const Value: CObject): Boolean; overload;
     class function Supports<T>(const Value: CObject; out Intf) : Boolean; overload;
+    class function Supports<T>(const Value: Variant): Boolean; overload;
+    class function Supports<T>(const Value: Variant; out Intf) : Boolean; overload;
 
     class procedure Call<T>(const Value: IInterface; Proc: TProc<T>);
     class function TryCall<T>(const Value: IInterface; Proc: TProc<T>) : Boolean;
@@ -825,15 +827,15 @@ type
     const
       NumberBufferBytes: Integer = $72;
 
-    private
-      baseAddress: PByte;
-      digits: PWideChar;
-      precision: Integer;
-      scale: Integer;
-      sign: boolean;
+//    private
+//      baseAddress: PByte;
+//      digits: PWideChar;
+//      precision: Integer;
+//      scale: Integer;
+//      sign: boolean;
 
-      constructor Create(stackBuffer: PByte);
-      function PackForNative: PByte;
+//      constructor Create(stackBuffer: PByte);
+//      function PackForNative: PByte;
     end;
 
   public
@@ -2332,7 +2334,6 @@ type
     procedure SetValue(const obj: CObject; const Value: CObject; const index: array of CObject; ExecuteTriggers: Boolean = false); virtual;
 
   public
-//    constructor Create(const AOwnerType: &Type; const AType: &Type; APropInfo: Pointer); overload;
     constructor Create(const AOwnerType: &Type; const AType: &Type; APropInfo: IPropInfo); overload;
     constructor Create(const AType: &Type; APropInfo: PPropInfo); overload;
 
@@ -2343,6 +2344,30 @@ type
     property OwnerType: &Type read get_OwnerType;
     property PropInfo: IPropInfo read get_PropInfo;
   end;
+
+  {$IFDEF APP_PLATFORM}
+  CPropertyWrapper = class(TBaseInterfacedObject, _PropertyInfo)
+  protected
+    _property: _PropertyInfo;
+
+    function  get_CanRead: Boolean; virtual;
+    function  get_CanWrite: Boolean; virtual;
+    function  get_Name: CString; virtual;
+    function  get_PropInfo: IPropInfo;
+    function  get_OwnerType: &Type;
+
+    function  GetAttributes: TArray<TCustomAttribute>;
+    function  GetValue(const obj: CObject; const index: array of CObject): CObject; virtual;
+    procedure SetValue(const obj: CObject; const Value: CObject; const index: array of CObject; ExecuteTriggers: Boolean = false); virtual;
+
+  public
+    constructor Create(const AProperty: _PropertyInfo);
+
+    function  GetHashCode: Integer; override;
+    function  ToString: CString; override;
+    function  GetType: &Type; override;
+  end;
+  {$ENDIF}
 
   TCreatePropertyInfo = reference to function(const AOwner: &Type; const AProperty: &Type; PropInfo: IPropInfo) : _PropertyInfo;
 
@@ -3325,6 +3350,68 @@ procedure CPropertyInfo.SetValue(const obj: CObject; const Value: CObject; const
 begin
   _propInfo.SetValue(obj, Value, index, ExecuteTriggers);
 end;
+
+{$IFDEF APP_PLATFORM}
+constructor CPropertyWrapper.Create(const AProperty: _PropertyInfo);
+begin
+  _property := AProperty;
+end;
+
+function CPropertyWrapper.get_CanRead: Boolean;
+begin
+  Result := _property.CanRead;
+end;
+
+function CPropertyWrapper.get_CanWrite: Boolean;
+begin
+  Result := _property.CanWrite;
+end;
+
+function CPropertyWrapper.get_Name: CString;
+begin
+  Result := _property.Name;
+end;
+
+function CPropertyWrapper.get_PropInfo: IPropInfo;
+begin
+  Result := _property.PropInfo;
+end;
+
+function CPropertyWrapper.GetAttributes: TArray<TCustomAttribute>;
+begin
+  Result := _property.GetAttributes;
+end;
+
+function CPropertyWrapper.GetType: &Type;
+begin
+  Result := _property.GetType;
+end;
+
+function CPropertyWrapper.get_OwnerType: &Type;
+begin
+  Result := _property.get_OwnerType;
+end;
+
+function CPropertyWrapper.GetHashCode: Integer;
+begin
+  Result := _property.GetHashCode;
+end;
+
+function CPropertyWrapper.ToString: CString;
+begin
+  Result := _property.ToString;
+end;
+
+function CPropertyWrapper.GetValue(const obj: CObject; const index: array of CObject): CObject;
+begin
+  Result := _property.GetValue(obj, index);
+end;
+
+procedure CPropertyWrapper.SetValue(const obj: CObject; const Value: CObject; const index: array of CObject; ExecuteTriggers: Boolean = false);
+begin
+  _property.SetValue(obj, Value, index, ExecuteTriggers);
+end;
+{$ENDIF}
 
 { CustomProperty }
 constructor CustomProperty.Create(
@@ -4980,7 +5067,18 @@ begin
   var tp := TypeInfo(T);
   var g := TypeToGuid(tp);
   Result := Interfaces.Supports(Value, g, Intf);
-  //Result := Interfaces.Supports(Value, TypeToGuid(TypeInfo(T)), Intf);
+end;
+
+class function Interfaces.Supports<T>(const Value: Variant): Boolean;
+begin
+  Result := VarSupports(Value, TypeToGuid(TypeInfo(T)));
+end;
+
+class function Interfaces.Supports<T>(const Value: Variant; out Intf) : Boolean;
+begin
+  var tp := TypeInfo(T);
+  var g := TypeToGuid(tp);
+  Result := VarSupports(Value, TypeToGuid(TypeInfo(T)), Intf);
 end;
 
 { CRandom }
@@ -11010,6 +11108,8 @@ begin
       Result := Word(ASet);
     otSLong, otULong:
       Result := Integer(ASet);
+    else
+      Result := 0;
   end;
 end;
 
@@ -11452,24 +11552,24 @@ begin
 end;
 
 { Number.NumberBuffer }
-constructor Number.NumberBuffer.Create(stackBuffer: PByte);
-begin
-  self.baseAddress := stackBuffer;
-  self.digits := PWideChar(Integer(stackBuffer) + 12);
-  self.precision := 0;
-  self.scale := 0;
-  self.sign := false
-end;
+//constructor Number.NumberBuffer.Create(stackBuffer: PByte);
+//begin
+//  self.baseAddress := stackBuffer;
+//  self.digits := PWideChar(Integer(stackBuffer) + 12);
+//  self.precision := 0;
+//  self.scale := 0;
+//  self.sign := false
+//end;
 
-function Number.NumberBuffer.PackForNative: PByte;
-begin
-  raise NotImplementedException.Create;
-//  baseAddress := PInteger(self.baseAddress);
-//  baseAddress[0] := self.precision;
-//  baseAddress[1] := self.scale;
-//  baseAddress[2] :=  {pseudo} (if self.sign then 1 else 0);
-//  Result := self.baseAddress
-end;
+//function Number.NumberBuffer.PackForNative: PByte;
+//begin
+//  raise NotImplementedException.Create;
+////  baseAddress := PInteger(self.baseAddress);
+////  baseAddress[0] := self.precision;
+////  baseAddress[1] := self.scale;
+////  baseAddress[2] :=  {pseudo} (if self.sign then 1 else 0);
+////  Result := self.baseAddress
+//end;
 
 { CTimeSpan }
 constructor CTimeSpan.Create(Value: Int64);

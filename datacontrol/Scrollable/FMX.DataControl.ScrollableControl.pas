@@ -118,6 +118,8 @@ type
     _content: TControl;
     _updateCount: Integer;
 
+    _totalDataHeight: Single;
+
     _realignContentTime: Int64;
     _paintTime: Int64;
 
@@ -132,6 +134,7 @@ type
     _debugCheck: Boolean;
     {$ENDIF}
 
+    procedure RealignContentStart; virtual;
     procedure BeforeRealignContent; virtual;
     procedure RealignContent; virtual;
     procedure AfterRealignContent; virtual;
@@ -139,6 +142,7 @@ type
 
     procedure DoRealignContent; virtual;
     function  RealignedButNotPainted: Boolean;
+    procedure BeforePainting; virtual;
 
     procedure SetBasicVertScrollBarValues; virtual;
     procedure SetBasicHorzScrollBarValues; virtual;
@@ -305,6 +309,16 @@ end;
 procedure TDCScrollableControl.AfterRealignContent;
 begin
   _realignState := TRealignState.AfterRealign;
+  CalculateScrollBarMax;
+end;
+
+procedure TDCScrollableControl.BeforePainting;
+begin
+  if _realignContentRequested and CanRealignContent then
+  begin
+    SetBasicVertScrollBarValues;
+    DoRealignContent;
+  end;
 end;
 
 procedure TDCScrollableControl.BeforeRealignContent;
@@ -423,14 +437,9 @@ begin
   if _stopwatch3.IsRunning then
   begin
     _stopwatch3.Stop;
-    Log('total repaint time: ' + _stopwatch3.ElapsedMilliseconds.ToString + ' ms');
   end;
 
   _stopwatch3 := TStopwatch.StartNew;
-//  _stopwatch3 := TStopwatch.Create;
-
-//  Log('total realign time: ' + (_realignContentTime).ToString + ' ms');
-  Log('total renewal time: ' + (_realignContentTime+_paintTime).ToString + ' ms');
   {$ENDIF}
   {$ENDIF}
 
@@ -440,6 +449,7 @@ begin
 
   var stopwatch := TStopwatch.StartNew;
 
+  RealignContentStart;
   try
     BeforeRealignContent;
     try
@@ -457,10 +467,10 @@ begin
   stopwatch.Stop;
   _realignContentTime := stopwatch.ElapsedMilliseconds;
 
-  {$IFDEF DEBUG}
-//  Log('total realign time: ' + (_realignContentTime).ToString + ' ms');
-//  Log('_stopwatch3: ' + _stopwatch3.ElapsedMilliseconds.ToString + ' ms');
-  {$ENDIF}
+  Log('After RealignFinished: value=' + _vertScrollBar.Value.ToString);
+  Log('After RealignFinished: max=' + _vertScrollBar.Max.ToString);
+  Log('');
+  Log('');
 
   _scrollStopWatch_scrollbar := TStopwatch.StartNew;
 end;
@@ -591,13 +601,17 @@ begin
     inherited;
 
     var doMouseClick := True;
-    var pixelsPerSecond := 0.0;
 
     if _vertScrollBar.Visible then
       doMouseClick := not TryExecuteMouseScrollBoostOnMouseEventStopped;
 
+    if doMouseClick then
+      doMouseClick :=
+        (X > _mousePositionOnMouseDown.X - 5) and (X < _mousePositionOnMouseDown.X + 5) and
+        ((Y - _content.Position.Y) > _mousePositionOnMouseDown.Y - 5) and ((Y - _content.Position.Y) < _mousePositionOnMouseDown.Y + 5);
+
     // determine the mouseUp as a click event
-    if doMouseClick and (pixelsPerSecond > -2) and (pixelsPerSecond < 2) then
+    if doMouseClick then
       UserClicked(Button, Shift, X, Y - _content.Position.Y);
 
     if _scrollStopWatch_mouse.IsRunning then
@@ -617,7 +631,7 @@ begin
 
   ScrollManualInstant(scrollBy);
 
-  if (_mouseRollingBoostDistanceToGo > -5) and (_mouseRollingBoostDistanceToGo < 5) then
+  if (_mouseRollingBoostDistanceToGo >= -5) and (_mouseRollingBoostDistanceToGo <= 5) then
     _mouseRollingBoostTimer.Enabled := False;
 end;
 
@@ -639,21 +653,8 @@ begin
 
   Handled := True;
 
-  // Delphi way of calculating wheel distance
-  // see: TStyledCustomScrollBox.MouseWheel
-  var offset: Double;
-  if _vertScrollBar <> nil then
-    offset := _vertScrollBar.SmallChange else
-    offset := _content.Height / ScrollBigStepsDivider;
-
-  offset := offset * WheelDelta / WheelDeltaDivider;
-
   var goUp := WheelDelta > 0;
-  if not goUp then
-    offset := offset * -1; // make it positive
-
   var scrollDIstance := Round(DefaultMoveDistance(not goUp));
-//  var cycles: Integer := Trunc(offset / scrollDistance) + 1;
 
   _mouseWheelSmoothScrollSpeedUp := CMath.Min(_mouseWheelSmoothScrollSpeedUp + 1, 8);
   ScrollManualTryAnimated(ifThen(goUp, 1, -1) * scrollDistance, _mouseWheelSmoothScrollTimer.Enabled);
@@ -759,18 +760,18 @@ end;
 
 procedure TDCScrollableControl.Painting;
 begin
-  if _realignContentRequested and CanRealignContent then
-  begin
-    SetBasicVertScrollBarValues;
-    DoRealignContent;
-  end;
-
+  BeforePainting;
   inherited;
 end;
 
 procedure TDCScrollableControl.RealignContent;
 begin
   _realignState := TRealignState.Realigning;
+end;
+
+procedure TDCScrollableControl.RealignContentStart;
+begin
+  _totalDataHeight := _content.Height;
 end;
 
 function TDCScrollableControl.RealignContentTime: Integer;
@@ -817,7 +818,9 @@ begin
 
   if CanRealignScrollCheck then
   begin
-    _scrollingType := TScrollingType.Other;
+    if not SameValue(YChange, 0) then
+      _scrollingType := TScrollingType.Other;
+
     DoRealignContent;
   end else
     RestartWaitForRealignTimer(0);
@@ -851,7 +854,7 @@ begin
   end;
 
   {$IFDEF DEBUG}
-  //forceGoImmediate := True;
+//  forceGoImmediate := True;
   {$ENDIF}
 
   // stop smooth scrolling and go fast
@@ -863,14 +866,12 @@ begin
 
     _scrollStopWatch_wheel_lastSpin := TStopWatch.StartNew;
 
-    Log('mousewheel: ' + _mouseWheelDistanceToGo.ToString);
     ScrollManualInstant(_mouseWheelDistanceToGo);
     _mouseWheelDistanceToGo := 0;
 
     Exit;
   end;
 
-  Log('mousewheel: reset');
   _mouseWheelSmoothScrollSpeedUp := 0;
   _mouseWheelDistanceToGo := _mouseWheelDistanceToGo + YChange;
   {$IFNDEF WEBASSEMBLY}

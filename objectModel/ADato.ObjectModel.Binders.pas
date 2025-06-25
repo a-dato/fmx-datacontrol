@@ -47,7 +47,11 @@ uses
   ADato.PropertyAccessibility.Intf,
   ADato.ObjectModel.intf,
   System.Collections,
-  System.Collections.Generic;
+  System.Collections.Generic, System.UITypes
+  {$IFDEF APP_PLATFORM}
+  , App.PropertyDescriptor.intf
+  {$ENDIF}
+  ;
 
 type
   IControlBinding = interface(IBaseInterface)
@@ -69,6 +73,7 @@ type
   protected
     {$IFDEF DELPHI}[weak]{$ENDIF} _ObjectModelContext: IObjectModelContext;
     {$IFDEF DELPHI}[weak]{$ENDIF} __PropertyInfo: _PropertyInfo;
+
     _UpdateCount: Integer;
     _executeTriggers: Boolean;
 
@@ -102,6 +107,10 @@ type
     function  WaitForNotifyModel: Boolean; virtual;
     procedure NotifyModel(Sender: TObject); virtual;
     procedure ExecuteOriginalOnChangeEvent; virtual; abstract;
+
+    {$IFDEF APP_PLATFORM}
+    function TryGetPropertyDescriptor(out ADescriptor: IPropertyDescriptor) : Boolean;
+    {$ENDIF}
   public
     class function  CreateBindingByControl(const Control: TFMXObject): IPropertyBinding;
     class procedure RegisterClassBinding(const ControlClass: TClass; const ControlBindingCreator: TControlBindingCreator);
@@ -266,7 +275,10 @@ type
     function  GetValue: CObject; override;
     procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject); override;
 
-    procedure SetFuncPickList(const Value: TGetPickList); override;
+    {$IFDEF APP_PLATFORM}
+    procedure ComboBoxMouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Single);
+    {$ENDIF}
+
   public
     constructor Create(AControl: TCombobox); reintroduce;
     destructor Destroy; override;
@@ -402,7 +414,6 @@ uses
   {$IFNDEF WEBASSEMBLY}
   FMX.Text,
   System.Math,
-  System.UITypes,
   FMX.Ani,
   {$ELSE}
   Wasm.FMX.Text,
@@ -411,7 +422,7 @@ uses
   {$ENDIF}
   ADato.Bitmap.intf,
   ADato.Duration,
-  ADato.Data.DataModel.intf;
+  ADato.Data.DataModel.intf, System.JSON;
 
 function TryConvertToUserFriendlyText(const Value: CObject; const PropertyInfo: _PropertyInfo; out AResult: CString): Boolean;
 var
@@ -559,7 +570,7 @@ begin
     ctrlClass := ctrlClass.ClassParent;
     if ctrlClass = TFmxObject then
     begin
-      Assert(1=2, 'Binding needs implementation');
+      Assert(1=2, 'No binding class registered for type: ' + Control.ClassName);
       Exit(nil);
     end;
   end;
@@ -676,6 +687,14 @@ begin
   Result := False;
 end;
 
+{$IFDEF APP_PLATFORM}
+function TPropertyBinding.TryGetPropertyDescriptor(out ADescriptor: IPropertyDescriptor) : Boolean;
+begin
+  var obj_prop: IObjectModelProperty;
+  Result := Interfaces.Supports<IObjectModelProperty>(__PropertyInfo, obj_prop) and Interfaces.Supports<IPropertyDescriptor>(obj_prop.ContainedProperty, ADescriptor);
+end;
+{$ENDIF}
+
 { TLabelControlBinding }
 
 
@@ -724,6 +743,10 @@ begin
   {$ELSE}
   _Control.OnChange := @NotifyModel;
   {$ENDIF}
+
+  {$IFDEF APP_PLATFORM}
+  _control.OnMouseDown := ComboboxMouseDown;
+  {$ENDIF}
 end;
 
 destructor TComboBoxControlBinding.Destroy;
@@ -736,12 +759,53 @@ begin
   {$ENDIF}
 end;
 
+{$IFDEF APP_PLATFORM}
+procedure TComboBoxControlBinding.ComboBoxMouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Single);
+begin
+  var descriptor: IPropertyDescriptor;
+  if (Button = TMouseButton.mbLeft) and (_pickList = nil) and TryGetPropertyDescriptor(descriptor) and (descriptor.Picklist <> nil) then
+  begin
+    var items := descriptor.Picklist.Items(nil);
+    if items.TryGetValue<IList>(_picklist) then
+    begin
+      _control.BeginUpdate;
+      try
+        _control.Items.Clear;
+        var formatter := descriptor.Formatter;
+
+        for var item in _picklist do
+        begin
+          var s: CString;
+          if formatter <> nil then
+            s := formatter.Format(get_ObjectModelContext.Context, item, nil) else
+            s := item.ToString();
+
+          if not CString.IsNullOrEmpty(s) then
+            _control.Items.Add(s);
+        end;
+      finally
+        _control.EndUpdate;
+      end;
+    end;
+  end;
+end;
+{$ENDIF}
+
 function TComboBoxControlBinding.GetValue: CObject;
 var
   o: CObject;
   s: CString;
 begin
-  {$IFDEF DELPHI}
+  {$IFDEF APP_PLATFORM}
+  var ix := _control.ItemIndex;
+  if _picklist = nil then
+  begin
+    if ix <> -1 then
+      Exit(_control.Items[ix]);
+  end
+  else if (ix >= 0) and (ix < (_picklist.Count - 1)) then
+    Result := _picklist[ix];
+  {$ELSEIF DELPHI}
   var ix := _Control.ItemIndex;
   if not GoWithPicklist then
   if ix <> -1 then
@@ -765,13 +829,41 @@ begin
   {$ENDIF}
 end;
 
-procedure TComboBoxControlBinding.SetFuncPickList(const Value: TGetPickList);
-begin
-  inherited;
-end;
-
 procedure TComboBoxControlBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
 begin
+  {$IFDEF APP_PLATFORM}
+  if IsUpdating or IsLinkedProperty(AProperty) then Exit;
+
+  BeginUpdate;
+  try
+    if Value = nil then
+    begin
+      _control.ItemIndex := -1;
+      Exit;
+    end;
+
+    var value_string: CString;
+    if value_string = nil then
+      value_string := Value.ToString;
+
+    if value_string <> nil then
+    begin
+      var i := -1;
+      if _control.Items <> nil then
+        i := _control.Items.IndexOf(value_string);
+
+      if i = -1 then
+      begin
+        _control.Items.Clear;
+        _control.Items.Add(value_string);
+        _control.ItemIndex := 0;
+      end else
+        _control.ItemIndex := i;
+    end;
+  finally
+    EndUpdate;
+  end;
+  {$ELSE}
   if IsUpdating or IsLinkedProperty(AProperty) then Exit;
 
   BeginUpdate;
@@ -785,6 +877,7 @@ begin
   finally
     EndUpdate;
   end;
+  {$ENDIF}
 end;
 
 { TMemoControlBinding }

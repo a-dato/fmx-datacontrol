@@ -15,7 +15,11 @@ uses
   {$ENDIF}  
   System_,
   System.Collections, 
-  System.Collections.Generic;
+  System.Collections.Generic
+  {$IFDEF APP_PLATFORM}
+  , App.PropertyDescriptor.intf
+  {$ENDIF}
+  ;
 
 type
   IPropertyBinding = interface;
@@ -180,8 +184,10 @@ type
   end;
 
   TGetPickList = reference to function: IList;
+
   IPropertyBinding = interface(IBaseInterface)
     ['{062F7D9E-B01F-423C-92AC-96C1CC925EEE}']
+
     function  get_ObjectModelContext: IObjectModelContext;
     procedure set_ObjectModelContext(const Value: IObjectModelContext);
     function  get_PropertyInfo: _PropertyInfo;
@@ -199,6 +205,7 @@ type
 
     property ObjectModelContext: IObjectModelContext read get_ObjectModelContext write set_ObjectModelContext;
     property PropertyInfo: _PropertyInfo read get_PropertyInfo write set_PropertyInfo;
+
     property ExecuteTriggers: Boolean read get_ExecuteTriggers write set_ExecuteTriggers;
     property FuncPickList: TGetPickList read GetFuncPickList write SetFuncPickList;
   end;

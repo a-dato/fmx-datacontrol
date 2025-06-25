@@ -146,6 +146,7 @@ type
   end;
 
   DCRowEditEventArgs = class(DCRowEventArgs)
+
   protected
     _IsEdit: Boolean;
 
@@ -164,6 +165,7 @@ type
 
 
   DCAddingNewEventArgs = class(EventArgs)
+
   public
     NewObject: CObject;
     AcceptIfNil: Boolean;
@@ -171,12 +173,14 @@ type
 
 
   DCDeletingEventArgs = class(EventArgs)
+
   public
     DataItem: CObject;
     Cancel: Boolean;
 
     constructor Create(const ADataItem: CObject); reintroduce;
   end;
+
 
   DCStartEditEventArgs = class(BasicEventArgs)
   protected
@@ -203,6 +207,7 @@ type
 
 
   DCEndEditEventArgs = class(BasicEventArgs)
+
   protected
     _EditItem: CObject;
 
@@ -226,8 +231,9 @@ type
   public
     DataIsValid: Boolean;
     Value: CObject;
+    IsCheckOnEndEdit: Boolean;
 
-    constructor Create(const ACell: IDCTreeCell; const AValue: CObject);
+    constructor Create(const ACell: IDCTreeCell; const AValue: CObject; AIsCheckOnEndEdit: Boolean);
 
     property Cell: IDCTreeCell read  _Cell;
   end;
@@ -257,9 +263,12 @@ type
   DCTreePositionArgs = class(EventArgs)
   public
     TotalColumnWidth: Single;
+    RowControl: TControl;
 
-    constructor Create(const ATotalColumnWidth: Single);
+    constructor Create(const ATotalColumnWidth: Single; ARowControl: TControl);
     function GetMaxY(const LastRow: IDCRow; const ControlMaxY: Single): Single;
+    function AllViewRowsVisible: Boolean;
+    function GetRowsHeight: Single;
   end;
 
   CellLoadingEvent = procedure(const Sender: TObject; e: DCCellLoadingEventArgs) of object;
@@ -277,6 +286,7 @@ type
   TOnCompareRows = function (Sender: TObject; const Left, Right: CObject): integer of object;
   TOnCompareColumnCells = function(Sender: TObject; const TreeColumn: IDCTreeColumn; const Left, Right: CObject): integer of object;
 
+
   RowLoadedEvent  = procedure (const Sender: TObject; e: DCRowEventArgs) of object;
   RowEditEvent = procedure(const Sender: TObject; e: DCRowEditEventArgs) of object;
   StartEditEvent  = procedure(const Sender: TObject; e: DCStartEditEventArgs) of object;
@@ -292,6 +302,9 @@ type
   TreePositionedEvent = procedure(const Sender: TObject; e: DCTreePositionArgs) of object;
 
 implementation
+
+uses
+  FMX.DataControl.ScrollableRowControl;
 
 class procedure TDataControlEventRegistration.DoRegister;
 begin
@@ -403,12 +416,13 @@ end;
 
 { DCCellParsingEventArgs }
 
-constructor DCCellParsingEventArgs.Create(const ACell: IDCTreeCell; const AValue: CObject);
+constructor DCCellParsingEventArgs.Create(const ACell: IDCTreeCell; const AValue: CObject; AIsCheckOnEndEdit: Boolean);
 begin
   inherited Create(ACell);
 
   Value := AValue;
   DataIsValid := True;
+  IsCheckOnEndEdit := AIsCheckOnEndEdit;
 end;
 
 { DCRowEventArgs }
@@ -489,10 +503,17 @@ end;
 
 { DCTreePositionArgs }
 
-constructor DCTreePositionArgs.Create(const ATotalColumnWidth: Single);
+function DCTreePositionArgs.AllViewRowsVisible: Boolean;
+begin
+  var dc := RowControl as TDCScrollableRowControl;
+  Result := dc.View.ViewCount = dc.View.ActiveViewRows.Count;
+end;
+
+constructor DCTreePositionArgs.Create(const ATotalColumnWidth: Single; ARowControl: TControl);
 begin
   inherited Create;
   TotalColumnWidth := ATotalColumnWidth;
+  RowControl := ARowControl;
 end;
 
 function DCTreePositionArgs.GetMaxY(const LastRow: IDCRow; const ControlMaxY: Single): Single;
@@ -500,5 +521,20 @@ begin
   Result := CMath.Min(LastRow.Control.Position.Y + LastRow.Height, ControlMaxY);
 end;
 
+function DCTreePositionArgs.GetRowsHeight: Single;
+begin
+  var dc := RowControl as TDCScrollableRowControl;
+
+  Result := 0.0;
+  var row: IDCRow;
+  for row in dc.View.ActiveViewRows do
+    Result := Result + row.Height;
+end;
+
 end.
+
+
+
+
+
 

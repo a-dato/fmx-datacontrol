@@ -143,8 +143,6 @@ begin
 end;
 
 procedure TMultiEditableObjectModelContext.OnContextChanged(const Sender: IObjectListModel; const Context: IList);
-var
-  omc: IObjectModelContext;
 begin
   if Context = nil then
     Exit;

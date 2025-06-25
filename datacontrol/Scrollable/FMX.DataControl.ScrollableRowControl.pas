@@ -73,6 +73,7 @@ type
     _selectionType: TSelectionType;
     _rowHeightFixed: Single;
     _rowHeightDefault: Single;
+    _rowHeightMax: Single;
     _options: TDCTreeOptions;
     _allowNoneSelected: Boolean;
     _rowHeightSynchronizer: TDCScrollableRowControl;
@@ -95,8 +96,9 @@ type
     procedure set_AllowNoneSelected(const Value: Boolean);
     function  get_NotSelectableItems: IList;
     procedure set_NotSelectableItems(const Value: IList);
+    procedure set_RowHeightMax(const Value: Single);
 
-    function  get_rowHeightDefault: Single;
+    function  get_rowHeightDefault: Single; virtual;
     function  get_RowHeightSynchronizer: TDCScrollableRowControl;
     procedure set_RowHeightSynchronizer(const Value: TDCScrollableRowControl);
 
@@ -116,7 +118,6 @@ type
   private
     _scrollbarMaxChangeSinceViewLoading: Single;
     _scrollbarRefToTopHeightChangeSinceViewLoading: Single;
-    _scrollbarSpaceLeft: Single;
 
     procedure UpdateVirtualYPositions(const TopVirtualYPosition: Single; const ToViewIndex: Integer = -1);
 
@@ -124,6 +125,8 @@ type
     procedure DoViewLoadingFinished;
     procedure CreateAndSynchronizeSynchronizerRow(const Row: IDCRow);
     procedure UpdateRowHeightSynchronizerScrollbar;
+    procedure set_RowHeightDefault(const Value: Single);
+    procedure set_RowHeightFixed(const Value: Single);
 
   protected
     _view: IDataViewList;
@@ -144,6 +147,7 @@ type
     procedure DoEnter; override;
     procedure DoExit; override;
 
+    procedure RealignContentStart; override;
     procedure BeforeRealignContent; override;
     procedure RealignContent; override;
     procedure AfterRealignContent; override;
@@ -152,8 +156,10 @@ type
 
     procedure RealignFromSelectionChange(const StartY, StopY: Single; CalculateViewFrom: TCalculateViewFrom);
     procedure InnerRealignContent(const StartY, StopY: Single; CalculateViewFrom: TCalculateViewFrom);
+    procedure AfterRowHeightsChanged(const TopVirtualYPosition: Single; const CalculateViewFrom: TCalculateViewFrom = TCalculateViewFrom.Top);
 
     procedure SetBasicVertScrollBarValues; override;
+    procedure BeforePainting; override;
 
     function  DoCreateNewRow: IDCRow; virtual;
     procedure InnerInitRow(const Row: IDCRow); virtual;
@@ -171,8 +177,8 @@ type
     procedure ScrollSelectedIntoView(const RequestedSelectionInfo: IRowSelectionInfo);
     function  CreateDummyRowForChanging(const FromSelectionInfo: IRowSelectionInfo): IDCRow; virtual;
 
-    procedure AlignRowsFromReferenceToTop(const BottomReferenceRow: IDCRow; const StartY, StopY: Single; out TopVirtualYPosition: Single);
-    procedure AlignRowsFromReferenceToBottom(const TopReferenceRow: IDCRow; const StartY, StopY: Single);
+    procedure AlignRowsFromReferenceToTop(const BottomReferenceRow: IDCRow; var SpaceForRows: Single);
+    procedure AlignRowsFromReferenceToBottom(const TopReferenceRow: IDCRow; var SpaceForRows: Single);
 
     procedure UpdateYPositionRows;
     procedure UpdateScrollBarValues(const CalculateViewFrom: TCalculateViewFrom);
@@ -182,9 +188,15 @@ type
 
     procedure UserClicked(Button: TMouseButton; Shift: TShiftState; const X, Y: Single); override;
     function  DefaultMoveDistance(ScrollDown: Boolean): Single; override;
+    function  CalculateAverageRowHeight: Single;
+
+    procedure CheckVertScrollbarVisibility;
     procedure CalculateScrollBarMax; override;
     procedure InternalDoSelectRow(const Row: IDCRow; Shift: TShiftState);
+
+public
     procedure OnViewChanged;
+protected
 
     function  ListHoldsOrdinalType: Boolean;
     procedure HandleTreeOptionsChange(const OldFlags, NewFlags: TDCTreeOptions); virtual;
@@ -289,8 +301,9 @@ type
     property AllowNoneSelected: Boolean read _allowNoneSelected write set_AllowNoneSelected default False;
     property CanDragDrop: Boolean read _canDragDrop write _canDragDrop default False;
 
-    property RowHeightFixed: Single read _rowHeightFixed write _rowHeightFixed;
-    property RowHeightDefault: Single read get_rowHeightDefault write _rowHeightDefault;
+    property RowHeightFixed: Single read _rowHeightFixed write set_RowHeightFixed;
+    property RowHeightDefault: Single read get_rowHeightDefault write set_RowHeightDefault;
+    property RowHeightMax: Single read _rowHeightMax write set_RowHeightMax;
 
     {$IFNDEF WEBASSEMBLY}
     property RowLoaded: RowLoadedEvent read _rowLoaded write _rowLoaded;
@@ -385,26 +398,45 @@ begin
 
   var di := ConvertToDataItem(DataItem);
 
-  var current: IDCRow := nil;
+  var currentRow: IDCRow := nil;
   var row: IDCRow;
   for row in _view.ActiveViewRows do
     if CObject.Equals(ConvertToDataItem(row.DataItem), di) then
-    begin
-      current := row;
+      currentRow := row;
 
-//      // Changed item is a clone..
-//      var drv: IDataRowView;
-//      if interfaces.Supports<IDataRowView>(current.DataItem, drv) then
-//        drv.Row.Data := DataItem else
-//        current.DataItem := DataItem;
-    end;
-
-  if current = nil then
+  if currentRow = nil then
     Exit; // nothing to do
 
-  InnerInitRow(current);
-  DoRowLoaded(current);
-  DoRowAligned(current);
+  var originalHeight := _view.CachedRowHeight(currentRow.ViewListIndex);
+
+  // reset row height
+  _view.ClearViewRecInfo(currentRow.ViewListIndex, True);
+  if _rowHeightSynchronizer <> nil then
+    _rowHeightSynchronizer.View.ClearViewRecInfo(currentRow.ViewListIndex, True);
+
+  InnerInitRow(currentRow);
+  DoRowLoaded(currentRow);
+
+  _view.RowLoaded(currentRow, False);
+
+  if _rowHeightSynchronizer <> nil then
+    _isMasterSynchronizer := True;
+  try
+    CreateAndSynchronizeSynchronizerRow(currentRow);
+
+    if not SameValue(originalHeight, currentRow.Height) then
+    begin
+      AfterRowHeightsChanged(_view.ActiveViewRows[0].VirtualYPosition);
+
+      AfterRealignContent;
+      RealignFinished;
+    end;
+  finally
+    if _rowHeightSynchronizer <> nil then
+      _isMasterSynchronizer := False;
+  end;
+
+  DoRowAligned(currentRow);
 end;
 
 procedure TDCScrollableRowControl.DoEnter;
@@ -507,6 +539,8 @@ begin
     _rowHeightSynchronizer.VertScrollBar.Max := _vertScrollBar.Max;
     _rowHeightSynchronizer.VertScrollBar.ViewportSize := _vertScrollBar.ViewportSize;
     _rowHeightSynchronizer.VertScrollBar.Value := _vertScrollBar.Value;
+
+    _rowHeightSynchronizer.CheckVertScrollbarVisibility;
   finally
     dec(_rowHeightSynchronizer._scrollUpdateCount);
   end;
@@ -848,10 +882,9 @@ begin
   begin
     inc(_scrollUpdateCount);
     try
-      var totalDataHeight := _view.TotalDataHeight(get_rowHeightDefault);
-      _scrollbarSpaceLeft := CMath.Max(_content.Height - totalDataHeight, 0);
-
-      _vertScrollBar.Max := CMath.Max(totalDataHeight, _content.Height);
+      var newHeight := CMath.Max(_totalDataHeight, _content.Height);
+      if (_realignState > TRealignState.Realigning) or (newHeight > _vertScrollBar.Max) then
+        _vertScrollBar.Max := newHeight;
     finally
       dec(_scrollUpdateCount);
     end;
@@ -859,7 +892,7 @@ begin
     UpdateRowHeightSynchronizerScrollbar;
   end;
 
-  _vertScrollBar.Visible := (_view <> nil) and (not (TDCTreeOption.HideVScrollBar in _options)) and (_vertScrollBar.ViewPortSize + IfThen(_horzScrollBar.Visible, _horzScrollBar.Height, 0) < _vertScrollBar.Max);
+  CheckVertScrollbarVisibility;
 end;
 
 function TDCScrollableRowControl.CanRealignContent: Boolean;
@@ -878,6 +911,16 @@ begin
       if setMaster then
         _isMasterSynchronizer := False;
     end;
+  end;
+end;
+
+procedure TDCScrollableRowControl.CheckVertScrollbarVisibility;
+begin
+  inc(_updateCount);
+  try
+    _vertScrollBar.Visible := (_view <> nil) and (not (TDCTreeOption.HideVScrollBar in _options)) and (_vertScrollBar.ViewPortSize + IfThen(_horzScrollBar.Visible, _horzScrollBar.Height, 0) < _vertScrollBar.Max);
+  finally
+    dec(_updateCount);
   end;
 end;
 
@@ -1031,6 +1074,9 @@ begin
       try
         (txt as ICaption).Text := 'Ag';
         _rowHeightDefault := TextControlHeight(txt, (txt as ITextSettings).TextSettings, 'Ag') + (2*ROW_CONTENT_MARGIN);
+
+        if (_rowHeightMax > 0) and (_rowHeightMax < _rowHeightDefault) then
+          _rowHeightDefault := _rowHeightMax;
       finally
         txt.Free;
       end;
@@ -1202,6 +1248,38 @@ begin
   HandleTreeOptionsChange(oldFlags, _options);
 end;
 
+procedure TDCScrollableRowControl.set_RowHeightDefault(const Value: Single);
+begin
+  _rowHeightDefault := Value;
+  if (_rowHeightDefault > 0) and (_rowHeightMax > 0) then
+  begin
+    if _rowHeightMax < _rowHeightDefault then
+      _rowHeightMax := _rowHeightDefault;
+  end;
+end;
+
+procedure TDCScrollableRowControl.set_RowHeightFixed(const Value: Single);
+begin
+  _rowHeightFixed := Value;
+  if (_rowHeightFixed > 0) and (_rowHeightMax > 0) then
+  begin
+    if _rowHeightMax < _rowHeightFixed then
+      _rowHeightMax := _rowHeightFixed;
+  end;
+end;
+
+procedure TDCScrollableRowControl.set_RowHeightMax(const Value: Single);
+begin
+  _rowHeightMax := Value;
+  if (_rowHeightMax > 0) then
+  begin
+    if _rowHeightMax < _rowHeightFixed then
+      _rowHeightFixed := _rowHeightMax;
+    if _rowHeightMax < _rowHeightDefault then
+      _rowHeightDefault := _rowHeightMax;
+  end;
+end;
+
 procedure TDCScrollableRowControl.set_RowHeightSynchronizer(const Value: TDCScrollableRowControl);
 begin
   _rowHeightSynchronizer := Value;
@@ -1291,6 +1369,16 @@ begin
   {$ENDIF}
 end;
 
+procedure TDCScrollableRowControl.BeforePainting;
+begin
+  // if DoRealignContent should be called, but the paint event is earlier at it's "_rowHeightSynchronizer" control..
+  // make sure the calculations are done first
+  if not _realignContentRequested and (_rowHeightSynchronizer <> nil) and _rowHeightSynchronizer._realignContentRequested then
+    _rowHeightSynchronizer.BeforePainting;
+
+  inherited;
+end;
+
 procedure TDCScrollableRowControl.BeforeRealignContent;
 var
   sortChanged: Boolean;
@@ -1319,9 +1407,11 @@ begin
 
   inherited;
 
-  if _waitForRepaintInfo <> nil then
+  var repInfo := _waitForRepaintInfo;
+  var customDataItem: CObject := get_DataItem;
+
+  if repInfo <> nil then
   begin
-    var repInfo := _waitForRepaintInfo;
     if sortChanged then
       _view.ApplySort(repInfo.SortDescriptions);
 
@@ -1330,25 +1420,43 @@ begin
 
     // reset view
     if (sortChanged or filterChanged) then
+    begin
       ResetView;
 
+      // CalculateScrollBarMax is already done in inherited, but at that point the view is not correct yet
+      if filterChanged then
+        CalculateScrollBarMax;
+    end;
+
+    var viewIndex: Integer := -1;
     if TTreeRowState.RowChanged in repInfo.RowStateFlags then
     begin
-      // check scrollToPosition
-      // note: item can be filtered out
-      var viewIndex: Integer;
       if repInfo.DataItem <> nil then
         viewIndex := _view.GetViewListIndex(repInfo.DataItem) else
         viewIndex := repInfo.Current;
+    end;
 
-      if (viewIndex <> -1) and (_view.ViewCount > 0) then
-      begin
-        _selectionInfo.BeginUpdate;
-        try
-          _selectionInfo.UpdateLastSelection(_view.GetDataIndex(viewIndex), viewIndex, _view.GetViewList[viewIndex]);
-        finally
-          _selectionInfo.EndUpdate(True {ignore events});
-        end;
+    // if filter changed, we try to scroll back to the last selected dataitem
+    if (viewIndex = -1) and filterChanged and (customDataItem <> nil) then
+      viewIndex := _view.GetViewListIndex(customDataItem);
+
+    if (viewIndex <> -1) and (_view.ViewCount > 0) then
+    begin
+      _selectionInfo.BeginUpdate;
+      try
+//        if (GetDataModelView <> nil) and (viewIndex <> GetDataModelView.CurrencyManager.Current) then
+//        begin
+//          AtomicIncrement(_internalSelectCount);
+//          try
+//            GetDataModelView.CurrencyManager.Current := Self.DataItem.AsType<IDataRowView>.ViewIndex;
+//          finally
+//            AtomicDecrement(_internalSelectCount);
+//          end;
+//        end;
+
+        _selectionInfo.UpdateLastSelection(_view.GetDataIndex(viewIndex), viewIndex, _view.GetViewList[viewIndex]);
+      finally
+        _selectionInfo.EndUpdate(True {ignore events});
       end;
     end;
   end;
@@ -1364,46 +1472,21 @@ begin
   BeginAutoDrag;
 end;
 
-procedure TDCScrollableRowControl.AlignRowsFromReferenceToBottom(const TopReferenceRow: IDCRow; const StartY, StopY: Single);
+procedure TDCScrollableRowControl.AlignRowsFromReferenceToBottom(const TopReferenceRow: IDCRow; var SpaceForRows: Single);
 begin
   var thisRow := TopReferenceRow;
-  var prevRow: IDCRow := nil;
   var rowIndex := TopReferenceRow.ViewPortIndex;
   var createdRowsCount := _view.ActiveViewRows.Count;
 
   var startPoint := thisRow.VirtualYPosition;
 
-  // add one invisible row below view and InitRow it, so we know the height of that row
-  // when we select from bottom of view the row below, and the height changes,
-  // this will make sure the row gets on the correct position
-  var addOneRowBelow := False; //True;
-
   while thisRow <> nil do
   begin
     InitRow(thisRow, False);
+    spaceForRows := spaceForRows - thisRow.Height;
 
-    if thisRow.ViewListIndex = _view.ViewCount - 1 then
-      break;
-
-    if prevRow <> nil then
-      startPoint := startPoint + prevRow.Height;
-
-    var nextVirtualYPosition := startPoint + thisRow.Height + 1;
-
-    var beneethViewPortRange := nextVirtualYPosition >= StopY;
-    if beneethViewPortRange then
-    begin
-      if not addOneRowBelow or (thisRow.ViewListIndex = _view.ViewCount - 1) then
-        Exit;
-
-//      // if top row is selected, then already calculate row above to get correct height
-//      if (_selectionInfo.ViewListIndex <> thisRow.ViewListIndex - 1) and (_selectionInfo.ViewListIndex <> thisRow.ViewListIndex) then
-//        Exit;
-
-      addOneRowBelow := False;
-    end;
-
-    prevRow := thisRow;
+    if (spaceForRows <= 0) or (thisRow.ViewListIndex = _view.ViewCount - 1) then
+      Exit;
 
     inc(rowIndex);
     if rowIndex > createdRowsCount - 1 then
@@ -1412,36 +1495,18 @@ begin
   end;
 end;
 
-procedure TDCScrollableRowControl.AlignRowsFromReferenceToTop(const BottomReferenceRow: IDCRow; const StartY, StopY: Single; out TopVirtualYPosition: Single);
+procedure TDCScrollableRowControl.AlignRowsFromReferenceToTop(const BottomReferenceRow: IDCRow; var SpaceForRows: Single);
 begin
   var thisRow := BottomReferenceRow;
-  var prevRow: IDCRow := nil;
   var rowIndex := BottomReferenceRow.ViewPortIndex;
-
-  TopVirtualYPosition := thisRow.VirtualYPosition;
-
-  // add one invisible row above view and InitRow it, so we know the height of that row
-  // when we select from top of view the row above, and the height changes,
-  // this will make sure the row gets on the correct position
-  var addOneRowAbove := False; //_selectionInfo.ViewListIndex <> -1;
 
   while thisRow <> nil do
   begin
     InitRow(thisRow, True);
+    spaceForRows := spaceForRows - thisRow.Height;
 
-    if prevRow <> nil then
-      TopVirtualYPosition := TopVirtualYPosition - thisRow.Height;
-
-    var aboveViewPortRange := (TopVirtualYPosition <= StartY) or (thisRow.ViewListIndex = 0);
-    if aboveViewPortRange then
-    begin
-      if not addOneRowAbove or (thisRow.ViewListIndex = 0) then
-        Exit;
-
-      addOneRowAbove := False;
-    end;
-
-    prevRow := thisRow;
+    if (spaceForRows <= 0) or (thisRow.ViewListIndex = 0) then
+      Exit;
 
     dec(rowIndex);
     if rowIndex < 0 then
@@ -1477,8 +1542,6 @@ begin
 end;
 
 procedure TDCScrollableRowControl.InitRow(const Row: IDCRow; const IsAboveRefRow: Boolean = False);
-var
-  oldRowHeight: Single;
 begin
   var rowInfo := _view.RowLoadedInfo(Row.ViewListIndex);
   var rowNeedsReload := Row.IsScrollingIntoView or not rowInfo.InnerCellsAreApplied or (rowInfo.ControlNeedsResizeSoft and (_scrollingType = TScrollingType.None));
@@ -1491,6 +1554,7 @@ begin
 
   Row.OwnerIsScrolling := _scrollingType <> TScrollingType.None;
 
+  var oldRowHeight: Single := -1;
   if rowNeedsReload then
   begin
     oldRowHeight := _view.GetRowHeight(Row.ViewListIndex);
@@ -1507,24 +1571,11 @@ begin
 
       var rr := Row.Control as TRectangle;
       if (TreeOption_ShowHorzGrid in _options) then
-      begin
-    //    if Row.ViewPortIndex = 0 then
-    //      rr.Sides := [TSide.Bottom] else
-        rr.Sides := [TSide.Bottom];
-      end else
+        rr.Sides := [TSide.Bottom] else
         rr.Sides := [];
-
-      if (TreeOption_AlternatingRowBackground in _options) then
-      begin
-        rr.Fill.Kind := TBrushKind.Solid;
-
-        if Row.IsOddRow then
-          rr.Fill.Color := DEFAULT_GREY_COLOR else
-          rr.Fill.Color := DEFAULT_WHITE_COLOR;
-      end else
-        rr.Fill.Color := TAlphaColors.Null;
     end;
 
+    DataControlClassFactory.HandleRowBackground(TRectangle(Row.Control), (TreeOption_AlternatingRowBackground in _options) and not Row.IsOddRow);
     Row.Control.Position.X := 0;
 
     if not rowInfo.ControlNeedsResizeSoft then
@@ -1557,19 +1608,9 @@ begin
     if rowHeightChanged then
     begin
       var change := (Row.Height - oldRowHeight);
-
-      if _scrollbarSpaceLeft > 0 then
-      begin
-        _scrollbarSpaceLeft := _scrollbarSpaceLeft - change;
-        if _scrollbarSpaceLeft < 0 then
-          _scrollbarMaxChangeSinceViewLoading := _scrollbarMaxChangeSinceViewLoading - _scrollbarSpaceLeft;
-      end else
-      begin
-        _scrollbarMaxChangeSinceViewLoading := _scrollbarMaxChangeSinceViewLoading + change;
-
-        if {(_alignDirection = TAlignDirection.TopToBottom) {and (change < 0) and} IsAboveRefRow then
-          _scrollbarRefToTopHeightChangeSinceViewLoading := _scrollbarRefToTopHeightChangeSinceViewLoading + change;
-      end;
+      _scrollbarMaxChangeSinceViewLoading := _scrollbarMaxChangeSinceViewLoading + change;
+      if IsAboveRefRow then
+        _scrollbarRefToTopHeightChangeSinceViewLoading := _scrollbarRefToTopHeightChangeSinceViewLoading + change;
     end;
   end else
     VisualizeRowSelection(Row);
@@ -1618,23 +1659,21 @@ begin
 
     if Key = vkPrior then
     begin
+      if Current = 0 then
+        Exit;
+
       var rowZero := _view.ActiveViewRows[0];
       if rowZero.ViewListIndex = 0 then
-      begin
-        Current := 0;
-        Exit;
+        Current := 0
+      else begin
+        var stopY := CMath.Max(rowZero.VirtualYPosition + rowZero.Height - 2, _vertScrollBar.ViewportSize);
+        var startY := stopY - _vertScrollBar.ViewportSize;
+
+        RealignFromSelectionChange(startY, stopY, TCalculateViewFrom.Bottom);
+
+        viewListIndex := _view.ActiveViewRows[0].ViewListIndex;
+        InternalSetCurrent(viewListIndex, TSelectionEventTrigger.Key, Shift);
       end;
-
-      var available := _vertScrollBar.ViewportSize;
-      var newViewListIndex := -1;
-
-      var stopY := CMath.Max(rowZero.VirtualYPosition + rowZero.Height - 2, _vertScrollBar.ViewportSize);
-      var startY := stopY - _vertScrollBar.ViewportSize;
-
-      RealignFromSelectionChange(startY, stopY, TCalculateViewFrom.Bottom);
-
-      viewListIndex := _view.ActiveViewRows[0].ViewListIndex;
-      InternalSetCurrent(viewListIndex, TSelectionEventTrigger.Key, Shift);
 
       Key := 0;
       Exit;
@@ -1642,6 +1681,9 @@ begin
 
     else if Key = vkNext then
     begin
+      if Current = _view.ViewCount - 1 then
+        Exit;
+
       var rowBottom := _view.ActiveViewRows[_view.ActiveViewRows.Count - 1];
 
       var startY := CMath.Min(rowBottom.VirtualYPosition + 2{+ rowBottom.Height}, _vertScrollBar.Max - _vertScrollBar.ViewportSize);
@@ -1725,8 +1767,21 @@ begin
   // only clear row info from this row and below, because all rows above stay the same!
   ResetView(ViewListIndex);
 
+  // make sure scrollbars are up-to-date
+  DoRealignContent;
+
   if DoExpand then
-    ScrollManualTryAnimated(-Trunc(virtualYPos - _vertScrollBar.Value), False);
+  begin
+    // check if children fit in current view, otherwise scroll parent up...
+    var spaceAvailableForChildren := _vertScrollBar.ViewportSize - (virtualYPos - _vertScrollBar.Value);
+    var spaceNeeded := CalculateAverageRowHeight * (drv.DataView.DataModel.ChildCount(drv.Row) + 1 {for parent});
+
+    if spaceNeeded > spaceAvailableForChildren then
+    begin
+      var scrollBy := CMath.Min(spaceNeeded - spaceAvailableForChildren, virtualYPos - _vertScrollBar.Value);
+      ScrollManualTryAnimated(-Trunc(scrollBy), False);
+    end;
+  end;
 end;
 
 procedure TDCScrollableRowControl.OnItemAddedByUser(const Item: CObject; Index: Integer);
@@ -1839,30 +1894,25 @@ begin
   DoRealignContent;
 
   if _selectionInfo.DataItem <> nil then
+    Self.set_DataItem(_selectionInfo.DataItem);
+end;
+
+function TDCScrollableRowControl.CalculateAverageRowHeight: Single;
+begin
+  if _rowHeightFixed > 0 then
+    Exit(_rowHeightFixed);
+
+  var totalHeight: Single := 0;
+  var count: Integer := 0;
+
+  var row: IDCRow;
+  for row in _view.ActiveViewRows do
   begin
-    var newViewListIndex := _view.GetViewListIndex(_selectionInfo.DataItem);
-
-    // in case of sorting/filtering this is always the same
-    // in case of deleting/adding this can vary
-    var dataIndex: Integer;
-
-    if newViewListIndex <> -1 then
-      dataIndex := _view.GetDataIndex(_selectionInfo.DataItem) else
-      dataIndex := -1;
-
-    _selectionInfo.BeginUpdate;
-    try
-      if dataIndex <> -1 then
-        _selectionInfo.UpdateSingleSelection(dataIndex {not changed}, newViewListIndex, _selectionInfo.DataItem {not changed}) else
-        _selectionInfo.ClearAllSelections;  // when selection is removed from datalist
-
-    finally
-      _selectionInfo.EndUpdate(True {ignore change event});
-    end;
-
-    if (dataIndex = -1) then
-      SetSingleSelectionIfNotExists;
+    totalHeight := totalHeight + row.Height;
+    inc(count);
   end;
+
+  Result := totalHeight / count;
 end;
 
 procedure TDCScrollableRowControl.UpdateScrollBarValues(const CalculateViewFrom: TCalculateViewFrom);
@@ -1872,27 +1922,23 @@ begin
 
   inc(_scrollUpdateCount);
   try
-    var scrollBarIsAtBottom := not SameValue(_vertScrollBar.Value, 0) and (_vertScrollBar.Value + _vertScrollBar.ViewportSize >= _vertScrollBar.Max - 1);
-    var scrollBarWillGetHigher := _scrollbarMaxChangeSinceViewLoading > 0;
+    _totalDataHeight := _totalDataHeight + _scrollbarMaxChangeSinceViewLoading;
+    CalculateScrollBarMax;
 
-    _vertScrollBar.Max := _vertScrollBar.Max + _scrollbarMaxChangeSinceViewLoading;
+    if CalculateViewFrom = TCalculateViewFrom.None then
+    begin
+      var scrollBarIsAtBottom := not SameValue(_vertScrollBar.Value, 0) and (_vertScrollBar.Value + _vertScrollBar.ViewportSize >= _vertScrollBar.Max - 1);
+      var scrollBarWillGetHigher := _scrollbarMaxChangeSinceViewLoading > 0;
 
-    if CalculateViewFrom = TCalculateViewFrom.Top then
-    begin
-    end
-    else if CalculateViewFrom = TCalculateViewFrom.Bottom then
-    begin
-    end
-    else if not scrollBarIsAtBottom then
-      _vertScrollBar.Value := _vertScrollBar.Value + _scrollbarRefToTopHeightChangeSinceViewLoading
-    else if scrollBarWillGetHigher then
-      _vertScrollBar.Value := _vertScrollBar.Value + _scrollbarMaxChangeSinceViewLoading
-    else ; // do nothing, for setting _vertScrollBar.Max lower already updated _vertScrollbar.Value
+      if not scrollBarIsAtBottom then
+        _vertScrollBar.Value := _vertScrollBar.Value + _scrollbarRefToTopHeightChangeSinceViewLoading
+      else if scrollBarWillGetHigher then
+        _vertScrollBar.Value := _vertScrollBar.Value + _scrollbarMaxChangeSinceViewLoading
+      else ; // do nothing, for setting _vertScrollBar.Max lower already updated _vertScrollbar.Value
+    end;
   finally
     dec(_scrollUpdateCount);
   end;
-
-  UpdateRowHeightSynchronizerScrollbar;
 end;
 
 procedure TDCScrollableRowControl.AssignSelection(const SelectedItems: IList);
@@ -2065,6 +2111,15 @@ begin
   end;
 end;
 
+procedure TDCScrollableRowControl.AfterRowHeightsChanged(const TopVirtualYPosition: Single; const CalculateViewFrom: TCalculateViewFrom = TCalculateViewFrom.Top);
+begin
+  // only needed once
+  UpdateVirtualYPositions(TopVirtualYPosition);
+
+  UpdateScrollBarValues(CalculateViewFrom);
+  UpdateYPositionRows;
+end;
+
 procedure TDCScrollableRowControl.InnerRealignContent(const StartY, StopY: Single; CalculateViewFrom: TCalculateViewFrom);
 begin
 //  AtomicIncrement(_viewChangedIndex);
@@ -2072,6 +2127,9 @@ begin
   var setSynchronizerInternally := (_rowHeightSynchronizer <> nil) and not _rowHeightSynchronizer._isMasterSynchronizer and not _isMasterSynchronizer;
   if setSynchronizerInternally then
     StartMasterSynchronizer;
+
+  Log('InnerRealignContent: start=' + StartY.ToString+'....stop=' + StopY.ToString);
+  Log('InnerRealignContent: max=' + _vertScrollBar.Max.ToString);
 
   _content.BeginUpdate;
   try
@@ -2084,17 +2142,27 @@ begin
         var alignBottomTop := (StartY > 0) and
           ((StopY > _vertScrollBar.Max - _view.GetRowHeight(_view.ViewCount - 1)) or (CalculateViewFrom = TCalculateViewFrom.Bottom));
 
-        var referenceRow := _view.ProvideReferenceRowForViewRange(StartY, StopY, alignBottomTop);
+        var ix := -1;
+        if (_waitForRepaintInfo <> nil) and (TTreeRowState.RowChanged in _waitForRepaintInfo.RowStateFlags) then
+          ix := get_Current;
 
-        AlignRowsFromReferenceToBottom(referenceRow, StartY, StopY);
-        AlignRowsFromReferenceToTop(referenceRow, StartY, StopY, {out} topVirtualYPosition);
+        var referenceRow := _view.ProvideReferenceRowForViewRange(StartY, StopY, alignBottomTop, ix);
+        Log('InnerRealignContent: reference=' + referenceRow.DataItem.ToString);
+        Log('InnerRealignContent: reference yPox=' + referenceRow.VirtualYPosition.ToString);
+
+        var spaceLeftToBottom: Single := StopY - referenceRow.VirtualYPosition;
+        AlignRowsFromReferenceToBottom(referenceRow, {var} spaceLeftToBottom);
+
+        var spaceLeftToTop: Single := CMath.Max(spaceLeftToBottom, 0) + ((referenceRow.VirtualYPosition + referenceRow.Height)-StartY);
+        AlignRowsFromReferenceToTop(referenceRow, {var} spaceLeftToTop);
+
+        topVirtualYPosition := referenceRow.VirtualYPosition;
+        if referenceRow.ViewPortIndex > 0 then
+          for var ix2 := referenceRow.ViewPortIndex - 1 downto 0 do
+              topVirtualYPosition := topVirtualYPosition - _view.GetRowHeight(_view.ActiveViewRows[ix2].ViewListIndex); // _view.ActiveViewRows[ix2].Height;
       end;
 
-      // only needed once
-      UpdateVirtualYPositions(topVirtualYPosition);
-
-      UpdateScrollBarValues(CalculateViewFrom);
-      UpdateYPositionRows;
+      AfterRowHeightsChanged(topVirtualYPosition, CalculateViewFrom);
     finally
       DoViewLoadingFinished;
     end;
@@ -2122,6 +2190,14 @@ begin
   finally
     _waitForRepaintInfo := nil;
   end;
+end;
+
+procedure TDCScrollableRowControl.RealignContentStart;
+begin
+  inherited;
+
+  if _view <> nil then
+    _totalDataHeight := _view.TotalDataHeight(get_rowHeightDefault);
 end;
 
 procedure TDCScrollableRowControl.RealignFinished;
@@ -2243,6 +2319,11 @@ begin
     end;
 
     var selRow := _view.GetActiveRowIfExists(_selectionInfo.ViewListIndex);
+
+    {$IFDEF DEBUG}
+    if selRow = nil then
+      Exit;
+      {$ENDIF}
     var yChange := 0.0;
 
     // if row (partly) above or fully below current view, then make it the top top row
@@ -2344,12 +2425,23 @@ begin
   if _allowNoneSelected or (_view.ViewCount = 0) then
     Exit;
 
+//  {$IFDEF DEBUG}
+//  Exit;
+//  {$ENDIF}
+
   var viewListIndex := 0;
   if _selectionInfo.HasSelection then
   begin
     viewListIndex := _view.GetViewListIndex(_selectionInfo.DataItem);
     if (viewListIndex <> -1) and (viewListIndex = _selectionInfo.ViewListIndex) then
-      Exit; // current selection is still valid
+    begin
+      if (_waitForRepaintInfo = nil) or (_view.GetActiveRowIfExists(viewListIndex) <> nil {in current viewport}) then
+        Exit; // nothing to do
+
+//      // if filtered, scroll to new pos...
+//      if not (TTreeRowState.FilterChanged in _waitForRepaintInfo.RowStateFlags) and not (TTreeRowState.RowChanged in _waitForRepaintInfo.RowStateFlags) then
+//        Exit; // current selection is still valid
+    end;
 
     if viewListIndex = -1 then
       viewListIndex := CMath.Min(_selectionInfo.ViewListIndex - 1, _view.ViewCount - 1);

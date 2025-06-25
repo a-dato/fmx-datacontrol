@@ -62,6 +62,8 @@ type
     function CreateMemo(const Owner: TComponent): TMemo;
     function CreateDateEdit(const Owner: TComponent): TDateEdit;
     function CreateComboEdit(const Owner: TComponent): TComboEdit;
+
+    procedure HandleRowBackground(const RowRect: TRectangle; Alternate: Boolean);
   end;
 
   TDataControlClassFactory = class(TInterfacedObject, IDataControlClassFactory)
@@ -87,6 +89,8 @@ type
     function CreateMemo(const Owner: TComponent): TMemo; virtual;
     function CreateDateEdit(const Owner: TComponent): TDateEdit; virtual;
     function CreateComboEdit(const Owner: TComponent): TComboEdit; virtual;
+
+    procedure HandleRowBackground(const RowRect: TRectangle; Alternate: Boolean); virtual;
   end;
 
 
@@ -216,6 +220,14 @@ begin
   Result := TText.Create(Owner);
 end;
 
+procedure TDataControlClassFactory.HandleRowBackground(const RowRect: TRectangle; Alternate: Boolean);
+begin
+  RowRect.Fill.Kind := TBrushKind.Solid;
+  if Alternate then
+    RowRect.Fill.Color := DEFAULT_GREY_COLOR else
+    RowRect.Fill.Color := DEFAULT_WHITE_COLOR;
+end;
+
 function TDataControlClassFactory.IsCustomFactory: Boolean;
 begin
   Result := _isCustomFactory;
@@ -224,14 +236,14 @@ end;
 initialization
   DataControlClassFactory := TDataControlClassFactory.Create;
 
-  DEFAULT_GREY_COLOR := TAlphaColor($FFF5F6FB);
+  DEFAULT_GREY_COLOR := TAlphaColor($FFF1F2F7);
   DEFAULT_WHITE_COLOR := TAlphaColors.Null;
 
   DEFAULT_ROW_SELECTION_ACTIVE_COLOR := TAlphaColor($886A5ACD);
   DEFAULT_ROW_SELECTION_INACTIVE_COLOR := TAlphaColor($88778899);
   DEFAULT_ROW_HOVER_COLOR := TAlphaColor($335B8BCD);
 
-  DEFAULT_HEADER_BACKGROUND := TAlphaColors.White;
+  DEFAULT_HEADER_BACKGROUND := TAlphaColors.Null;
   DEFAULT_HEADER_STROKE := TAlphaColors.Grey;
   DEFAULT_CELL_STROKE := TAlphaColors.Lightgray;
 

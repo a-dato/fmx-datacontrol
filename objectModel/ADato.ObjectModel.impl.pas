@@ -19,7 +19,11 @@ uses
   System_,
   System.Collections,
   System.Collections.Generic,
-  ADato.ObjectModel.intf;
+  ADato.ObjectModel.intf
+  {$IFDEF APP_PLATFORM}
+  , App.PropertyDescriptor.intf
+  {$ENDIF}
+  ;
 
 type
   TOrdinalTypeObjectModel = {$IFDEF DOTNET}public{$ENDIF}class(TBaseInterfacedObject, IObjectModel)
@@ -165,10 +169,26 @@ type
     property Name: CString read get_Name; {$IFDEF DOTNET}override;{$ENDIF}
   public
     constructor Create(const AProperty: _PropertyInfo);
+
     {$IFDEF DELPHI}
     destructor Destroy; override;
     {$ENDIF}
   end;
+
+  {$IFDEF APP_PLATFORM}
+  TPropertyWithDescriptor = class(CPropertyWrapper, IPropertyDescriptor)
+  protected
+    _PropertyDescriptor: IPropertyDescriptor;
+
+    function  GetValue(const obj: CObject; const index: array of CObject): CObject; override;
+    procedure SetValue(const obj: CObject; const Value: CObject; const index: array of CObject; ExecuteTriggers: Boolean = false); override;
+
+  public
+    constructor Create(const AProperty: _PropertyInfo; const ADescriptor: IPropertyDescriptor);
+
+    property PropertyDescriptor: IPropertyDescriptor read _PropertyDescriptor implements IPropertyDescriptor;
+  end;
+  {$ENDIF}
 
 implementation
 
@@ -772,6 +792,25 @@ end;
 procedure TObjectModelContext.InvokeOnPropertyChanged(const Sender: IObjectModelContext; const Context: CObject; const AProperty: _PropertyInfo);
 begin
   _OnPropertyChanged.Invoke(Sender, Context, AProperty);
+end;
+{$ENDIF}
+
+
+{$IFDEF APP_PLATFORM}
+constructor TPropertyWithDescriptor.Create(const AProperty: _PropertyInfo; const ADescriptor: IPropertyDescriptor);
+begin
+  inherited Create(AProperty);
+  _PropertyDescriptor := ADescriptor;
+end;
+
+function TPropertyWithDescriptor.GetValue(const obj: CObject; const index: array of CObject): CObject;
+begin
+  Result := inherited;
+end;
+
+procedure TPropertyWithDescriptor.SetValue(const obj: CObject; const Value: CObject; const index: array of CObject; ExecuteTriggers: Boolean = false);
+begin
+  inherited;
 end;
 {$ENDIF}
 

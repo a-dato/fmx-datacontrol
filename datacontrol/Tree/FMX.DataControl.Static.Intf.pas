@@ -279,6 +279,7 @@ type
     procedure set_Item(Index: Integer; const Value: IDCTreeColumn);
 
     function  FindIndexByCaption(const Caption: CString) : Integer;
+    function  FindIndexByTag(const Tag: CObject) : Integer;
     function  FindColumnByCaption(const Caption: CString) : IDCTreeColumn;
     function  FindColumnByPropertyName(const Name: CString) : IDCTreeColumn;
     function  FindColumnByTag(const Value: CObject) : IDCTreeColumn;
@@ -311,6 +312,7 @@ type
     function  RadioInsteadOfCheck: Boolean;
 
     procedure GetSortAndFilterImages(out ImageList: TCustomImageList; out FilterIndex, SortAscIndex, SortDescIndex: Integer);
+    function  IsSortingOrFiltering: Boolean;
 
     property HeaderHeight: Single read get_headerHeight write set_HeaderHeight;
     property HeaderTextTopMargin: Single read get_headerTextTopMargin write set_headerTextTopMargin;
@@ -407,6 +409,7 @@ type
     function  RecalcRequired: Boolean;
 
     procedure ForceRecalc;
+    procedure SetTreeIsScrolling(const IsScrolling: Boolean);
 //
 //   {  Tree has 3 different column collections:
 //      - TreeControl.Columns =  all, visible + Hidden
@@ -577,6 +580,7 @@ type
 
 const
   CELL_MIN_INDENT = 10;
+  HEADER_IMG_SIZE = 14;
 
 resourcestring
   COLUMN_SHOW_DEFAULT_OBJECT_TEXT = '[object]';
