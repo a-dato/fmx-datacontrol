@@ -307,7 +307,6 @@ uses
   FMX.DataControl.ScrollableRowControl.Impl, 
   ADato.Data.DataModel.impl,
   FMX.DataControl.SortAndFilter,
-  FMX.DataControl.Static.PopupMenu,
   FMX.DataControl.ScrollableControl.Intf
   {$IFDEF APP_PLATFORM}
   , App.intf
