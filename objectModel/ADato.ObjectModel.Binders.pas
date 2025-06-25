@@ -54,9 +54,6 @@ type
   protected
     {$IFDEF DELPHI}[weak]{$ENDIF} _ObjectModelContext: IObjectModelContext;
     {$IFDEF DELPHI}[weak]{$ENDIF} __PropertyInfo: _PropertyInfo;
-    {$IFDEF APP_PLATFORM}
-    _Descriptor: IPropertyDescriptor;
-    {$ENDIF}
 
     _UpdateCount: Integer;
     _executeTriggers: Boolean;
@@ -65,11 +62,6 @@ type
     _funcPickList: TGetPickList;
 
     class var _bindersByClass: Dictionary<TClass, TControlBindingCreator>;
-
-    {$IFDEF APP_PLATFORM}
-    function get_Descriptor: IPropertyDescriptor;
-    procedure set_Descriptor(const Value: IPropertyDescriptor);
-    {$ENDIF}
 
     function  get_ObjectModelContext: IObjectModelContext; virtual;
     procedure set_ObjectModelContext(const Value: IObjectModelContext); virtual;
@@ -96,6 +88,10 @@ type
     function  WaitForNotifyModel: Boolean; virtual;
     procedure NotifyModel(Sender: TObject); virtual;
     procedure ExecuteOriginalOnChangeEvent; virtual; abstract;
+
+    {$IFDEF APP_PLATFORM}
+    function TryGetPropertyDescriptor(out ADescriptor: IPropertyDescriptor) : Boolean;
+    {$ENDIF}
   public
     class function  CreateBindingByControl(const Control: TFMXObject): IPropertyBinding;
     class procedure RegisterClassBinding(const ControlClass: TClass; const ControlBindingCreator: TControlBindingCreator);
@@ -636,18 +632,6 @@ begin
   _bindersByClass[ControlClass] := ControlBindingCreator;
 end;
 
-{$IFDEF APP_PLATFORM}
-function TPropertyBinding.get_Descriptor: IPropertyDescriptor;
-begin
-  Result := _Descriptor;
-end;
-
-procedure TPropertyBinding.set_Descriptor(const Value: IPropertyDescriptor);
-begin
-  _Descriptor := Value;
-end;
-{$ENDIF}
-
 function TPropertyBinding.get_ExecuteTriggers: Boolean;
 begin
   Result := _executeTriggers;
@@ -678,6 +662,14 @@ begin
   Result := False;
 end;
 
+{$IFDEF APP_PLATFORM}
+function TPropertyBinding.TryGetPropertyDescriptor(out ADescriptor: IPropertyDescriptor) : Boolean;
+begin
+  var obj_prop: IObjectModelProperty;
+  Result := Interfaces.Supports<IObjectModelProperty>(__PropertyInfo, obj_prop) and Interfaces.Supports<IPropertyDescriptor>(obj_prop.ContainedProperty, ADescriptor);
+end;
+{$ENDIF}
+
 { TLabelControlBinding }
 
 
@@ -692,29 +684,6 @@ end;
 
 procedure TLabelControlBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
 begin
-  {$IFDEF APP_PLATFORM}
-  if IsUpdating or IsLinkedProperty(AProperty) then Exit;
-
-  BeginUpdate;
-  try
-    if (_Descriptor <> nil) and (Value <> nil) then
-    begin
-      // Obj   -> IProject
-      // Value -> Customer
-      // var props := AProperty.Name.Split(['.']);
-      var o := _Descriptor.Marshaller.Unmarshal(Obj, Value);
-      if o <> nil then
-      begin
-        var fmt := _Descriptor.Formatter.Format(Obj, o, nil);
-        if fmt <> nil then
-          _Control.Text := CStringToString(fmt);
-      end;
-    end;
-
-  finally
-    EndUpdate;
-  end;
-  {$ELSE}
   if (_UpdateCount > 0) or IsLinkedProperty(AProperty) then Exit;
 
   // use TrimStart/TrimEnd to remove Enters and avoid empty looking labels
@@ -735,7 +704,6 @@ begin
 
   if not CString.Equals(text, _Control.Text) then
     _Control.Text := text;
-  {$ENDIF}
 end;
 
 { TComboBoxControlBinding }
@@ -769,15 +737,16 @@ end;
 {$IFDEF APP_PLATFORM}
 procedure TComboBoxControlBinding.ComboBoxMouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Single);
 begin
-  if (Button = TMouseButton.mbLeft) and (_pickList = nil) and (_Descriptor <> nil) then
+  var descriptor: IPropertyDescriptor;
+  if (Button = TMouseButton.mbLeft) and (_pickList = nil) and TryGetPropertyDescriptor(descriptor) and (descriptor.Picklist <> nil) then
   begin
-    var items := _Descriptor.Picklist.Items(nil);
+    var items := descriptor.Picklist.Items(nil);
     if items.TryGetValue<IList>(_picklist) then
     begin
       _control.BeginUpdate;
       try
         _control.Items.Clear;
-        var formatter := _Descriptor.Formatter;
+        var formatter := descriptor.Formatter;
 
         for var item in _picklist do
         begin
@@ -810,11 +779,7 @@ begin
       Exit(_control.Items[ix]);
   end
   else if (ix >= 0) and (ix < (_picklist.Count - 1)) then
-  begin
-    var item := _picklist[ix];
-    if (item <> nil) and (_Descriptor <> nil) then
-      Result := _Descriptor.Marshaller.Marshal(get_ObjectModelContext.Context, item);
-  end;
+    Result := _picklist[ix];
   {$ELSEIF DELPHI}
   var ix := _Control.ItemIndex;
   if not GoWithPicklist then
@@ -853,19 +818,6 @@ begin
     end;
 
     var value_string: CString;
-
-    if Value.IsString and (_Descriptor <> nil) then
-    begin
-      var js := TJsonObject.ParseJSONValue(Value.ToString(False));
-      try
-        var s: string;
-        if js.TryGetValue<string>('Value', s) then
-          value_string := s;
-      finally
-        js.Free;
-      end;
-    end;
-
     if value_string = nil then
       value_string := Value.ToString;
 
