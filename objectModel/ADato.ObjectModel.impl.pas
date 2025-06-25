@@ -16,7 +16,11 @@ uses
   System.Collections.Generic,
   System.Collections,
   System.ComponentModel,
-  ADato.ObjectModel.intf;
+  ADato.ObjectModel.intf
+  {$IFDEF APP_PLATFORM}
+  , App.PropertyDescriptor.intf
+  {$ENDIF}
+  ;
 
 type
   TOrdinalTypeObjectModel = {$IFDEF DOTNET}public{$ENDIF}class(TBaseInterfacedObject, IObjectModel)
@@ -169,16 +173,19 @@ type
   end;
 
   {$IFDEF APP_PLATFORM}
-  TObjectModelSubPropertyWrapper = class(TObjectModelPropertyWrapper)
+  TPropertyWithDescriptor = class(CPropertyWrapper, IPropertyDescriptor)
   protected
-    FParentProperty: _PropertyInfo;
+    _PropertyDescriptor: IPropertyDescriptor;
 
-    function  GetObjectProperty(const obj: CObject): _PropertyInfo; override;
+    function  GetValue(const obj: CObject; const index: array of CObject): CObject; override;
+    procedure SetValue(const obj: CObject; const Value: CObject; const index: array of CObject; ExecuteTriggers: Boolean = false); override;
 
   public
-    constructor Create(const AParentProperty: _PropertyInfo; const AProperty: _PropertyInfo);
+    constructor Create(const AProperty: _PropertyInfo; const ADescriptor: IPropertyDescriptor);
+
+    property PropertyDescriptor: IPropertyDescriptor read _PropertyDescriptor implements IPropertyDescriptor;
   end;
-  {$ENDIF}
+  {$ENDIF}
 
 implementation
 
@@ -787,17 +794,21 @@ end;
 
 
 {$IFDEF APP_PLATFORM}
-constructor TObjectModelSubPropertyWrapper.Create(const AParentProperty: _PropertyInfo; const AProperty: _PropertyInfo);
+constructor TPropertyWithDescriptor.Create(const AProperty: _PropertyInfo; const ADescriptor: IPropertyDescriptor);
 begin
   inherited Create(AProperty);
-  FParentProperty := AParentProperty;
+  _PropertyDescriptor := ADescriptor;
 end;
 
-function TObjectModelSubPropertyWrapper.GetObjectProperty(const obj: CObject): _PropertyInfo;
+function TPropertyWithDescriptor.GetValue(const obj: CObject; const index: array of CObject): CObject;
 begin
-  Result := FParentProperty;
+  Result := inherited;
 end;
 
+procedure TPropertyWithDescriptor.SetValue(const obj: CObject; const Value: CObject; const index: array of CObject; ExecuteTriggers: Boolean = false);
+begin
+  inherited;
+end;
 {$ENDIF}
 
 end.

@@ -105,6 +105,8 @@ type
     _content: TControl;
     _updateCount: Integer;
 
+    _totalDataHeight: Single;
+
     _realignContentTime: Int64;
     _paintTime: Int64;
 
@@ -119,6 +121,7 @@ type
     _debugCheck: Boolean;
     {$ENDIF}
 
+    procedure RealignContentStart; virtual;
     procedure BeforeRealignContent; virtual;
     procedure RealignContent; virtual;
     procedure AfterRealignContent; virtual;
@@ -267,6 +270,7 @@ end;
 procedure TDCScrollableControl.AfterRealignContent;
 begin
   _realignState := TRealignState.AfterRealign;
+  CalculateScrollBarMax;
 end;
 
 procedure TDCScrollableControl.BeforePainting;
@@ -393,14 +397,9 @@ begin
   if _stopwatch3.IsRunning then
   begin
     _stopwatch3.Stop;
-    Log('total repaint time: ' + _stopwatch3.ElapsedMilliseconds.ToString + ' ms');
   end;
 
   _stopwatch3 := TStopwatch.StartNew;
-//  _stopwatch3 := TStopwatch.Create;
-
-//  Log('total realign time: ' + (_realignContentTime).ToString + ' ms');
-  Log('total renewal time: ' + (_realignContentTime+_paintTime).ToString + ' ms');
   {$ENDIF}
 
   _realignContentRequested := False;
@@ -409,6 +408,7 @@ begin
 
   var stopwatch := TStopwatch.StartNew;
 
+  RealignContentStart;
   try
     BeforeRealignContent;
     try
@@ -426,10 +426,10 @@ begin
   stopwatch.Stop;
   _realignContentTime := stopwatch.ElapsedMilliseconds;
 
-  {$IFDEF DEBUG}
-//  Log('total realign time: ' + (_realignContentTime).ToString + ' ms');
-//  Log('_stopwatch3: ' + _stopwatch3.ElapsedMilliseconds.ToString + ' ms');
-  {$ENDIF}
+  Log('After RealignFinished: value=' + _vertScrollBar.Value.ToString);
+  Log('After RealignFinished: max=' + _vertScrollBar.Max.ToString);
+  Log('');
+  Log('');
 
   _scrollStopWatch_scrollbar := TStopwatch.StartNew;
 end;
@@ -727,6 +727,11 @@ begin
   _realignState := TRealignState.Realigning;
 end;
 
+procedure TDCScrollableControl.RealignContentStart;
+begin
+  _totalDataHeight := _content.Height;
+end;
+
 function TDCScrollableControl.RealignContentTime: Integer;
 begin
   Result := CMath.Min(500, Round((_realignContentTime+_paintTime) * 1.1));
@@ -807,7 +812,7 @@ begin
   end;
 
   {$IFDEF DEBUG}
-  //forceGoImmediate := True;
+//  forceGoImmediate := True;
   {$ENDIF}
 
   // stop smooth scrolling and go fast
@@ -819,14 +824,12 @@ begin
 
     _scrollStopWatch_wheel_lastSpin := TStopWatch.StartNew;
 
-    Log('mousewheel: ' + _mouseWheelDistanceToGo.ToString);
     ScrollManualInstant(_mouseWheelDistanceToGo);
     _mouseWheelDistanceToGo := 0;
 
     Exit;
   end;
 
-  Log('mousewheel: reset');
   _mouseWheelSmoothScrollSpeedUp := 0;
   _mouseWheelDistanceToGo := _mouseWheelDistanceToGo + YChange;
   _scrollStopWatch_wheel_lastSpin.Reset;
