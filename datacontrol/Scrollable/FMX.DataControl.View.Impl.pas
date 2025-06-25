@@ -3,20 +3,29 @@ unit FMX.DataControl.View.Impl;
 interface
 
 uses
-  System_,
+  {$IFNDEF WEBASSEMBLY}
   System.Classes,
+  System.SysUtils,
+  FMX.Layouts,
+  FMX.Controls,
+  System.ComponentModel,
+  {$ELSE}
+  Wasm.System,
+  Wasm.System.Classes,
+  Wasm.System.SysUtils,
+  Wasm.FMX.Layouts,
+  Wasm.FMX.Controls,
+  Wasm.System.ComponentModel,
+  {$ENDIF}
+  System_,
   System.Collections,
   System.Collections.Generic,
-  System.SysUtils,
 
-  FMX.Layouts,
   FMX.DataControl.View.Intf,
-  FMX.Controls,
   FMX.DataControl.ScrollableRowControl.Intf,
 
   ADato.Sortable.Intf,
-  ADato.Data.DataModel.intf,
-  System.ComponentModel;
+  ADato.Data.DataModel.intf;
 
 type
   TDataViewList = class(TBaseInterfacedObject, IDataViewList)
@@ -119,12 +128,17 @@ type
 implementation
 
 uses
+  {$IFNDEF WEBASSEMBLY}
   System.Math,
-
-  ADato.Sortable.Impl,
-
   FMX.Objects,
-  FMX.Types, System.Generics.Collections;
+  FMX.Types,
+  System.Generics.Collections,
+  {$ELSE}
+  Wasm.System.Math,
+  Wasm.FMX.Objects,
+  Wasm.FMX.Types,
+  {$ENDIF}
+  ADato.Sortable.Impl;
 
 { TDataViewList }
 
@@ -143,7 +157,11 @@ begin
   if Interfaces.Supports<IDataModel>(DataList, dm) then
   begin
     _dataModelView := dm.DefaultView;
+    {$IFNDEF WEBASSEMBLY}
     _dataModelView.ViewChanged.Add(DataModelViewChanged);
+    {$ELSE}
+    _dataModelView.ViewChanged += DataModelViewChanged;
+    {$ENDIF}
   end
   else
   begin
@@ -156,6 +174,7 @@ begin
       else
       begin
         var data: IList<CObject> := CList<CObject>.Create(DataList.Count);
+        //var item: CObject;
         for var item in DataList do
           data.Add(item);
 
@@ -164,7 +183,11 @@ begin
       end;
     end;
 
+    {$IFNDEF WEBASSEMBLY}
     _comparer.Comparer.OnComparingChanged.Add(OnViewChanged);
+    {$ELSE}
+    _comparer.Comparer.OnComparingChanged += OnViewChanged;
+    {$ENDIF}
   end;
 
   ResetView;
@@ -174,13 +197,23 @@ constructor TDataViewList.Create(const DataModelView: IDataModelView; DoCreateNe
 begin
   inherited Create;
 
+  {$IFNDEF WEBASSEMBLY}
   _doCreateNewRow := DoCreateNewRow;
   _onViewChanged := OnViewChanged;
+  {$ELSE}
+  _doCreateNewRow := DoCreateNewRow;
+  _onViewChanged := OnViewChanged;
+  {$ENDIF}
+
   _isFirstAlign := True;
   _isCustomDataList := False;
 
   _dataModelView := DataModelView;
+  {$IFNDEF WEBASSEMBLY}
   _dataModelView.ViewChanged.Add(DataModelViewChanged);
+  {$ELSE}
+  _dataModelView.ViewChanged += DataModelViewChanged;
+  {$ENDIF}
 
   ResetView;
 end;
@@ -192,10 +225,17 @@ end;
 
 destructor TDataViewList.Destroy;
 begin
+  {$IFNDEF WEBASSEMBLY}
   if _dataModelView <> nil then
     _dataModelView.ViewChanged.Remove(DataModelViewChanged)
   else if _comparer <> nil then
     _comparer.Comparer.OnComparingChanged.Remove(OnViewChanged);
+  {$ELSE}
+  if _dataModelView <> nil then
+    _dataModelView.ViewChanged -= @DataModelViewChanged
+  else if _comparer <> nil then
+    _comparer.Comparer.OnComparingChanged -= @OnViewChanged;
+  {$ENDIF}
 
   _activeRows := nil;
   _cachedrows := nil;
@@ -216,7 +256,8 @@ begin
   if (Length(_activeDataIndexes) = 0) and (_activeRows <> nil) and (_activeRows.Count > 0) then
   begin
     SetLength(_activeDataIndexes, _activeRows.Count);
-    for var ix := 0 to _activeRows.Count - 1 do
+    var ix: Integer;
+    for ix := 0 to _activeRows.Count - 1 do
       _activeDataIndexes[ix] := _activeRows[ix].DataIndex;
   end;
 
@@ -240,7 +281,8 @@ begin
   if _performanceVar_activeStopViewListIndex < ViewListIndex then
     Exit;
 
-  for var row in _activeRows do
+  var row: IDCRow;
+  for row in _activeRows do
     if row.ViewListIndex = ViewListIndex then
       Exit(row);
 end;
@@ -347,6 +389,7 @@ begin
   Assert(HasCustomDataList and (_comparer <> nil));
 
   _comparer.Data.Clear;
+  //var item: CObject;
   for var item in Context do
     _comparer.Data.Add(item);
 
@@ -379,7 +422,8 @@ begin
   end;
 
   var pos: Single := 0.0;
-  for var ix := 0 to ViewListIndex do
+  var ix: Integer;
+  for ix := 0 to ViewListIndex do
   begin
     var h := GetRowHeight(ix);
 
@@ -408,7 +452,8 @@ begin
   else if _activeRows[_activeRows.Count - 1].ViewListIndex <= ViewListIndex then
     referenceRow := _activeRows[_activeRows.Count - 1]
   else begin
-    for var row in _activeRows do
+    var row: IDCRow;
+    for row in _activeRows do
       if row.ViewListIndex = ViewListIndex then
       begin
         referenceRow := row;
@@ -536,7 +581,8 @@ begin
   var filters := GetFilterDescriptions;
   if filters = nil then Exit(False);
 
-  for var filter in GetFilterDescriptions do
+  var filter: IListFilterDescription;
+  for filter in GetFilterDescriptions do
     if not filter.IsMatch(DataItem) then
       Exit(True);
 
@@ -620,7 +666,8 @@ begin
   var viewListCount := GetViewList.Count;
   Assert(viewListCount > 0);
 
-  for var ix := 0 to viewListCount - 1 do
+  var ix: Integer;
+  for ix := 0 to viewListCount - 1 do
   begin
     var h := CachedRowHeight(ix);
     if h = -1 then
@@ -694,7 +741,8 @@ procedure TDataViewList.ReindexActiveRow(const Row: IDCRow);
 begin
   var correctIndex := 0;
   var doMinusOne := False;
-  for var ix := 0 to _activeRows.Count - 1 do
+  var ix: Integer;
+  for ix := 0 to _activeRows.Count - 1 do
   begin
     var r := _activeRows[ix];
     if r.ViewListIndex < Row.ViewListIndex then
@@ -706,8 +754,9 @@ begin
     _activeRows.Remove(Row);
     _activeRows.Insert(correctIndex, Row);
 
-    for var ix := 0 to _activeRows.Count - 1 do
-      _activeRows[ix].ViewPortIndex := ix;
+    var ix2: Integer;
+    for ix2 := 0 to _activeRows.Count - 1 do
+      _activeRows[ix2].ViewPortIndex := ix2;
 
     UpdatePerformanceIndexIndicators;
   end;
@@ -722,7 +771,8 @@ begin
   end else begin
     // only clear row info below this row, because all rows above stay the same!
     // this is for example the case with Expand / Collapse rows
-    for var ix := _activeRows.Count - 1 downto 0 do
+    var ix: Integer;
+    for ix := _activeRows.Count - 1 downto 0 do
       if _activeRows[ix].ViewListIndex >= FromViewListIndex then
         _activeRows.RemoveAt(ix);
   end;
@@ -739,7 +789,8 @@ begin
     var startClearIndex := CMath.Max(0, FromViewListIndex);
     SetLength(_viewRowHeights, GetViewList.Count);
   //  var nullObj := TRowInfoRecord.Null;
-    for var ix := startClearIndex to GetViewList.Count - 1 do
+    var ix: Integer;
+    for ix := startClearIndex to GetViewList.Count - 1 do
       _viewRowHeights[ix] := TRowInfoRecord.Null;
   end;
 end;
@@ -779,18 +830,20 @@ end;
 procedure TDataViewList.ViewLoadingStart(const VirtualYPositionStart, VirtualYPositionStop, DefaultRowHeight: Single);
 begin
   _defaultRowHeight := DefaultRowHeight;
-  for var index := _activeRows.Count - 1 downto 0 do
+  var ix: Integer;
+  for ix := _activeRows.Count - 1 downto 0 do
   begin
-    var row := _activeRows[index];
+    var row := _activeRows[ix];
 
     if row.ViewPortIndex = -1 then
-      row := _activeRows[index];
+      row := _activeRows[ix];
 
     if (row.VirtualYPosition + row.Control.Height <= VirtualYPositionStart) or (row.VirtualYPosition >= VirtualYPositionStop) then
       RemoveRowFromActiveView(row);
   end;
 
-  for var ix2 := 0 to _activeRows.Count - 1 do
+  var ix2: Integer;
+  for ix2 := 0 to _activeRows.Count - 1 do
   begin
     var viewListIndex := _activeRows[ix2].ViewListIndex;
     _viewRowHeights[viewListIndex] := _viewRowHeights[viewListIndex].OnViewLoading;
@@ -802,15 +855,17 @@ end;
 procedure TDataViewList.ViewLoadingStart(const SynchronizeFromView: IDataViewList);
 begin
   _defaultRowHeight := SynchronizeFromView.DefaultRowHeight;
-  for var index := _activeRows.Count - 1 downto 0 do
+  var ix: Integer;
+  for ix := _activeRows.Count - 1 downto 0 do
   begin
-    var row := _activeRows[index];
+    var row := _activeRows[ix];
     var otherRow := SynchronizeFromView.GetActiveRowIfExists(row.ViewListIndex);
     if otherRow = nil then
       RemoveRowFromActiveView(row);
   end;
 
-  for var ix2 := 0 to _activeRows.Count - 1 do
+  var ix2: Integer;
+  for ix2 := 0 to _activeRows.Count - 1 do
   begin
     var viewListIndex := _activeRows[ix2].ViewListIndex;
     _viewRowHeights[viewListIndex] := _viewRowHeights[viewListIndex].OnViewLoading;
@@ -822,12 +877,13 @@ end;
 procedure TDataViewList.ViewLoadingRemoveNonUsedRows(const TillSpecifiedViewIndex: Integer = -1; const FromTop: Boolean = True);
 begin
   // if not all existing rows fit in the current view
-  for var index := _activeRows.Count - 1 downto 0 do
+  var ix: Integer;
+  for ix := _activeRows.Count - 1 downto 0 do
   begin
-    if (TillSpecifiedViewIndex <> -1) and (FromTop = (index > TillSpecifiedViewIndex)) then
+    if (TillSpecifiedViewIndex <> -1) and (FromTop = (ix > TillSpecifiedViewIndex)) then
       Continue;
 
-    var row := _activeRows[index];
+    var row := _activeRows[ix];
     if not _viewRowHeights[row.ViewListIndex].RowIsInActiveView then
       RemoveRowFromActiveView(row);
   end;
@@ -856,7 +912,8 @@ begin
   var rowsWithValidHeights: Integer := 0;
   var totalAbsoluteHeight := 0.0;
 
-  for var value in _viewRowHeights do
+  var value: TRowInfoRecord;
+  for value in _viewRowHeights do
     if not value.ControlNeedsResizeSoft then
     begin
       totalAbsoluteHeight := totalAbsoluteHeight + value.GetCalculatedHeight;
@@ -880,12 +937,16 @@ begin
     _dataModelView.ApplySortAndGrouping(Sorts, nil);
 end;
 
-procedure TDataViewList.UpdateViewIndexFromIndex(const Index: Integer);
+procedure TDataViewList.UpdateViewIndexFromIndex(const &Index: Integer);
 begin
   // update the ViewPortIndex for all rows below
-  if Index <= _activeRows.Count - 1 then
-    for var rowIx := Index to _activeRows.Count - 1 do
-      _activeRows[rowIx].ViewPortIndex := rowIx;
+  if &Index <= _activeRows.Count - 1 then
+  begin
+    var rowIx: Integer;
+    for rowIx := &Index to _activeRows.Count - 1 do
+      _activeRows[rowIx].ViewPortIndex := rowIx;    
+  end;
+
 end;
 
 function TDataViewList.ViewCount: Integer;

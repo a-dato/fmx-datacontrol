@@ -23,7 +23,7 @@ type
     _Index: Integer;
     _Position: InsertPosition;
     _SavedContext: CObject;
-    [weak]_Owner: IObjectListModel;
+    {$IFNDEF WEBASSEMBLY}[weak]{$ENDIF}_Owner: IObjectListModel;
 
     function  get_IsChanged: Boolean;
     function  get_IsEdit: Boolean;

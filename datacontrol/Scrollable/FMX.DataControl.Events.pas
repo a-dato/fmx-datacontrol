@@ -3,13 +3,18 @@ unit FMX.DataControl.Events;
 interface
 
 uses
-  System_,
+  {$IFNDEF WEBASSEMBLY}
   System.Classes,
-  System.ComponentModel,
   System.Generics.Defaults,
-  System.Collections,
-
   FMX.Controls,
+  System.ComponentModel,
+  {$ELSE}
+  Wasm.System,
+  Wasm.FMX.Controls,
+  Wasm.System.ComponentModel,
+  {$ENDIF}
+  System_,
+  System.Collections,
   FMX.DataControl.Static.Intf,
   FMX.DataControl.ScrollableRowControl.Intf;
 
@@ -87,7 +92,7 @@ type
     function OldCell: IDCTreeCell;
     function NewCell: IDCTreeCell;
 
-    constructor Create(const Old, New: IDCTreeCell); reintroduce;
+    constructor Create(const &Old, &New: IDCTreeCell); reintroduce;
   end;
 
   DCCellCanChangeEventArgs = DCCellChangeEventArgs;
@@ -130,7 +135,8 @@ type
 //    property ReturnSortComparer: Boolean read _ReturnSortComparer;
   end;
 
-  DCRowEventArgs = class(EventArgs)
+
+  DCRowEventArgs = class(EventArgs)
   protected
     _row: IDCRow;
 
@@ -140,7 +146,7 @@ type
   end;
 
   DCRowEditEventArgs = class(DCRowEventArgs)
-  protected
+  protected
     _IsEdit: Boolean;
 
     function  get_IsNew: Boolean;
@@ -156,21 +162,23 @@ type
     property IsEdit: Boolean read _IsEdit;
   end;
 
-  DCAddingNewEventArgs = class(EventArgs)
-  public
+
+  DCAddingNewEventArgs = class(EventArgs)
+  public
     NewObject: CObject;
     AcceptIfNil: Boolean;
   end;
 
-  DCDeletingEventArgs = class(EventArgs)
-  public
+
+  DCDeletingEventArgs = class(EventArgs)
+  public
     DataItem: CObject;
     Cancel: Boolean;
 
     constructor Create(const ADataItem: CObject); reintroduce;
   end;
 
-  DCStartEditEventArgs = class(BasicEventArgs)
+  DCStartEditEventArgs = class(BasicEventArgs)
   protected
     function get_DataItem: CObject;
 
@@ -193,8 +201,9 @@ type
     property DataItem: CObject read get_DataItem;
   end;
 
-  DCEndEditEventArgs = class(BasicEventArgs)
-  protected
+
+  DCEndEditEventArgs = class(BasicEventArgs)
+  protected
     _EditItem: CObject;
 
   public
@@ -212,7 +221,8 @@ type
     property EditItem: CObject read _EditItem;
   end;
 
-  DCCellParsingEventArgs = class(BasicEventArgs)
+
+  DCCellParsingEventArgs = class(BasicEventArgs)
   public
     DataIsValid: Boolean;
     Value: CObject;
@@ -267,7 +277,7 @@ type
   TOnCompareRows = function (Sender: TObject; const Left, Right: CObject): integer of object;
   TOnCompareColumnCells = function(Sender: TObject; const TreeColumn: IDCTreeColumn; const Left, Right: CObject): integer of object;
 
-  RowLoadedEvent  = procedure (const Sender: TObject; e: DCRowEventArgs) of object;
+  RowLoadedEvent  = procedure (const Sender: TObject; e: DCRowEventArgs) of object;
   RowEditEvent = procedure(const Sender: TObject; e: DCRowEditEventArgs) of object;
   StartEditEvent  = procedure(const Sender: TObject; e: DCStartEditEventArgs) of object;
   EndEditEvent  = procedure(const Sender: TObject; e: DCEndEditEventArgs) of object;
@@ -299,10 +309,10 @@ end;
 
 { DCCellChangingEventArgs }
 
-constructor DCCellChangeEventArgs.Create(const Old, New: IDCTreeCell);
+constructor DCCellChangeEventArgs.Create(const &Old, &New: IDCTreeCell);
 begin
-  inherited Create(New);
-  _oldCell := Old;
+  inherited Create(&New);
+  _oldCell := &Old;
 end;
 
 function DCCellChangeEventArgs.NewCell: IDCTreeCell;

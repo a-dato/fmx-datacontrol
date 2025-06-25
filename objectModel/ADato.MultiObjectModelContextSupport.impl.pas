@@ -1,4 +1,6 @@
+{$IFNDEF WEBASSEMBLY}
 {$I Adato.inc}
+{$ENDIF}
 
 unit ADato.MultiObjectModelContextSupport.impl;
 
@@ -8,7 +10,6 @@ uses
   System_,
   System.Collections,
   System.Collections.Generic,
-
   ADato.ObjectModel.impl,
   ADato.ObjectModel.intf,
   ADato.ObjectModel.List.impl,
@@ -20,7 +21,7 @@ uses
   ADato.InsertPosition;
 
 type
-  TMultiEditableObjectModelContext = class(TEditableObjectModelContext, IMultiObjectContextSupport, IEditState)
+  TMultiEditableObjectModelContext = class(TEditableObjectModelContext, IMultiObjectContextSupport, ADato.ObjectModel.TrackInterfaces.IEditState)
   protected
     _contexts: Dictionary<CObject, IObjectModelContext>;
     _onListItemChanged: IListItemChanged;
@@ -44,7 +45,7 @@ type
 
   TStorageObjectModelContext = class(TObjectModelContext, IStorageObjectModelContext)
   protected
-    [weak] _listObjectModelContext: IObjectModelContext;
+    {$IFNDEF WEBASSEMBLY}[weak]{$ENDIF} _listObjectModelContext: IObjectModelContext;
     _itemIsInControlOfOtherModelContexts: Boolean;
 
     function  get_itemIsInControlOfOtherModelContexts: Boolean;
@@ -61,8 +62,8 @@ type
 
   TOnListItemChanged = class(TVirtualListItemChanged)
   protected
-    [weak] _objectListModel: IObjectListModel;
-    [weak] _multiObjectContextSupport: IMultiObjectContextSupport;
+    {$IFNDEF WEBASSEMBLY}[weak]{$ENDIF} _objectListModel: IObjectListModel;
+    {$IFNDEF WEBASSEMBLY}[weak]{$ENDIF} _multiObjectContextSupport: IMultiObjectContextSupport;
 
     procedure BeginEdit(const Item: CObject); override;
     procedure CancelEdit(const Item: CObject); override;
@@ -76,10 +77,14 @@ type
 implementation
 
 uses
-  {$IFDEF DELPHI}
+  {$IFNDEF WEBASSEMBLY}
   System.SysUtils,
+  System.ComponentModel
+  {$ELSE}
+  Wasm.System.SysUtils,
+  Wasm.System.ComponentModel
   {$ENDIF}
-  System.ComponentModel;
+  ;
 
 { TMultiEditableObjectModelContext }
 
@@ -101,7 +106,7 @@ begin
     support.OnItemChanged.Add(_onListItemChanged);
   end;
 
-  {$IFDEF DELPHI}
+  {$IFNDEF WEBASSEMBLY}
   _Owner.OnContextChanging.Add(OnContextChanging);
   _Owner.OnContextChanged.Add(OnContextChanged);
   {$ELSE}
@@ -114,7 +119,7 @@ destructor TMultiEditableObjectModelContext.Destroy;
 begin
   if (_Owner <> nil) then
   begin
-    {$IFDEF DELPHI}
+    {$IFNDEF WEBASSEMBLY}
     _Owner.OnContextChanging.Remove(OnContextChanging);
     _Owner.OnContextChanged.Remove(OnContextChanged);
     {$ELSE}

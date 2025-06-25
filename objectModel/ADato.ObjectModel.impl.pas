@@ -1,4 +1,6 @@
-{$I Adato.inc}
+{$IFNDEF WEBASSEMBLY}
+{$I ADato.inc}
+{$ENDIF}
 
 unit ADato.ObjectModel.impl;
 
@@ -8,14 +10,15 @@ uses
   {$IFDEF DELPHI}
   System.TypInfo,
   System.SysUtils,
+  System.ComponentModel,
   {$ELSE}
   System.Reflection,
   ADato.TypeCustomization,
+  Wasm.System.ComponentModel,
   {$ENDIF}
   System_,
-  System.Collections.Generic,
   System.Collections,
-  System.ComponentModel,
+  System.Collections.Generic,
   ADato.ObjectModel.intf;
 
 type

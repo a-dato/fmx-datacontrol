@@ -3,19 +3,32 @@ unit FMX.DataControl.Static.Intf;
 interface
 
 uses
-  System_,
-  System.ComponentModel,
-  System.Collections.Generic,
-  System.Collections,
+  {$IFNDEF WEBASSEMBLY}
   System.JSON,
-  System.Collections.Specialized,
   System.UITypes,
   System.Types,
   System.SysUtils,
-
   FMX.Controls,
-  FMX.DataControl.ScrollableRowControl.Intf,
-  FMX.StdCtrls, FMX.Graphics, FMX.ImgList, FMX.Layouts;
+  FMX.StdCtrls, 
+  FMX.Graphics, 
+  FMX.ImgList, 
+  FMX.Layouts,
+  System.ComponentModel,
+  {$ELSE}
+  Wasm.System.UITypes,
+  Wasm.System.Types,
+  Wasm.System.SysUtils,
+  Wasm.FMX.Controls,
+  Wasm.FMX.StdCtrls,
+  Wasm.FMX.Graphics,
+  Wasm.FMX.Layouts,
+  Wasm.System.ComponentModel,
+  {$ENDIF}
+  System_,
+  System.Collections.Generic,
+  System.Collections,
+  System.Collections.Specialized,
+  FMX.DataControl.ScrollableRowControl.Intf;
 
 type
   TSortType = (None, Displaytext, CellData, PropertyValue, ColumnCellComparer, RowComparer);

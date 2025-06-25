@@ -1,4 +1,4 @@
-{$IFNDEF LYNXWEB}
+{$IFNDEF WEBASSEMBLY}
 {$I ..\..\dn4d\Source\Adato.inc}
 {$ENDIF}
 
@@ -7,7 +7,7 @@ unit ADato.Data.DataModel.impl;
 interface
 
 uses
-  {$IFDEF DELPHI}
+  {$IFNDEF WEBASSEMBLY}
   Classes,
   SysUtils,
   //{$IFNDEF CONSOLE}
@@ -21,7 +21,9 @@ uses
   ADato.ComponentModel,
   //System.ComponentModel,
   {$ELSE}
+  Wasm.System.SysUtils,
   ADato.TypeCustomization,
+  Wasm.System.ComponentModel,
   {$ENDIF}
   System_,
   System.Runtime.Serialization,
@@ -29,6 +31,7 @@ uses
   System.Collections.Generic,
   System.Collections.Specialized,
   System.ComponentModel,
+
   ADato.Collections.Specialized,
   ADato.Parser.intf,
   ADato.Parser.impl,
@@ -46,7 +49,7 @@ type
       IDataRow,
       IEquatable)
   protected
-    [unsafe]_Table: IDataModel;
+    {$IFNDEF WEBASSEMBLY}[unsafe]{$ENDIF}_Table: IDataModel;
     _AutoCreated: Boolean;
     _data:  CObject;
     _level: Integer;
@@ -223,7 +226,7 @@ type
     ICloneable, 
     {$IFDEF DELPHI}ISerializable{$ENDIF})
   protected
-    [unsafe]_DataModel: IDataModel;
+    {$IFNDEF WEBASSEMBLY}[unsafe]{$ENDIF}_DataModel: IDataModel;
     _DataType: &Type;
     _name: CString;
     _index: Integer;
@@ -295,13 +298,13 @@ type
     IDataModelColumnCollection)
 
   protected
-    [unsafe]_DataModel: IDataModel;
+    {$IFNDEF WEBASSEMBLY}[unsafe]{$ENDIF}_DataModel: IDataModel;
     _sortedColumns: List<IDataModelColumn>;
 
     function  get_DataModel: IDataModel;
 
     function  FindByName(const Name: CString): IDataModelColumn;
-    procedure InsertItem(index: Integer; const item: IDataModelColumn); override;
+    procedure InsertItem(index: Integer; const item: IDataModelColumn); {$IFNDEF WEBASSEMBLY}override;{$ENDIF}
     //procedure OnCollectionChanged(e: NotifyCollectionChangedEventArgs); override;
 
   public
@@ -342,7 +345,7 @@ type
     IDataModelParser)
   private
     _column: IDataModelColumn;
-    [unsafe]_dataModel: IDataModel;
+    {$IFNDEF WEBASSEMBLY}[unsafe]{$ENDIF}_dataModel: IDataModel;
 
   protected
     function  get_DataModel: IDataModel;
@@ -626,7 +629,7 @@ type
     // 14-8-2020 [weak] removed
     {[weak]}_dataModelView: TDataModelView;
     _checkCurrent       : Boolean;
-    [unsafe]_currentRow: IDataRow;
+    {$IFNDEF WEBASSEMBLY}[unsafe]{$ENDIF}_currentRow: IDataRow;
 
     _current            : Integer;
     _topRow             : Integer;
@@ -676,7 +679,7 @@ type
   DataModelFactory = {$IFDEF DOTNET}public{$ENDIF} class(
     TInterfacedObject, IDataModelFactory)
   protected
-    [unsafe]_dataModel: IDataModel;
+    {$IFNDEF WEBASSEMBLY}[unsafe]{$ENDIF}_dataModel: IDataModel;
 
   public
     constructor Create; virtual;
@@ -701,7 +704,7 @@ type
     IDataRowView,
     IEditableObject)
   protected
-    [unsafe]_DataView : IDataModelView;
+    {$IFNDEF WEBASSEMBLY}[unsafe]{$ENDIF}_DataView : IDataModelView;
     _DataRow : IDataRow;
     _connectedTo : IDataRowView;
     _viewIndex : Integer;
@@ -788,7 +791,7 @@ type
   // Other declarations
   protected
     _currencyManager  : IDataModelCurrencyManager;
-    [weak]_dataModel  : IDataModel;
+    {$IFNDEF WEBASSEMBLY}[weak]{$ENDIF}_dataModel  : IDataModel;
     _filter           : CString;
     _flatView         : Boolean;
     _injector         : IRowInjector;
@@ -1196,7 +1199,7 @@ begin
   {$IFDEF DELPHI}
   (_columns as INotifyCollectionChanged).CollectionChanged.Add(ColumnsChanged);
   {$ELSE}
-  (_columns as INotifyCollectionChanged).CollectionChanged += ColumnsChanged;
+  (_columns as INotifyCollectionChanged).CollectionChanged += @ColumnsChanged;
   {$ENDIF}
 
   _validIndexIndex := -1;
@@ -1970,9 +1973,9 @@ begin
     Result.Columns.Add(column);
   end;
   {$ELSE}
-  var objType := new TypeExtensions(AObjectType);
+  var objType := new ADato.TypeCustomization.TypeExtensions(AObjectType);
   
-  for prop in TypeExtensions(objType).GetProperties do
+  for prop in ADato.TypeCustomization.TypeExtensions(objType).GetProperties do
   begin
     column := DataModelColumn.Create;
     column.Name := prop.Name;
@@ -2985,7 +2988,7 @@ begin
   {$IFDEF DELPHI}
   _DataType := &Type.Unknown;
   {$ELSE}
-  _DataType := Global.GetTypeOf(SystemTypes.Unknown);
+  _DataType := Global.GetTypeOf(&Type.Unknown);
   {$ENDIF}
 
   _ColumnMap := CList<IColumnMap>.Create;
@@ -3532,12 +3535,16 @@ begin
   end;
 
   if not Result and (_internalfilterDescriptions <> nil) then
-    for var internalFilter in _internalfilterDescriptions do
+  begin
+    var internalFilter: IListFilterDescription;
+    for internalFilter in _internalfilterDescriptions do
     begin
       var filterableData := internalFilter.GetFilterableValue(dataRow);
       if not internalFilter.IsMatch(filterableData) then
         Result := True;
-    end;
+    end;    
+  end;
+
 end;
 
 procedure TDataModelView.DoDataModelViewChanged;
@@ -4372,12 +4379,12 @@ begin
 
   if _dataModel <> nil then
   begin
-    {$IFDEF DELPHI}
+    {$IFNDEF WEBASSEMBLY}
     DataModel.DataModelChanged.Remove(DataModelChanged);
     DataModel.ListChanged.Remove(DataModel_ListChanged);
     {$ELSE}
-    DataModel.DataModelChanged -= DataModelChanged;
-    DataModel.ListChanged -= DataModel_ListChanged;
+    DataModel.DataModelChanged -= @DataModelChanged;
+    DataModel.ListChanged -= @DataModel_ListChanged;
     {$ENDIF}
   end;
 
@@ -4385,12 +4392,12 @@ begin
 
   if _dataModel <> nil then
   begin
-    {$IFDEF DELPHI}
+    {$IFNDEF WEBASSEMBLY}
     DataModel.DataModelChanged.Add(DataModelChanged);
     DataModel.ListChanged.Add(DataModel_ListChanged);
     {$ELSE}
-    DataModel.DataModelChanged += DataModelChanged;
-    DataModel.ListChanged += DataModel_ListChanged;
+    DataModel.DataModelChanged += @DataModelChanged;
+    DataModel.ListChanged += @DataModel_ListChanged;
     {$ENDIF}
   end;
 
@@ -4694,10 +4701,10 @@ constructor DataModelCurrencyManager.Create(ADataModelView: TDataModelView);
 begin
   _dataModelView := ADataModelView;
 
-  {$IFDEF DELPHI}
+  {$IFNDEF WEBASSEMBLY}
   (_dataModelView as IDataModelView).ViewChanged.Add(DataModelViewChanged);
   {$ELSE}
-  (_dataModelView as IDataModelView).ViewChanged += DataModelViewChanged;
+  (_dataModelView as IDataModelView).ViewChanged += @DataModelViewChanged;
   {$ENDIF}
 
   _current := -1;
@@ -5001,13 +5008,15 @@ begin
       _Comparers[i] := nil;
   end;
 
-  for var sort in _SortDescriptor do
+  var sort: IListSortDescription;
+  for sort in _SortDescriptor do
     sort.SortBegin;
 end;
 
 destructor DataRowViewComparer.Destroy;
 begin
-  for var sort in _SortDescriptor do
+  var sort: IListSortDescription;
+  for sort in _SortDescriptor do
     sort.SortCompleted;
 
   inherited;

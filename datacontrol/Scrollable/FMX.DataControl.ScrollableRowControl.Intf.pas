@@ -3,8 +3,17 @@ unit FMX.DataControl.ScrollableRowControl.Intf;
 interface
 
 uses
-  System_, FMX.Controls, System.Collections.Generic, System.SysUtils,
-  System.ComponentModel, ADato.Data.DataModel.intf;
+  {$IFNDEF WEBASSEMBLY}
+  FMX.Controls, 
+  System.SysUtils,
+  System.ComponentModel,
+  {$ELSE}
+  Wasm.FMX.Controls,
+  Wasm.System.ComponentModel,
+  {$ENDIF}
+  System_, 
+  System.Collections.Generic, 
+  ADato.Data.DataModel.intf;
 
 type
   TSelectionType = (HideSelection, CellSelection, RowSelection);

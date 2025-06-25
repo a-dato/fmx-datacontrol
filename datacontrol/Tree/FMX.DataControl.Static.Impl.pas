@@ -3,19 +3,41 @@ unit FMX.DataControl.Static.Impl;
 interface
 
 uses
+  {$IFNDEF WEBASSEMBLY}
+  System.JSON,
+  FMX.Controls,
+  FMX.StdCtrls,
+  System.Classes, 
+  System.SysUtils,
+  FMX.Layouts, 
+  System.UITypes, 
+  System.Types, 
+  FMX.ImgList, 
+  FMX.Objects,
+  {$ELSE}
+  Wasm.FMX.Controls,
+  Wasm.FMX.StdCtrls,
+  Wasm.System.Classes, 
+  Wasm.System.SysUtils,
+  Wasm.FMX.Layouts, 
+  Wasm.System.UITypes, 
+  Wasm.System.Types, 
+  Wasm.FMX.ImgList, 
+  Wasm.FMX.Objects,
+  Wasm.System.ComponentModel,
+  {$ENDIF}
   System_,
   System.ComponentModel,
   System.Collections.Generic,
   System.Collections,
-  System.JSON,
 
-  FMX.Controls,
+
+
   FMX.DataControl.Static.Intf,
   FMX.DataControl.ScrollableRowControl.Impl,
 
-  ADato.Collections.Specialized, System.Collections.Specialized, FMX.StdCtrls,
-  FMX.DataControl.ScrollableRowControl.Intf, System.Classes, System.SysUtils,
-  FMX.Layouts, System.UITypes, System.Types, FMX.ImgList, FMX.Objects;
+  ADato.Collections.Specialized, System.Collections.Specialized,
+  FMX.DataControl.ScrollableRowControl.Intf;
 
 type
   TDCColumnSortAndFilter = class(TObservableObject, IDCColumnSortAndFilter)
@@ -613,9 +635,21 @@ type
 implementation
 
 uses
-  FMX.DataControl.ControlClasses, FMX.ActnList,
-  ADato.Data.DataModel.intf, FMX.Types, System.Math,
-  FMX.Graphics, FMX.ControlCalculations, System.ClassHelpers;
+  {$IFNDEF WEBASSEMBLY}
+  FMX.ActnList,
+  FMX.Types,
+  System.Math,
+  FMX.Graphics,
+  System.ClassHelpers,
+  {$ELSE}
+  Wasm.FMX.ActnList,
+  Wasm.FMX.Types,
+  Wasm.System.Math,
+  Wasm.FMX.Graphics,
+  {$ENDIF}
+  FMX.DataControl.ControlClasses,
+  ADato.Data.DataModel.intf, 
+  FMX.ControlCalculations;
 
 { TDCTreeColumnList }
 
@@ -629,7 +663,8 @@ end;
 constructor TDCTreeColumnList.Create(const Owner: IColumnsControl; const col: IEnumerable<IDCTreeColumn>);
 begin
   inherited Create;
-  for var c in col do
+  var c: IDCTreeColumn;
+  for c in col do
     Add(c);
 
   SaveTypeData := True;
@@ -776,7 +811,7 @@ var
   propertyname, subPropertyname: string;
   customHidden: Boolean;
   customWidth: Single;
-  readonly: Boolean;
+  &readonly: Boolean;
   infoCtrlClass, subinfoCtrlClass: Integer;
 
   procedure AddColumnToProjectControl;
@@ -810,10 +845,14 @@ var
 
 begin
   if Count > 0 then
-    for var clmnIx := Count - 1 downto 0 do
+  begin
+    var clmnIx: Integer;
+    for clmnIx := Count - 1 downto 0 do
       if get_Item(clmnIx).IsCustomColumn then
         RemoveAt(clmnIx);
-
+    
+  end;
+    
   if (Value <> nil) and Value.TryGetValue<TJSONArray>('columns', arr) then
   begin
     for jv in arr do
@@ -1703,7 +1742,8 @@ begin
 
   _columnsControl := ColumnControl;
   _layoutColumns := CList<IDCTreeLayoutColumn>.Create;
-  for var clmn in ColumnControl.ColumnList do
+  var clmn: IDCTreeColumn;
+  for clmn in ColumnControl.ColumnList do
   begin
     var lyColumn: IDCTreeLayoutColumn := TTreeLayoutColumn.Create(clmn, ColumnControl);
     _layoutColumns.Add(lyColumn);
@@ -1725,7 +1765,9 @@ begin
   RecalcColumnWidthsBasic;
 
   Result := 0.0;
-  for var clmn in get_FlatColumns do
+  
+  var clmn: IDCTreeLayoutColumn;
+  for clmn in get_FlatColumns do
   begin
     // frozen columns are the first columns in the list
     if not clmn.Column.Frozen then
@@ -1756,7 +1798,8 @@ begin
     // END sort columns
 
     _flatColumns := CList<IDCTreeLayoutColumn>.Create;
-    for var ix := 0 to _layoutColumns.Count - 1 do
+    var ix: Integer;
+    for ix := 0 to _layoutColumns.Count - 1 do
     begin
       var layoutColumn := _layoutColumns[ix];
       if not layoutColumn.HideColumnInView then
@@ -1778,10 +1821,14 @@ end;
 function TDCTreeLayout.HasFrozenColumns: Boolean;
 begin
   if _layoutColumns <> nil then
-    for var clmn in _layoutColumns do
+  begin
+    var clmn: IDCTreeLayoutColumn;
+    for clmn in _layoutColumns do
       if clmn.Column.Frozen and not clmn.HideColumnInView then
         Exit(True);
-
+    
+  end;
+    
   Result := False;
 end;
 
@@ -1790,7 +1837,8 @@ begin
   RecalcColumnWidthsBasic;
 
   var totalWidth := 0.0;
-  for var layoutClmn in _flatColumns do
+  var layoutClmn: IDCTreeLayoutColumn;
+  for layoutClmn in _flatColumns do
     totalWidth := totalWidth + layoutClmn.Width;
 
   if _columnsControl.Control.Width < totalWidth then
@@ -1814,7 +1862,8 @@ begin
   _recalcRequired := False;
 
   // make sure we get all layout columns, even in case of AutoFitColumns (because they can become visible again)
-  for var lyColumn in _layoutColumns do
+  var lyColumn: IDCTreeLayoutColumn;
+  for lyColumn in _layoutColumns do
   begin
     if lyColumn.HideColumnInView <> (not lyColumn.Column.Visible or lyColumn.Column.CustomHidden) then
     begin
@@ -1837,8 +1886,11 @@ begin
   var totalWidth := _columnsControl.Content.Width;
   var widthLeft := totalWidth;
 
-  for var round := 1 to 3 do
-    for var ix := columnsToCalculate.Count - 1 downto 0 do
+  var round: Integer;
+  for round := 1 to 3 do
+  begin
+    var ix: Integer;
+    for ix := columnsToCalculate.Count - 1 downto 0 do
     begin
       layoutClmn := _layoutColumns[columnsToCalculate[ix]];
 
@@ -1893,8 +1945,11 @@ begin
         end;
       end;
     end;
+  end;
 
+  {$IFNDEF WEBASSEMBLY}
   assert(columnsToCalculate.Count = 0);
+  {$ENDIF}
 
   var startXPosition: Double := 0;
   for layoutClmn in _flatColumns do
@@ -1949,7 +2004,8 @@ begin
   Assert(widthLeft >= 0);
 
   var potentialCount := 0;
-  for var lyClmn in _layoutColumns do
+  var lyClmn: IDCTreeLayoutColumn;
+  for lyClmn in _layoutColumns do
     if (lyClmn.Column.Visible and not lyClmn.Column.CustomHidden) then
       inc(potentialCount);
 
@@ -1982,9 +2038,10 @@ begin
 //  if (_flatColumns.Count = potentialCount) and (extraWidthPerColumnOng > 20) then
 //    Exit;
 
+  var ix: Integer;
   // add width to max size columns
   if addableColumns.Count > 0 then
-    for var ix := addableColumns.Count - 1 downto 0 do
+    for ix := addableColumns.Count - 1 downto 0 do
     begin
       var flatClmn := addableColumns[ix];
       if flatClmn.Column.WidthMax = 0 then
@@ -2008,7 +2065,7 @@ begin
 
   // add width to all remaining columns
   if addableColumns.Count > 0 then
-    for var ix := addableColumns.Count - 1 downto 0 do
+    for ix := addableColumns.Count - 1 downto 0 do
     begin
       var flatClmn := addableColumns[ix];
       var extraWidthPerColumn := widthLeft / addableColumns.Count;
@@ -2045,7 +2102,8 @@ end;
 procedure TDCTreeLayout.ResetColumnDataAvailability(OnlyForInsertedRows: Boolean);
 begin
   var recalcNeeded := False;
-  for var lyClmn in _layoutColumns do
+  var lyClmn: IDCTreeLayoutColumn;
+  for lyClmn in _layoutColumns do
   begin
     if not OnlyForInsertedRows or (lyClmn.ContainsData = TColumnContainsData.No) then
     begin
@@ -2323,7 +2381,8 @@ begin
   if rowIsSelected then
     _selectionRect.Opacity := 0.0; // make cell selection more visible
 
-  for var cell in _cells.Values do
+  var cell: IDCTreeCell;
+  for cell in _cells.Values do
     cell.UpdateSelectionVisibility(rowIsSelected, SelectionInfo as ITreeSelectionInfo, OwnerIsFocused);
 end;
 

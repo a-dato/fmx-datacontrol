@@ -1,12 +1,16 @@
+{$IFNDEF WEBASSEMBLY}
 {$I ..\Source\Adato.inc}
+{$ENDIF}
 
 unit ADato.Parser.intf;
 
 interface
 
 uses
-  {$IFDEF DELPHI}
+  {$IFNDEF WEBASSEMBLY}
   SysUtils,
+  {$ELSE}
+  Wasm.System.SysUtils,
   {$ENDIF}
   System_,
   System.Collections,

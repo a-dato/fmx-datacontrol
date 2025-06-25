@@ -1,4 +1,4 @@
-{$IFNDEF LYNXWEB}
+{$IFNDEF WEBASSEMBLY}
 {$I ..\Source\Adato.inc}
 {$ENDIF}
 
@@ -9,9 +9,10 @@ unit ADato.Parser.impl;
 interface
 
 uses
-  {$IFDEF DELPHI}
+  {$IFNDEF WEBASSEMBLY}
   SysUtils,
   {$ELSE}
+  Wasm.System.SysUtils,
 	System.Text,
   {$ENDIF}
   System_,
@@ -2357,13 +2358,18 @@ function TParser.Calculate(
 
 begin
   if (not Assigned(Proc)) then
-  {$IFDEF DELPHI}
+    {$IFNDEF WEBASSEMBLY}
   	CalcProc :=	DefCalcProc 
-	{$ELSE}
+	  {$ELSE}
 		CalcProc :=	@DefCalcProc 
-	{$ENDIF}
+	  {$ENDIF}
 	else
+    {$IFNDEF WEBASSEMBLY}
     CalcProc := Proc;
+    {$ELSE}
+    // Compiler doesnt understand proc is same type as CalcProc
+    CalcProc := new TCalcCBProc(Proc);
+    {$ENDIF}
 
   // Move to the beginning of the expression
   _expression := Formula;

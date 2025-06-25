@@ -1,11 +1,13 @@
+{$IFNDEF WEBASSEMBLY}
 {$I ..\Source\Adato.inc}
+{$ENDIF}
 
 unit ADato.Duration;
 
 interface
 
 uses
-  {$IFDEF DOTNET}
+  {$IFDEF WEBASSEMBLY}
   System.Text,
   System.Threading,
   {$ENDIF}
@@ -225,18 +227,28 @@ type
   end;
 
   Duration = class
-    public class function Format( const Value: CTimeSpan;
-                                  const Settings: DurationSettings;
-                                  const Flags: DurationFlags) : CString;
-    public class function Parse(const Value: CString; const Settings: DurationSettings) : CTimeSpan;
+    public
+    {$IFDEF WP_DAYS}
+    class function Format(const Value: CTimeSpan;
+      const Settings: DurationSettings;
+      const Flags: DurationFlags) : CString;
+    {$ELSE}
+    class function Format(const Value: CTimeSpan;
+      const Settings: DurationSettings;
+      const Flags: DurationFlags): CString;
+    {$ENDIF}
+    public 
+      class function Parse(const Value: CString; const Settings: DurationSettings) : CTimeSpan;
   end;
 
 implementation
 
 uses
-  {$IFDEF DELPHI}
+  {$IFNDEF WEBASSEMBLY}
   SysUtils,
   System_.Threading
+  {$ELSE}
+  Wasm.System.SysUtils,
 	{$ENDIF};
 
 { DurationFlags }
@@ -282,8 +294,9 @@ begin
 end;
 {$ENDIF}
 
-{$IFDEF WP_DAYS}
 { Duration }
+
+{$IFDEF WP_DAYS}
 class function Duration.Format(
   const Value: CTimeSpan;
   const Settings: DurationSettings;
@@ -429,7 +442,9 @@ begin
   Result := sb.ToString;
 end;
 {$ELSE}
+
 { Duration }
+
 class function Duration.Format(
   const Value: CTimeSpan;
   const Settings: DurationSettings;

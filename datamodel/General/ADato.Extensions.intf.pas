@@ -1,4 +1,6 @@
+{$IFNDEF WEBASSEMBLY}
 {$I ..\Source\Adato.inc}
+{$ENDIF}
 
 unit ADato.Extensions.intf;
 

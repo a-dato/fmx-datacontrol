@@ -1,10 +1,13 @@
+{$IFNDEF WEBASSEMBLY}
 {$I Adato.inc}
+{$ENDIF}
+
 unit ADato.ObjectModel.Binders;
 
 interface
 
 uses
-  {$IFDEF DELPHI}
+  {$IFNDEF WEBASSEMBLY}
   FMX.Edit, 
   FMX.StdCtrls, 
   FMX.ListBox, 
@@ -21,8 +24,24 @@ uses
   FMX.Colors,
   System.SysUtils,
   {$ELSE}
-  ADato.CustomControls,
+  //ADato.CustomControls,
   System.Text,
+  Wasm.FMX.StdCtrls,
+  Wasm.FMX.Controls,
+  Wasm.FMX.Types,
+  Wasm.System.Classes,
+  Wasm.FMX.Objects,
+  Wasm.FMX.Graphics,
+  Wasm.FMX.Edit,
+  Wasm.FMX.NumberBox,
+  Wasm.FMX.SpinBox,
+  Wasm.FMX.ComboEdit,
+  Wasm.FMX.SpinBox,
+  Wasm.FMX.EditBox,
+  Wasm.FMX.Memo,
+  Wasm.FMX.ListBox,
+  Wasm.FMX.DateTimeCtrls,
+  Wasm.System.SysUtils,
   {$ENDIF}
   System_,
   ADato.PropertyAccessibility.Intf,
@@ -91,7 +110,7 @@ type
   // FOR ALL DESCENDANDS OF TPROPERTYBINDING THAT HAVE CONTROLS
   TFreeControlNotification = class(TInterfacedObject, IFreeNotification)
   private
-    [weak] _binding: IControlBinding;
+    {$IFNDEF WEBASSEMBLY}[weak]{$ENDIF} _binding: IControlBinding;
   public
     constructor Create(const Binding: IControlBinding);
     procedure FreeNotification(AObject: TObject);
@@ -103,7 +122,7 @@ type
     _control: T;
     _freeNotification: IFreeNotification;
 
-    {$IFDEF DELPHI}
+    {$IFNDEF WEBASSEMBLY}
     [unsafe] _updated_rect: IControl;
     {$ELSE}
     _updated_rect: IControl;
@@ -288,7 +307,7 @@ type
     procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject); override;
   end;
 
-  {$IFDEF DELPHI}
+  {$IFNDEF WEBASSEMBLY}
   TComboColorBoxControlBinding = class(TControlBinding<TComboColorBox>)
   protected
     function  GetValue: CObject; override;
@@ -364,6 +383,7 @@ type
     procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject); override;
   end;
 
+  {$IFNDEF WEBASSEMBLY}
   TImageControlBinding = class(TControlBinding<TImage>)
   protected
     function  GetValue: CObject; override;
@@ -374,17 +394,22 @@ type
   protected
     procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject); override;
   end;
+  {$ENDIF}
 
 implementation
 
 uses
-  {$IFDEF DELPHI}
-  FMX.Text, 
-  ADato.Bitmap.intf,
+  {$IFNDEF WEBASSEMBLY}
+  FMX.Text,
   System.Math,
   System.UITypes,
   FMX.Ani,
+  {$ELSE}
+  Wasm.FMX.Text,
+  Wasm.System.Math,
+  Wasm.System.UITypes,
   {$ENDIF}
+  ADato.Bitmap.intf,
   ADato.Duration,
   ADato.Data.DataModel.intf;
 
@@ -1240,7 +1265,7 @@ begin
     raise Exception.Create('Events are getting strangled');
   {$ELSE}
   var notifyEvent: TNotifyEvent := @NotifyModel;
-  if Assigned(ControlEvent) and AreEventsEqual(ControlEvent, notifyEvent) then
+  if Assigned(ControlEvent) and System.Delegate.Equals(ControlEvent, notifyEvent) then
     raise Exception.Create('Events are getting strangled');
   {$ENDIF}
 
@@ -1301,13 +1326,13 @@ begin
 
   BeginUpdate;
   try
-    {$IFDEF DOTNET}
-    if Value = nil then 
-    begin
-      _control.Text := CDateTime.MinValue.ToString;
-      Exit;
-    end;
-    {$ENDIF}
+//    {$IFDEF DOTNET}
+//    if Value = nil then 
+//    begin
+//      _control.Text := CDateTime.MinValue.ToString;
+//      Exit;
+//    end;
+//    {$ENDIF}
 
     var cdt := Value.AsType<CDateTime>;
     _Control.IsEmpty := cdt = CDateTime.MinValue;
@@ -1557,6 +1582,7 @@ begin
     inherited;
 end;
 
+{$IFNDEF WEBASSEMBLY}
 { TImageControlSmartLinkBinding }
 
 procedure TImageControlSmartLinkBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
@@ -1596,6 +1622,7 @@ begin
     EndUpdate;
   end;
 end;
+{$ENDIF}
 
 { TButtonControlBinding }
 
@@ -1723,7 +1750,7 @@ end;
 
 { TComboColorBoxControlBinding }
 
-{$IFDEF DELPHI}
+{$IFNDEF WEBASSEMBLY}
 constructor TComboColorBoxControlBinding.Create(AControl: TComboColorBox);
 begin
   inherited Create(AControl);
@@ -1812,12 +1839,16 @@ initialization
   TPropertyBinding.RegisterClassBinding(TProgressBar,
     function(const Control: TFMXObject): IPropertyBinding begin Result := TProgressBarControlSmartLinkBinding.Create(TProgressBar(Control)) end);
 
+  {$IFNDEF WEBASSEMBLY}
   TPropertyBinding.RegisterClassBinding(TImage,
     function(const Control: TFMXObject): IPropertyBinding begin Result := TImageControlSmartLinkBinding.Create(TImage(Control)) end);
+  {$ENDIF}
 
   TPropertyBinding.RegisterClassBinding(TNumberBox,
     function(const Control: TFMXObject): IPropertyBinding begin Result := TNumberBoxControlSmartLinkBinding.Create(TNumberBox(Control)) end);
 
+  {$IFNDEF WEBASSEMBLY}
   TPropertyBinding.RegisterClassBinding(TComboColorBox,
     function(const Control: TFMXObject): IPropertyBinding begin Result := TComboColorBoxControlSmartLinkBinding.Create(TComboColorBox(Control)) end);
+  {$ENDIF}
 end.

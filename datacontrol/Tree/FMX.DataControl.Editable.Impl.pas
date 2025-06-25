@@ -3,12 +3,20 @@ unit FMX.DataControl.Editable.Impl;
 interface
 
 uses
+  {$IFNDEF WEBASSEMBLY}
+  FMX.Controls, 
+  System.Classes, 
+  FMX.Types, 
+  {$ELSE}
+  Wasm.FMX.Controls,
+  Wasm.System.Classes,
+  Wasm.FMX.Types,
+  {$ENDIF}
   System_,
-
   FMX.DataControl.Editable,
   FMX.DataControl.Editable.Intf, ADato.ObjectModel.TrackInterfaces,
   System.ComponentModel, ADato.InsertPosition, FMX.DataControl.Static.Intf,
-  FMX.Controls, System.Classes, FMX.Types, System.Collections;
+  System.Collections;
 
 type
   TTreeEditingInfo = class(TInterfacedObject, ITreeEditingInfo)
@@ -197,9 +205,28 @@ type
 implementation
 
 uses
-  FMX.Edit, FMX.DataControl.ControlClasses, FMX.DateTimeCtrls, FMX.ComboEdit,
-  System.Math, FMX.Memo, FMX.DataControl.ScrollableRowControl.Intf,
-  FMX.StdCtrls, FMX.Graphics, System.UITypes, FMX.ActnList,
+  {$IFNDEF WEBASSEMBLY}
+  FMX.Edit, 
+  FMX.DateTimeCtrls, 
+  FMX.ComboEdit,
+  System.Math, 
+  FMX.Memo,
+  FMX.StdCtrls, 
+  FMX.Graphics, 
+  System.UITypes, 
+  FMX.ActnList,
+  {$ELSE}
+  Wasm.FMX.Edit,
+  Wasm.FMX.DateTimeCtrls,
+  Wasm.FMX.ComboEdit,
+  Wasm.System.Math,
+  Wasm.FMX.Memo,
+  Wasm.FMX.StdCtrls,
+  Wasm.FMX.Graphics,
+  Wasm.System.UITypes,
+  {$ENDIF}
+  FMX.DataControl.ControlClasses,
+  FMX.DataControl.ScrollableRowControl.Intf,
   ADato.Data.DataModel.intf;
 
 { TTreeEditingInfo }
@@ -499,9 +526,15 @@ begin
   var ce := TComboEdit(_editor);
   ce.DropDownCount := 5;
   ce.ItemHeight := 20; // For some reason if the ItemHeight is at its default value of 0. The dropdown shows a scrollbar unnecessarily.
+  {$IFNDEF WEBASSEMBLY}
   ce.OnClosePopup := OnDropDownEditorClose;
   ce.OnPopup := OnDropDownEditorOpen;
   ce.OnChange := OnDropdownEditorChange;
+  {$ELSE}
+  ce.OnClosePopup := @OnDropDownEditorClose;
+  ce.OnPopup := @OnDropDownEditorOpen;
+  ce.OnChange := @OnDropdownEditorChange;
+  {$ENDIF}
 
   inherited;
 
@@ -581,7 +614,8 @@ begin
 
   newItemWidth := 0;
 
-  for var item in ce.Items do
+  var item: string;
+  for item in ce.Items do
   begin
     var itemWidth := ce.Canvas.TextWidth(Item);
     if itemWidth > newItemWidth then
@@ -634,7 +668,8 @@ begin
   begin
     var ce := TComboEdit(_editor);
     ce.Clear;
-    for var v in Value do
+    var v: CObject;
+    for v in Value do
       ce.Items.Add(v.ToString);
   end;
 end;
@@ -648,7 +683,8 @@ begin
   var ce := TComboEdit(_editor);
 
   ce.Clear;
-  for var o in _PickList do
+  var o: CObject;
+  for o in _PickList do
     ce.Items.Add(o.ToString);
 
   var val2 := CStringToString(val.ToString(True));
@@ -750,7 +786,8 @@ begin
     _Owner.View.RecreateCustomDataList(_Owner.Model.Context);
 
   var current: IDCRow := nil;
-  for var row in _Owner.View.ActiveViewRows do
+  var row: IDCRow;
+  for row in _Owner.View.ActiveViewRows do
     if CObject.Equals(_Owner.ConvertToDataItem(row.DataItem), DataItem) then
     begin
       // Changed item is a clone..

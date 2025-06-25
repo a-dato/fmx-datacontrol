@@ -1,12 +1,16 @@
+{$IFNDEF WEBASSEMBLY}
 {$I ..\Source\Adato.inc}
+{$ENDIF}
 
 unit ADato.Bitmap.impl;
 
 interface
 
 uses
-  {$IFDEF DELPHI}
+  {$IFNDEF WEBASSEMBLY}
   FMX.Graphics,
+  {$ELSE}
+  Wasm.FMX.Graphics,
   {$ENDIF}
   System_,
   ADato.Bitmap.intf;
