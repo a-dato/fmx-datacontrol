@@ -2334,7 +2334,6 @@ type
     procedure SetValue(const obj: CObject; const Value: CObject; const index: array of CObject; ExecuteTriggers: Boolean = false); virtual;
 
   public
-//    constructor Create(const AOwnerType: &Type; const AType: &Type; APropInfo: Pointer); overload;
     constructor Create(const AOwnerType: &Type; const AType: &Type; APropInfo: IPropInfo); overload;
     constructor Create(const AType: &Type; APropInfo: PPropInfo); overload;
 
@@ -2345,6 +2344,30 @@ type
     property OwnerType: &Type read get_OwnerType;
     property PropInfo: IPropInfo read get_PropInfo;
   end;
+
+  {$IFDEF APP_PLATFORM}
+  CPropertyWrapper = class(TBaseInterfacedObject, _PropertyInfo)
+  protected
+    _property: _PropertyInfo;
+
+    function  get_CanRead: Boolean; virtual;
+    function  get_CanWrite: Boolean; virtual;
+    function  get_Name: CString; virtual;
+    function  get_PropInfo: IPropInfo;
+    function  get_OwnerType: &Type;
+
+    function  GetAttributes: TArray<TCustomAttribute>;
+    function  GetValue(const obj: CObject; const index: array of CObject): CObject; virtual;
+    procedure SetValue(const obj: CObject; const Value: CObject; const index: array of CObject; ExecuteTriggers: Boolean = false); virtual;
+
+  public
+    constructor Create(const AProperty: _PropertyInfo);
+
+    function  GetHashCode: Integer; override;
+    function  ToString: CString; override;
+    function  GetType: &Type; override;
+  end;
+  {$ENDIF}
 
   TCreatePropertyInfo = reference to function(const AOwner: &Type; const AProperty: &Type; PropInfo: IPropInfo) : _PropertyInfo;
 
@@ -3327,6 +3350,68 @@ procedure CPropertyInfo.SetValue(const obj: CObject; const Value: CObject; const
 begin
   _propInfo.SetValue(obj, Value, index, ExecuteTriggers);
 end;
+
+{$IFDEF APP_PLATFORM}
+constructor CPropertyWrapper.Create(const AProperty: _PropertyInfo);
+begin
+  _property := AProperty;
+end;
+
+function CPropertyWrapper.get_CanRead: Boolean;
+begin
+  Result := _property.CanRead;
+end;
+
+function CPropertyWrapper.get_CanWrite: Boolean;
+begin
+  Result := _property.CanWrite;
+end;
+
+function CPropertyWrapper.get_Name: CString;
+begin
+  Result := _property.Name;
+end;
+
+function CPropertyWrapper.get_PropInfo: IPropInfo;
+begin
+  Result := _property.PropInfo;
+end;
+
+function CPropertyWrapper.GetAttributes: TArray<TCustomAttribute>;
+begin
+  Result := _property.GetAttributes;
+end;
+
+function CPropertyWrapper.GetType: &Type;
+begin
+  Result := _property.GetType;
+end;
+
+function CPropertyWrapper.get_OwnerType: &Type;
+begin
+  Result := _property.get_OwnerType;
+end;
+
+function CPropertyWrapper.GetHashCode: Integer;
+begin
+  Result := _property.GetHashCode;
+end;
+
+function CPropertyWrapper.ToString: CString;
+begin
+  Result := _property.ToString;
+end;
+
+function CPropertyWrapper.GetValue(const obj: CObject; const index: array of CObject): CObject;
+begin
+  Result := _property.GetValue(obj, index);
+end;
+
+procedure CPropertyWrapper.SetValue(const obj: CObject; const Value: CObject; const index: array of CObject; ExecuteTriggers: Boolean = false);
+begin
+  _property.SetValue(obj, Value, index, ExecuteTriggers);
+end;
+{$ENDIF}
 
 { CustomProperty }
 constructor CustomProperty.Create(

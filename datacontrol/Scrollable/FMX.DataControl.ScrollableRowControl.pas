@@ -3,22 +3,35 @@ unit FMX.DataControl.ScrollableRowControl;
 interface
 
 uses
-  System_,
+  {$IFNDEF WEBASSEMBLY}
   System.Classes,
   System.UITypes,
-  System.Collections,
+  FMX.Layouts,
+  FMX.Objects,
+  System.Types,
   System.ComponentModel,
+  FMX.DataControl.Events,
+  {$ELSE}
+  Wasm.System,
+  Wasm.System.Classes,
+  Wasm.System.UITypes,
+  Wasm.FMX.Layouts,
+  Wasm.FMX.Objects,
+  Wasm.System.Types,
+  Wasm.System.ComponentModel,
+  {$ENDIF}
+  System_,
+  System.Collections,
   System.Collections.Generic,
 
-  FMX.Layouts,
   FMX.DataControl.ScrollableControl,
   FMX.DataControl.View.Intf,
-  FMX.Objects,
-  FMX.DataControl.ScrollableRowControl.Intf,
-  FMX.DataControl.Events,
 
+  FMX.DataControl.ScrollableRowControl.Intf,
+  
   ADato.ObjectModel.List.intf,
-  ADato.ObjectModel.intf, System.Types, ADato.Data.DataModel.intf;
+  ADato.ObjectModel.intf, 
+  ADato.Data.DataModel.intf;
 
 type
   TRowControl = class(TRectangle)
@@ -69,8 +82,10 @@ type
     _allowNoneSelected: Boolean;
 
     // events
+    {$IFNDEF WEBASSEMBLY}
     _rowLoaded: RowLoadedEvent;
     _rowAligned: RowLoadedEvent;
+    {$ENDIF}
 
     procedure DoRowLoaded(const ARow: IDCRow); virtual;
     procedure DoRowAligned(const ARow: IDCRow); virtual;
@@ -78,7 +93,9 @@ type
     function  get_SelectionType: TSelectionType;
     procedure set_SelectionType(const Value: TSelectionType);
     procedure set_Options(const Value: TDCTreeOptions);
+    {$IFNDEF WEBASSEMBLY}
     function  get_AllowNoneSelected: Boolean;
+    {$ENDIF}
     procedure set_AllowNoneSelected(const Value: Boolean);
     function  get_NotSelectableItems: IList;
     procedure set_NotSelectableItems(const Value: IList);
@@ -291,8 +308,10 @@ protected
     property RowHeightDefault: Single read get_rowHeightDefault write set_RowHeightDefault;
     property RowHeightMax: Single read _rowHeightMax write set_RowHeightMax;
 
+    {$IFNDEF WEBASSEMBLY}
     property RowLoaded: RowLoadedEvent read _rowLoaded write _rowLoaded;
     property RowAligned: RowLoadedEvent read _rowAligned write _rowAligned;
+    {$ENDIF}
 
     property RowHeightSynchronizer: TDCScrollableRowControl read get_RowHeightSynchronizer write set_RowHeightSynchronizer;
   end;
@@ -300,16 +319,29 @@ protected
 implementation
 
 uses
+  {$IFNDEF WEBASSEMBLY}
   System.SysUtils,
   System.Math,
-
   FMX.Types,
+  FMX.Graphics,
+  FMX.ActnList,
+  FMX.Platform,
+  System.Rtti,
+  FMX.Forms,
+  {$ELSE}
+  Wasm.System.SysUtils,
+  Wasm.System.Math,
+  Wasm.FMX.Types,
+  Wasm.FMX.Graphics,
+  Wasm.FMX.ActnList,
+  Wasm.FMX.Platform,
+  Wasm.FMX.Forms,
+  {$ENDIF}
   FMX.DataControl.ScrollableRowControl.Impl,
-
   FMX.DataControl.View.Impl,
-  FMX.DataControl.ScrollableControl.Intf, FMX.Graphics,
-  FMX.DataControl.ControlClasses, FMX.ControlCalculations, FMX.ActnList,
-  FMX.Platform, System.Rtti, FMX.Forms;
+  FMX.DataControl.ScrollableControl.Intf, 
+  FMX.DataControl.ControlClasses, 
+  FMX.ControlCalculations;
 
 { TDCScrollableRowControl }
 
@@ -370,7 +402,8 @@ begin
   var di := ConvertToDataItem(DataItem);
 
   var currentRow: IDCRow := nil;
-  for var row in _view.ActiveViewRows do
+  var row: IDCRow;
+  for row in _view.ActiveViewRows do
     if CObject.Equals(ConvertToDataItem(row.DataItem), di) then
       currentRow := row;
 
@@ -416,7 +449,8 @@ begin
   if _view = nil then
     Exit;
 
-  for var row in _view.ActiveViewRows do
+  var row: IDCRow;
+  for row in _view.ActiveViewRows do
     VisualizeRowSelection(row);
 end;
 
@@ -427,7 +461,8 @@ begin
   if _view = nil then
     Exit;
 
-  for var row in _view.ActiveViewRows do
+  var row: IDCRow;
+  for row in _view.ActiveViewRows do
     VisualizeRowSelection(row);
 end;
 
@@ -470,8 +505,13 @@ begin
     D.Source := row.Control;
     D.Files := nil;
     D.Data := TValue.From<IList>(DraggedItems as IList);
+    {$IFNDEF WEBASSEMBLY}
     if TPlatformServices.Current.SupportsPlatformService(IFMXDragDropService, DDService) then
       DDService.BeginDragDrop(Self.Root as TCommonCustomForm, D, FMX.Graphics.TBitmap(row.Control.MakeScreenshot));
+    {$ELSE}
+    if TPlatformServices.Current.SupportsPlatformService<IFMXDragDropService>(DDService) then
+      DDService.BeginDragDrop(Self.Root as TCommonCustomForm, D, Wasm.FMX.Graphics.TBitmap(row.Control.MakeScreenshot));
+    {$ENDIF}
   end;
 end;
 
@@ -511,6 +551,7 @@ end;
 
 procedure TDCScrollableRowControl.DoRowLoaded(const ARow: IDCRow);
 begin
+  {$IFNDEF WEBASSEMBLY}
   if Assigned(_rowLoaded) then
   begin
     var rowEventArgs: DCRowEventArgs;
@@ -518,10 +559,14 @@ begin
 
     _rowLoaded(Self, rowEventArgs);
   end;
+  {$ELSE}
+  //raise NotImplementedException.Create('procedure TDCScrollableRowControl.DoRowLoaded(const ARow: IDCRow)');
+  {$ENDIF}
 end;
 
 procedure TDCScrollableRowControl.DoRowAligned(const ARow: IDCRow);
 begin
+  {$IFNDEF WEBASSEMBLY}
   if Assigned(_rowAligned) then
   begin
     var rowEventArgs: DCRowEventArgs;
@@ -529,6 +574,9 @@ begin
 
     _rowAligned(Self, rowEventArgs);
   end;
+  {$ELSE}
+  //raise NotImplementedException.Create('procedure TDCScrollableRowControl.DoRowAligned(const ARow: IDCRow)');
+  {$ENDIF}
 end;
 
 procedure TDCScrollableRowControl.TriggerFilterOrSortChanged(FilterChanged, SortChanged: Boolean);
@@ -632,7 +680,8 @@ begin
     Exit(nil);
 
   var virtualMouseposition := Y + _vertScrollBar.Value;
-  for var row in _view.ActiveViewRows do
+  var row: IDCRow;
+  for row in _view.ActiveViewRows do
     if (row.VirtualYPosition <= virtualMouseposition) and (row.VirtualYPosition + row.Height > virtualMouseposition) then
       Exit(row);
 
@@ -674,13 +723,21 @@ begin
   end;
 
   if _dataModelView <> nil then
+    {$IFNDEF WEBASSEMBLY}
     _view := TDataViewList.Create(_dataModelView, DoCreateNewRow, OnViewChanged)
+    {$ELSE}
+    _view := TDataViewList.Create(_dataModelView, @DoCreateNewRow, @OnViewChanged)
+    {$ENDIF}
   else begin
     var aType := GetItemType;
     if aType.IsUnknown and (_dataList.Count > 0) then
       aType := _dataList[0].GetType;
 
+    {$IFNDEF WEBASSEMBLY}
     _view := TDataViewList.Create(_dataList, DoCreateNewRow, OnViewChanged, aType);
+    {$ELSE}
+    _view := TDataViewList.Create(_dataList, @DoCreateNewRow, @OnViewChanged, aType);
+    {$ENDIF}
   end;
 
   if ViewIsDataModelView and (GetDataModelView.CurrencyManager.Current <> -1) and (_view.ActiveViewRows.Count > 0) then
@@ -694,7 +751,8 @@ begin
   if _view = nil then
     Exit;
 
-  for var row in _view.ActiveViewRows do
+  var row: IDCRow;
+  for row in _view.ActiveViewRows do
     if (row.DataIndex = _selectionInfo.DataIndex) then
       Exit(row);
 
@@ -722,8 +780,11 @@ begin
   if ((TDCTreeOption.AlternatingRowBackground in OldFlags) <> (TDCTreeOption.AlternatingRowBackground in NewFlags)) then
   begin
     if _view <> nil then
-      for var row in _view.ActiveViewRows do
+    begin
+      var row: IDCRow;
+      for row in _view.ActiveViewRows do
         InitRow(row);
+    end;
   end;
 end;
 
@@ -781,10 +842,12 @@ begin
     _selectionInfo.Deselect(dataIndex);
 end;
 
+{$IFNDEF WEBASSEMBLY}
 function TDCScrollableRowControl.get_AllowNoneSelected: Boolean;
 begin
   Result := _allowNoneSelected;
 end;
+{$ENDIF}
 
 function TDCScrollableRowControl.get_Current: Integer;
 begin
@@ -804,7 +867,8 @@ begin
     _activeRowHeightSynchronizer.View.ViewLoadingRemoveNonUsedRows(ToViewIndex, True);
 
   var virtualYPosition := TopVirtualYPosition + _scrollbarRefToTopHeightChangeSinceViewLoading;
-  for var row in _view.ActiveViewRows do
+  var row: IDCRow;
+  for row in _view.ActiveViewRows do
   begin
     row.VirtualYPosition := virtualYPosition;
 
@@ -1016,7 +1080,8 @@ begin
     Exit(nil);
 
   var l: List<CObject> := CList<CObject>.Create(Length(_selectionInfo.NotSelectableDataIndexes));
-  for var dataIndex in _selectionInfo.NotSelectableDataIndexes do
+  var dataIndex: Integer;
+  for dataIndex in _selectionInfo.NotSelectableDataIndexes do
     l.Add(_view.OriginalData[dataIndex]);
 
   Result := l as IList;
@@ -1057,8 +1122,13 @@ begin
 
   if GetDataModelView <> nil then
   begin
+    {$IFNDEF WEBASSEMBLY}
     GetDataModelView.CurrencyManager.CurrentRowChanged.Remove(DataModelViewRowChanged);
     GetDataModelView.RowPropertiesChanged.Remove(DataModelViewRowPropertiesChanged);
+    {$ELSE}
+    GetDataModelView.CurrencyManager.CurrentRowChanged -= DataModelViewRowChanged;
+    GetDataModelView.RowPropertiesChanged -= DataModelViewRowPropertiesChanged;
+    {$ENDIF}
   end;
 
   _view := nil;
@@ -1082,8 +1152,13 @@ begin
 
     if GetDataModelView <> nil then
     begin
+      {$IFNDEF WEBASSEMBLY}
       GetDataModelView.CurrencyManager.CurrentRowChanged.Add(DataModelViewRowChanged);
       GetDataModelView.RowPropertiesChanged.Add(DataModelViewRowPropertiesChanged);
+      {$ELSE}
+      GetDataModelView.CurrencyManager.CurrentRowChanged += DataModelViewRowChanged;
+      GetDataModelView.RowPropertiesChanged += DataModelViewRowPropertiesChanged;
+      {$ENDIF}
     end;
   end else
     _dataModelView := nil;
@@ -1113,13 +1188,23 @@ begin
 
   if _model <> nil then
   begin
+    {$IFNDEF WEBASSEMBLY}
     _model.OnContextChanging.Remove(ModelListContextChanging);
     _model.OnContextChanged.Remove(ModelListContextChanged);
+    {$ELSE}
+    _model.OnContextChanging -= ModelListContextChanging;
+    _model.OnContextChanged -= ModelListContextChanged;
+    {$ENDIF}
 
     if _model.ListHoldsObjectType or (_model.ObjectModelContext <> nil) then
     begin
+      {$IFNDEF WEBASSEMBLY}
       _model.ObjectModelContext.OnPropertyChanged.Remove(ModelContextPropertyChanged);
       _model.ObjectModelContext.OnContextChanged.Remove(ModelContextChanged);
+      {$ELSE}
+      _model.ObjectModelContext.OnPropertyChanged -= ModelContextPropertyChanged;
+      _model.ObjectModelContext.OnContextChanged -= ModelContextChanged;
+      {$ENDIF}
     end;
   end;
 
@@ -1127,13 +1212,23 @@ begin
 
   if _model <> nil then
   begin
+    {$IFNDEF WEBASSEMBLY}
     _model.OnContextChanging.Add(ModelListContextChanging);
     _model.OnContextChanged.Add(ModelListContextChanged);
+    {$ELSE}
+    _model.OnContextChanging += ModelListContextChanging;
+    _model.OnContextChanged += ModelListContextChanged;
+    {$ENDIF}
 
     if _model.ListHoldsObjectType or (_model.ObjectModelContext <> nil) then
     begin
+      {$IFNDEF WEBASSEMBLY}
       _model.ObjectModelContext.OnPropertyChanged.Add(ModelContextPropertyChanged);
       _model.ObjectModelContext.OnContextChanged.Add(ModelContextChanged);
+      {$ELSE}
+      _model.ObjectModelContext.OnPropertyChanged += ModelContextPropertyChanged;
+      _model.ObjectModelContext.OnContextChanged += ModelContextChanged;
+      {$ENDIF}
     end;
 
     if _model.Context <> nil then
@@ -1153,6 +1248,7 @@ begin
   var arr: TDataIndexArray;
   SetLength(arr, 0);
 
+  //var item: CObject;
   for var item in Value do
   begin
     var ix := _view.GetDataIndex(item);
@@ -1245,7 +1341,8 @@ begin
       _selectionInfo.EndUpdate(True);
     end;
 
-    for var row in _view.ActiveViewRows do
+    var row: IDCRow;
+    for row in _view.ActiveViewRows do
       VisualizeRowSelection(row);
   end else
     set_Current(Args.NewIndex);
@@ -1276,14 +1373,24 @@ procedure TDCScrollableRowControl.ModelListContextChanged(const Sender: IObjectL
 begin
   set_DataList(_model.Context);
 
+  {$IFNDEF WEBASSEMBLY}
   if not _model.ListHoldsObjectType and (Context <> nil) then
     _model.ObjectModelContext.OnContextChanged.Add(ModelContextChanged);
+  {$ELSE}
+  if not _model.ListHoldsObjectType and (Context <> nil) then
+    _model.ObjectModelContext.OnContextChanged += @ModelContextChanged;
+  {$ENDIF}
 end;
 
 procedure TDCScrollableRowControl.ModelListContextChanging(const Sender: IObjectListModel; const Context: IList);
 begin
+  {$IFNDEF WEBASSEMBLY}
   if not _model.ListHoldsObjectType and (Sender.Context <> nil) then
     _model.ObjectModelContext.OnContextChanged.Remove(ModelContextChanged);
+  {$ELSE}
+  if not _model.ListHoldsObjectType and (Sender.Context <> nil) then
+    _model.ObjectModelContext.OnContextChanged -= @ModelContextChanged;
+  {$ENDIF}
 end;
 
 procedure TDCScrollableRowControl.BeforePainting;
@@ -1656,7 +1763,12 @@ end;
 
 function TDCScrollableRowControl.ListHoldsOrdinalType: Boolean;
 begin
+  {$IFNDEF WEBASSEMBLY}
   Result := not (&Type.GetTypeCode(GetItemType) in [TypeCode.&Object, TypeCode.&Interface, TypeCode.&Array]);
+  {$ELSE}
+  var tc := &Type.GetTypeCode(GetItemType);
+  Result := not ((tc = TypeCode.Object) or GetItemType.IsInterface or GetItemType.IsArray);
+  {$ENDIF}
 end;
 
 procedure TDCScrollableRowControl.DoCollapseOrExpandRow(const ViewListIndex: Integer; DoExpand: Boolean);
@@ -1765,7 +1877,8 @@ begin
     AtomicDecrement(_internalSelectCount);
   end;
 
-  for var row in _view.ActiveViewRows do
+  var row: IDCRow;
+  for row in _view.ActiveViewRows do
     VisualizeRowSelection(row);
 end;
 
@@ -1876,6 +1989,7 @@ begin
         _selectionInfo.UpdateSingleSelection(dataIndex, viewListIndex, SelectedItems[0]);
     end else
     begin
+      //var item: CObject;
       for var item in SelectedItems do
       begin
         var viewListIndex := _view.GetViewListIndex(item);
@@ -1898,7 +2012,8 @@ begin
     Exit;
 
   // update YPositions
-  for var row in _view.ActiveViewRows do
+  var row: IDCRow;
+  for row in _view.ActiveViewRows do
   begin
     if not SameValue(row.Control.Position.Y, row.VirtualYPosition - _vertScrollBar.Value) then
       row.Control.Position.Y := row.VirtualYPosition - _vertScrollBar.Value;
@@ -2121,8 +2236,11 @@ begin
     _hoverRect.Visible := False;
 
   if _view <> nil then
-    for var row in _view.ActiveViewRows do
+  begin
+    var row: IDCRow;
+    for row in _view.ActiveViewRows do
       DoRowAligned(row);
+  end;
 
   inherited;
 
@@ -2288,9 +2406,12 @@ begin
     _selectionInfo.ClearAllSelections;
 
     if _view <> nil then
-      for var row in _view.ActiveViewRows do
+    begin
+      var row: IDCRow;
+      for row in _view.ActiveViewRows do
         _selectionInfo.AddToSelection(row.DataIndex, row.ViewListIndex, row.DataItem);
-
+    end;
+    
     // keep current selected item
     if cln.DataIndex <> -1 then
       _selectionInfo.AddToSelection(cln.DataIndex, cln.ViewListIndex, cln.DataItem);
@@ -2304,9 +2425,10 @@ begin
   Result := CList<CObject>.Create;
 
   var dataIndexes := _selectionInfo.SelectedDataIndexes;
-  for var index in dataIndexes do
+  var ix: Integer;
+  for ix in dataIndexes do
   begin
-    var item := _view.OriginalData[index];
+    var item := _view.OriginalData[ix];
 
     var dr: IDataRow;
     if ViewIsDataModelView and item.TryAsType<IDataRow>(dr) then

@@ -5,12 +5,15 @@ unit System.ComponentModel;
 interface
 
 uses
+  {$IFNDEF WEBASSEMBLY}
   TypInfo,
   Classes,
+  Generics.Defaults,
+  {$ENDIF}
   // Dialogs,
   System_,
   System.Collections,
-  System.Runtime.Serialization, Generics.Defaults;
+  System.Runtime.Serialization;
 
 type
   ICancelAddNew = interface(IBaseInterface)
@@ -470,7 +473,11 @@ type
 
 implementation
 
-uses SysUtils, Variants;
+{$IFNDEF WEBASSEMBLY}
+uses
+  SysUtils,
+  Variants;
+{$ENDIF}
 
 { ListChangedType }
 class operator ListChangedType.Equal(const L, R: ListChangedType) : Boolean;

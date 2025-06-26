@@ -1,4 +1,4 @@
-{$IFNDEF LYNXWEB}
+{$IFNDEF WEBASSEMBLY}
 {$I ..\Source\Adato.inc}
 {$ENDIF}
 
@@ -7,7 +7,7 @@ unit ADato.Factory;
 interface
 
 uses
-  {$IFDEF DELPHI}
+  {$IFNDEF WEBASSEMBLY}
   System.Rtti,
   System.TypInfo,
   {$ELSE}
@@ -53,7 +53,12 @@ type
 implementation
 
 uses
-  System.SysUtils;
+  {$IFNDEF WEBASSEMBLY}
+  System.SysUtils
+  {$ELSE}
+  Wasm.System.SysUtils
+  {$ENDIF}
+  ;
 
 { CFactory }
 

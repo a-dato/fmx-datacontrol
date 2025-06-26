@@ -1,4 +1,6 @@
+{$IFNDEF WEBASSEMBLY}
 {$I ..\Source\Adato.inc}
+{$ENDIF}
 
 unit ADato.TraceEvents.intf;
 
@@ -106,8 +108,10 @@ var
 
 implementation
 
+{$IFNDEF WEBASSEMBLY}
 uses
   System.JSON;
+{$ENDIF}
 
 
 function PointerToString(P: Pointer) : string;

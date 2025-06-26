@@ -3,11 +3,19 @@ unit FMX.DataControl.View.Intf;
 interface
 
 uses
-  System_,
+  {$IFNDEF WEBASSEMBLY}
   FMX.Layouts,
-  System.Collections.Generic, ADato.Sortable.Intf, FMX.Controls,
+  FMX.Controls,
+  System.ComponentModel,
+  {$ELSE}
+  Wasm.FMX.Layouts,
+  Wasm.FMX.Controls,
+  Wasm.System.ComponentModel,
+  {$ENDIF}
+  System_,
+  System.Collections.Generic, ADato.Sortable.Intf,
   ADato.Sortable.Impl,
-  FMX.DataControl.ScrollableRowControl.Intf, System.ComponentModel,
+  FMX.DataControl.ScrollableRowControl.Intf, 
   System.Collections;
 
 type

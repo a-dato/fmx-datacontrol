@@ -5,18 +5,22 @@ unit ADato.Sortable.Intf;
 interface
 
 uses
-  {$IFDEF DELPHI}
+  {$IFNDEF WEBASSEMBLY}
   System.Classes,
+  System.SysUtils,
+  System.ComponentModel,
+  {$ELSE}
+  Wasm.System.ComponentModel,
   {$ENDIF}
   System_,
   System.Collections,
-  System.ComponentModel,
-  System.Collections.Generic,
-  System.SysUtils;
+  
+  System.Collections.Generic;
 
 type
   TOnChangeProc = procedure of object;
 
+  {$IFNDEF WEBASSEMBLY}
   IOnDataChangeDelegate = interface(IDelegate)
     procedure Add(Value: TOnChangeProc);
     function  Contains(Value: TOnChangeProc) : Boolean;
@@ -31,6 +35,10 @@ type
     procedure Remove(value: TOnChangeProc);
     procedure Invoke;
   end;
+  {$ELSE}
+  TOnDataChangeDelegate = public delegate;
+  IOnDataChangeDelegate = TOnDataChangeDelegate;
+  {$ENDIF}
 
   IListComparer = interface;
   TGetDataList = reference to function:IList;
@@ -62,7 +70,11 @@ type
     property  SortDescriptions: List<IListSortDescription> read get_SortDescriptions;
     property  FilterDescriptions: List<IListFilterDescription> read get_FilterDescriptions;
     property  FuncDataList: TGetDataList read get_FuncDataList write set_FuncDataList;
+    {$IFNDEF WEBASSEMBLY}
     property  OnComparingChanged: IOnDataChangeDelegate read get_OnComparingChanged;
+    {$ELSE}
+    event OnComparingChanged: IOnDataChangeDelegate;
+    {$ENDIF}
   end;
 
   IComparableList = interface(ISortable)
@@ -78,6 +90,7 @@ implementation
 
 { TOnDataChangeDelegate }
 
+{$IFNDEF WEBASSEMBLY}
 procedure TOnDataChangeDelegate.Add(Value: TOnChangeProc);
 begin
   inherited Add(TMethod(Value));
@@ -104,5 +117,6 @@ procedure TOnDataChangeDelegate.Remove(Value: TOnChangeProc);
 begin
   inherited Remove(TMethod(Value));
 end;
+{$ENDIF}
 
 end.

@@ -1,10 +1,13 @@
+{$IFNDEF WEBASSEMBLY}
 {$I Adato.inc}
+{$ENDIF}
+
 unit ADato.ObjectModel.Binders;
 
 interface
 
 uses
-  {$IFDEF DELPHI}
+  {$IFNDEF WEBASSEMBLY}
   FMX.Edit, 
   FMX.StdCtrls, 
   FMX.ListBox, 
@@ -21,8 +24,24 @@ uses
   FMX.Colors,
   System.SysUtils,
   {$ELSE}
-  ADato.CustomControls,
+  //ADato.CustomControls,
   System.Text,
+  Wasm.FMX.StdCtrls,
+  Wasm.FMX.Controls,
+  Wasm.FMX.Types,
+  Wasm.System.Classes,
+  Wasm.FMX.Objects,
+  Wasm.FMX.Graphics,
+  Wasm.FMX.Edit,
+  Wasm.FMX.NumberBox,
+  Wasm.FMX.SpinBox,
+  Wasm.FMX.ComboEdit,
+  Wasm.FMX.SpinBox,
+  Wasm.FMX.EditBox,
+  Wasm.FMX.Memo,
+  Wasm.FMX.ListBox,
+  Wasm.FMX.DateTimeCtrls,
+  Wasm.System.SysUtils,
   {$ENDIF}
   System_,
   ADato.PropertyAccessibility.Intf,
@@ -54,9 +73,6 @@ type
   protected
     {$IFDEF DELPHI}[weak]{$ENDIF} _ObjectModelContext: IObjectModelContext;
     {$IFDEF DELPHI}[weak]{$ENDIF} __PropertyInfo: _PropertyInfo;
-    {$IFDEF APP_PLATFORM}
-    _Descriptor: IPropertyDescriptor;
-    {$ENDIF}
 
     _UpdateCount: Integer;
     _executeTriggers: Boolean;
@@ -65,11 +81,6 @@ type
     _funcPickList: TGetPickList;
 
     class var _bindersByClass: Dictionary<TClass, TControlBindingCreator>;
-
-    {$IFDEF APP_PLATFORM}
-    function get_Descriptor: IPropertyDescriptor;
-    procedure set_Descriptor(const Value: IPropertyDescriptor);
-    {$ENDIF}
 
     function  get_ObjectModelContext: IObjectModelContext; virtual;
     procedure set_ObjectModelContext(const Value: IObjectModelContext); virtual;
@@ -96,6 +107,10 @@ type
     function  WaitForNotifyModel: Boolean; virtual;
     procedure NotifyModel(Sender: TObject); virtual;
     procedure ExecuteOriginalOnChangeEvent; virtual; abstract;
+
+    {$IFDEF APP_PLATFORM}
+    function TryGetPropertyDescriptor(out ADescriptor: IPropertyDescriptor) : Boolean;
+    {$ENDIF}
   public
     class function  CreateBindingByControl(const Control: TFMXObject): IPropertyBinding;
     class procedure RegisterClassBinding(const ControlClass: TClass; const ControlBindingCreator: TControlBindingCreator);
@@ -104,7 +119,7 @@ type
   // FOR ALL DESCENDANDS OF TPROPERTYBINDING THAT HAVE CONTROLS
   TFreeControlNotification = class(TInterfacedObject, IFreeNotification)
   private
-    [weak] _binding: IControlBinding;
+    {$IFNDEF WEBASSEMBLY}[weak]{$ENDIF} _binding: IControlBinding;
   public
     constructor Create(const Binding: IControlBinding);
     procedure FreeNotification(AObject: TObject);
@@ -116,7 +131,7 @@ type
     _control: T;
     _freeNotification: IFreeNotification;
 
-    {$IFDEF DELPHI}
+    {$IFNDEF WEBASSEMBLY}
     [unsafe] _updated_rect: IControl;
     {$ELSE}
     _updated_rect: IControl;
@@ -304,7 +319,7 @@ type
     procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject); override;
   end;
 
-  {$IFDEF DELPHI}
+  {$IFNDEF WEBASSEMBLY}
   TComboColorBoxControlBinding = class(TControlBinding<TComboColorBox>)
   protected
     function  GetValue: CObject; override;
@@ -380,6 +395,7 @@ type
     procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject); override;
   end;
 
+  {$IFNDEF WEBASSEMBLY}
   TImageControlBinding = class(TControlBinding<TImage>)
   protected
     function  GetValue: CObject; override;
@@ -390,16 +406,21 @@ type
   protected
     procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject); override;
   end;
+  {$ENDIF}
 
 implementation
 
 uses
-  {$IFDEF DELPHI}
-  FMX.Text, 
-  ADato.Bitmap.intf,
+  {$IFNDEF WEBASSEMBLY}
+  FMX.Text,
   System.Math,
   FMX.Ani,
+  {$ELSE}
+  Wasm.FMX.Text,
+  Wasm.System.Math,
+  Wasm.System.UITypes,
   {$ENDIF}
+  ADato.Bitmap.intf,
   ADato.Duration,
   ADato.Data.DataModel.intf, System.JSON;
 
@@ -636,18 +657,6 @@ begin
   _bindersByClass[ControlClass] := ControlBindingCreator;
 end;
 
-{$IFDEF APP_PLATFORM}
-function TPropertyBinding.get_Descriptor: IPropertyDescriptor;
-begin
-  Result := _Descriptor;
-end;
-
-procedure TPropertyBinding.set_Descriptor(const Value: IPropertyDescriptor);
-begin
-  _Descriptor := Value;
-end;
-{$ENDIF}
-
 function TPropertyBinding.get_ExecuteTriggers: Boolean;
 begin
   Result := _executeTriggers;
@@ -678,6 +687,14 @@ begin
   Result := False;
 end;
 
+{$IFDEF APP_PLATFORM}
+function TPropertyBinding.TryGetPropertyDescriptor(out ADescriptor: IPropertyDescriptor) : Boolean;
+begin
+  var obj_prop: IObjectModelProperty;
+  Result := Interfaces.Supports<IObjectModelProperty>(__PropertyInfo, obj_prop) and Interfaces.Supports<IPropertyDescriptor>(obj_prop.ContainedProperty, ADescriptor);
+end;
+{$ENDIF}
+
 { TLabelControlBinding }
 
 
@@ -692,25 +709,6 @@ end;
 
 procedure TLabelControlBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
 begin
-  {$IFDEF APP_PLATFORM}
-  if IsUpdating or IsLinkedProperty(AProperty) then Exit;
-
-  BeginUpdate;
-  try
-    if (_Descriptor <> nil) and (Value <> nil) then
-    begin
-      // Obj   -> IProject
-      // Value -> Customer
-      // var props := AProperty.Name.Split(['.']);
-      var o := _Descriptor.Formatter.Format(Obj, Value, nil);
-      if o <> nil then
-        _Control.Text := CStringToString(o);
-    end;
-
-  finally
-    EndUpdate;
-  end;
-  {$ELSE}
   if (_UpdateCount > 0) or IsLinkedProperty(AProperty) then Exit;
 
   // use TrimStart/TrimEnd to remove Enters and avoid empty looking labels
@@ -731,7 +729,6 @@ begin
 
   if not CString.Equals(text, _Control.Text) then
     _Control.Text := text;
-  {$ENDIF}
 end;
 
 { TComboBoxControlBinding }
@@ -765,15 +762,16 @@ end;
 {$IFDEF APP_PLATFORM}
 procedure TComboBoxControlBinding.ComboBoxMouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Single);
 begin
-  if (Button = TMouseButton.mbLeft) and (_pickList = nil) and (_Descriptor <> nil) then
+  var descriptor: IPropertyDescriptor;
+  if (Button = TMouseButton.mbLeft) and (_pickList = nil) and TryGetPropertyDescriptor(descriptor) and (descriptor.Picklist <> nil) then
   begin
-    var items := _Descriptor.Picklist.Items(nil);
+    var items := descriptor.Picklist.Items(nil);
     if items.TryGetValue<IList>(_picklist) then
     begin
       _control.BeginUpdate;
       try
         _control.Items.Clear;
-        var formatter := _Descriptor.Formatter;
+        var formatter := descriptor.Formatter;
 
         for var item in _picklist do
         begin
@@ -806,11 +804,7 @@ begin
       Exit(_control.Items[ix]);
   end
   else if (ix >= 0) and (ix < (_picklist.Count - 1)) then
-  begin
-    var item := _picklist[ix];
-    if (item <> nil) and (_Descriptor <> nil) then
-      Result := _Descriptor.Formatter.Marshal(get_ObjectModelContext.Context, item);
-  end;
+    Result := _picklist[ix];
   {$ELSEIF DELPHI}
   var ix := _Control.ItemIndex;
   if not GoWithPicklist then
@@ -849,19 +843,6 @@ begin
     end;
 
     var value_string: CString;
-
-    if Value.IsString and (_Descriptor <> nil) then
-    begin
-      var js := TJsonObject.ParseJSONValue(Value.ToString(False));
-      try
-        var s: string;
-        if js.TryGetValue<string>('Value', s) then
-          value_string := s;
-      finally
-        js.Free;
-      end;
-    end;
-
     if value_string = nil then
       value_string := Value.ToString;
 
@@ -1377,7 +1358,7 @@ begin
     raise Exception.Create('Events are getting strangled');
   {$ELSE}
   var notifyEvent: TNotifyEvent := @NotifyModel;
-  if Assigned(ControlEvent) and AreEventsEqual(ControlEvent, notifyEvent) then
+  if Assigned(ControlEvent) and System.Delegate.Equals(ControlEvent, notifyEvent) then
     raise Exception.Create('Events are getting strangled');
   {$ENDIF}
 
@@ -1438,13 +1419,13 @@ begin
 
   BeginUpdate;
   try
-    {$IFDEF DOTNET}
-    if Value = nil then 
-    begin
-      _control.Text := CDateTime.MinValue.ToString;
-      Exit;
-    end;
-    {$ENDIF}
+//    {$IFDEF DOTNET}
+//    if Value = nil then 
+//    begin
+//      _control.Text := CDateTime.MinValue.ToString;
+//      Exit;
+//    end;
+//    {$ENDIF}
 
     var cdt := Value.AsType<CDateTime>;
     _Control.IsEmpty := cdt = CDateTime.MinValue;
@@ -1694,6 +1675,7 @@ begin
     inherited;
 end;
 
+{$IFNDEF WEBASSEMBLY}
 { TImageControlSmartLinkBinding }
 
 procedure TImageControlSmartLinkBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
@@ -1733,6 +1715,7 @@ begin
     EndUpdate;
   end;
 end;
+{$ENDIF}
 
 { TButtonControlBinding }
 
@@ -1860,7 +1843,7 @@ end;
 
 { TComboColorBoxControlBinding }
 
-{$IFDEF DELPHI}
+{$IFNDEF WEBASSEMBLY}
 constructor TComboColorBoxControlBinding.Create(AControl: TComboColorBox);
 begin
   inherited Create(AControl);
@@ -1949,12 +1932,16 @@ initialization
   TPropertyBinding.RegisterClassBinding(TProgressBar,
     function(const Control: TFMXObject): IPropertyBinding begin Result := TProgressBarControlSmartLinkBinding.Create(TProgressBar(Control)) end);
 
+  {$IFNDEF WEBASSEMBLY}
   TPropertyBinding.RegisterClassBinding(TImage,
     function(const Control: TFMXObject): IPropertyBinding begin Result := TImageControlSmartLinkBinding.Create(TImage(Control)) end);
+  {$ENDIF}
 
   TPropertyBinding.RegisterClassBinding(TNumberBox,
     function(const Control: TFMXObject): IPropertyBinding begin Result := TNumberBoxControlSmartLinkBinding.Create(TNumberBox(Control)) end);
 
+  {$IFNDEF WEBASSEMBLY}
   TPropertyBinding.RegisterClassBinding(TComboColorBox,
     function(const Control: TFMXObject): IPropertyBinding begin Result := TComboColorBoxControlSmartLinkBinding.Create(TComboColorBox(Control)) end);
+  {$ENDIF}
 end.

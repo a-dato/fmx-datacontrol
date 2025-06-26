@@ -5,8 +5,10 @@ unit ADato.Bitmap.intf;
 interface
 
 uses
-  {$IFDEF DELPHI}
+  {$IFNDEF WEBASSEMBLY}
   FMX.Graphics,
+  {$ELSE}
+  Wasm.FMX.Graphics,
   {$ENDIF}
   System_;
 

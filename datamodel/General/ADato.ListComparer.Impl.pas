@@ -1,4 +1,4 @@
-{$IFNDEF LYNXWEB}
+{$IFNDEF WEBASSEMBLY}
 {$I ..\..\dn4d\Source\Adato.inc}
 {$ENDIF}
 
@@ -7,14 +7,16 @@ unit ADato.ListComparer.Impl;
 interface
 
 uses
-  {$IFDEF DELPHI}
+  {$IFNDEF WEBASSEMBLY}
   System.Classes,
   System.Generics.Defaults,
+  System.ComponentModel,
+  {$ELSE}
+  Wasm.System.ComponentModel,
   {$ENDIF}
   System_,
   System.Collections,
   System.Collections.Generic,
-  System.ComponentModel,
   ADato.Sortable.Intf;
 
 type
@@ -73,6 +75,10 @@ type
     procedure ResetSortedRows(ExecuteSortFilterChange: Boolean);
     function  SortCompleted: Boolean;
     procedure ToggleDirection;
+
+    {$IFDEF WEBASSEMBLY}
+    event OnComparingChanged: IOnDataChangeDelegate delegate _onDataChangedDelegate;
+    {$ENDIF}
 
     procedure ApplySort(const Sorts: List<IListSortDescription>; const Filters: List<IListFilterDescription>);
   end;
@@ -188,8 +194,10 @@ end;
 
 function TListComparer.get_OnComparingChanged: IOnDataChangeDelegate;
 begin
+  {$IFNDEF WEBASSEMBLY}
   if _onDataChangedDelegate = nil then
     _onDataChangedDelegate := TOnDataChangeDelegate.Create;
+  {$ENDIF}
 
   Result := _onDataChangedDelegate;
 end;

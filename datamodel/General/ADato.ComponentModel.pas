@@ -1,6 +1,4 @@
-{$IFNDEF LYNXWEB}
 {$I ..\Source\Adato.inc}
-{$ENDIF}
 
 unit ADato.ComponentModel;
 
@@ -34,12 +32,12 @@ type
   private
     // QueryInterface provides a way to overide the interface
     // used for querying other interfaces
-    {$IFDEF DELPHI}
+    {$IFNDEF WEBASSEMBLY}
     _QueryControllers: array of Pointer;
     {$ELSE}
     _QueryControllers: array of IInterface;
     {$ENDIF}
-    [unsafe]_InterfaceComponentReference: IInterfaceComponentReference;
+    {$IFNDEF WEBASSEMBLY}[unsafe]{$ENDIF}_InterfaceComponentReference: IInterfaceComponentReference;
 
   protected
     function  get_InterfaceComponentReference: IInterfaceComponentReference;

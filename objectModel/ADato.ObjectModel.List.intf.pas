@@ -1,4 +1,4 @@
-{$IFNDEF LYNXWEB}
+{$IFNDEF WEBASSEMBLY}
 {$I ..\..\dn4d\Source\Adato.inc}
 {$ENDIF}
 
@@ -111,7 +111,7 @@ type
 
   TObjectModelMultiSelect = class(TBaseInterfacedObject, IObjectModelMultiSelect)
   private
-    [unsafe] _objectListModel: IObjectListModel;
+    {$IFNDEF WEBASSEMBLY}[unsafe]{$ENDIF} _objectListModel: IObjectListModel;
 
     _context: List<CObject>;
     _isActive: Boolean;
@@ -333,8 +333,10 @@ end;
 
 function TObjectModelMultiSelect.get_Delegate: ListContextChangedEventHandler;
 begin
+  {$IFNDEF WEBASSEMBLY}
   if _eventHandler = nil then
     _eventHandler := ListContextChangedEventDelegate.Create;
+  {$ENDIF}
 
   Result := _eventHandler;
 end;

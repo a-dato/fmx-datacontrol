@@ -1,18 +1,22 @@
+{$IFNDEF WEBASSEMBLY}
 {$I Adato.inc}
+{$ENDIF}
 
 unit ADato.Sortable.Impl;
 
 interface
 
 uses
-  {$IFDEF DELPHI}
+  {$IFNDEF WEBASSEMBLY}
   System.Collections.Generic.Casting,
   System.Collections.ListInterface.impl,
+  System.ComponentModel,
+  {$ELSE}
+  Wasm.System.ComponentModel,
   {$ENDIF}
   System_,
   System.Collections.Generic,
   ADato.Sortable.Intf,
-  System.ComponentModel,
   System.Collections;
 
 type
@@ -146,7 +150,11 @@ end;
 
 function CComparableList<T>.GetEnumerator: IEnumerator<T>;
 begin
+  {$IFNDEF WEBASSEMBLY}
   Result := ListEnumerator<T>.Create(Self);
+  {$ELSE}
+  Result := _data.GetEnumerator;
+  {$ENDIF}
 end;
 
 function CComparableList<T>.get_Comparer: IListComparer;
@@ -173,9 +181,13 @@ end;
 
 function CComparableList<T>.get_OnComparingChanged: IOnDataChangeDelegate;
 begin
+  {$IFNDEF WEBASSEMBLY}
   if _comparer <> nil then
     Result := _comparer.OnComparingChanged else
     Result := nil;
+  {$ELSE}
+  raise NotImplementedException.Create('CComparableList<T>.get_OnComparingChanged: IOnDataChangeDelegate');
+  {$ENDIF}
 end;
 
 function CComparableList<T>.get_Item(Index: Integer): T;

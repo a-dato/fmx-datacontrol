@@ -187,10 +187,6 @@ type
 
   IPropertyBinding = interface(IBaseInterface)
     ['{062F7D9E-B01F-423C-92AC-96C1CC925EEE}']
-    {$IFDEF APP_PLATFORM}
-    function  get_Descriptor: IPropertyDescriptor;
-    procedure set_Descriptor(const Value: IPropertyDescriptor);
-    {$ENDIF}
 
     function  get_ObjectModelContext: IObjectModelContext;
     procedure set_ObjectModelContext(const Value: IObjectModelContext);
@@ -209,10 +205,6 @@ type
 
     property ObjectModelContext: IObjectModelContext read get_ObjectModelContext write set_ObjectModelContext;
     property PropertyInfo: _PropertyInfo read get_PropertyInfo write set_PropertyInfo;
-
-    {$IFDEF APP_PLATFORM}
-    property Descriptor: IPropertyDescriptor read get_Descriptor write set_Descriptor;
-    {$ENDIF}
 
     property ExecuteTriggers: Boolean read get_ExecuteTriggers write set_ExecuteTriggers;
     property FuncPickList: TGetPickList read GetFuncPickList write SetFuncPickList;

@@ -1,13 +1,16 @@
+{$IFNDEF WEBASSEMBLY}
 {$I ADato.inc}
+{$ENDIF}
 
 unit ADato.ObjectModel.DataModel.impl;
 
 interface
 
 uses
-  {$IFDEF DELPHI}
+  {$IFNDEF WEBASSEMBLY}
   System.SysUtils,
   {$ELSE}
+  Wasm.System.SysUtils,
   ADato.TypeCustomization,
   {$ENDIF}
   System_,
@@ -88,7 +91,7 @@ type
     procedure set_MultiObjectContextSupport(const Value: Boolean);
     function  get_MultiSelect: IObjectModelMultiSelect;
 
-    {$IFDEF DELPHI}
+    {$IFNDEF WEBASSEMBLY}
     function  get_OnContextCanChange: ListContextCanChangeEventHandler;
     function  get_OnContextChanging: ListContextChangingEventHandler;
     function  get_OnContextChanged: ListContextChangedEventHandler;
@@ -161,7 +164,7 @@ type
     function  GetTypeEx: &Type;
     {$ENDIF}
 
-    function  GetType: &Type; {$IFDEF DELPHI}override;{$ENDIF}
+    function  GetType: &Type; {$IFNDEF WEBASSEMBLY}override;{$ENDIF}
     function  CreateObjectModelContext : IObjectModelContext;
   public
     constructor Create(const DataModel: IDataModel); virtual;
@@ -171,8 +174,8 @@ type
 
   TDataModelPropertyForObjectModel = class(CPropertyInfo)
   protected
-    [unsafe] _datamodelColumn: IDataModelColumn;
-    [unsafe] _datamodel: IDataModel;
+    {$IFNDEF WEBASSEMBLY}[unsafe]{$ENDIF} _datamodelColumn: IDataModelColumn;
+    {$IFNDEF WEBASSEMBLY}[unsafe]{$ENDIF} _datamodel: IDataModel;
 
     function  get_Name: CString; override;
     function  get_CanRead: Boolean; override;
@@ -325,7 +328,7 @@ begin
   _originalDataRows := CDictionary<CObject, TDataRowInfo>.Create;
   _previousIndex := -1;
 
-  {$IFDEF DELPHI}
+  {$IFNDEF WEBASSEMBLY}
   _OnContextCanChange := ListContextCanChangeEventDelegate.Create;
   _OnContextChanging := ListContextChangingEventDelegate.Create;
   _OnContextChanged := ListContextChangedEventDelegate.Create;
@@ -334,7 +337,7 @@ end;
 
 function TDataModelObjectListModel.CreateInstance: CObject;
 begin
-  {$IFDEF DELPHI}
+  {$IFNDEF WEBASSEMBLY}
   if Assigned(_CreatorFunc) then
     Result := _CreatorFunc();
   {$ELSE}
@@ -517,7 +520,7 @@ begin
   if (_ObjectModelContext = nil) and (get_Context <> nil) then
   begin
     _ObjectModelContext := CreateObjectModelContext;
-    {$IFDEF DELPHI}
+    {$IFNDEF WEBASSEMBLY}
     _ObjectModelContext.OnContextChanged.Add(OnObjectContextChanged);
     _ObjectModelContext.OnPropertyChanged.Add(OnObjectPropertyChanged);
     {$ELSE}
@@ -529,7 +532,7 @@ begin
   Result := _ObjectModelContext;
 end;
 
-{$IFDEF DELPHI}
+{$IFNDEF WEBASSEMBLY}
 function TDataModelObjectListModel.get_OnContextCanChange: ListContextCanChangeEventHandler;
 begin
   Result := _OnContextCanChange;
@@ -578,7 +581,9 @@ end;
 procedure TDataModelObjectListModel.OnObjectPropertyChanged(const Sender: IObjectModelContext; const Context: CObject; const AProperty: _PropertyInfo);
 begin
   if HasMultiSelection then
-    for var item in _multiSelect.Context do
+  begin
+    var item: CObject;
+    for item in _multiSelect.Context do
       if not CObject.Equals(item, Context) then
       begin
         var cln: ICloneable;
@@ -589,8 +594,13 @@ begin
 
         CacheOriginalData(item);
         UpdateChangedItem(obj, TObjectListChangeType.Changed);
+        {$IFNDEF WEBASSEMBLY}
         AProperty.SetValue(item, AProperty.GetValue(Context, []), [], True);
-      end;
+        {$ELSE}
+        AProperty.SetValue(item, AProperty.GetValue(Context, []), []);
+        {$ENDIF}
+      end;      
+  end;
 end;
 
 procedure TDataModelObjectListModel.OnRowChanged(const Sender: IBaseInterface; Args: RowChangedEventArgs);
@@ -761,7 +771,7 @@ begin
 
   if _dataModel <> nil then
   begin
-    {$IFDEF DELPHI}
+    {$IFNDEF WEBASSEMBLY}
     _dataModel.DefaultCurrencyManager.CurrentRowChanged.Remove(OnRowChanged);
     _ObjectModelContext.OnContextChanged.Remove(OnObjectContextChanged);
     _ObjectModelContext.OnPropertyChanged.Remove(OnObjectPropertyChanged);
@@ -901,7 +911,7 @@ end;
 
 function TDataModelObjectModel.GetType: &Type;
 begin
-  {$IFDEF DELPHI}
+  {$IFNDEF WEBASSEMBLY}
   if _dataModelType.IsUnknown then
   begin
     Assert(_dataModel <> nil);
@@ -915,7 +925,8 @@ begin
         begin
           SetLength(_properties, _dataModel.Columns.Count);
           var i := 0;
-          for var clmn in _dataModel.Columns do
+          var clmn: IDataModelColumn;
+          for clmn in _dataModel.Columns do
           begin
             var prop: _PropertyInfo := TDataModelPropertyForObjectModel.Create(_dataModel, clmn);
             _properties[i] := TObjectModelPropertyWrapper.Create(prop);
@@ -940,6 +951,7 @@ begin
         begin
           SetLength(_properties, _dataModel.Columns.Count);
           var i := 0;
+
           for clmn in _dataModel.Columns do
           begin
             var prop: _PropertyInfo := TDataModelPropertyForObjectModel.Create(_dataModel, clmn);

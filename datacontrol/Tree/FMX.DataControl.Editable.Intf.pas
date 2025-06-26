@@ -3,10 +3,18 @@ unit FMX.DataControl.Editable.Intf;
 interface
 
 uses
+  {$IFNDEF WEBASSEMBLY}
+  FMX.Controls, 
+  System.Classes, 
+  FMX.Types, 
+  {$ELSE}
+  Wasm.FMX.Controls,
+  Wasm.System.Classes,
+  Wasm.FMX.Types,
+  {$ENDIF}
   System_,
-
   FMX.DataControl.Static.Intf,
-  FMX.Controls, System.Classes, FMX.Types, System.Collections;
+  System.Collections;
 
 type
   ITreeEditingInfo = interface

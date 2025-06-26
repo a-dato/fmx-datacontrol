@@ -3,9 +3,22 @@ unit FMX.DataControl.ScrollableRowControl.Impl;
 interface
 
 uses
-  System_, FMX.Controls, FMX.DataControl.ScrollableRowControl.Intf,
-  System.Collections.Generic, System.SysUtils, System.ComponentModel,
-  System.Classes, FMX.DataControl.ScrollableControl.Intf, FMX.Objects;
+  {$IFNDEF WEBASSEMBLY}
+  FMX.Controls,
+  System.SysUtils,
+  System.Classes,
+  FMX.Objects,
+  System.ComponentModel,
+  {$ELSE}
+  Wasm.FMX.Controls,
+  Wasm.System.SysUtils,
+  Wasm.FMX.Objects,
+  Wasm.System.ComponentModel,
+  {$ENDIF}
+  System_,
+  FMX.DataControl.ScrollableRowControl.Intf,
+  System.Collections.Generic,
+  FMX.DataControl.ScrollableControl.Intf;
 
 type
   TDCRow = class(TBaseInterfacedObject, IDCRow)
@@ -72,7 +85,7 @@ type
 
   TRowSelectionInfo = class(TInterfacedObject, IRowSelectionInfo)
   protected
-    [unsafe ]_rowsControl: IRowsControl;
+    {$IFNDEF WEBASSEMBLY}[unsafe]{$ENDIF}_rowsControl: IRowsControl;
 
     _lastSelectedDataIndex: Integer;
     _lastSelectedViewListIndex: Integer;
@@ -133,7 +146,7 @@ type
 
   TWaitForRepaintInfo = class(TInterfacedObject, IWaitForRepaintInfo)
   protected
-    [unsafe] _owner: IRefreshControl;
+    {$IFNDEF WEBASSEMBLY}[unsafe]{$ENDIF} _owner: IRefreshControl;
 
   private
     _rowStateFlags: TTreeRowStateFlags;
@@ -170,8 +183,19 @@ type
 implementation
 
 uses
-  FMX.Types, FMX.StdCtrls, ADato.Data.DataModel.intf,
-  System.UITypes, FMX.DataControl.ControlClasses, System.Generics.Collections;
+  {$IFNDEF WEBASSEMBLY}
+  FMX.Types,
+  FMX.StdCtrls,
+  System.UITypes,
+  System.Generics.Collections,
+  {$ELSE}
+  Wasm.FMX.Types,
+  Wasm.FMX.StdCtrls,
+  Wasm.System.UITypes,
+  {$ENDIF}
+  ADato.Data.DataModel.intf,
+  FMX.DataControl.ControlClasses
+  ;
 
 { TDCRow }
 
@@ -306,14 +330,17 @@ begin
   begin
     var childs := drv.DataView.DataModel.Children(drv.Row, TChildren.IncludeParentRows);
     if childs <> nil then
-      for var dr in childs do
+    begin
+      var dr: IDataRow;
+      for dr in childs do
         if (dr.Level = drv.Row.Level + 1) then
         begin
           // FindVisibleRow apparently goes up untill it finds a visible row
           var firstVisibRow := drv.DataView.FindVisibleRow(dr);
           if (firstVisibRow.Row.Level = drv.Row.Level + 1) then
             Exit(True);
-        end;
+        end;      
+    end;
   end;
 
   Result := False;
@@ -589,7 +616,8 @@ begin
   try
     if _lastSelectedDataIndex = DataIndex then
     begin
-      for var item in _multiSelection.Values do
+      var item: IRowSelectionInfo;
+      for item in _multiSelection.Values do
         if item.DataIndex <> DataIndex then
         begin
           UpdateLastSelection(item.DataIndex, item.ViewListIndex, item.DataItem);
@@ -659,7 +687,8 @@ begin
 
   if _multiSelection.Count > 0 then
   begin
-    for var item in _multiSelection.Values do
+    var item: IRowSelectionInfo;
+    for item in _multiSelection.Values do
       Result.Add(item.DataIndex)
   end
   else if _lastSelectedDataIndex <> -1 then

@@ -1,4 +1,7 @@
-{$I Adato.inc}
+{$IFNDEF WEBASSEMBLY}
+{$I ADato.inc}
+{$ENDIF}
+
 unit ADato.ObjectModel.List.impl;
 
 interface

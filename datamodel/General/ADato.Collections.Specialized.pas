@@ -5,6 +5,10 @@ unit ADato.Collections.Specialized;
 interface
 
 uses
+  {$IFDEF WEBASSEMBLY}
+  Wasm.System,
+  Wasm.System.ComponentModel,
+  {$ENDIF}
   System_,
   System.ComponentModel,
   System.Collections,
@@ -133,10 +137,10 @@ type
     procedure CollectionItem_PropertyChanged( Sender: TObject;
                                               Args: PropertyChangedEventArgs);
 
-    procedure ClearItems; override;
-    procedure InsertItem(index: Integer; const item: T); override;
-    procedure RemoveItem(index: Integer); override;
-    procedure SetItem(index: Integer; const item: T); override;
+    procedure ClearItems; {$IFDEF DELPHI}override;{$ENDIF}
+    procedure InsertItem(index: Integer; const item: T); {$IFDEF DELPHI}override;{$ENDIF}
+    procedure RemoveItem(index: Integer); {$IFDEF DELPHI}override;{$ENDIF}
+    procedure SetItem(index: Integer; const item: T); {$IFDEF DELPHI}override;{$ENDIF}
 
     procedure AddEventHandler(const item: T);
     procedure RemoveEventHandler(const item: T);

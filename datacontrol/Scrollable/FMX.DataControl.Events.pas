@@ -3,13 +3,18 @@ unit FMX.DataControl.Events;
 interface
 
 uses
-  System_,
+  {$IFNDEF WEBASSEMBLY}
   System.Classes,
-  System.ComponentModel,
   System.Generics.Defaults,
-  System.Collections,
-
   FMX.Controls,
+  System.ComponentModel,
+  {$ELSE}
+  Wasm.System,
+  Wasm.FMX.Controls,
+  Wasm.System.ComponentModel,
+  {$ENDIF}
+  System_,
+  System.Collections,
   FMX.DataControl.Static.Intf,
   FMX.DataControl.ScrollableRowControl.Intf;
 
@@ -87,7 +92,7 @@ type
     function OldCell: IDCTreeCell;
     function NewCell: IDCTreeCell;
 
-    constructor Create(const Old, New: IDCTreeCell); reintroduce;
+    constructor Create(const &Old, &New: IDCTreeCell); reintroduce;
   end;
 
   DCCellCanChangeEventArgs = DCCellChangeEventArgs;
@@ -317,10 +322,10 @@ end;
 
 { DCCellChangingEventArgs }
 
-constructor DCCellChangeEventArgs.Create(const Old, New: IDCTreeCell);
+constructor DCCellChangeEventArgs.Create(const &Old, &New: IDCTreeCell);
 begin
-  inherited Create(New);
-  _oldCell := Old;
+  inherited Create(&New);
+  _oldCell := &Old;
 end;
 
 function DCCellChangeEventArgs.NewCell: IDCTreeCell;

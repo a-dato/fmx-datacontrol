@@ -3,21 +3,33 @@ unit FMX.DataControl.Editable;
 interface
 
 uses
-  System_,
+  {$IFNDEF WEBASSEMBLY}
   System.Classes,
   System.UITypes,
   System.SysUtils,
+  FMX.Objects,
+  FMX.Edit,
+  {$ELSE}
+  Wasm.System.Classes,
+  Wasm.System.UITypes,
+  Wasm.System.SysUtils,
+  Wasm.FMX.Objects,
+  Wasm.FMX.Edit,
+  Wasm.System.ComponentModel,
+  {$ENDIF}
+  System_,
 
   FMX.DataControl.Static,
   FMX.DataControl.Static.Intf,
   FMX.DataControl.Editable.Intf,
   FMX.DataControl.Events,
-  FMX.Objects,
-  FMX.Edit,
 
   ADato.ObjectModel.List.intf,
-  ADato.ObjectModel.TrackInterfaces, System.Collections, ADato.InsertPosition,
-  System.Collections.Generic, ADato.Data.DataModel.intf,
+  ADato.ObjectModel.TrackInterfaces, 
+  System.Collections, 
+  ADato.InsertPosition,
+  System.Collections.Generic, 
+  ADato.Data.DataModel.intf,
   FMX.DataControl.ScrollableRowControl.Intf;
 
 type
@@ -156,11 +168,24 @@ type
 implementation
 
 uses
-  FMX.DataControl.Editable.Impl, System.Character,
+  {$IFNDEF WEBASSEMBLY}
+  System.Character,
+  FMX.StdCtrls, 
+  System.TypInfo, 
+  FMX.Controls,
+  System.Math, 
+  FMX.ActnList, 
+  FMX.Platform,
+  {$ELSE}
+  Wasm.FMX.StdCtrls, 
+  Wasm.FMX.Controls,
+  Wasm.System.Math, 
+  {$ENDIF}
+  FMX.DataControl.Editable.Impl, 
   System.ComponentModel,
-  FMX.DataControl.ControlClasses, FMX.StdCtrls, System.TypInfo, FMX.Controls,
-  System.Math, ADato.Collections.Specialized,
-  System.Reflection, FMX.ActnList, FMX.Platform,
+  FMX.DataControl.ControlClasses, 
+  ADato.Collections.Specialized,
+  System.Reflection, 
   FMX.DataControl.ScrollableRowControl, FMX.Graphics;
 
 { TEditableDataControl }
@@ -181,7 +206,8 @@ begin
   var orgData := _view.OriginalData;
 
   Result := CList<CObject>.Create(checkedItems.Count);
-  for var dataIndex in checkedItems do
+  var dataIndex: Integer;
+  for dataIndex in checkedItems do
     Result.Add(orgData[dataIndex]);
 end;
 
@@ -664,7 +690,7 @@ begin
       else if (_view.OriginalData.Count > 0) then
       begin
         var referenceItem := ConvertToDataItem(_view.OriginalData[0]);
-        var obj: CObject := Assembly.CreateInstanceFromObject(referenceItem);
+        var obj: CObject := &Assembly.CreateInstanceFromObject(referenceItem);
         if obj = nil then
           raise NullReferenceException.Create(CString.Format('Failed to create instance of object {0}, implement event OnAddingNew', referenceItem.GetType));
         if not obj.TryCast(TypeOf(referenceItem), {out} NewItem, True) then
@@ -761,7 +787,8 @@ begin
 
   var parentChildren := GetDataModelView.DataModel.Children(ParentDrv.Row, TChildren.IncludeParentRows);
 
-  for var dr in parentChildren do
+  var dr: IDataRow;
+  for dr in parentChildren do
     if (ParentDrv.Row <> dr) and not ColumnCheckedItems.Contains(dr.get_Index) then
       Exit;
 
@@ -785,7 +812,8 @@ begin
 
   Result := False;
   var currentIndex := Self.Current;
-  for var ix in dataIndexes do
+  var ix: Integer;
+  for ix in dataIndexes do
   begin
     var obj := _view.OriginalData[ix];
 
@@ -820,7 +848,8 @@ begin
   if (cell = nil) or cell.Column.IsSelectionColumn or (cell.Column.InfoControlClass <> TInfoControlClass.CheckBox) then
   begin
     var valid := False;
-    for var flatClmn in Self.Layout.FlatColumns do
+    var flatClmn: IDCTreeLayoutColumn;
+    for flatClmn in Self.Layout.FlatColumns do
       if not flatClmn.Column.IsSelectionColumn and (flatClmn.Column.InfoControlClass = TInfoControlClass.CheckBox) then
       begin
         cell := (cell.Row as IDCTReeRow).Cells[flatClmn.Index];
@@ -833,7 +862,8 @@ begin
   end;
 
   var checks: List<IIsChecked> := CList<IIsChecked>.Create;
-  for var itemIx in _selectionInfo.SelectedDataIndexes do
+  var itemIx: Integer;
+  for itemIx in _selectionInfo.SelectedDataIndexes do
   begin
     // not all rows are visible
     var viewIx := _view.GetViewListIndex(itemIx);
@@ -851,17 +881,19 @@ begin
     Exit(False);
 
   var checkCount := 0;
-  for var check in checks do
+  var check: IIsChecked;
+  for check in checks do
     if check.IsChecked then
       inc(checkCount);
 
   BeginUpdate;
   try
-    for var check in checks do
+    var check2: IIsChecked;
+    for check2 in checks do
     begin
-      if check.IsChecked <> (checkCount < checks.Count) then
+      if check2.IsChecked <> (checkCount < checks.Count) then
       begin
-        var checkCell := GetCellByControl(check as TControl);
+        var checkCell := GetCellByControl(check2 as TControl);
         DoCellCheckChangedByUser(checkCell);
       end;
     end;
@@ -1081,7 +1113,8 @@ begin
   end;
 
   var children := GetDataModelView.DataModel.Children(drv.Row, TChildren.IncludeParentRows);
-  for var dr in children do
+  var dr: IDataRow;
+  for dr in children do
   begin
     if isChecked and not columnCheckedItems.Contains(dr.get_Index) then
       columnCheckedItems.Add(dr.get_Index)
@@ -1177,7 +1210,8 @@ begin
       _selectionInfo.EndUpdate(True);
     end;
 
-    for var row in _view.ActiveViewRows do
+    var row: IDCRow;
+    for row in _view.ActiveViewRows do
       VisualizeRowSelection(row);
 
     Exit;
@@ -1236,7 +1270,8 @@ begin
   if (row = nil) then Exit;
 
   var checkCell: IDCTreeCell := nil;
-  for var cell in row.Cells.Values do
+  var cell: IDCTreeCell;
+  for cell in row.Cells.Values do
     if cell.Column = Column then
     begin
       checkCell := cell;

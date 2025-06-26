@@ -3,22 +3,47 @@ unit FMX.DataControl.Static;
 interface
 
 uses
+  {$IFNDEF WEBASSEMBLY}
+  System.Classes,
+  FMX.Objects,
+  System.UITypes,
+  System.SysUtils,
+  System.Generics.Defaults,
+  FMX.Controls,
+  System.Types,
+  FMX.Forms,
+  FMX.ImgList,
+  FMX.Types,
+  FMX.Layouts,
+  {$ELSE}
+  Wasm.System.Classes,
+  Wasm.FMX.Objects,
+  Wasm.System.UITypes,
+  Wasm.System.SysUtils,
+  Wasm.System.Generics.Defaults,
+  Wasm.FMX.Controls,
+  Wasm.System.Types,
+  Wasm.FMX.Forms,
+  Wasm.FMX.ImgList,
+  Wasm.FMX.Types,
+  Wasm.FMX.Layouts,
+  Wasm.System.ComponentModel,
+  {$ENDIF}
   System_,
   System.Collections,
-  System.Classes,
+  
   System.ComponentModel,
   System.Collections.Generic,
   System.Collections.Specialized,
 
-  FMX.Layouts,
   FMX.DataControl.Static.Intf,
   FMX.DataControl.ScrollableRowControl,
   FMX.DataControl.View.Intf,
-  FMX.DataControl.ScrollableRowControl.Intf, FMX.Objects,
+  FMX.DataControl.ScrollableRowControl.Intf, 
   FMX.DataControl.Events, FMX.DataControl.ControlClasses,
-  FMX.DataControl.ScrollableControl, System.UITypes, System.SysUtils,
-  System.Generics.Defaults, FMX.Controls, System.Types, FMX.Forms, FMX.ImgList,
-  ADato.Data.DataModel.intf, System.Diagnostics, FMX.Types;
+  FMX.DataControl.ScrollableControl, 
+  
+  ADato.Data.DataModel.intf, System.Diagnostics;
 
 type
   TRightLeftScroll = (None, FullLeft, Left, Right, FullRight);
@@ -241,7 +266,7 @@ type
     property HeaderTextTopMargin: Single read get_headerTextTopMargin write set_headerTextTopMargin;
     property HeaderTextBottomMargin: Single read get_headerTextBottomMargin write set_headerTextBottomMargin;
     property AutoExtraColumnSizeMax: Single read get_AutoExtraColumnSizeMax write set_AutoExtraColumnSizeMax;
-    property ScrollingHideColumnsFromIndex: integer read _scrollingHideColumnsFromIndex write _scrollingHideColumnsFromIndex stored IsScrollingHideColumnsFromIndexStored;
+    property ScrollingHideColumnsFromIndex: integer read _scrollingHideColumnsFromIndex write _scrollingHideColumnsFromIndex {$IFNDEF WEBASSEMBLY}stored IsScrollingHideColumnsFromIndexStored{$ENDIF};
 
     // events
     property CellLoading: CellLoadingEvent read _cellLoading write _cellLoading;
@@ -264,13 +289,25 @@ type
 implementation
 
 uses
-  FMX.DataControl.Static.Impl,
+  {$IFNDEF WEBASSEMBLY}
   System.Math,
-  FMX.ControlCalculations, FMX.Graphics, FMX.StdCtrls,
-  FMX.DataControl.ScrollableRowControl.Impl, ADato.Data.DataModel.impl,
-  FMX.DataControl.SortAndFilter,
+  FMX.Graphics, 
+  FMX.StdCtrls,
   FMX.DataControl.Static.PopupMenu,
-  FMX.ActnList, FMX.DataControl.ScrollableControl.Intf
+  FMX.ActnList,
+  {$ELSE}
+  Wasm.System.Math,
+  Wasm.FMX.Graphics, 
+  Wasm.FMX.StdCtrls,
+  Wasm.FMX.DataControl.Static.PopupMenu,
+  Wasm.FMX.ActnList,
+  {$ENDIF}
+  FMX.DataControl.Static.Impl,
+  FMX.ControlCalculations, 
+  FMX.DataControl.ScrollableRowControl.Impl, 
+  ADato.Data.DataModel.impl,
+  FMX.DataControl.SortAndFilter,
+  FMX.DataControl.ScrollableControl.Intf
   {$IFDEF APP_PLATFORM}
   , App.intf
   , System.ClassHelpers
@@ -283,7 +320,8 @@ uses
 procedure TStaticDataControl.ProcessColumnVisibilityRules;
 begin
   var currentClmns := _treeLayout.FlatColumns;
-  for var clmn in currentClmns do
+  var clmn: IDCTreeLayoutColumn;
+  for clmn in currentClmns do
     if clmn.ContainsData = TColumnContainsData.Unknown then
     begin
       clmn.ContainsData := TColumnContainsData.No;
@@ -307,19 +345,24 @@ begin
     selInfo.SelectedLayoutColumn := lastFlatColumn.Index;
 
   if _view <> nil then
-    for var row in _view.ActiveViewRows do
+  begin
+    var row: IDCRow;
+    for row in _view.ActiveViewRows do
     begin
       var treeRow := row as IDCTreeRow;
 
       var cell: IDCTreeCell;
-      for var layoutColumn in _treeLayout.LayoutColumns do
+      var layoutColumn: IDCTreeLayoutColumn;
+      for layoutColumn in _treeLayout.LayoutColumns do
         if treeRow.Cells.TryGetValue(layoutColumn.Index, cell) and cell.LayoutColumn.HideColumnInView then
           cell.HideCellInView := True;
     end;
+  end;
 
-  for var clmn in _treeLayout.FlatColumns do
-    if not currentClmns.Contains(clmn) then
-      RefreshColumn(clmn.Column);
+  var clmn2: IDCTreeLayoutColumn;
+  for clmn2 in _treeLayout.FlatColumns do
+    if not currentClmns.Contains(clmn2) then
+      RefreshColumn(clmn2.Column);
 end;
 
 function TStaticDataControl.ProvideCellData(const Cell: IDCTreeCell; const PropName: CString; const IsSubProp: Boolean): CObject;
@@ -343,7 +386,8 @@ begin
   var clmn := FlatColumnByColumn(Column);
   _reloadForSpecificColumn := clmn;
   try
-    for var row in _view.ActiveViewRows do
+    var row: IDCRow;
+    for row in _view.ActiveViewRows do
       InnerInitRow(row);
   finally
     _reloadForSpecificColumn := nil;
@@ -375,7 +419,8 @@ begin
   end else
     _totalColumnWidth := 0.0;
 
-  for var row in HeaderAndTreeRows do
+  var row: IDCTreeRow;
+  for row in HeaderAndTreeRows do
     row.Control.Position.X := startFromX;
 end;
 
@@ -405,11 +450,13 @@ begin
 
   var fullRowList: List<IDCTreeRow> := HeaderAndTreeRows;
 
-  for var flatClmn in _treeLayout.FlatColumns do
+  var flatClmn: IDCTreeLayoutColumn;
+  for flatClmn in _treeLayout.FlatColumns do
     if flatClmn.Column.WidthType = TDCColumnWidthType.AlignToContent then
     begin
       var maxCellWidth := 0.0;
-      for var row in fullRowList do
+      var row: IDCTreeRow;
+      for row in fullRowList do
       begin
         var treeRow := row as IDCTreeRow;
         try
@@ -518,7 +565,8 @@ begin
   end;
 
   var repaintWhenChill: Boolean := False;
-  for var row in HeaderAndTreeRows do
+  var row: IDCTreeRow;
+  for row in HeaderAndTreeRows do
   begin
     var treeRow := row as IDCTreeRow;
     treeRow.Control.Width := rowWidth;
@@ -562,7 +610,8 @@ begin
     treeRow.NonFrozenColumnRowControl.Height := Row.Control.Height;
     treeRow.NonFrozenColumnRowControl.Width := rowWidth - frozenColumnWidth;
 
-    for var flatClmn in _treeLayout.FlatColumns do
+    var flatClmn: IDCTreeLayoutColumn;
+    for flatClmn in _treeLayout.FlatColumns do
     begin
       var cell: IDCTreeCell;
       if not treeRow.Cells.TryGetValue(flatClmn.Index, cell) then
@@ -767,7 +816,8 @@ begin
       virtualMouseposition := virtualMouseposition - _view.ActiveViewRows[0].Control.Position.X;
   end;
 
-  for var flatColumn in _treeLayout.FlatColumns do
+  var flatColumn: IDCTreeLayoutColumn;
+  for flatColumn in _treeLayout.FlatColumns do
     if (flatColumn.Left <= virtualMouseposition) and (flatColumn.Left + flatColumn.Width > virtualMouseposition) then
       Exit(flatColumn);
 
@@ -955,8 +1005,12 @@ begin
 
   // update all header cells, because other sorts can be turned of (their image should be hidden)
   if _headerRow <> nil then
-    for var headerCell in _headerRow.Cells.Values do
-      headerCell.LayoutColumn.UpdateCellControlsByRow(headerCell);
+  begin
+    var headerCell: IDCTreeCell;
+    for headerCell in _headerRow.Cells.Values do
+      headerCell.LayoutColumn.UpdateCellControlsByRow(headerCell);    
+  end;
+
 end;
 
 procedure TStaticDataControl.UpdateColumnFilter(const Column: IDCTreeColumn; const FilterText: CString; const FilterValues: List<CObject>);
@@ -970,7 +1024,8 @@ begin
     if flatColumn.ActiveFilter <> nil then
     begin
       var activeFilters: List<IListFilterDescription> := CList<IListFilterDescription>.Create;
-      for var filterDescription in _view.GetFilterDescriptions do
+      var filterDescription: IListFilterDescription;
+      for filterDescription in _view.GetFilterDescriptions do
         if filterDescription <> flatColumn.ActiveFilter then
           activeFilters.Add(filterDescription);
 
@@ -1025,7 +1080,8 @@ begin
 
     if obj.IsOfType<IList> then
     begin
-      for var o in obj.AsType<IList> do
+      var o: CObject;
+      for o in obj.AsType<IList> do
       begin
         var hash := o.GetHashCode;
         if not dict.ContainsKey(hash) then
@@ -1040,7 +1096,8 @@ begin
   end;
 
   Result := CDictionary<CObject, CString>.Create;
-  for var filterableObj in dict.Values do
+  var filterableObj: CObject;
+  for filterableObj in dict.Values do
     Result.Add(filterableObj, filterableObj.ToString);
 end;
 
@@ -1158,7 +1215,8 @@ begin
       var sorts := _view.GetSortDescriptions;
       if (sorts <> nil) and (sorts.Count > 0) then
       begin
-        for var sortIx := sorts.Count - 1 downto 0 do
+        var sortIx: Integer;
+        for sortIx := sorts.Count - 1 downto 0 do
           if Interfaces.Supports<ITreeSortDescription>(sorts[sortIx])  then
             sorts.RemoveAt(sortIx);
       end;
@@ -1166,7 +1224,8 @@ begin
       var filters := _view.GetFilterDescriptions;
       if (filters <> nil) and (filters.Count > 0) then
       begin
-        for var filterIx := filters.Count - 1 downto 0 do
+        var filterIx: Integer;
+        for filterIx := filters.Count - 1 downto 0 do
           if Interfaces.Supports<ITreeFilterDescription>(filters[filterIx])  then
             filters.RemoveAt(filterIx);
       end;
@@ -1174,7 +1233,8 @@ begin
       GetInitializedWaitForRefreshInfo.SortDescriptions := sorts;
       GetInitializedWaitForRefreshInfo.FilterDescriptions := filters;
 
-      for var cell in _headerRow.Cells.Values do
+      var cell: IDCTreeCell;
+      for cell in _headerRow.Cells.Values do
         cell.LayoutColumn.UpdateCellControlsByRow(cell);
     end;
   end;
@@ -1267,9 +1327,13 @@ begin
     inherited;
 
     if _selectionType = TSelectionType.CellSelection then
-      for var flatClmn in _treeLayout.FlatColumns do
+    begin
+      var flatClmn: IDCTreeLayoutColumn;
+      for flatClmn in _treeLayout.FlatColumns do
         if (flatClmn.Width > 0) and flatClmn.Column.Selectable and not selInfo.SelectedLayoutColumns.Contains(flatClmn.Index) then
           selInfo.SelectedLayoutColumns.Add(flatClmn.Index);
+    end;
+
   finally
     selInfo.EndUpdate;
   end;
@@ -1281,7 +1345,8 @@ begin
   if _treeLayout = nil then
     Exit;
 
-  for var lyClmn in _treeLayout.FlatColumns do
+  var lyClmn: IDCTreeLayoutColumn;
+  for lyClmn in _treeLayout.FlatColumns do
     if lyClmn.Column.IsSelectionColumn then
       Exit(lyClmn);
 end;
@@ -1576,8 +1641,12 @@ begin
     Result := CList<IDCTreeRow>.Create(viewCount);
 
   if _view <> nil then
-    for var row in _view.ActiveViewRows do
-      Result.Add(row as IDCTreeRow);
+  begin
+    var row: IDCRow;;
+    for row in _view.ActiveViewRows do
+      Result.Add(row as IDCTreeRow);    
+  end;
+
 end;
 
 procedure TStaticDataControl.DataModelViewRowPropertiesChanged(Sender: TObject; Args: RowPropertiesChangedEventArgs);
@@ -1595,7 +1664,8 @@ begin
   if row = nil then
     Exit;
 
-  for var cell in (row as IDCTreeRow).Cells.Values do
+  var cell: IDCTreeCell;
+  for cell in (row as IDCTreeRow).Cells.Values do
     if cell.ExpandButton <> nil then
       (cell.ExpandButton as TExpandButton).ShowExpanded := not RowIsExpanded(drv.ViewIndex);
 end;
@@ -1799,8 +1869,9 @@ function TStaticDataControl.FlatColumnByColumn(const Column: IDCTreeColumn): IDC
 begin
   Result := nil;
 
+  var flatClmn: IDCTreeLayoutColumn;
   if _treeLayout <> nil then
-    for var flatClmn in _treeLayout.FlatColumns do
+    for flatClmn in _treeLayout.FlatColumns do
       if flatClmn.Column = Column then
         Exit(flatClmn);
 end;
@@ -1825,7 +1896,8 @@ begin
 
   if not ARow.IsHeaderRow and not ARow.Enabled then
   begin
-    for var cell in (ARow as IDCTreeRow).Cells.Values do
+    var cell: IDCTreeCell;
+    for cell in (ARow as IDCTreeRow).Cells.Values do
     begin
       if cell.InfoControl <> nil then
         cell.InfoControl.Enabled := False;
@@ -2096,7 +2168,8 @@ begin
       if _treeLayout.RecalcRequired then
         _treeLayout.RecalcColumnWidthsBasic;
 
-      for var flatColumn in _treeLayout.FlatColumns do
+      var flatColumn: IDCTreeLayoutColumn;
+      for flatColumn in _treeLayout.FlatColumns do
       begin
         var headerCell: IHeaderCell := THeaderCell.Create(_headerRow, flatColumn);
         headerCell.OnHeaderCellResizeClicked := OnHeaderCellResizeClicked;
@@ -2259,7 +2332,8 @@ begin
     l := _treeLayout.FlatColumns;
 
   _forceRealignRowAfterScrolling := False;
-  for var flatColumn in l do
+  var flatColumn: IDCTreeLayoutColumn;
+  for flatColumn in l do
   begin
     var isOutOfView: Boolean;
     if (ShowFlatColumnContent(flatColumn, {out dummy} isOutOfView) = TShowFlatColumnType.Hide) then
@@ -2378,7 +2452,8 @@ begin
   end;
 //
   Result := 0.0;
-  for var cell in Row.Cells.Values do
+  var cell: IDCTreeCell;
+  for cell in Row.Cells.Values do
     if cell.Column.InfoControlClass = TInfoControlClass.Text then
     begin
       var txt := cell.InfoControl as TText;
@@ -2539,7 +2614,8 @@ begin
   var row := _view.GetActiveRowIfExists(viewListIndex) as IDCTreeRow;
   var selInfo := _selectionInfo as ITreeSelectionInfo;
 
-  for var ix := 0 to _treeLayout.FlatColumns.Count - 1 do
+  var ix: Integer;
+  for ix := 0 to _treeLayout.FlatColumns.Count - 1 do
   begin
     var flatColumn := _treeLayout.FlatColumns[ix];
     if row.Cells[flatColumn.Index].ExpandButton = Sender then

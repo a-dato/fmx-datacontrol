@@ -1,8 +1,9 @@
 unit FMX.DataControl.ControlClasses;
-
+
 interface
 
 uses
+  {$IFNDEF WEBASSEMBLY}
   FMX.Controls,
   FMX.StdCtrls,
   FMX.Memo,
@@ -16,6 +17,21 @@ uses
   FMX.ActnList,
   FMX.ImgList,
   FMX.Types,
+  {$ELSE}
+  Wasm.FMX.Controls,
+  Wasm.FMX.StdCtrls,
+  Wasm.FMX.Memo,
+  Wasm.FMX.Objects,
+  Wasm.FMX.Edit,
+  Wasm.FMX.ComboEdit,
+  Wasm.FMX.DateTimeCtrls,
+  Wasm.FMX.Graphics,
+  Wasm.System.Classes,
+  Wasm.System.UITypes,
+  Wasm.FMX.ActnList,
+  Wasm.FMX.ImgList,
+  Wasm.FMX.Types,
+  {$ENDIF}
   System_;
 
 type
@@ -96,7 +112,12 @@ var
 implementation
 
 uses
-  System.SysUtils;
+  {$IFNDEF WEBASSEMBLY}
+  System.SysUtils
+  {$ELSE}
+  Wasm.System.SysUtils
+  {$ENDIF}
+  ;
 
 { TDateTimeEditOnKeyDownOverride }
 
@@ -230,4 +251,3 @@ finalization
   DataControlClassFactory := nil;
 
 end.
-

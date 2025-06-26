@@ -1,11 +1,19 @@
+{$IFNDEF WEBASSEMBLY}
 {$I Adato.inc}
+{$ENDIF}
+
 unit FMX.DataControl.Binders;
 
 interface
 
 uses
+  {$IFNDEF WEBASSEMBLY}
   System.SysUtils,
   System.Classes,
+  {$ELSE}
+  Wasm.System.SysUtils,
+  Wasm.System.Classes,
+  {$ENDIF}
   System_,
   System.Collections,
   ADato.ObjectModel.Binders,
@@ -230,6 +238,7 @@ begin
       l := Value.AsType<IList>;
 
     _control.ClearSelections;
+    //var item: CObject;
     for var item in data do
     begin
       var cvItem := ConvertToDataItem(item);
