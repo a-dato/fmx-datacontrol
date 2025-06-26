@@ -179,6 +179,7 @@ type
   TPropertyWithDescriptor = class(CPropertyWrapper, IPropertyDescriptor)
   protected
     _PropertyDescriptor: IPropertyDescriptor;
+    _marshaller: IMarshaller;
 
     function  GetValue(const obj: CObject; const index: array of CObject): CObject; override;
     procedure SetValue(const obj: CObject; const Value: CObject; const index: array of CObject; ExecuteTriggers: Boolean = false); override;
@@ -801,16 +802,21 @@ constructor TPropertyWithDescriptor.Create(const AProperty: _PropertyInfo; const
 begin
   inherited Create(AProperty);
   _PropertyDescriptor := ADescriptor;
+  _marshaller := _PropertyDescriptor.Marshaller;
 end;
 
 function TPropertyWithDescriptor.GetValue(const obj: CObject; const index: array of CObject): CObject;
 begin
   Result := inherited;
+  if _marshaller <> nil then
+    Result := _marshaller.Unmarshal(obj, Result);
 end;
 
 procedure TPropertyWithDescriptor.SetValue(const obj: CObject; const Value: CObject; const index: array of CObject; ExecuteTriggers: Boolean = false);
 begin
-  inherited;
+  if _marshaller <> nil then
+    inherited SetValue(obj, _marshaller.Marshal(obj, Value), index, ExecuteTriggers) else
+    inherited SetValue(obj, Value, index, ExecuteTriggers);
 end;
 {$ENDIF}
 

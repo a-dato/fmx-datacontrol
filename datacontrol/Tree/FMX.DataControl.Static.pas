@@ -2236,7 +2236,7 @@ begin
     DoCellFormatting(cell, False, {var} cellValue, {out} formatApplied);
 
     {$IFDEF APP_PLATFORM}
-    if not CString.IsNullOrEmpty(propName) and not formatApplied and (cellValue <> nil) and (_app <> nil) and (cell.Column.InfoControlClass = TInfoControlClass.Text) then
+    if not CString.IsNullOrEmpty(propName) and not formatApplied and (cellValue <> nil) and cellValue.IsString and (_app <> nil) and (cell.Column.InfoControlClass = TInfoControlClass.Text) then
     begin
       var js := TJSONObject.ParseJSONValue(cellValue.ToString(True));
       try

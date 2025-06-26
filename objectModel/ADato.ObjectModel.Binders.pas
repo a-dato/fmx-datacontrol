@@ -763,29 +763,32 @@ end;
 procedure TComboBoxControlBinding.ComboBoxMouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Single);
 begin
   var descriptor: IPropertyDescriptor;
-  if (Button = TMouseButton.mbLeft) and (_pickList = nil) and TryGetPropertyDescriptor(descriptor) and (descriptor.Picklist <> nil) then
+  if (Button = TMouseButton.mbLeft) and TryGetPropertyDescriptor(descriptor) and (descriptor.Picklist <> nil) then
   begin
-    var items := descriptor.Picklist.Items(nil);
-    if items.TryGetValue<IList>(_picklist) then
+    if _picklist = nil then
     begin
-      _control.BeginUpdate;
-      try
-        _control.Items.Clear;
-        var formatter := descriptor.Formatter;
+      var items := descriptor.Picklist.Items(nil);
+      if not items.TryGetValue<IList>(_picklist) then
+        Exit;
+    end;
 
-        for var item in _picklist do
-        begin
-          var s: CString;
-          if formatter <> nil then
-            s := formatter.Format(get_ObjectModelContext.Context, item, nil) else
-            s := item.ToString();
+    _control.BeginUpdate;
+    try
+      _control.Items.Clear;
+      var formatter := descriptor.Formatter;
 
-          if not CString.IsNullOrEmpty(s) then
-            _control.Items.Add(s);
-        end;
-      finally
-        _control.EndUpdate;
+      for var item in _picklist do
+      begin
+        var s: CString;
+        if formatter <> nil then
+          s := formatter.Format(get_ObjectModelContext.Context, item, nil) else
+          s := item.ToString();
+
+        if not CString.IsNullOrEmpty(s) then
+          _control.Items.Add(s);
       end;
+    finally
+      _control.EndUpdate;
     end;
   end;
 end;
@@ -836,29 +839,23 @@ begin
 
   BeginUpdate;
   try
+    _control.Items.Clear;
+
     if Value = nil then
-    begin
-      _control.ItemIndex := -1;
       Exit;
-    end;
 
+    var descriptor: IPropertyDescriptor;
     var value_string: CString;
-    if value_string = nil then
-      value_string := Value.ToString;
 
-    if value_string <> nil then
+    if TryGetPropertyDescriptor(descriptor) and (descriptor.Formatter <> nil) then
+      value_string := descriptor.Formatter.Format(Obj, Value, nil)
+    else if not Value.TryGetValue<CString>(value_string) then
+      Exit;
+
+    if not CString.IsNullOrEmpty(value_string) then
     begin
-      var i := -1;
-      if _control.Items <> nil then
-        i := _control.Items.IndexOf(value_string);
-
-      if i = -1 then
-      begin
-        _control.Items.Clear;
-        _control.Items.Add(value_string);
-        _control.ItemIndex := 0;
-      end else
-        _control.ItemIndex := i;
+      _control.Items.Add(value_string);
+      _control.ItemIndex := 0;
     end;
   finally
     EndUpdate;
