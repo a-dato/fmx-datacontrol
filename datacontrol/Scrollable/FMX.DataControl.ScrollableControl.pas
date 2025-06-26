@@ -40,8 +40,6 @@ type
     _additionalTimerTime: Integer;
     _timerDoRealignWhenScrollingStopped: Boolean;
 
-//    function GetNamePath: string; override;
-
   protected
     procedure DoViewPortPositionChanged; virtual;
     procedure OnHorzScrollBarChange(Sender: TObject); virtual;
@@ -180,7 +178,7 @@ type
 implementation
 
 uses
-  System.Math;
+  System.Math, FMX.ControlCalculations;
 
 { TDCScrollableControl }
 
@@ -292,7 +290,7 @@ end;
 
 function TDCScrollableControl.CanRealignContent: Boolean;
 begin
-  Result := (_updateCount = 0);
+  Result := (_updateCount = 0) and ControlEffectiveVisible(Self);
 end;
 
 function TDCScrollableControl.CanRealignScrollCheck: Boolean;

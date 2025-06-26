@@ -440,7 +440,7 @@ begin
   begin
     SetBasicHorzScrollBarValues;
 
-    if _rowHeightSynchronizer <> nil then
+    if _activeRowHeightSynchronizer <> nil then
     begin
       _horzScrollBar.Visible := True;
       _horzScrollBar.Opacity := IfThen(TDCTreeOption.HideHScrollBar in _options, 0, 1);
@@ -456,7 +456,7 @@ begin
     _frozenRectLine.BringToFront;
   end else
   begin
-    if _rowHeightSynchronizer <> nil then
+    if _activeRowHeightSynchronizer <> nil then
     begin
       _horzScrollBar.Visible := True;
       _horzScrollBar.Opacity := 0;

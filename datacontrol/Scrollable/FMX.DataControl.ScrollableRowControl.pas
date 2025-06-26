@@ -56,6 +56,10 @@ type
     procedure GenerateView; virtual;
 
   // published property variables
+
+  private _rowHeightSynchronizer: TDCScrollableRowControl;
+  protected _activeRowHeightSynchronizer: TDCScrollableRowControl;
+
   protected
     _selectionType: TSelectionType;
     _rowHeightFixed: Single;
@@ -63,7 +67,6 @@ type
     _rowHeightMax: Single;
     _options: TDCTreeOptions;
     _allowNoneSelected: Boolean;
-    _rowHeightSynchronizer: TDCScrollableRowControl;
 
     // events
     _rowLoaded: RowLoadedEvent;
@@ -378,15 +381,15 @@ begin
 
   // reset row height
   _view.ClearViewRecInfo(currentRow.ViewListIndex, True);
-  if _rowHeightSynchronizer <> nil then
-    _rowHeightSynchronizer.View.ClearViewRecInfo(currentRow.ViewListIndex, True);
+  if _activeRowHeightSynchronizer <> nil then
+    _activeRowHeightSynchronizer.View.ClearViewRecInfo(currentRow.ViewListIndex, True);
 
   InnerInitRow(currentRow);
   DoRowLoaded(currentRow);
 
   _view.RowLoaded(currentRow, False);
 
-  if _rowHeightSynchronizer <> nil then
+  if _activeRowHeightSynchronizer <> nil then
     _isMasterSynchronizer := True;
   try
     CreateAndSynchronizeSynchronizerRow(currentRow);
@@ -399,7 +402,7 @@ begin
       RealignFinished;
     end;
   finally
-    if _rowHeightSynchronizer <> nil then
+    if _activeRowHeightSynchronizer <> nil then
       _isMasterSynchronizer := False;
   end;
 
@@ -494,15 +497,15 @@ begin
   if not _isMasterSynchronizer then
     Exit;
 
-  inc(_rowHeightSynchronizer._scrollUpdateCount);
+  inc(_activeRowHeightSynchronizer._scrollUpdateCount);
   try
-    _rowHeightSynchronizer.VertScrollBar.Max := _vertScrollBar.Max;
-    _rowHeightSynchronizer.VertScrollBar.ViewportSize := _vertScrollBar.ViewportSize;
-    _rowHeightSynchronizer.VertScrollBar.Value := _vertScrollBar.Value;
+    _activeRowHeightSynchronizer.VertScrollBar.Max := _vertScrollBar.Max;
+    _activeRowHeightSynchronizer.VertScrollBar.ViewportSize := _vertScrollBar.ViewportSize;
+    _activeRowHeightSynchronizer.VertScrollBar.Value := _vertScrollBar.Value;
 
-    _rowHeightSynchronizer.CheckVertScrollbarVisibility;
+    _activeRowHeightSynchronizer.CheckVertScrollbarVisibility;
   finally
-    dec(_rowHeightSynchronizer._scrollUpdateCount);
+    dec(_activeRowHeightSynchronizer._scrollUpdateCount);
   end;
 end;
 
@@ -713,6 +716,9 @@ begin
   if TDCTreeOption.HideVScrollBar in _options then
     _vertScrollBar.Visible := False;
 
+  if TDCTreeOption.HideHScrollBar in _options then
+    _horzScrollBar.Visible := False;
+
   if ((TDCTreeOption.AlternatingRowBackground in OldFlags) <> (TDCTreeOption.AlternatingRowBackground in NewFlags)) then
   begin
     if _view <> nil then
@@ -795,7 +801,7 @@ begin
   _view.ViewLoadingRemoveNonUsedRows(ToViewIndex, True);
 
   if _isMasterSynchronizer then
-    _rowHeightSynchronizer.View.ViewLoadingRemoveNonUsedRows(ToViewIndex, True);
+    _activeRowHeightSynchronizer.View.ViewLoadingRemoveNonUsedRows(ToViewIndex, True);
 
   var virtualYPosition := TopVirtualYPosition + _scrollbarRefToTopHeightChangeSinceViewLoading;
   for var row in _view.ActiveViewRows do
@@ -803,7 +809,7 @@ begin
     row.VirtualYPosition := virtualYPosition;
 
     if _isMasterSynchronizer then
-      _rowHeightSynchronizer.View.ActiveViewRows[row.ViewPortIndex].VirtualYPosition := virtualYPosition;
+      _activeRowHeightSynchronizer.View.ActiveViewRows[row.ViewPortIndex].VirtualYPosition := virtualYPosition;
 
     if (row.ViewPortIndex = ToViewIndex) then
       Exit;
@@ -835,14 +841,14 @@ function TDCScrollableRowControl.CanRealignContent: Boolean;
 begin
   Result := inherited;
 
-  if Result and (_rowHeightSynchronizer <> nil) and not _rowHeightSynchronizer._isMasterSynchronizer then
+  if Result and (_activeRowHeightSynchronizer <> nil) and not _activeRowHeightSynchronizer._isMasterSynchronizer then
   begin
     // avoid circular loop
     var setMaster := not _isMasterSynchronizer;
     if setMaster then
       _isMasterSynchronizer := True;
     try
-      Result := _rowHeightSynchronizer.CanRealignContent;
+      Result := _activeRowHeightSynchronizer.CanRealignContent;
     finally
       if setMaster then
         _isMasterSynchronizer := False;
@@ -852,9 +858,13 @@ end;
 
 procedure TDCScrollableRowControl.CheckVertScrollbarVisibility;
 begin
+  var makeVisible := (_view <> nil) and (not (TDCTreeOption.HideVScrollBar in _options)) and (_vertScrollBar.ViewPortSize + IfThen(_horzScrollBar.Visible, _horzScrollBar.Height, 0) < _vertScrollBar.Max);
+  if _vertScrollBar.Visible = makeVisible then
+    Exit;
+
   inc(_updateCount);
   try
-    _vertScrollBar.Visible := (_view <> nil) and (not (TDCTreeOption.HideVScrollBar in _options)) and (_vertScrollBar.ViewPortSize + IfThen(_horzScrollBar.Visible, _horzScrollBar.Height, 0) < _vertScrollBar.Max);
+    _vertScrollBar.Visible := makeVisible;
   finally
     dec(_updateCount);
   end;
@@ -915,13 +925,23 @@ procedure TDCScrollableRowControl.StartMasterSynchronizer;
 begin
   if (_rowHeightSynchronizer <> nil) and not _rowHeightSynchronizer._isMasterSynchronizer then
   begin
+    if not ControlEffectiveVisible(_rowHeightSynchronizer) then
+    begin
+      _activeRowHeightSynchronizer := nil;
+      _rowHeightSynchronizer._activeRowHeightSynchronizer := nil;
+      Exit;
+    end;
+
+    _activeRowHeightSynchronizer := _rowHeightSynchronizer;
+    _rowHeightSynchronizer._activeRowHeightSynchronizer := Self;
+
     _isMasterSynchronizer := True;
 
     // let the master take care of the sorting/filtering/current
-    _rowHeightSynchronizer._waitForRepaintInfo := nil;
-    _rowHeightSynchronizer._realignContentRequested := False;
-    _rowHeightSynchronizer._scrollingType := _scrollingType;
-    inc(_rowHeightSynchronizer._threadIndex);
+    _activeRowHeightSynchronizer._waitForRepaintInfo := nil;
+    _activeRowHeightSynchronizer._realignContentRequested := False;
+    _activeRowHeightSynchronizer._scrollingType := _scrollingType;
+    inc(_activeRowHeightSynchronizer._threadIndex);
   end;
 end;
 
@@ -929,10 +949,14 @@ procedure TDCScrollableRowControl.StopMasterSynchronizer;
 begin
   if _isMasterSynchronizer then
   begin
-    _rowHeightSynchronizer._realignContentTime := _realignContentTime;
+    _activeRowHeightSynchronizer._realignContentTime := _realignContentTime;
     _isMasterSynchronizer := False;
-    _rowHeightSynchronizer._scrollingType := _scrollingType;
+    _activeRowHeightSynchronizer._scrollingType := _scrollingType;
   end;
+
+  if _rowHeightSynchronizer <> nil then
+    _rowHeightSynchronizer._activeRowHeightSynchronizer := nil;
+  _activeRowHeightSynchronizer := nil;
 end;
 
 function TDCScrollableRowControl.FiltersActive: Boolean;
@@ -1211,9 +1235,9 @@ begin
   if (_internalSelectCount > 0) then
     Exit;
 
-  if ((_rowHeightSynchronizer <> nil) and (_rowHeightSynchronizer._internalSelectCount > 0)) then
+  if ((_activeRowHeightSynchronizer <> nil) and (_activeRowHeightSynchronizer._internalSelectCount > 0)) then
   begin
-    var syncSelInfo := _rowHeightSynchronizer._selectionInfo;
+    var syncSelInfo := _activeRowHeightSynchronizer._selectionInfo;
     _selectionInfo.BeginUpdate;
     try
       _selectionInfo.UpdateLastSelection(syncSelInfo.DataIndex, syncSelInfo.ViewListIndex, syncSelInfo.DataItem);
@@ -1264,10 +1288,10 @@ end;
 
 procedure TDCScrollableRowControl.BeforePainting;
 begin
-  // if DoRealignContent should be called, but the paint event is earlier at it's "_rowHeightSynchronizer" control..
+  // if DoRealignContent should be called, but the paint event is earlier at it's "_activeRowHeightSynchronizer" control..
   // make sure the calculations are done first
-  if not _realignContentRequested and (_rowHeightSynchronizer <> nil) and _rowHeightSynchronizer._realignContentRequested then
-    _rowHeightSynchronizer.BeforePainting;
+  if not _realignContentRequested and (_activeRowHeightSynchronizer <> nil) and _activeRowHeightSynchronizer._realignContentRequested then
+    _activeRowHeightSynchronizer.BeforePainting;
 
   inherited;
 end;
@@ -1279,20 +1303,20 @@ var
 
 begin
   if _isMasterSynchronizer then
-    _rowHeightSynchronizer.BeforeRealignContent;
+    _activeRowHeightSynchronizer.BeforeRealignContent;
 
   if _view = nil then
     Exit;
 
   if _isMasterSynchronizer then
   begin
-    var bestDefault := CMath.Max(_rowHeightDefault, _rowHeightSynchronizer._rowHeightDefault);
-    var bestFixed := CMath.Max(_rowHeightFixed, _rowHeightSynchronizer._rowHeightFixed);
+    var bestDefault := CMath.Max(_rowHeightDefault, _activeRowHeightSynchronizer._rowHeightDefault);
+    var bestFixed := CMath.Max(_rowHeightFixed, _activeRowHeightSynchronizer._rowHeightFixed);
 
     _rowHeightDefault := bestDefault;
-    _rowHeightSynchronizer._rowHeightDefault := bestDefault;
+    _activeRowHeightSynchronizer._rowHeightDefault := bestDefault;
     _rowHeightFixed := bestFixed;
-    _rowHeightSynchronizer._rowHeightFixed := bestFixed;
+    _activeRowHeightSynchronizer._rowHeightFixed := bestFixed;
   end;
 
   sortChanged := (_waitForRepaintInfo <> nil) and (TTreeRowState.SortChanged in _waitForRepaintInfo.RowStateFlags);
@@ -1410,19 +1434,19 @@ end;
 
 procedure TDCScrollableRowControl.CreateAndSynchronizeSynchronizerRow(const Row: IDCRow);
 begin
-  if _rowHeightSynchronizer = nil then
+  if _activeRowHeightSynchronizer = nil then
     Exit; // nothing to do
 
 
-  var otherRow := _rowHeightSynchronizer.View.GetActiveRowIfExists(Row.ViewListIndex);
+  var otherRow := _activeRowHeightSynchronizer.View.GetActiveRowIfExists(Row.ViewListIndex);
   if _isMasterSynchronizer then
   begin
     if otherRow = nil then
-      otherRow := _rowHeightSynchronizer.View.InsertNewRowFromIndex(Row.ViewListIndex, Row.ViewPortIndex);
+      otherRow := _activeRowHeightSynchronizer.View.InsertNewRowFromIndex(Row.ViewListIndex, Row.ViewPortIndex);
 
-    _rowHeightSynchronizer.View.ReindexActiveRow(otherRow);
+    _activeRowHeightSynchronizer.View.ReindexActiveRow(otherRow);
 
-    _rowHeightSynchronizer.InitRow(otherRow, False);
+    _activeRowHeightSynchronizer.InitRow(otherRow, False);
   end;
 
   if otherRow.Height > Row.Height then
@@ -1605,6 +1629,12 @@ end;
 
 procedure TDCScrollableRowControl.KeyDown(var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
 begin
+  if _view = nil then
+  begin
+    inherited;
+    Exit;
+  end;
+
   if (_view.ActiveViewRows.Count = 0) then
   begin
     inherited;
@@ -1631,7 +1661,7 @@ end;
 
 procedure TDCScrollableRowControl.DoCollapseOrExpandRow(const ViewListIndex: Integer; DoExpand: Boolean);
 begin
-  if (_internalSelectCount > 0) or ((_rowHeightSynchronizer <> nil) and (_rowHeightSynchronizer._internalSelectCount > 0))then
+  if (_internalSelectCount > 0) or ((_activeRowHeightSynchronizer <> nil) and (_activeRowHeightSynchronizer._internalSelectCount > 0))then
     Exit;
 
   var drv: IDataRowView;
@@ -1766,16 +1796,16 @@ end;
 
 procedure TDCScrollableRowControl.OnViewChanged;
 begin
-  if not CanRealignContent then
-    Exit;
-
-  if (_rowHeightSynchronizer <> nil) and not _isMasterSynchronizer then
+  if (_activeRowHeightSynchronizer <> nil) and not _isMasterSynchronizer then
   begin
-    if not _rowHeightSynchronizer._isMasterSynchronizer then
+    if not _activeRowHeightSynchronizer._isMasterSynchronizer then
       RefreshControl(True);
 
     Exit;
   end;
+
+  if not CanRealignContent then
+    Exit;
 
   ResetView;
   DoRealignContent;
@@ -1875,7 +1905,7 @@ begin
   end;
 
   if _isMasterSynchronizer then
-    _rowHeightSynchronizer.UpdateYPositionRows;
+    _activeRowHeightSynchronizer.UpdateYPositionRows;
 end;
 
 procedure TDCScrollableRowControl.UserClicked(Button: TMouseButton; Shift: TShiftState; const X, Y: Single);
@@ -1950,8 +1980,8 @@ begin
   _view.ViewLoadingStart(StartY, StopY, get_rowHeightDefault);
   if _isMasterSynchronizer then
   begin
-    _rowHeightSynchronizer._realignState := TRealignState.Realigning;
-    _rowHeightSynchronizer.View.ViewLoadingStart(_view);
+    _activeRowHeightSynchronizer._realignState := TRealignState.Realigning;
+    _activeRowHeightSynchronizer.View.ViewLoadingStart(_view);
   end;
 end;
 
@@ -1976,7 +2006,7 @@ end;
 procedure TDCScrollableRowControl.DoViewLoadingFinished;
 begin
   if _isMasterSynchronizer then
-    _rowHeightSynchronizer.View.ViewLoadingFinished;
+    _activeRowHeightSynchronizer.View.ViewLoadingFinished;
 
   _view.ViewLoadingFinished;
 end;
@@ -2009,7 +2039,7 @@ procedure TDCScrollableRowControl.InnerRealignContent(const StartY, StopY: Singl
 begin
 //  AtomicIncrement(_viewChangedIndex);
 
-  var setSynchronizerInternally := (_rowHeightSynchronizer <> nil) and not _rowHeightSynchronizer._isMasterSynchronizer and not _isMasterSynchronizer;
+  var setSynchronizerInternally := (_activeRowHeightSynchronizer <> nil) and not _activeRowHeightSynchronizer._isMasterSynchronizer and not _isMasterSynchronizer;
   if setSynchronizerInternally then
     StartMasterSynchronizer;
 
@@ -2097,7 +2127,7 @@ begin
   inherited;
 
   if _isMasterSynchronizer then
-    _rowHeightSynchronizer.RealignFinished;
+    _activeRowHeightSynchronizer.RealignFinished;
 end;
 
 procedure TDCScrollableRowControl.RefreshControl(const DataChanged: Boolean = False);
@@ -2120,8 +2150,8 @@ begin
   end;
 
   _view.ResetView(FromViewListIndex, ClearOneRowOnly);
-  if (_rowHeightSynchronizer <> nil) and not _rowHeightSynchronizer._isMasterSynchronizer and (_rowHeightSynchronizer.View <> nil) then
-      _rowHeightSynchronizer.View.ResetView(FromViewListIndex, ClearOneRowOnly);
+  if (_activeRowHeightSynchronizer <> nil) and not _activeRowHeightSynchronizer._isMasterSynchronizer and (_activeRowHeightSynchronizer.View <> nil) then
+      _activeRowHeightSynchronizer.View.ResetView(FromViewListIndex, ClearOneRowOnly);
 
   if _resetViewRec.RecalcSortedRows then
   begin
@@ -2450,7 +2480,7 @@ begin
     _hoverRect.Visible := False;
 
   if _isMasterSynchronizer then
-    _rowHeightSynchronizer.AfterRealignContent;
+    _activeRowHeightSynchronizer.AfterRealignContent;
 
 //  if _view <> nil then
 //    for var rowIx := 0 to _view.ActiveViewRows.Count - 1 do

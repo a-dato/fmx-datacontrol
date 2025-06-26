@@ -20,6 +20,8 @@ uses
   procedure BeginDefaultTextLayout;
   procedure EndDefaultTextLayout;
 
+  function  ControlEffectiveVisible(Control: TControl): Boolean;
+
 var
   DefaultLayout: TTextLayout;
 
@@ -188,6 +190,20 @@ begin
     Memo.ShowScrollBars := Result > MaxHeight;
     Result := CMath.Min(Result, MaxHeight);
   end;
+end;
+
+function ControlEffectiveVisible(Control: TControl): Boolean;
+begin
+  var ctrl := Control;
+  while (ctrl <> nil) do
+  begin
+    if not ctrl.Visible or (ctrl.Scene = nil) then
+      Exit(False);
+
+    ctrl := ctrl.ParentControl;
+  end;
+
+  Result := True;
 end;
 
 procedure ScrollControlInView(const Control: TControl; const ScrollBox: TCustomScrollBox; ControlMargin: Single = 10);
