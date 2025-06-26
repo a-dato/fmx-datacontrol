@@ -1,4 +1,4 @@
-unit FMX.DataControl.Events;
+unit FMX.ScrollControl.Events;
 
 interface
 
@@ -15,8 +15,8 @@ uses
   {$ENDIF}
   System_,
   System.Collections,
-  FMX.DataControl.Static.Intf,
-  FMX.DataControl.ScrollableRowControl.Intf;
+  FMX.ScrollControl.WithCells.Intf,
+  FMX.ScrollControl.WithRows.Intf;
 
 type
   TDataControlEventRegistration = class
@@ -304,7 +304,7 @@ type
 implementation
 
 uses
-  FMX.DataControl.ScrollableRowControl;
+  FMX.ScrollControl.WithRows.Impl;
 
 class procedure TDataControlEventRegistration.DoRegister;
 begin
@@ -505,7 +505,7 @@ end;
 
 function DCTreePositionArgs.AllViewRowsVisible: Boolean;
 begin
-  var dc := RowControl as TDCScrollableRowControl;
+  var dc := RowControl as TScrollControlWithRows;
   Result := dc.View.ViewCount = dc.View.ActiveViewRows.Count;
 end;
 
@@ -523,7 +523,7 @@ end;
 
 function DCTreePositionArgs.GetRowsHeight: Single;
 begin
-  var dc := RowControl as TDCScrollableRowControl;
+  var dc := RowControl as TScrollControlWithRows;
 
   Result := 0.0;
   var row: IDCRow;

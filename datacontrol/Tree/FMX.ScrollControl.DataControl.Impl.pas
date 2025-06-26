@@ -2,7 +2,7 @@
 {$I ..\..\dn4d\Source\Adato.inc}
 {$ENDIF}
 
-unit FMX.DataControl.Impl;
+unit FMX.ScrollControl.DataControl.Impl;
 
 interface
 
@@ -14,14 +14,14 @@ uses
   {$ENDIF}
   System_,
   System.Runtime.Serialization,
-  FMX.DataControl.Editable,
-  FMX.DataControl.Intf,
-  FMX.DataControl.Static.Intf,
-  FMX.DataControl.Static.Impl;
+  FMX.ScrollControl.WithEditableCells.Impl,
+  FMX.ScrollControl.DataControl.Intf,
+  FMX.ScrollControl.WithCells.Intf,
+  FMX.ScrollControl.WithCells.Impl;
 
 type
   [ComponentPlatformsAttribute(pidAllPlatforms)]
-  TDataControl = class(TEditableDataControl)
+  TDataControl = class(TScrollControlWithEditableColumns)
   protected
     procedure DefineProperties(Filer: TFiler); override;
   public

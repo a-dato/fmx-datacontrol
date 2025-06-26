@@ -1,4 +1,4 @@
-unit FMX.DataControl.Editable.Intf;
+unit FMX.ScrollControl.WithEditableCells.Intf;
 
 interface
 
@@ -13,7 +13,7 @@ uses
   Wasm.FMX.Types,
   {$ENDIF}
   System_,
-  FMX.DataControl.Static.Intf,
+  FMX.ScrollControl.WithCells.Intf,
   System.Collections;
 
 type

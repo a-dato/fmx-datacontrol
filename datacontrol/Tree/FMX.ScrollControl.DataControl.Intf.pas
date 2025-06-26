@@ -1,10 +1,10 @@
-unit FMX.DataControl.Intf;
+unit FMX.ScrollControl.DataControl.Intf;
 
 interface
 
 uses
-  FMX.DataControl.Editable,
-  FMX.DataControl.Static.Intf;
+  FMX.ScrollControl.WithEditableCells.Impl,
+  FMX.ScrollControl.WithCells.Intf;
 
 type
   IDataControl = interface

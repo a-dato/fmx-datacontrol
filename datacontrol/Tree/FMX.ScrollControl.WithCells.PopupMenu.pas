@@ -1,4 +1,4 @@
-﻿unit FMX.DataControl.Static.PopupMenu;
+﻿unit FMX.ScrollControl.WithCells.PopupMenu;
 
 interface
 
@@ -30,12 +30,13 @@ uses
   FMX.StdCtrls,
   FMX.Objects,
 
-  FMX.DataControl.Static.Intf,
-  FMX.DataControl.ScrollableControl,
-  FMX.DataControl.ScrollableRowControl,
-  FMX.DataControl.Editable,
-  FMX.DataControl.Impl,
-  FMX.DataControl.Static, FMX.DataControl.Events;
+  FMX.ScrollControl.WithCells.Intf,
+  FMX.ScrollControl.Impl,
+  FMX.ScrollControl.WithRows.Impl,
+  FMX.ScrollControl.WithEditableCells.Impl,
+  FMX.ScrollControl.WithCells.Impl,
+  FMX.ScrollControl.Events,
+  FMX.ScrollControl.DataControl.Impl;
 
 type
 //  IFilterItem = interface;
@@ -159,9 +160,8 @@ type
 implementation
 
 uses
-  FMX.DataControl.SortAndFilter,
-  FMX.DataControl.Static.Impl,
-  FMX.DataControl.ScrollableRowControl.Intf;
+  FMX.ScrollControl.SortAndFilter,
+  FMX.ScrollControl.WithRows.Intf;
 
 {$R *.fmx}
 

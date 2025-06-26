@@ -1,4 +1,4 @@
-unit FMX.DataControl.Static.Intf;
+unit FMX.ScrollControl.WithCells.Intf;
 
 interface
 
@@ -28,7 +28,7 @@ uses
   System.Collections.Generic,
   System.Collections,
   System.Collections.Specialized,
-  FMX.DataControl.ScrollableRowControl.Intf;
+  FMX.ScrollControl.WithRows.Intf;
 
 type
   TSortType = (None, Displaytext, CellData, PropertyValue, ColumnCellComparer, RowComparer);

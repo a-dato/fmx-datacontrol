@@ -1,4 +1,4 @@
-unit FMX.DataControl.View.Intf;
+unit FMX.ScrollControl.View.Intf;
 
 interface
 
@@ -15,7 +15,7 @@ uses
   System_,
   System.Collections.Generic, ADato.Sortable.Intf,
   ADato.Sortable.Impl,
-  FMX.DataControl.ScrollableRowControl.Intf, 
+  FMX.ScrollControl.WithRows.Intf,
   System.Collections;
 
 type

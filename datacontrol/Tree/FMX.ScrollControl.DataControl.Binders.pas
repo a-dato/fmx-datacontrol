@@ -2,7 +2,7 @@
 {$I Adato.inc}
 {$ENDIF}
 
-unit FMX.DataControl.Binders;
+unit FMX.ScrollControl.DataControl.Binders;
 
 interface
 
@@ -17,15 +17,15 @@ uses
   System_,
   System.Collections,
   ADato.ObjectModel.Binders,
-  FMX.DataControl.Impl,
-  FMX.DataControl.Events;
+  FMX.ScrollControl.DataControl.Impl,
+  FMX.ScrollControl.Events;
 
 type
   TTreePropertyType = (DataList, CheckedItems);
 
   TDataControlBinding = class(TControlBinding<TDataControl>)
   private
-    _orgRowEndEdit: FMX.DataControl.Events.RowEditEvent;
+    _orgRowEndEdit: FMX.ScrollControl.Events.RowEditEvent;
     _orgCellSelectedEvent: CellSelectedEvent;
 
     _propType: TTreePropertyType;

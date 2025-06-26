@@ -7,10 +7,18 @@ uses
   System.SysUtils, System.Types, System.UITypes, System.Classes, System.Variants,
   FMX.Types, FMX.Controls, FMX.Forms, FMX.Graphics, FMX.Dialogs, FMX.Layouts,
   System.Collections.Generic, System.Actions, FMX.ActnList,
-  FMX.DataControl.ScrollableControl, FMX.DataControl.ScrollableRowControl,
-  FMX.DataControl.Static, FMX.DataControl.Editable, FMX.DataControl.Impl,
-  FMX.DateTimeCtrls, FMX.StdCtrls, FMX.Edit, FMX.Controls.Presentation,
-  FMX.DataControl.Events, ADato.Controls.FMX.Tree.Intf;
+
+  FMX.ScrollControl.Events,
+  FMX.ScrollControl.Impl,
+  FMX.ScrollControl.WithRows.Impl,
+  FMX.ScrollControl.WithCells.Impl,
+  FMX.ScrollControl.WithEditableCells.Impl,
+  FMX.ScrollControl.DataControl.Impl,
+
+  FMX.DateTimeCtrls,
+  FMX.StdCtrls,
+  FMX.Edit,
+  FMX.Controls.Presentation;
 
 type
   {$M+}

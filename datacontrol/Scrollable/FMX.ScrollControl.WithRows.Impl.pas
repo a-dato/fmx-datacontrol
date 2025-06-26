@@ -1,47 +1,35 @@
-unit FMX.DataControl.ScrollableRowControl;
+unit FMX.ScrollControl.WithRows.Impl;
 
 interface
 
 uses
   {$IFNDEF WEBASSEMBLY}
+  FMX.Controls,
+  System.SysUtils,
   System.Classes,
-  System.UITypes,
-  FMX.Layouts,
   FMX.Objects,
-  System.Types,
   System.ComponentModel,
-  FMX.DataControl.Events,
   {$ELSE}
-  Wasm.System,
-  Wasm.System.Classes,
-  Wasm.System.UITypes,
-  Wasm.FMX.Layouts,
+  Wasm.FMX.Controls,
+  Wasm.System.SysUtils,
   Wasm.FMX.Objects,
-  Wasm.System.Types,
   Wasm.System.ComponentModel,
   {$ENDIF}
   System_,
+  FMX.ScrollControl.WithRows.Intf,
   System.Collections,
   System.Collections.Generic,
-
-  FMX.DataControl.ScrollableControl,
-  FMX.DataControl.View.Intf,
-
-  FMX.DataControl.ScrollableRowControl.Intf,
-  
-  ADato.ObjectModel.List.intf,
-  ADato.ObjectModel.intf, 
-  ADato.Data.DataModel.intf;
+  FMX.ScrollControl.Intf,
+  FMX.ScrollControl.Impl, ADato.Data.DataModel.intf,
+  ADato.ObjectModel.List.intf, ADato.ObjectModel.intf,
+  FMX.ScrollControl.View.Intf, FMX.ScrollControl.Events, System.UITypes,
+  System.Types;
 
 type
-  TRowControl = class(TRectangle)
-  public
-    constructor Create(AOwner: TComponent); reintroduce;
-  end;
 
   TCalculateViewFrom = (None, Top, Bottom);
 
-  TDCScrollableRowControl = class(TDCScrollableControl, IRowsControl)
+  TScrollControlWithRows = class(TScrollControl, IRowsControl)
   // data
   protected
     _dataList: IList;
@@ -70,8 +58,8 @@ type
 
   // published property variables
 
-  private _rowHeightSynchronizer: TDCScrollableRowControl;
-  protected _activeRowHeightSynchronizer: TDCScrollableRowControl;
+  private _rowHeightSynchronizer: TScrollControlWithRows;
+  protected _activeRowHeightSynchronizer: TScrollControlWithRows;
 
   protected
     _selectionType: TSelectionType;
@@ -102,8 +90,8 @@ type
     procedure set_RowHeightMax(const Value: Single);
 
     function  get_rowHeightDefault: Single; virtual;
-    function  get_RowHeightSynchronizer: TDCScrollableRowControl;
-    procedure set_RowHeightSynchronizer(const Value: TDCScrollableRowControl);
+    function  get_RowHeightSynchronizer: TScrollControlWithRows;
+    procedure set_RowHeightSynchronizer(const Value: TScrollControlWithRows);
 
     procedure DoViewPortPositionChanged; override;
 
@@ -313,39 +301,188 @@ protected
     property RowAligned: RowLoadedEvent read _rowAligned write _rowAligned;
     {$ENDIF}
 
-    property RowHeightSynchronizer: TDCScrollableRowControl read get_RowHeightSynchronizer write set_RowHeightSynchronizer;
+    property RowHeightSynchronizer: TScrollControlWithRows read get_RowHeightSynchronizer write set_RowHeightSynchronizer;
+  end;
+
+  TDCRow = class(TBaseInterfacedObject, IDCRow)
+  protected
+    _dataItem: CObject;
+    _convertedDataItem: CObject;
+    _dataIndex: Integer;
+    _viewPortIndex: Integer;
+    _viewListIndex: Integer;
+    _virtualYPosition: Single;
+
+    _control: TControl;
+    _enabled: Boolean;
+
+    _ownerIsScrolling: Boolean;
+
+    _customTag: CObject;
+
+    function  get_DataIndex: Integer;
+    procedure set_DataIndex(const Value: Integer);
+    function  get_DataItem: CObject;
+    procedure set_DataItem(const Value: CObject);
+    function  get_ConvertedDataItem: CObject;
+    function  get_ViewPortIndex: Integer;
+    procedure set_ViewPortIndex(const Value: Integer);
+    function  get_ViewListIndex: Integer;
+    procedure set_ViewListIndex(const Value: Integer);
+    function  get_VirtualYPosition: Single;
+    procedure set_VirtualYPosition(const Value: Single);
+    function  get_Control: TControl;
+    procedure set_Control(const Value: TControl); virtual;
+    function  get_IsHeaderRow: Boolean; virtual;
+    function  get_Enabled: Boolean;
+    procedure set_Enabled(const Value: Boolean);
+    function  get_OwnerIsScrolling: Boolean;
+    procedure set_OwnerIsScrolling(const Value: Boolean); virtual;
+    function  get_CustomTag: CObject;
+    procedure set_CustomTag(const Value: CObject);
+
+    procedure UpdateControlVisibility;
+
+
+  protected
+    _selectionRect: TRectangle;
+
+    procedure UpdateSelectionRect(OwnerIsFocused: Boolean);
+
+  public
+    constructor Create; reintroduce;
+    destructor Destroy; override;
+
+    procedure UpdateSelectionVisibility(const SelectionInfo: IRowSelectionInfo; OwnerIsFocused: Boolean); virtual;
+
+    procedure ClearRowForReassignment; virtual;
+    function  IsClearedForReassignment: Boolean;
+    function  IsScrollingIntoView: Boolean;
+
+    function  Height: Single;
+    function  HasChildren: Boolean;
+    function  HasVisibleChildren: Boolean;
+    function  ParentCount: Integer;
+    function  IsOddRow: Boolean;
+  end;
+
+  TRowSelectionInfo = class(TInterfacedObject, IRowSelectionInfo)
+  protected
+    {$IFNDEF WEBASSEMBLY}[unsafe]{$ENDIF}_rowsControl: IRowsControl;
+
+    _lastSelectedDataIndex: Integer;
+    _lastSelectedViewListIndex: Integer;
+    _lastSelectedDataItem: CObject;
+    _forceScrollToSelection: Boolean;
+
+    _selectionChanged: Boolean;
+    _updateCount: Integer;
+
+    _EventTrigger: TSelectionEventTrigger;
+    _notSelectableDataIndexes: TDataIndexArray;
+
+    function  get_DataIndex: Integer;
+    function  get_DataItem: CObject;
+    function  get_ViewListIndex: Integer;
+    function  get_IsMultiSelection: Boolean;
+    function  get_ForceScrollToSelection: Boolean;
+    procedure set_ForceScrollToSelection(const Value: Boolean);
+    function  get_EventTrigger: TSelectionEventTrigger;
+    procedure set_EventTrigger(const Value: TSelectionEventTrigger);
+    function  get_NotSelectableDataIndexes: TDataIndexArray;
+    procedure set_NotSelectableDataIndexes(const Value: TDataIndexArray);
+
+  protected
+    _multiSelection: Dictionary<Integer {DataIndex}, IRowSelectionInfo>;
+
+    function  CreateInstance: IRowSelectionInfo; virtual;
+    function  Clone: IRowSelectionInfo; virtual;
+
+    procedure DoSelectionInfoChanged;
+    procedure UpdateLastSelection(const DataIndex, ViewListIndex: Integer; const DataItem: CObject);
+
+  public
+    constructor Create(const RowsControl: IRowsControl); reintroduce;
+
+    function  SelectionType: TSelectionType;
+
+    procedure UpdateSingleSelection(const DataIndex, ViewListIndex: Integer; const DataItem: CObject);
+    procedure AddToSelection(const DataIndex, ViewListIndex: Integer; const DataItem: CObject);
+    procedure Deselect(const DataIndex: Integer);
+    procedure SelectedRowClicked(const DataIndex: Integer);
+
+    procedure BeginUpdate;
+    procedure EndUpdate(IgnoreChangeEvent: Boolean = False);
+
+    procedure Clear; virtual;
+    procedure ClearAllSelections;
+    procedure ClearMultiSelections; virtual;
+
+    function  CanSelect(const DataIndex: Integer): Boolean;
+    function  HasSelection: Boolean;
+    function  IsSelected(const DataIndex: Integer): Boolean;
+    function  GetSelectionInfo(const DataIndex: Integer): IRowSelectionInfo;
+    function  SelectedRowCount: Integer;
+    function  SelectedDataIndexes: List<Integer>;
+
+  end;
+
+  TWaitForRepaintInfo = class(TInterfacedObject, IWaitForRepaintInfo)
+  protected
+    {$IFNDEF WEBASSEMBLY}[unsafe]{$ENDIF} _owner: IRefreshControl;
+
+  private
+    _rowStateFlags: TTreeRowStateFlags;
+
+    _current: Integer;
+    _dataItem: CObject;
+    _sortDescriptions: List<IListSortDescription>;
+    _filterDescriptions: List<IListFilterDescription>;
+
+
+    function  get_RowStateFlags: TTreeRowStateFlags;
+    procedure set_RowStateFlags(const Value: TTreeRowStateFlags);
+    function  get_Current: Integer;
+    procedure set_Current(const Value: Integer);
+    function  get_DataItem: CObject;
+    procedure set_DataItem(const Value: CObject);
+    function  get_SortDescriptions: List<IListSortDescription>;
+    procedure set_SortDescriptions(const Value: List<IListSortDescription>);
+    function  get_FilterDescriptions: List<IListFilterDescription>;
+    procedure set_FilterDescriptions(const Value: List<IListFilterDescription>);
+
+  public
+    constructor Create(const Owner: IRefreshControl); reintroduce;
+
+    procedure ClearIrrelevantInfo;
+
+    property RowStateFlags: TTreeRowStateFlags read get_RowStateFlags;
+    property Current: Integer read get_Current write set_Current;
+    property DataItem: CObject read get_DataItem write set_DataItem;
+    property SortDescriptions: List<IListSortDescription> read get_SortDescriptions write set_SortDescriptions;
+    property FilterDescriptions: List<IListFilterDescription> read get_FilterDescriptions write set_FilterDescriptions;
   end;
 
 implementation
 
 uses
   {$IFNDEF WEBASSEMBLY}
-  System.SysUtils,
-  System.Math,
   FMX.Types,
-  FMX.Graphics,
-  FMX.ActnList,
-  FMX.Platform,
-  System.Rtti,
-  FMX.Forms,
+  FMX.StdCtrls,
+  System.Generics.Collections,
   {$ELSE}
-  Wasm.System.SysUtils,
-  Wasm.System.Math,
   Wasm.FMX.Types,
-  Wasm.FMX.Graphics,
-  Wasm.FMX.ActnList,
-  Wasm.FMX.Platform,
-  Wasm.FMX.Forms,
+  Wasm.FMX.StdCtrls,
+  Wasm.System.UITypes,
   {$ENDIF}
-  FMX.DataControl.ScrollableRowControl.Impl,
-  FMX.DataControl.View.Impl,
-  FMX.DataControl.ScrollableControl.Intf, 
-  FMX.DataControl.ControlClasses, 
-  FMX.ControlCalculations;
+  FMX.ScrollControl.ControlClasses
+  , System.Math, FMX.Platform, System.Rtti, FMX.Forms, FMX.Graphics,
+  FMX.ScrollControl.View.Impl, FMX.ControlCalculations, FMX.ActnList;
 
-{ TDCScrollableRowControl }
 
-function TDCScrollableRowControl.DefaultMoveDistance(ScrollDown: Boolean): Single;
+{ TScrollControlWithRows }
+
+function TScrollControlWithRows.DefaultMoveDistance(ScrollDown: Boolean): Single;
 begin
   if _rowHeightFixed > 0 then
     Result := _rowHeightFixed
@@ -358,7 +495,7 @@ begin
     Result := Result * 2;
 end;
 
-destructor TDCScrollableRowControl.Destroy;
+destructor TScrollControlWithRows.Destroy;
 begin
 //  AtomicIncrement(_viewChangedIndex);
 
@@ -371,12 +508,12 @@ begin
   inherited;
 end;
 
-function TDCScrollableRowControl.DoCreateNewRow: IDCRow;
+function TScrollControlWithRows.DoCreateNewRow: IDCRow;
 begin
   Result := TDCRow.Create;
 end;
 
-procedure TDCScrollableRowControl.DoDataItemChanged(const DataItem: CObject; const DataIndex: Integer);
+procedure TScrollControlWithRows.DoDataItemChanged(const DataItem: CObject; const DataIndex: Integer);
 begin
   OnSelectionInfoChanged;
 //  var dataIndexActive := _view.FastPerformanceDataIndexIsActive(DataIndex);
@@ -392,7 +529,7 @@ begin
 //  ResetView(viewListindex, viewListindex <> -1 {only if still exists});
 end;
 
-procedure TDCScrollableRowControl.DoDataItemChangedInternal(const DataItem: CObject);
+procedure TScrollControlWithRows.DoDataItemChangedInternal(const DataItem: CObject);
 begin
   // DO NOT ask the view for the correct index
   // a item can be fitlered out, and therefor for example the DataModelView gives back another index
@@ -442,7 +579,7 @@ begin
   DoRowAligned(currentRow);
 end;
 
-procedure TDCScrollableRowControl.DoEnter;
+procedure TScrollControlWithRows.DoEnter;
 begin
   inherited;
 
@@ -454,7 +591,7 @@ begin
     VisualizeRowSelection(row);
 end;
 
-procedure TDCScrollableRowControl.DoExit;
+procedure TScrollControlWithRows.DoExit;
 begin
   inherited;
 
@@ -466,14 +603,14 @@ begin
     VisualizeRowSelection(row);
 end;
 
-procedure TDCScrollableRowControl.MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Single);
+procedure TScrollControlWithRows.MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Single);
 begin
   inherited;
 
   _dragObject := nil;
 end;
 
-procedure TDCScrollableRowControl.MouseMove(Shift: TShiftState; X, Y: Single);
+procedure TScrollControlWithRows.MouseMove(Shift: TShiftState; X, Y: Single);
 begin
   if not _canDragDrop then
     inherited;
@@ -515,14 +652,14 @@ begin
   end;
 end;
 
-procedure TDCScrollableRowControl.DoMouseLeave;
+procedure TScrollControlWithRows.DoMouseLeave;
 begin
   inherited;
 
   UpdateHoverRect(PointF(-1, -1));
 end;
 
-procedure TDCScrollableRowControl.DoRealignContent;
+procedure TScrollControlWithRows.DoRealignContent;
 begin
   StartMasterSynchronizer;
   try
@@ -532,7 +669,7 @@ begin
   end;
 end;
 
-procedure TDCScrollableRowControl.UpdateRowHeightSynchronizerScrollbar;
+procedure TScrollControlWithRows.UpdateRowHeightSynchronizerScrollbar;
 begin
   if not _isMasterSynchronizer then
     Exit;
@@ -549,7 +686,7 @@ begin
   end;
 end;
 
-procedure TDCScrollableRowControl.DoRowLoaded(const ARow: IDCRow);
+procedure TScrollControlWithRows.DoRowLoaded(const ARow: IDCRow);
 begin
   {$IFNDEF WEBASSEMBLY}
   if Assigned(_rowLoaded) then
@@ -560,11 +697,11 @@ begin
     _rowLoaded(Self, rowEventArgs);
   end;
   {$ELSE}
-  //raise NotImplementedException.Create('procedure TDCScrollableRowControl.DoRowLoaded(const ARow: IDCRow)');
+  //raise NotImplementedException.Create('procedure TScrollControlWithRows.DoRowLoaded(const ARow: IDCRow)');
   {$ENDIF}
 end;
 
-procedure TDCScrollableRowControl.DoRowAligned(const ARow: IDCRow);
+procedure TScrollControlWithRows.DoRowAligned(const ARow: IDCRow);
 begin
   {$IFNDEF WEBASSEMBLY}
   if Assigned(_rowAligned) then
@@ -575,11 +712,11 @@ begin
     _rowAligned(Self, rowEventArgs);
   end;
   {$ELSE}
-  //raise NotImplementedException.Create('procedure TDCScrollableRowControl.DoRowAligned(const ARow: IDCRow)');
+  //raise NotImplementedException.Create('procedure TScrollControlWithRows.DoRowAligned(const ARow: IDCRow)');
   {$ENDIF}
 end;
 
-procedure TDCScrollableRowControl.TriggerFilterOrSortChanged(FilterChanged, SortChanged: Boolean);
+procedure TScrollControlWithRows.TriggerFilterOrSortChanged(FilterChanged, SortChanged: Boolean);
 begin
   var refreshInfo := GetInitializedWaitForRefreshInfo;
 
@@ -590,7 +727,7 @@ begin
     refreshInfo.SortDescriptions := _view.GetSortDescriptions; // triggers refreshcontrol
 end;
 
-function TDCScrollableRowControl.TrySelectItem(const RequestedSelectionInfo: IRowSelectionInfo; Shift: TShiftState): Boolean;
+function TScrollControlWithRows.TrySelectItem(const RequestedSelectionInfo: IRowSelectionInfo; Shift: TShiftState): Boolean;
 begin
   Result := True;
 
@@ -614,7 +751,7 @@ begin
   end;
 end;
 
-function TDCScrollableRowControl.GetInitializedWaitForRefreshInfo: IWaitForRepaintInfo;
+function TScrollControlWithRows.GetInitializedWaitForRefreshInfo: IWaitForRepaintInfo;
 begin
   // _waitForRepaintInfo is nilled after RealignContent
   if _waitForRepaintInfo = nil then
@@ -623,7 +760,7 @@ begin
   Result := _waitForRepaintInfo;
 end;
 
-function TDCScrollableRowControl.GetRowViewListIndexByKey(const Key: Word; Shift: TShiftState): Integer;
+function TScrollControlWithRows.GetRowViewListIndexByKey(const Key: Word; Shift: TShiftState): Integer;
 begin
   if (ssCtrl in Shift) and (Key in [vkUp, vkHome]) then
     Exit(GetSelectableViewIndex(0, True))
@@ -638,7 +775,7 @@ begin
   Result := _selectionInfo.ViewListIndex;
 end;
 
-function TDCScrollableRowControl.GetSelectableViewIndex(const FromViewListIndex: Integer; const Increase: Boolean; const FirstRound: Boolean = True): Integer;
+function TScrollControlWithRows.GetSelectableViewIndex(const FromViewListIndex: Integer; const Increase: Boolean; const FirstRound: Boolean = True): Integer;
 begin
   Result := FromViewListIndex;
   if (Result < 0) or (Result > _view.ViewCount - 1) then
@@ -674,7 +811,7 @@ begin
   end;
 end;
 
-function TDCScrollableRowControl.GetRowByMouseY(const Y: Single): IDCRow;
+function TScrollControlWithRows.GetRowByMouseY(const Y: Single): IDCRow;
 begin
   if (_view = nil) or (Y < 0) then
     Exit(nil);
@@ -688,7 +825,7 @@ begin
   Result := nil;
 end;
 
-function TDCScrollableRowControl.GetDataModel: IDataModel;
+function TScrollControlWithRows.GetDataModel: IDataModel;
 var
   dm: IDataModel;
 begin
@@ -700,7 +837,7 @@ begin
     Result := nil;
 end;
 
-function TDCScrollableRowControl.GetDataModelView: IDataModelView;
+function TScrollControlWithRows.GetDataModelView: IDataModelView;
 var
   dm: IDataModel;
 begin
@@ -710,7 +847,7 @@ begin
     Result := dm.DefaultView;
 end;
 
-procedure TDCScrollableRowControl.GenerateView;
+procedure TScrollControlWithRows.GenerateView;
 begin
   inc(_scrollUpdateCount);
   try
@@ -746,7 +883,7 @@ begin
   RefreshControl;
 end;
 
-function TDCScrollableRowControl.GetActiveRow: IDCRow;
+function TScrollControlWithRows.GetActiveRow: IDCRow;
 begin
   if _view = nil then
     Exit;
@@ -759,17 +896,17 @@ begin
   Result := nil;
 end;
 
-function TDCScrollableRowControl.get_SelectionType: TSelectionType;
+function TScrollControlWithRows.get_SelectionType: TSelectionType;
 begin
   Result := _selectionType;
 end;
 
-function TDCScrollableRowControl.get_View: IDataViewList;
+function TScrollControlWithRows.get_View: IDataViewList;
 begin
   Result := _view;
 end;
 
-procedure TDCScrollableRowControl.HandleTreeOptionsChange(const OldFlags, NewFlags: TDCTreeOptions);
+procedure TScrollControlWithRows.HandleTreeOptionsChange(const OldFlags, NewFlags: TDCTreeOptions);
 begin
   if TDCTreeOption.HideVScrollBar in _options then
     _vertScrollBar.Visible := False;
@@ -788,12 +925,12 @@ begin
   end;
 end;
 
-function TDCScrollableRowControl.SelectionCount: Integer;
+function TScrollControlWithRows.SelectionCount: Integer;
 begin
   Result := _selectionInfo.SelectedRowCount;
 end;
 
-procedure TDCScrollableRowControl.SelectItem(const DataItem: CObject; ClearOtherSelections: Boolean = False);
+procedure TScrollControlWithRows.SelectItem(const DataItem: CObject; ClearOtherSelections: Boolean = False);
 begin
   if _view = nil then Exit;
 
@@ -812,7 +949,7 @@ begin
   _selectionInfo.AddToSelection(dataIndex, ix, DataItem);
 end;
 
-procedure TDCScrollableRowControl.DeselectItem(const DataItem: CObject);
+procedure TScrollControlWithRows.DeselectItem(const DataItem: CObject);
 begin
   if _view = nil then Exit;
 
@@ -824,12 +961,12 @@ begin
     _selectionInfo.Deselect(dataIndex);
 end;
 
-procedure TDCScrollableRowControl.ToggleDataItemSelection;
+procedure TScrollControlWithRows.ToggleDataItemSelection;
 begin
   ToggleDataItemSelection(get_DataItem);
 end;
 
-procedure TDCScrollableRowControl.ToggleDataItemSelection(const Item: CObject);
+procedure TScrollControlWithRows.ToggleDataItemSelection(const Item: CObject);
 begin
   if _view = nil then Exit;
 
@@ -843,23 +980,23 @@ begin
 end;
 
 {$IFNDEF WEBASSEMBLY}
-function TDCScrollableRowControl.get_AllowNoneSelected: Boolean;
+function TScrollControlWithRows.get_AllowNoneSelected: Boolean;
 begin
   Result := _allowNoneSelected;
 end;
 {$ENDIF}
 
-function TDCScrollableRowControl.get_Current: Integer;
+function TScrollControlWithRows.get_Current: Integer;
 begin
   Result := _selectionInfo.ViewListIndex;
 end;
 
-function TDCScrollableRowControl.get_DataItem: CObject;
+function TScrollControlWithRows.get_DataItem: CObject;
 begin
   Result := _selectionInfo.DataItem;
 end;
 
-procedure TDCScrollableRowControl.UpdateVirtualYPositions(const TopVirtualYPosition: Single; const ToViewIndex: Integer = -1);
+procedure TScrollControlWithRows.UpdateVirtualYPositions(const TopVirtualYPosition: Single; const ToViewIndex: Integer = -1);
 begin
   _view.ViewLoadingRemoveNonUsedRows(ToViewIndex, True);
 
@@ -882,7 +1019,7 @@ begin
   end;
 end;
 
-procedure TDCScrollableRowControl.CalculateScrollBarMax;
+procedure TScrollControlWithRows.CalculateScrollBarMax;
 begin
   if _view <> nil then
   begin
@@ -901,7 +1038,7 @@ begin
   CheckVertScrollbarVisibility;
 end;
 
-function TDCScrollableRowControl.CanRealignContent: Boolean;
+function TScrollControlWithRows.CanRealignContent: Boolean;
 begin
   Result := inherited;
 
@@ -920,7 +1057,7 @@ begin
   end;
 end;
 
-procedure TDCScrollableRowControl.CheckVertScrollbarVisibility;
+procedure TScrollControlWithRows.CheckVertScrollbarVisibility;
 begin
   var makeVisible := (_view <> nil) and (not (TDCTreeOption.HideVScrollBar in _options)) and (_vertScrollBar.ViewPortSize + IfThen(_horzScrollBar.Visible, _horzScrollBar.Height, 0) < _vertScrollBar.Max);
   if _vertScrollBar.Visible = makeVisible then
@@ -934,13 +1071,13 @@ begin
   end;
 end;
 
-procedure TDCScrollableRowControl.ClearCurrentSelection;
+procedure TScrollControlWithRows.ClearCurrentSelection;
 begin
   if _selectionInfo <> nil then
     _selectionInfo.UpdateSingleSelection(-1, -1, nil);
 end;
 
-procedure TDCScrollableRowControl.ClearSelections;
+procedure TScrollControlWithRows.ClearSelections;
 begin
   _selectionInfo.LastSelectionEventTrigger := TSelectionEventTrigger.External;
   _selectionInfo.BeginUpdate;
@@ -955,37 +1092,37 @@ begin
   end;
 end;
 
-function TDCScrollableRowControl.CreateSelectioninfoInstance: IRowSelectionInfo;
+function TScrollControlWithRows.CreateSelectioninfoInstance: IRowSelectionInfo;
 begin
   Result := TRowSelectionInfo.Create(Self);
 end;
 
-function TDCScrollableRowControl.CurrentRowIsExpanded: Boolean;
+function TScrollControlWithRows.CurrentRowIsExpanded: Boolean;
 begin
   Result := RowIsExpanded(get_Current);
 end;
 
-procedure TDCScrollableRowControl.CollapseCurrentRow;
+procedure TScrollControlWithRows.CollapseCurrentRow;
 begin
   DoCollapseOrExpandRow(get_Current, False);
 end;
 
-procedure TDCScrollableRowControl.ExecuteKeyFromExternal(var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
+procedure TScrollControlWithRows.ExecuteKeyFromExternal(var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
 begin
   KeyDown(Key, KeyChar, Shift);
 end;
 
-procedure TDCScrollableRowControl.ExpandCurrentRow;
+procedure TScrollControlWithRows.ExpandCurrentRow;
 begin
   DoCollapseOrExpandRow(get_Current, True);
 end;
 
-function TDCScrollableRowControl.SortActive: Boolean;
+function TScrollControlWithRows.SortActive: Boolean;
 begin
   Result := (_view <> nil) and (_view.GetSortDescriptions <> nil) and (_view.GetSortDescriptions.Count > 0)
 end;
 
-procedure TDCScrollableRowControl.StartMasterSynchronizer;
+procedure TScrollControlWithRows.StartMasterSynchronizer;
 begin
   if (_rowHeightSynchronizer <> nil) and not _rowHeightSynchronizer._isMasterSynchronizer then
   begin
@@ -1009,7 +1146,7 @@ begin
   end;
 end;
 
-procedure TDCScrollableRowControl.StopMasterSynchronizer;
+procedure TScrollControlWithRows.StopMasterSynchronizer;
 begin
   if _isMasterSynchronizer then
   begin
@@ -1023,12 +1160,12 @@ begin
   _activeRowHeightSynchronizer := nil;
 end;
 
-function TDCScrollableRowControl.FiltersActive: Boolean;
+function TScrollControlWithRows.FiltersActive: Boolean;
 begin
   Result := (_view <> nil) and (_view.GetFilterDescriptions <> nil) and (_view.GetFilterDescriptions.Count > 0)
 end;
 
-constructor TDCScrollableRowControl.Create(AOwner: TComponent);
+constructor TScrollControlWithRows.Create(AOwner: TComponent);
 begin
   inherited;
 
@@ -1051,7 +1188,7 @@ begin
   _content.AddObject(_hoverRect);
 end;
 
-function TDCScrollableRowControl.CreateDummyRowForChanging(const FromSelectionInfo: IRowSelectionInfo): IDCRow;
+function TScrollControlWithRows.CreateDummyRowForChanging(const FromSelectionInfo: IRowSelectionInfo): IDCRow;
 begin
   Result := DoCreateNewRow;
   Result.DataItem := FromSelectionInfo.DataItem;
@@ -1059,22 +1196,22 @@ begin
   Result.ViewListIndex := FromSelectionInfo.ViewListIndex;
 end;
 
-function TDCScrollableRowControl.get_DataList: IList;
+function TScrollControlWithRows.get_DataList: IList;
 begin
   Result := _dataList;
 end;
 
-function TDCScrollableRowControl.get_DataModelView: IDataModelView;
+function TScrollControlWithRows.get_DataModelView: IDataModelView;
 begin
   Result := _dataModelView;
 end;
 
-function TDCScrollableRowControl.get_Model: IObjectListModel;
+function TScrollControlWithRows.get_Model: IObjectListModel;
 begin
   Result := _model;
 end;
 
-function TDCScrollableRowControl.get_NotSelectableItems: IList;
+function TScrollControlWithRows.get_NotSelectableItems: IList;
 begin
   if Length(_selectionInfo.NotSelectableDataIndexes) = 0 then
     Exit(nil);
@@ -1087,7 +1224,7 @@ begin
   Result := l as IList;
 end;
 
-function TDCScrollableRowControl.get_rowHeightDefault: Single;
+function TScrollControlWithRows.get_rowHeightDefault: Single;
 begin
   if _rowHeightFixed > 0 then
     Result := _rowHeightFixed
@@ -1110,12 +1247,12 @@ begin
   end;
 end;
 
-function TDCScrollableRowControl.get_RowHeightSynchronizer: TDCScrollableRowControl;
+function TScrollControlWithRows.get_RowHeightSynchronizer: TScrollControlWithRows;
 begin
   Result := _rowHeightSynchronizer;
 end;
 
-procedure TDCScrollableRowControl.set_DataList(const Value: IList);
+procedure TScrollControlWithRows.set_DataList(const Value: IList);
 begin
 //  if CObject.ReferenceEquals(_dataList, Value) then
 //    Exit;
@@ -1164,7 +1301,7 @@ begin
     _dataModelView := nil;
 end;
 
-procedure TDCScrollableRowControl.set_DataModelView(const Value: IDataModelView);
+procedure TScrollControlWithRows.set_DataModelView(const Value: IDataModelView);
 begin
   _dataModelView := Value;
 
@@ -1181,7 +1318,7 @@ begin
   set_DataList(data);
 end;
 
-procedure TDCScrollableRowControl.set_Model(const Value: IObjectListModel);
+procedure TScrollControlWithRows.set_Model(const Value: IObjectListModel);
 begin
   if _model = Value then
     Exit;
@@ -1237,7 +1374,7 @@ begin
     set_DataList(nil);
 end;
 
-procedure TDCScrollableRowControl.set_NotSelectableItems(const Value: IList);
+procedure TScrollControlWithRows.set_NotSelectableItems(const Value: IList);
 begin
   if (Value = nil) or (Value.Count = 0) then
   begin
@@ -1262,7 +1399,7 @@ begin
   _selectionInfo.NotSelectableDataIndexes := arr;
 end;
 
-procedure TDCScrollableRowControl.set_Options(const Value: TDCTreeOptions);
+procedure TScrollControlWithRows.set_Options(const Value: TDCTreeOptions);
 begin
   if _options = Value then
     Exit;
@@ -1272,7 +1409,7 @@ begin
   HandleTreeOptionsChange(oldFlags, _options);
 end;
 
-procedure TDCScrollableRowControl.set_RowHeightDefault(const Value: Single);
+procedure TScrollControlWithRows.set_RowHeightDefault(const Value: Single);
 begin
   _rowHeightDefault := Value;
   if (_rowHeightDefault > 0) and (_rowHeightMax > 0) then
@@ -1282,7 +1419,7 @@ begin
   end;
 end;
 
-procedure TDCScrollableRowControl.set_RowHeightFixed(const Value: Single);
+procedure TScrollControlWithRows.set_RowHeightFixed(const Value: Single);
 begin
   _rowHeightFixed := Value;
   if (_rowHeightFixed > 0) and (_rowHeightMax > 0) then
@@ -1292,7 +1429,7 @@ begin
   end;
 end;
 
-procedure TDCScrollableRowControl.set_RowHeightMax(const Value: Single);
+procedure TScrollControlWithRows.set_RowHeightMax(const Value: Single);
 begin
   _rowHeightMax := Value;
   if (_rowHeightMax > 0) then
@@ -1304,12 +1441,12 @@ begin
   end;
 end;
 
-procedure TDCScrollableRowControl.set_RowHeightSynchronizer(const Value: TDCScrollableRowControl);
+procedure TScrollControlWithRows.set_RowHeightSynchronizer(const Value: TScrollControlWithRows);
 begin
   _rowHeightSynchronizer := Value;
 end;
 
-procedure TDCScrollableRowControl.DataModelViewRowPropertiesChanged(Sender: TObject; Args: RowPropertiesChangedEventArgs);
+procedure TScrollControlWithRows.DataModelViewRowPropertiesChanged(Sender: TObject; Args: RowPropertiesChangedEventArgs);
 begin
   if (_internalSelectCount > 0) then
     Exit;
@@ -1326,7 +1463,7 @@ begin
     DoCollapseOrExpandRow(drv.ViewIndex, doExpand);
 end;
 
-procedure TDCScrollableRowControl.DataModelViewRowChanged(const Sender: IBaseInterface; Args: RowChangedEventArgs);
+procedure TScrollControlWithRows.DataModelViewRowChanged(const Sender: IBaseInterface; Args: RowChangedEventArgs);
 begin
   if (_internalSelectCount > 0) then
     Exit;
@@ -1348,7 +1485,7 @@ begin
     set_Current(Args.NewIndex);
 end;
 
-procedure TDCScrollableRowControl.ModelContextChanged(const Sender: IObjectModelContext; const Context: CObject);
+procedure TScrollControlWithRows.ModelContextChanged(const Sender: IObjectModelContext; const Context: CObject);
 begin
   if _internalSelectCount > 0 then
     Exit;
@@ -1363,13 +1500,13 @@ begin
     set_DataItem(Context);
 end;
 
-procedure TDCScrollableRowControl.ModelContextPropertyChanged(const Sender: IObjectModelContext; const Context: CObject; const AProperty: _PropertyInfo);
+procedure TScrollControlWithRows.ModelContextPropertyChanged(const Sender: IObjectModelContext; const Context: CObject; const AProperty: _PropertyInfo);
 begin
   if not Self.IsUpdating and (_updateCount = 0) then
     DoDataItemChangedInternal(Context);
 end;
 
-procedure TDCScrollableRowControl.ModelListContextChanged(const Sender: IObjectListModel; const Context: IList);
+procedure TScrollControlWithRows.ModelListContextChanged(const Sender: IObjectListModel; const Context: IList);
 begin
   set_DataList(_model.Context);
 
@@ -1382,7 +1519,7 @@ begin
   {$ENDIF}
 end;
 
-procedure TDCScrollableRowControl.ModelListContextChanging(const Sender: IObjectListModel; const Context: IList);
+procedure TScrollControlWithRows.ModelListContextChanging(const Sender: IObjectListModel; const Context: IList);
 begin
   {$IFNDEF WEBASSEMBLY}
   if not _model.ListHoldsObjectType and (Sender.Context <> nil) then
@@ -1393,7 +1530,7 @@ begin
   {$ENDIF}
 end;
 
-procedure TDCScrollableRowControl.BeforePainting;
+procedure TScrollControlWithRows.BeforePainting;
 begin
   // if DoRealignContent should be called, but the paint event is earlier at it's "_activeRowHeightSynchronizer" control..
   // make sure the calculations are done first
@@ -1403,7 +1540,7 @@ begin
   inherited;
 end;
 
-procedure TDCScrollableRowControl.BeforeRealignContent;
+procedure TScrollControlWithRows.BeforeRealignContent;
 var
   sortChanged: Boolean;
   filterChanged: Boolean;
@@ -1491,12 +1628,12 @@ begin
     ResetView(_resetViewRec.FromIndex, _resetViewRec.OneRowOnly);
 end;
 
-procedure TDCScrollableRowControl.BeginDrag;
+procedure TScrollControlWithRows.BeginDrag;
 begin
   BeginAutoDrag;
 end;
 
-procedure TDCScrollableRowControl.AlignRowsFromReferenceToBottom(const TopReferenceRow: IDCRow; var SpaceForRows: Single);
+procedure TScrollControlWithRows.AlignRowsFromReferenceToBottom(const TopReferenceRow: IDCRow; var SpaceForRows: Single);
 begin
   var thisRow := TopReferenceRow;
   var rowIndex := TopReferenceRow.ViewPortIndex;
@@ -1519,7 +1656,7 @@ begin
   end;
 end;
 
-procedure TDCScrollableRowControl.AlignRowsFromReferenceToTop(const BottomReferenceRow: IDCRow; var SpaceForRows: Single);
+procedure TScrollControlWithRows.AlignRowsFromReferenceToTop(const BottomReferenceRow: IDCRow; var SpaceForRows: Single);
 begin
   var thisRow := BottomReferenceRow;
   var rowIndex := BottomReferenceRow.ViewPortIndex;
@@ -1539,7 +1676,7 @@ begin
   end;
 end;
 
-procedure TDCScrollableRowControl.CreateAndSynchronizeSynchronizerRow(const Row: IDCRow);
+procedure TScrollControlWithRows.CreateAndSynchronizeSynchronizerRow(const Row: IDCRow);
 begin
   if _activeRowHeightSynchronizer = nil then
     Exit; // nothing to do
@@ -1560,12 +1697,12 @@ begin
     Row.Control.Height := otherRow.Height;
 end;
 
-procedure TDCScrollableRowControl.InnerInitRow(const Row: IDCRow);
+procedure TScrollControlWithRows.InnerInitRow(const Row: IDCRow);
 begin
   // nothing to do
 end;
 
-procedure TDCScrollableRowControl.InitRow(const Row: IDCRow; const IsAboveRefRow: Boolean = False);
+procedure TScrollControlWithRows.InitRow(const Row: IDCRow; const IsAboveRefRow: Boolean = False);
 begin
   var rowInfo := _view.RowLoadedInfo(Row.ViewListIndex);
   var rowNeedsReload := Row.IsScrollingIntoView or not rowInfo.InnerCellsAreApplied or (rowInfo.ControlNeedsResizeSoft and (_scrollingType = TScrollingType.None));
@@ -1648,7 +1785,7 @@ begin
     RestartWaitForRealignTimer(250, True {only realign when scrolling stopped});
 end;
 
-procedure TDCScrollableRowControl.UpdateHoverRect(MousePos: TPointF);
+procedure TScrollControlWithRows.UpdateHoverRect(MousePos: TPointF);
 begin
   if (TreeOption_HideHoverEffect in _options) then
   begin
@@ -1668,7 +1805,7 @@ begin
   _hoverRect.BringToFront;
 end;
 
-procedure TDCScrollableRowControl.UpdateScrollAndSelectionByKey(var Key: Word; Shift: TShiftState);
+procedure TScrollControlWithRows.UpdateScrollAndSelectionByKey(var Key: Word; Shift: TShiftState);
 begin
   if Key in [vkPrior, vkNext] then
   begin
@@ -1734,7 +1871,7 @@ begin
   end;
 end;
 
-procedure TDCScrollableRowControl.KeyDown(var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
+procedure TScrollControlWithRows.KeyDown(var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
 begin
   if _view = nil then
   begin
@@ -1761,7 +1898,7 @@ begin
     inherited;
 end;
 
-function TDCScrollableRowControl.ListHoldsOrdinalType: Boolean;
+function TScrollControlWithRows.ListHoldsOrdinalType: Boolean;
 begin
   {$IFNDEF WEBASSEMBLY}
   Result := not (&Type.GetTypeCode(GetItemType) in [TypeCode.&Object, TypeCode.&Interface, TypeCode.&Array]);
@@ -1771,7 +1908,7 @@ begin
   {$ENDIF}
 end;
 
-procedure TDCScrollableRowControl.DoCollapseOrExpandRow(const ViewListIndex: Integer; DoExpand: Boolean);
+procedure TScrollControlWithRows.DoCollapseOrExpandRow(const ViewListIndex: Integer; DoExpand: Boolean);
 begin
   if (_internalSelectCount > 0) or ((_activeRowHeightSynchronizer <> nil) and (_activeRowHeightSynchronizer._internalSelectCount > 0))then
     Exit;
@@ -1814,7 +1951,7 @@ begin
   end;
 end;
 
-procedure TDCScrollableRowControl.OnItemAddedByUser(const Item: CObject; Index: Integer);
+procedure TScrollControlWithRows.OnItemAddedByUser(const Item: CObject; Index: Integer);
 begin
   if (_view <> nil) and (_view.GetDataIndex(Item) = -1) then
     _view.GetViewList.Insert(Index, Item);
@@ -1831,7 +1968,7 @@ begin
   end;
 end;
 
-procedure TDCScrollableRowControl.OnItemRemovedByUser(const Item: CObject; Index: Integer);
+procedure TScrollControlWithRows.OnItemRemovedByUser(const Item: CObject; Index: Integer);
 begin
   if (_view <> nil) then
   begin
@@ -1850,7 +1987,7 @@ begin
   end;
 end;
 
-procedure TDCScrollableRowControl.OnSelectionInfoChanged;
+procedure TScrollControlWithRows.OnSelectionInfoChanged;
 begin
   if (_realignState in [TRealignState.Waiting, TRealignState.BeforeRealign]) then
     Exit;
@@ -1882,12 +2019,12 @@ begin
     VisualizeRowSelection(row);
 end;
 
-function TDCScrollableRowControl.ConvertedDataItem: CObject;
+function TScrollControlWithRows.ConvertedDataItem: CObject;
 begin
   Result := ConvertToDataItem(get_DataItem);
 end;
 
-function TDCScrollableRowControl.ConvertToDataItem(const Item: CObject): CObject;
+function TScrollControlWithRows.ConvertToDataItem(const Item: CObject): CObject;
 begin
   var drv: IDataRowView;
   if ViewIsDataModelView and Item.TryAsType<IDataRowView>(drv) then
@@ -1896,18 +2033,18 @@ begin
   Result := Item;
 end;
 
-function TDCScrollableRowControl.ViewIsDataModelView: Boolean;
+function TScrollControlWithRows.ViewIsDataModelView: Boolean;
 begin
   Result := (_dataModelView <> nil) or interfaces.Supports<IDataModel>(_dataList);
 end;
 
-procedure TDCScrollableRowControl.VisualizeRowSelection(const Row: IDCRow);
+procedure TScrollControlWithRows.VisualizeRowSelection(const Row: IDCRow);
 begin
   if (_selectionType <> TSelectionType.HideSelection) then
     Row.UpdateSelectionVisibility(_selectionInfo, Self.IsFocused);
 end;
 
-procedure TDCScrollableRowControl.OnViewChanged;
+procedure TScrollControlWithRows.OnViewChanged;
 begin
   if (_activeRowHeightSynchronizer <> nil) and not _isMasterSynchronizer then
   begin
@@ -1927,7 +2064,7 @@ begin
     Self.set_DataItem(_selectionInfo.DataItem);
 end;
 
-function TDCScrollableRowControl.CalculateAverageRowHeight: Single;
+function TScrollControlWithRows.CalculateAverageRowHeight: Single;
 begin
   if _rowHeightFixed > 0 then
     Exit(_rowHeightFixed);
@@ -1945,7 +2082,7 @@ begin
   Result := totalHeight / count;
 end;
 
-procedure TDCScrollableRowControl.UpdateScrollBarValues(const CalculateViewFrom: TCalculateViewFrom);
+procedure TScrollControlWithRows.UpdateScrollBarValues(const CalculateViewFrom: TCalculateViewFrom);
 begin
   if SameValue(_scrollbarMaxChangeSinceViewLoading, 0) then
     Exit;
@@ -1971,7 +2108,7 @@ begin
   end;
 end;
 
-procedure TDCScrollableRowControl.AssignSelection(const SelectedItems: IList);
+procedure TScrollControlWithRows.AssignSelection(const SelectedItems: IList);
 begin
   if (SelectedItems = nil) or (SelectedItems.Count = 0) then
     Exit;
@@ -2006,7 +2143,7 @@ begin
   SetSingleSelectionIfNotExists;
 end;
 
-procedure TDCScrollableRowControl.UpdateYPositionRows;
+procedure TScrollControlWithRows.UpdateYPositionRows;
 begin
   if (_realignState in [TRealignState.Waiting, TRealignState.BeforeRealign]) then
     Exit;
@@ -2023,7 +2160,7 @@ begin
     _activeRowHeightSynchronizer.UpdateYPositionRows;
 end;
 
-procedure TDCScrollableRowControl.UserClicked(Button: TMouseButton; Shift: TShiftState; const X, Y: Single);
+procedure TScrollControlWithRows.UserClicked(Button: TMouseButton; Shift: TShiftState; const X, Y: Single);
 begin
   var clickedRow := GetRowByMouseY(Y);
   if clickedRow = nil then Exit;
@@ -2033,7 +2170,7 @@ begin
   InternalDoSelectRow(clickedRow, Shift);
 end;
 
-procedure TDCScrollableRowControl.InternalDoSelectRow(const Row: IDCRow; Shift: TShiftState);
+procedure TScrollControlWithRows.InternalDoSelectRow(const Row: IDCRow; Shift: TShiftState);
 begin
   if CObject.Equals(get_DataItem, Row.DataItem) and ((ssCtrl in Shift) = (_selectionInfo.SelectedRowCount > 1)) and (_selectionInfo.ViewListIndex = Row.ViewListIndex {insert before and than go down}) then
   begin
@@ -2069,7 +2206,7 @@ begin
     _selectionInfo.UpdateSingleSelection(Row.DataIndex, Row.ViewListIndex, Row.DataItem);
 end;
 
-procedure TDCScrollableRowControl.InternalSetCurrent(const Index: Integer; const EventTrigger: TSelectionEventTrigger; Shift: TShiftState; SortOrFilterChanged: Boolean = False);
+procedure TScrollControlWithRows.InternalSetCurrent(const Index: Integer; const EventTrigger: TSelectionEventTrigger; Shift: TShiftState; SortOrFilterChanged: Boolean = False);
 begin
   _selectionInfo.LastSelectionEventTrigger := EventTrigger;
 
@@ -2078,7 +2215,7 @@ begin
   TrySelectItem(requestedSelection, Shift);
 end;
 
-function TDCScrollableRowControl.IsSelected(const DataItem: CObject): Boolean;
+function TScrollControlWithRows.IsSelected(const DataItem: CObject): Boolean;
 begin
   Result := False;
   if _view = nil then Exit;
@@ -2087,7 +2224,7 @@ begin
   Result := _selectionInfo.IsSelected(_view.GetDataIndex(ix));
 end;
 
-procedure TDCScrollableRowControl.DoViewLoadingStart(const StartY, StopY: Single);
+procedure TScrollControlWithRows.DoViewLoadingStart(const StartY, StopY: Single);
 begin
   _scrollbarMaxChangeSinceViewLoading := 0;
   _scrollbarRefToTopHeightChangeSinceViewLoading := 0;
@@ -2100,7 +2237,7 @@ begin
   end;
 end;
 
-procedure TDCScrollableRowControl.DoViewPortPositionChanged;
+procedure TScrollControlWithRows.DoViewPortPositionChanged;
 begin
   if _hoverRect <> nil then
     _hoverRect.Visible := False;
@@ -2108,7 +2245,7 @@ begin
   inherited;
 end;
 
-function TDCScrollableRowControl.DraggedItems: List<CObject>;
+function TScrollControlWithRows.DraggedItems: List<CObject>;
 begin
   if _dragObject <> nil then
   begin
@@ -2118,7 +2255,7 @@ begin
     Result := SelectedItems;
 end;
 
-procedure TDCScrollableRowControl.DoViewLoadingFinished;
+procedure TScrollControlWithRows.DoViewLoadingFinished;
 begin
   if _isMasterSynchronizer then
     _activeRowHeightSynchronizer.View.ViewLoadingFinished;
@@ -2126,7 +2263,7 @@ begin
   _view.ViewLoadingFinished;
 end;
 
-procedure TDCScrollableRowControl.RealignFromSelectionChange(const StartY, StopY: Single; CalculateViewFrom: TCalculateViewFrom);
+procedure TScrollControlWithRows.RealignFromSelectionChange(const StartY, StopY: Single; CalculateViewFrom: TCalculateViewFrom);
 begin
   Assert(StartY >= 0);
 
@@ -2141,7 +2278,7 @@ begin
   end;
 end;
 
-procedure TDCScrollableRowControl.AfterRowHeightsChanged(const TopVirtualYPosition: Single; const CalculateViewFrom: TCalculateViewFrom = TCalculateViewFrom.Top);
+procedure TScrollControlWithRows.AfterRowHeightsChanged(const TopVirtualYPosition: Single; const CalculateViewFrom: TCalculateViewFrom = TCalculateViewFrom.Top);
 begin
   // only needed once
   UpdateVirtualYPositions(TopVirtualYPosition);
@@ -2150,7 +2287,7 @@ begin
   UpdateYPositionRows;
 end;
 
-procedure TDCScrollableRowControl.InnerRealignContent(const StartY, StopY: Single; CalculateViewFrom: TCalculateViewFrom);
+procedure TScrollControlWithRows.InnerRealignContent(const StartY, StopY: Single; CalculateViewFrom: TCalculateViewFrom);
 begin
 //  AtomicIncrement(_viewChangedIndex);
 
@@ -2206,7 +2343,7 @@ begin
   end;
 end;
 
-procedure TDCScrollableRowControl.RealignContent;
+procedure TScrollControlWithRows.RealignContent;
 begin
   if _view = nil then
     Exit;
@@ -2222,7 +2359,7 @@ begin
   end;
 end;
 
-procedure TDCScrollableRowControl.RealignContentStart;
+procedure TScrollControlWithRows.RealignContentStart;
 begin
   inherited;
 
@@ -2230,7 +2367,7 @@ begin
     _totalDataHeight := _view.TotalDataHeight(get_rowHeightDefault);
 end;
 
-procedure TDCScrollableRowControl.RealignFinished;
+procedure TScrollControlWithRows.RealignFinished;
 begin
   if (_hoverRect <> nil) and _hoverRect.Visible and (_scrollingType <> TScrollingType.None) then
     _hoverRect.Visible := False;
@@ -2248,7 +2385,7 @@ begin
     _activeRowHeightSynchronizer.RealignFinished;
 end;
 
-procedure TDCScrollableRowControl.RefreshControl(const DataChanged: Boolean = False);
+procedure TScrollControlWithRows.RefreshControl(const DataChanged: Boolean = False);
 begin
   if DataChanged then
   begin
@@ -2259,7 +2396,7 @@ begin
   inherited;
 end;
 
-procedure TDCScrollableRowControl.ResetView(const FromViewListIndex: Integer = -1; ClearOneRowOnly: Boolean = False);
+procedure TScrollControlWithRows.ResetView(const FromViewListIndex: Integer = -1; ClearOneRowOnly: Boolean = False);
 begin
   if _view = nil then
   begin
@@ -2288,7 +2425,7 @@ begin
 //  _waitingForViewChange := False;
 end;
 
-function TDCScrollableRowControl.RowIsExpanded(const ViewListIndex: Integer): Boolean;
+function TScrollControlWithRows.RowIsExpanded(const ViewListIndex: Integer): Boolean;
 begin
   Result := False;
   if not ViewIsDataModelView then
@@ -2301,12 +2438,12 @@ begin
   Result := drv.DataView.IsExpanded[drv.Row];
 end;
 
-function TDCScrollableRowControl.VisibleRows: List<IDCRow>;
+function TScrollControlWithRows.VisibleRows: List<IDCRow>;
 begin
   Result := _view.ActiveViewRows;
 end;
 
-procedure TDCScrollableRowControl.ScrollSelectedIntoView(const RequestedSelectionInfo: IRowSelectionInfo);
+procedure TScrollControlWithRows.ScrollSelectedIntoView(const RequestedSelectionInfo: IRowSelectionInfo);
 begin
   if _view.GetViewListIndex(RequestedSelectionInfo.DataIndex) = -1 then
     Exit;
@@ -2393,7 +2530,7 @@ begin
   end;
 end;
 
-procedure TDCScrollableRowControl.SelectAll;
+procedure TScrollControlWithRows.SelectAll;
 begin
   Assert(TDCTreeOption.MultiSelect in _options);
 
@@ -2411,7 +2548,7 @@ begin
       for row in _view.ActiveViewRows do
         _selectionInfo.AddToSelection(row.DataIndex, row.ViewListIndex, row.DataItem);
     end;
-    
+
     // keep current selected item
     if cln.DataIndex <> -1 then
       _selectionInfo.AddToSelection(cln.DataIndex, cln.ViewListIndex, cln.DataItem);
@@ -2420,7 +2557,7 @@ begin
   end;
 end;
 
-function TDCScrollableRowControl.SelectedItems: List<CObject>;
+function TScrollControlWithRows.SelectedItems: List<CObject>;
 begin
   Result := CList<CObject>.Create;
 
@@ -2437,20 +2574,20 @@ begin
   end;
 end;
 
-function TDCScrollableRowControl.SelectedRowIfInView: IDCRow;
+function TScrollControlWithRows.SelectedRowIfInView: IDCRow;
 begin
   // can be that the selectedrow is out of view..
   // this function will return in that case, even if that row is still selected
   Result := _view.GetActiveRowIfExists(_selectionInfo.ViewListIndex);
 end;
 
-procedure TDCScrollableRowControl.SetBasicVertScrollBarValues;
+procedure TScrollControlWithRows.SetBasicVertScrollBarValues;
 begin
   inherited;
   UpdateRowHeightSynchronizerScrollbar;
 end;
 
-procedure TDCScrollableRowControl.SetSingleSelectionIfNotExists;
+procedure TScrollControlWithRows.SetSingleSelectionIfNotExists;
 begin
   if _allowNoneSelected or (_view.ViewCount = 0) then
     Exit;
@@ -2494,23 +2631,23 @@ begin
   TrySelectItem(requestedSelection, []);
 end;
 
-procedure TDCScrollableRowControl.set_SelectionType(const Value: TSelectionType);
+procedure TScrollControlWithRows.set_SelectionType(const Value: TSelectionType);
 begin
   _selectionType := Value;
 end;
 
-procedure TDCScrollableRowControl.set_AllowNoneSelected(const Value: Boolean);
+procedure TScrollControlWithRows.set_AllowNoneSelected(const Value: Boolean);
 begin
   _allowNoneSelected := Value;
 end;
 
-procedure TDCScrollableRowControl.set_Current(const Value: Integer);
+procedure TScrollControlWithRows.set_Current(const Value: Integer);
 begin
   if get_Current <> Value then
     GetInitializedWaitForRefreshInfo.Current := Value;
 end;
 
-procedure TDCScrollableRowControl.set_DataItem(const Value: CObject);
+procedure TScrollControlWithRows.set_DataItem(const Value: CObject);
 begin
   var dItem := get_DataItem;
   if ViewIsDataModelView and (dItem <> nil) then
@@ -2520,7 +2657,7 @@ begin
     GetInitializedWaitForRefreshInfo.DataItem := Value;
 end;
 
-function TDCScrollableRowControl.GetItemType: &Type;
+function TScrollControlWithRows.GetItemType: &Type;
 begin
   if get_Model <> nil then
     Result := get_Model.ObjectModel.GetType
@@ -2532,7 +2669,7 @@ begin
     Result := &Type.Unknown
 end;
 
-function TDCScrollableRowControl.GetPropValue(const PropertyName: CString; const DataItem: CObject; const DataModel: IDataModel = nil): CObject;
+function TScrollControlWithRows.GetPropValue(const PropertyName: CString; const DataItem: CObject; const DataModel: IDataModel = nil): CObject;
 begin
   var drv: IDataRowView;
   var dr: IDataRow;
@@ -2560,7 +2697,7 @@ end;
 
 // start sorting and filtering
 
-procedure TDCScrollableRowControl.AddFilterDescription(const Filter: IListFilterDescription; const ClearOtherFlters: Boolean);
+procedure TScrollControlWithRows.AddFilterDescription(const Filter: IListFilterDescription; const ClearOtherFlters: Boolean);
 begin
   var filters: List<IListFilterDescription>;
   if ClearOtherFlters or (_view = nil) or (_view.GetFilterDescriptions = nil) then
@@ -2577,7 +2714,7 @@ begin
     GetInitializedWaitForRefreshInfo.DataItem := get_DataItem;
 end;
 
-procedure TDCScrollableRowControl.AddSortDescription(const Sort: IListSortDescription; const ClearOtherSort: Boolean);
+procedure TScrollControlWithRows.AddSortDescription(const Sort: IListSortDescription; const ClearOtherSort: Boolean);
 begin
   var sorts: List<IListSortDescription>;
   if ClearOtherSort or (_view = nil) or (_view.GetSortDescriptions = nil) then
@@ -2594,7 +2731,7 @@ begin
     GetInitializedWaitForRefreshInfo.DataItem := get_DataItem;
 end;
 
-procedure TDCScrollableRowControl.AfterRealignContent;
+procedure TScrollControlWithRows.AfterRealignContent;
 begin
   inherited;
 
@@ -2625,15 +2762,608 @@ end;
 
 // endof sorting and filtering
 
-{ TRowControl }
+{ TDCRow }
 
-constructor TRowControl.Create(AOwner: TComponent);
+procedure TDCRow.UpdateControlVisibility;
 begin
+  if (_control <> nil) then
+    _control.Visible := get_IsHeaderRow or (_virtualYPosition <> -1);
+end;
+
+procedure TDCRow.UpdateSelectionRect(OwnerIsFocused: Boolean);
+begin
+  if _selectionRect = nil then
+  begin
+    var rect := TRectangle.Create(_control);
+    rect.Align := TAlignLayout.Contents;
+    rect.Sides := [];
+    rect.Opacity := 0.3;
+    rect.HitTest := False;
+
+    _selectionRect := rect;
+    _control.AddObject(_selectionRect);
+    _selectionRect.BringToFront;
+  end;
+
+  if OwnerIsFocused then
+    _selectionRect.Fill.Color := DEFAULT_ROW_SELECTION_ACTIVE_COLOR else
+    _selectionRect.Fill.Color := DEFAULT_ROW_SELECTION_INACTIVE_COLOR;
+end;
+
+procedure TDCRow.UpdateSelectionVisibility(const SelectionInfo: IRowSelectionInfo; OwnerIsFocused: Boolean);
+begin
+  var isSelected := SelectionInfo.IsSelected(get_DataIndex);
+  if not isSelected then
+  begin
+    FreeAndNil(_selectionRect);
+    Exit;
+  end;
+
+  UpdateSelectionRect(OwnerIsFocused);
+end;
+
+procedure TDCRow.ClearRowForReassignment;
+begin
+  _dataItem := nil;
+  _viewPortIndex := -1;
+  _virtualYPosition := -1;
+  _enabled := True;
+  UpdateControlVisibility;
+end;
+
+constructor TDCRow.Create;
+begin
+  inherited Create;
+  _virtualYPosition := -1;
+  _enabled := True;
+end;
+
+destructor TDCRow.Destroy;
+begin
+  _selectionRect.Free;
+  _control.Free;
   inherited;
-  Self.ClipChildren := True;
-  Self.Fill.Color := DEFAULT_WHITE_COLOR;
-  Self.Sides := [TSide.Bottom];
-  Self.HitTest := False;
+end;
+
+function TDCRow.get_Control: TControl;
+begin
+  Result := _control;
+end;
+
+function TDCRow.get_ConvertedDataItem: CObject;
+begin
+  Result := _convertedDataItem;
+end;
+
+function TDCRow.get_CustomTag: CObject;
+begin
+  Result := _customTag;
+end;
+
+function TDCRow.get_ViewListIndex: Integer;
+begin
+  Result := _viewListIndex;
+end;
+
+function TDCRow.get_DataIndex: Integer;
+begin
+  Result := _dataIndex;
+end;
+
+function TDCRow.get_DataItem: CObject;
+begin
+  Result := _dataItem;
+end;
+
+function TDCRow.get_Enabled: Boolean;
+begin
+  Result := _enabled;
+end;
+
+function TDCRow.get_IsHeaderRow: Boolean;
+begin
+  Result := False
+end;
+
+function TDCRow.get_OwnerIsScrolling: Boolean;
+begin
+  Result := _ownerIsScrolling
+end;
+
+function TDCRow.get_VirtualYPosition: Single;
+begin
+  Result := _virtualYPosition;
+end;
+
+function TDCRow.get_ViewPortIndex: Integer;
+begin
+  Result := _viewPortIndex;
+end;
+
+function TDCRow.HasChildren: Boolean;
+begin
+  var drv: IDataRowView;
+  if _dataItem.TryAsType<IDataRowView>(drv) then
+    Result := drv.DataView.DataModel.HasChildren(drv.Row) else
+    Result := False;
+end;
+
+function TDCRow.HasVisibleChildren: Boolean;
+begin
+  var drv: IDataRowView;
+  if _dataItem.TryAsType<IDataRowView>(drv) then
+  begin
+    var childs := drv.DataView.DataModel.Children(drv.Row, TChildren.IncludeParentRows);
+    if childs <> nil then
+    begin
+      var dr: IDataRow;
+      for dr in childs do
+        if (dr.Level = drv.Row.Level + 1) then
+        begin
+          // FindVisibleRow apparently goes up untill it finds a visible row
+          var firstVisibRow := drv.DataView.FindVisibleRow(dr);
+          if (firstVisibRow.Row.Level = drv.Row.Level + 1) then
+            Exit(True);
+        end;      
+    end;
+  end;
+
+  Result := False;
+end;
+
+function TDCRow.ParentCount: Integer;
+begin
+  var drv: IDataRowView;
+  if _dataItem.TryAsType<IDataRowView>(drv) then
+    Result := drv.Row.Level else
+    Result := 0;
+end;
+
+function TDCRow.Height: Single;
+begin
+  Result := _control.Height;
+end;
+
+function TDCRow.IsClearedForReassignment: Boolean;
+begin
+  Result := (_dataItem = nil) and (_control <> nil);
+end;
+
+function TDCRow.IsOddRow: Boolean;
+begin
+  Result := Odd(_viewListIndex);
+end;
+
+function TDCRow.IsScrollingIntoView: Boolean;
+begin
+  Result := _virtualYPosition = -1;
+end;
+
+procedure TDCRow.set_Control(const Value: TControl);
+begin
+  var wasSelected := _selectionRect <> nil;
+  var wasFocused := wasSelected and (_selectionRect.Fill.Color = TAlphaColors.Slateblue);
+
+  if (_control <> nil) and (_control <> Value) then
+  begin
+    FreeAndNil(_selectionRect);
+    _control.Free;
+  end;
+
+  _control := Value;
+
+  if wasSelected then
+    UpdateSelectionRect(wasFocused);
+
+  UpdateControlVisibility;
+end;
+
+procedure TDCRow.set_CustomTag(const Value: CObject);
+begin
+  _customTag := Value;
+end;
+
+procedure TDCRow.set_ViewListIndex(const Value: Integer);
+begin
+  _ViewListIndex := Value;
+end;
+
+procedure TDCRow.set_DataIndex(const Value: Integer);
+begin
+  _dataIndex := Value;
+end;
+
+procedure TDCRow.set_DataItem(const Value: CObject);
+begin
+  _dataItem := Value;
+
+  var drv: IDataRowView;
+  var dr: IDataRow;
+
+  if _dataItem.TryAsType<IDataRowView>(drv) then
+    _convertedDataItem := drv.Row.Data
+  else if _dataItem.TryAsType<IDataRow>(dr) then
+    _convertedDataItem := dr.Data
+  else
+    _convertedDataItem := _dataItem;
+end;
+
+procedure TDCRow.set_Enabled(const Value: Boolean);
+begin
+  _enabled := Value;
+end;
+
+procedure TDCRow.set_OwnerIsScrolling(const Value: Boolean);
+begin
+  _ownerIsScrolling := Value;
+end;
+
+procedure TDCRow.set_VirtualYPosition(const Value: Single);
+begin
+  _virtualYPosition := Value;
+  UpdateControlVisibility;
+end;
+
+procedure TDCRow.set_ViewPortIndex(const Value: Integer);
+begin
+  _viewPortIndex := Value;
+end;
+
+{ TRowSelectionInfo }
+
+constructor TRowSelectionInfo.Create(const RowsControl: IRowsControl);
+begin
+  inherited Create;
+
+  _rowsControl := RowsControl;
+  _multiSelection := CDictionary<Integer {ViewListIndex}, IRowSelectionInfo>.Create;
+  ClearAllSelections;
+end;
+
+procedure TRowSelectionInfo.BeginUpdate;
+begin
+  _selectionChanged := False;
+  inc(_updateCount);
+end;
+
+procedure TRowSelectionInfo.EndUpdate(IgnoreChangeEvent: Boolean = False);
+begin
+  dec(_updateCount);
+
+  if (_updateCount = 0) and _selectionChanged and not IgnoreChangeEvent then
+    DoSelectionInfoChanged;
+end;
+
+function TRowSelectionInfo.CanSelect(const DataIndex: Integer): Boolean;
+begin
+  Result := not TArray.Contains<Integer>(_notSelectableDataIndexes, DataIndex);
+end;
+
+procedure TRowSelectionInfo.Clear;
+begin
+  ClearAllSelections;
+  SetLength(_notSelectableDataIndexes, 0);
+end;
+
+procedure TRowSelectionInfo.ClearAllSelections;
+begin
+  ClearMultiSelections;
+
+  if _lastSelectedDataIndex <> -1 then
+  begin
+    _lastSelectedDataIndex := -1;
+    _lastSelectedViewListIndex := -1;
+    _lastSelectedDataItem := nil;
+    _selectionChanged := True;
+  end;
+end;
+
+procedure TRowSelectionInfo.ClearMultiSelections;
+begin
+  if _multiSelection.Count > 0 then
+  begin
+    _multiSelection.Clear;
+    _selectionChanged := True;
+  end;
+end;
+
+function TRowSelectionInfo.GetSelectionInfo(const DataIndex: Integer): IRowSelectionInfo;
+begin
+  if (_lastSelectedDataIndex = DataIndex) then
+    Result := Self
+  else if not _multiSelection.TryGetValue(DataIndex, Result) then
+    Result := nil;
+end;
+
+function TRowSelectionInfo.get_ViewListIndex: Integer;
+begin
+  Result := _lastSelectedViewListIndex;
+end;
+
+function TRowSelectionInfo.get_EventTrigger: TSelectionEventTrigger;
+begin
+  Result := _EventTrigger;
+end;
+
+function TRowSelectionInfo.get_DataIndex: Integer;
+begin
+  Result := _lastSelectedDataIndex;
+end;
+
+function TRowSelectionInfo.get_DataItem: CObject;
+begin
+  Result := _lastSelectedDataItem;
+end;
+
+function TRowSelectionInfo.get_ForceScrollToSelection: Boolean;
+begin
+  Result := _forceScrollToSelection;
+end;
+
+function TRowSelectionInfo.get_IsMultiSelection: Boolean;
+begin
+  Result := _multiSelection.Count > 0;
+end;
+
+function TRowSelectionInfo.get_NotSelectableDataIndexes: TDataIndexArray;
+begin
+  Result := _notSelectableDataIndexes;
+end;
+
+function TRowSelectionInfo.HasSelection: Boolean;
+begin
+  Result := (_lastSelectedDataItem <> nil) or get_IsMultiSelection;
+end;
+
+function TRowSelectionInfo.IsSelected(const DataIndex: Integer): Boolean;
+begin
+  Result := (_lastSelectedDataIndex = DataIndex) or (_multiSelection.ContainsKey(DataIndex));
+end;
+
+function TRowSelectionInfo.SelectedRowCount: Integer;
+begin
+  Result := _multiSelection.Count;
+end;
+
+function TRowSelectionInfo.SelectionType: TSelectionType;
+begin
+  if (_rowsControl <> nil {not a clone}) then
+    Result := _rowsControl.SelectionType else
+    Result := TSelectionType.HideSelection;
+end;
+
+procedure TRowSelectionInfo.set_EventTrigger(const Value: TSelectionEventTrigger);
+begin
+  _EventTrigger := Value;
+end;
+
+procedure TRowSelectionInfo.set_ForceScrollToSelection(const Value: Boolean);
+begin
+  _forceScrollToSelection := Value;
+end;
+
+procedure TRowSelectionInfo.set_NotSelectableDataIndexes(const Value: TDataIndexArray);
+begin
+  _notSelectableDataIndexes := Value;
+end;
+
+function TRowSelectionInfo.Clone: IRowSelectionInfo;
+begin
+  Result := CreateInstance;
+  (Result as IRowSelectionInfo).UpdateSingleSelection(_lastSelectedDataIndex, _lastSelectedViewListIndex, _lastSelectedDataItem);
+
+  Result.LastSelectionEventTrigger := _EventTrigger;
+  Result.NotSelectableDataIndexes := _notSelectableDataIndexes;
+end;
+
+function TRowSelectionInfo.CreateInstance: IRowSelectionInfo;
+begin
+  Result := TRowSelectionInfo.Create(nil {clones don't get the treecontrol, for they dopn't need to make changes});
+end;
+
+procedure TRowSelectionInfo.Deselect(const DataIndex: Integer);
+begin
+  if (_multiSelection.Count <= 1) or not _multiSelection.ContainsKey(DataIndex) then
+  begin
+    if (_rowsControl <> nil {not a clone}) and _rowsControl.AllowNoneSelected then
+    begin
+      if _multiSelection.ContainsKey(DataIndex) then
+        _multiSelection.Remove(DataIndex);
+      UpdateLastSelection(-1, -1, nil);
+    end;
+
+    Exit;
+  end;
+
+  // UpdateLastSelection triggers DoSelectionInfoChanged
+  // therefor work with Update locks
+  BeginUpdate;
+  try
+    if _lastSelectedDataIndex = DataIndex then
+    begin
+      var item: IRowSelectionInfo;
+      for item in _multiSelection.Values do
+        if item.DataIndex <> DataIndex then
+        begin
+          UpdateLastSelection(item.DataIndex, item.ViewListIndex, item.DataItem);
+          Break
+        end;
+    end;
+
+    _multiSelection.Remove(DataIndex);
+    DoSelectionInfoChanged;
+  finally
+    EndUpdate;
+  end;
+end;
+
+procedure TRowSelectionInfo.DoSelectionInfoChanged;
+begin
+  // check if we are dealing with clone
+  if _rowsControl = nil then
+    Exit;
+
+  if _updateCount > 0 then
+  begin
+    _selectionChanged := True;
+    Exit;
+  end;
+
+  _rowsControl.OnSelectionInfoChanged;
+end;
+
+procedure TRowSelectionInfo.UpdateSingleSelection(const DataIndex, ViewListIndex: Integer; const DataItem: CObject);
+begin
+  if not CanSelect(DataIndex) then
+    Exit;
+
+  ClearMultiSelections;
+  UpdateLastSelection(DataIndex, ViewListIndex, DataItem);
+end;
+
+procedure TRowSelectionInfo.AddToSelection(const DataIndex, ViewListIndex: Integer; const DataItem: CObject);
+begin
+  if not CanSelect(DataIndex) then
+    Exit;
+
+  BeginUpdate;
+  try
+    // add single selection if needed
+    var prevInfo: IRowSelectionInfo := nil;
+    if (_lastSelectedViewListIndex <> -1) {and not _multiSelection.ContainsKey(_lastSelectedDataIndex)} then
+      prevInfo := Clone;
+
+    UpdateLastSelection(DataIndex, ViewListIndex, DataItem);
+
+    if prevInfo <> nil then
+      _multiSelection[prevInfo.DataIndex] := prevInfo;
+
+    var info: IRowSelectionInfo := CreateInstance as IRowSelectionInfo;
+    info.UpdateSingleSelection(DataIndex, ViewListIndex, DataItem);
+    _multiSelection[info.DataIndex] := info;
+  finally
+    EndUpdate;
+  end;
+end;
+
+function TRowSelectionInfo.SelectedDataIndexes: List<Integer>;
+begin
+  Result := CList<Integer>.Create;
+
+  if _multiSelection.Count > 0 then
+  begin
+    var item: IRowSelectionInfo;
+    for item in _multiSelection.Values do
+      Result.Add(item.DataIndex)
+  end
+  else if _lastSelectedDataIndex <> -1 then
+    Result.Add(_lastSelectedDataIndex);
+end;
+
+procedure TRowSelectionInfo.SelectedRowClicked(const DataIndex: Integer);
+begin
+  if not CanSelect(DataIndex) or (_lastSelectedDataIndex = DataIndex) then
+    Exit;
+
+  var selectionInfo: IRowSelectionInfo;
+  if not _multiSelection.TryGetValue(DataIndex, selectionInfo) then
+    Exit;
+
+  UpdateLastSelection(selectionInfo.DataIndex, selectionInfo.ViewListIndex, selectionInfo.DataItem);
+end;
+
+procedure TRowSelectionInfo.UpdateLastSelection(const DataIndex, ViewListIndex: Integer; const DataItem: CObject);
+begin
+  _lastSelectedDataIndex := DataIndex;
+  _lastSelectedViewListIndex := ViewListIndex;
+  _lastSelectedDataItem := DataItem;
+
+  DoSelectionInfoChanged;
+end;
+
+{ TWaitForRepaintInfo }
+
+procedure TWaitForRepaintInfo.ClearIrrelevantInfo;
+begin
+  _rowStateFlags := _rowStateFlags - [SortChanged, FilterChanged];
+
+  // ONLY KEEP CURRENT
+  // we use current to reselect a item at that position after for example a refresh of the treecontrol
+
+  _dataItem := nil;
+  _sortDescriptions := nil;
+  _filterDescriptions := nil;
+end;
+
+constructor TWaitForRepaintInfo.Create(const Owner: IRefreshControl);
+begin
+  inherited Create;
+  _current := -1;
+  _Owner := Owner;
+end;
+
+function TWaitForRepaintInfo.get_Current: Integer;
+begin
+  Result := _current;
+end;
+
+function TWaitForRepaintInfo.get_DataItem: CObject;
+begin
+  Result := _dataItem;
+end;
+
+function TWaitForRepaintInfo.get_FilterDescriptions: List<IListFilterDescription>;
+begin
+  Result := _filterDescriptions;
+end;
+
+function TWaitForRepaintInfo.get_RowStateFlags: TTreeRowStateFlags;
+begin
+  Result := _rowStateFlags;
+end;
+
+function TWaitForRepaintInfo.get_SortDescriptions: List<IListSortDescription>;
+begin
+  Result := _sortDescriptions;
+end;
+
+procedure TWaitForRepaintInfo.set_Current(const Value: Integer);
+begin
+  _current := Value;
+  _rowStateFlags := _rowStateFlags + [TTreeRowState.RowChanged];
+  if _owner.IsInitialized then
+    _owner.RefreshControl;
+end;
+
+procedure TWaitForRepaintInfo.set_DataItem(const Value: CObject);
+begin
+  _dataItem := Value;
+  _rowStateFlags := _rowStateFlags + [TTreeRowState.RowChanged];
+  if _owner.IsInitialized then
+    _owner.RefreshControl;
+end;
+
+procedure TWaitForRepaintInfo.set_FilterDescriptions(const Value: List<IListFilterDescription>);
+begin
+  _filterDescriptions := Value;
+  _rowStateFlags := _rowStateFlags + [TTreeRowState.FilterChanged];
+  if _owner.IsInitialized then
+    _owner.RefreshControl;
+end;
+
+procedure TWaitForRepaintInfo.set_RowStateFlags(const Value: TTreeRowStateFlags);
+begin
+  _rowStateFlags := Value;
+  if _owner.IsInitialized then
+    _owner.RefreshControl;
+end;
+
+procedure TWaitForRepaintInfo.set_SortDescriptions(const Value: List<IListSortDescription>);
+begin
+  _sortDescriptions := Value;
+  _rowStateFlags := _rowStateFlags + [TTreeRowState.SortChanged];
+  if _owner.IsInitialized then
+    _owner.RefreshControl;
 end;
 
 end.

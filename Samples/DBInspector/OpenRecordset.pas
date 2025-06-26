@@ -16,9 +16,13 @@ uses
   FMX.ActnList, Delphi.Extensions.VirtualDataset,
   ADato.Data.VirtualDatasetDataModel, ADato.Data.DatasetDataModel,
   System.Diagnostics, FMX.ListBox, System_, ADato.Controls.FMX.Tree.Intf,
-  FMX.DataControl.ScrollableControl, FMX.DataControl.ScrollableRowControl,
-  FMX.DataControl.Static, FMX.DataControl.Editable, FMX.DataControl.Impl,
-  FMX.DataControl.Events, FMX.Objects;
+
+  FMX.ScrollControl.Events,
+  FMX.ScrollControl.Impl,
+  FMX.ScrollControl.WithRows.Impl,
+  FMX.ScrollControl.WithCells.Impl,
+  FMX.ScrollControl.WithEditableCells.Impl,
+  FMX.ScrollControl.DataControl.Impl, FMX.Objects;
 
 type
   TOpenRecordSetFrame = class(TFrame)
