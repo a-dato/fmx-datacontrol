@@ -310,6 +310,7 @@ uses
   FMX.DataControl.ScrollableControl.Intf
   {$IFDEF APP_PLATFORM}
   , App.intf
+  , App.PropertyDescriptor.intf
   , System.ClassHelpers
   , System.JSON
   {$ENDIF}
@@ -2236,44 +2237,23 @@ begin
     DoCellFormatting(cell, False, {var} cellValue, {out} formatApplied);
 
     {$IFDEF APP_PLATFORM}
-    if not CString.IsNullOrEmpty(propName) and not formatApplied and (cellValue <> nil) and cellValue.IsString and (_app <> nil) and (cell.Column.InfoControlClass = TInfoControlClass.Text) then
+    if (_app <> nil) and not formatApplied and not CString.IsNullOrEmpty(propName) and (cellValue <> nil) and (cell.Column.InfoControlClass = TInfoControlClass.Text) then
     begin
-      var js := TJSONObject.ParseJSONValue(cellValue.ToString(True));
-      try
-        var s: string;
-        if js.TryGetValue<string>('Value', s) then
+      var item_type := GetItemType;
+      if item_type <> nil then
+      begin
+        var prop := item_type.PropertyByName(propName);
+        var descr: IPropertyDescriptor;
+        if Interfaces.Supports<IPropertyDescriptor>(prop, descr) then
         begin
-          (ctrl as ICaption).Text := s;
-          Exit;
+          var fmt := descr.Formatter;
+          if fmt <> nil then
+          begin
+            (ctrl as ICaption).Text := CStringToString(fmt.Format(cEll.Row.DataItem, cellValue, FlatColumn.Column.Format));
+            Exit;
+          end;
         end;
-
-      finally
-        js.Free;
       end;
-
-//      var item_type := GetItemType;
-//      if item_type <> nil then
-//      begin
-//        var prop := item_type.PropertyByName(propName);
-//        if prop <> nil then
-//        begin
-//          var tp := prop.GetType;
-//          var ot := _app.Config.ObjectType[tp];
-//          if ot <> nil then
-//          begin
-//            var descr := ot.PropertyDescriptor[tp.Name];
-//            if descr <> nil then
-//            begin
-//              var fmt := descr.Formatter;
-//              if fmt <> nil then
-//              begin
-//                (ctrl as ICaption).Text := CStringToString(fmt.Format(cellValue, FlatColumn.Column.Format));
-//                Exit;
-//              end;
-//            end;
-//          end;
-//        end;
-//      end;
     end;
     {$ENDIF}
 

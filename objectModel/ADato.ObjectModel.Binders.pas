@@ -709,6 +709,24 @@ end;
 
 procedure TLabelControlBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
 begin
+  {$IFDEF APP_PLATFORM}
+  if IsUpdating or IsLinkedProperty(AProperty) then Exit;
+
+  BeginUpdate;
+  try
+    var descriptor: IPropertyDescriptor;
+    var value_string: CString;
+
+    if TryGetPropertyDescriptor(descriptor) and (descriptor.Formatter <> nil) then
+      value_string := descriptor.Formatter.Format(Obj, Value, nil) else
+      Value.TryGetValue<CString>(value_string);
+
+    if not CString.Equals(value_string, _Control.Text) then
+      _Control.Text := CStringToString(value_string);
+  finally
+    EndUpdate;
+  end;
+  {$ELSE}
   if (_UpdateCount > 0) or IsLinkedProperty(AProperty) then Exit;
 
   // use TrimStart/TrimEnd to remove Enters and avoid empty looking labels
@@ -729,6 +747,7 @@ begin
 
   if not CString.Equals(text, _Control.Text) then
     _Control.Text := text;
+  {$ENDIF}
 end;
 
 { TComboBoxControlBinding }
