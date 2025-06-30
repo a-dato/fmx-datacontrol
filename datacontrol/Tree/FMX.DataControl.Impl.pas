@@ -1,12 +1,18 @@
+{$IFNDEF WEBASSEMBLY}
 {$I ..\..\dn4d\Source\Adato.inc}
+{$ENDIF}
 
 unit FMX.DataControl.Impl;
 
 interface
 
 uses
-  System_,
+  {$IFNDEF WEBASSEMBLY}
   System.Classes,
+  {$ELSE}
+  Wasm.System.Classes,
+  {$ENDIF}
+  System_,
   System.Runtime.Serialization,
   FMX.DataControl.Editable,
   FMX.DataControl.Intf,
@@ -87,14 +93,14 @@ initialization
 begin
   // Must use unique name here, VCL version of TTreeControl already
   // uses name 'TTreeColumn'
-  Assembly.RegisterClass(TDCTreeColumn);
-  Assembly.RegisterClass(TDCTreeCheckboxColumn);
+  &Assembly.RegisterClass(TDCTreeColumn);
+  &Assembly.RegisterClass(TDCTreeCheckboxColumn);
 end;
 
 finalization
 begin
-  Assembly.UnRegisterClass(TDCTreeColumn);
-  Assembly.UnRegisterClass(TDCTreeCheckboxColumn);
+  &Assembly.UnRegisterClass(TDCTreeColumn);
+  &Assembly.UnRegisterClass(TDCTreeCheckboxColumn);
 end;
 
 end.

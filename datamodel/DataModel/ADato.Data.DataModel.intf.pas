@@ -1,4 +1,4 @@
-{$IFNDEF LYNXWEB}
+{$IFNDEF WEBASSEMBLY}
 {$I ..\..\dn4d\Source\Adato.inc}
 {$ENDIF}
 
@@ -7,17 +7,21 @@ unit ADato.Data.DataModel.intf;
 interface
 
 uses
+  {$IFDEF WEBASSEMBLY}
+  Wasm.System,
+  Wasm.System.ComponentModel,
+  {$ENDIF}
   System_,
-  System.ComponentModel,
   System.Collections,
   System.Collections.Generic,
+  System.ComponentModel,
   ADato.Parser.intf,
   ADato.InsertPosition;
 
 type
   IDataModelFactory = interface;
 
-  {$IFDEF DELPHI}
+  {$IFNDEF WEBASSEMBLY}
   RowPositionFlag = (
     RowPosition_Header,
     RowPosition_Sibling,
@@ -189,6 +193,7 @@ type
   end;
   {$ELSE}
   FilterEventHandler = public delegate(const Sender: IBaseInterface; e: FilterEventArgs);
+  FilterEventHandlerProc = FilterEventHandler;
   {$ENDIF}
 
   IMasterDetailKey = interface(IBaseInterface)
@@ -996,7 +1001,9 @@ begin
 end;
 
 {$IFDEF DELPHI}
+
 { RowMovingDelegate }
+
 procedure RowMovingDelegate.Add(Value: RowMovingEventHandlerProc);
 begin
   inherited Add(TMethod(Value));
@@ -1021,9 +1028,9 @@ begin
 end;
 {$ENDIF}
 
-{$IFDEF DELPHI}
 { RowPosition }
 
+{$IFNDEF WEBASSEMBLY}
 class operator RowPosition.Equal(L, R: RowPosition) : Boolean;
 begin
   Result := L.Value = R.Value;

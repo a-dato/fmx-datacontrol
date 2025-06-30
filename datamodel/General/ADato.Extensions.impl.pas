@@ -1,4 +1,4 @@
-{$IFNDEF LYNXWEB}
+{$IFNDEF WEBASSEMBLY}
 {$I ..\Source\Adato.inc}
 {$ENDIF}
 
@@ -144,7 +144,7 @@ end;
 class procedure TExtensionManager.SetContextThreadVariable(const Context: TGUID);
 begin
   _Context := Context;
-  {$IFNDEF LYNXWEB}
+  {$IFNDEF WEBASSEMBLY}
   if Context.IsEmpty then Exit;
   {$ENDIF}
 
@@ -166,7 +166,7 @@ class procedure TExtensionManager.RemoveContext(const Context: TGUID);
 begin
   MonitorEnter(TObject(_ExtentionManagers));
   try
-    {$IFNDEF LYNXWEB}
+    {$IFNDEF WEBASSEMBLY}
     if not Context.IsEmpty then
       _ExtentionManagers.Remove(Context);
     {$ENDIF}
@@ -217,7 +217,7 @@ begin
 
   var i := 0;
   for prop in propArr do
-    if interfaces.Supports(prop, ICustomProperty, cp) then
+    if interfaces.Supports<ICustomProperty>(prop, cp) then
     begin
       SetLength(Result, i+1);
       Result[i] := prop;

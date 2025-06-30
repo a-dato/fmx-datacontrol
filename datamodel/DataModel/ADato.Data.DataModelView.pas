@@ -3,12 +3,18 @@ unit ADato.Data.DataModelView;
 interface
 
 uses
+  {$IFNDEF WEBASSEMBLY}
   Classes,
+  {$ELSE}
+  Wasm.System.Classes,
+  {$ENDIF}
   System_,
   ADato.Data.DataModel.intf;
 
 type
+  {$IFNDEF WEBASSEMBLY}
   [ComponentPlatformsAttribute(pidAllPlatforms)]
+  {$ENDIF}
   TDataModelViewComponent = class(
     TComponent,
     IDataModelView)
@@ -52,7 +58,11 @@ constructor TDataModelViewComponent.Create(AOwner: TComponent);
 begin
   inherited;
   _dataModelView := TDataModelView.Create(nil);
+  {$IFNDEF WEBASSEMBLY}
   (_dataModelView as IRemoteQueryControllerSupport).InterfaceComponentReference := Self;
+  {$ELSE}
+  raise NotImplementedException.Create('TDataModelViewComponent.Create(AOwner: TComponent)');
+  {$ENDIF}
 end;
 
 procedure TDataModelViewComponent.DataModelView_FilterRecord(
@@ -78,9 +88,15 @@ procedure TDataModelViewComponent.set_FilterRecord(
 begin
   _FilterRecord := Value;
 
+  {$IFNDEF WEBASSEMBLY}
   if Assigned(_FilterRecord) then
     _dataModelView.FilterRecord.Add(DataModelView_FilterRecord) else
     _dataModelView.FilterRecord.Remove(DataModelView_FilterRecord);
+  {$ELSE}
+  if Assigned(_FilterRecord) then
+    _dataModelView.FilterRecord += DataModelView_FilterRecord else
+    _dataModelView.FilterRecord -= DataModelView_FilterRecord;
+  {$ENDIF}
 end;
 
 end.

@@ -3,13 +3,24 @@ unit FMX.ControlCalculations;
 interface
 
 uses
+  {$IFNDEF WEBASSEMBLY}
   FMX.Controls,
   FMX.StdCtrls,
   FMX.Memo,
   FMX.Objects,
   FMX.Graphics,
   FMX.TextLayout,
-  FMX.Layouts;
+  FMX.Layouts
+  {$ELSE}
+  Wasm.FMX.Controls,
+  Wasm.FMX.StdCtrls,
+  Wasm.FMX.Memo,
+  Wasm.FMX.Objects,
+  Wasm.FMX.Graphics,
+  Wasm.FMX.TextLayout,
+  Wasm.FMX.Layouts
+  {$ENDIF}
+  ;
 
   function  TextControlWidth(const TextControl: TControl; const Settings: TTextSettings; const Text: string; MinWidth: Single = -1; MaxWidth: Single = -1; TextHeight: Single = -1): Single;
   function  TextControlHeight(const TextControl: TControl; const Settings: TTextSettings; const Text: string; MinHeight: Single = -1; MaxHeight: Single = -1; TextWidth: Single = -1): Single;
@@ -26,18 +37,27 @@ var
 implementation
 
 uses
-  System_,
+  {$IFNDEF WEBASSEMBLY}
   System.Types,
   System.Math,
-
-  FMX.Types;
+  FMX.Types,
+  {$ELSE}
+  Wasm.System.Types,
+  Wasm.System.Math,
+  Wasm.FMX.Types,
+  {$ENDIF}
+  System_;
 
 
 procedure BeginDefaultTextLayout;
 begin
   if DefaultLayout = nil then
   begin
+    {$IFNDEF WEBASSEMBLY}
     DefaultLayout := TTextLayoutManager.DefaultTextLayout.Create;
+    {$ELSE}
+    DefaultLayout := TTextLayoutManager.DefaultTextLayout.Create(nil);
+    {$ENDIF}
 
     DefaultLayout.BeginUpdate;
     try
@@ -68,7 +88,7 @@ begin
   var layout: TTextLayout;
   if DefaultLayout <> nil then
     layout := DefaultLayout else
-    layout := TTextLayoutManager.DefaultTextLayout.Create;
+    layout := TTextLayoutManager.DefaultTextLayout.Create(nil);
   try
     Layout.BeginUpdate;
     try
@@ -103,7 +123,7 @@ begin
   var layout: TTextLayout;
   if DefaultLayout <> nil then
     layout := DefaultLayout else
-    layout := TTextLayoutManager.DefaultTextLayout.Create;
+    layout := TTextLayoutManager.DefaultTextLayout.Create(nil);
 
   try
     Layout.BeginUpdate;
@@ -158,7 +178,8 @@ begin
         Layout.EndUpdate;
       end;
 
-      for var ix := 0 to Memo.Lines.Count - 1 do
+      var ix: Integer;
+      for ix := 0 to Memo.Lines.Count - 1 do
       begin
         Layout.BeginUpdate;
         try

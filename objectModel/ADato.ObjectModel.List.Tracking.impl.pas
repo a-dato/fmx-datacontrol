@@ -188,8 +188,13 @@ end;
 
 destructor TObjectListModelWithChangeTracking<T>.Destroy;
 begin
+  {$IFNDEF WEBASSEMBLY}
   if _ObjectModelContext <> nil then
     _ObjectModelContext.OnPropertyChanged.Remove(OnObjectPropertyChanged);
+  {$ELSE}
+  if _ObjectModelContext <> nil then
+    _ObjectModelContext.OnPropertyChanged -= OnObjectPropertyChanged;
+  {$ENDIF}
 
   inherited Destroy;
 end;
@@ -204,7 +209,11 @@ begin
   end else
     Result := inherited;
 
+  {$IFNDEF WEBASSEMBLY}
   Result.OnPropertyChanged.Add(OnObjectPropertyChanged);
+  {$ELSE}
+  Result.OnPropertyChanged += OnObjectPropertyChanged;
+  {$ENDIF}
 end;
 
 function TObjectListModelWithChangeTracking<T>.get_HasChangedItems: Boolean;
@@ -430,7 +439,9 @@ end;
 procedure TObjectListModelWithChangeTracking<T>.OnObjectPropertyChanged(const Sender: IObjectModelContext; const Context: CObject; const AProperty: _PropertyInfo);
 begin
   if HasMultiSelection then
-    for var item in _multiSelect.Context do
+  begin
+    var item: CObject;
+    for item in _multiSelect.Context do
       if not CObject.Equals(item, Context) then
       begin
         var cln: ICloneable;
@@ -440,8 +451,14 @@ begin
           obj := item;
 
         UpdateChangedItem(obj, TObjectListChangeType.Changed);
+        {$IFNDEF WEBASSEMBLY}
         AProperty.SetValue(item, AProperty.GetValue(Context, []), [], True);
-      end;
+        {$ELSE}
+        AProperty.SetValue(item, AProperty.GetValue(Context, []), []);
+        {$ENDIF}
+      end;    
+  end;
+
 end;
 
 procedure TObjectListModelWithChangeTracking<T>.Remove(const Item: CObject);

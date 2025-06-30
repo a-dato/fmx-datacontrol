@@ -3,18 +3,31 @@ unit FMX.DataControl.ScrollableControl;
 interface
 
 uses
-  System_,
+  {$IFNDEF WEBASSEMBLY}
   System.Classes,
   System.SysUtils,
-  System.Diagnostics,
   System.UITypes,
   System.Types,
-
   FMX.Layouts,
   FMX.StdCtrls,
   FMX.Types,
   FMX.Controls,
   FMX.Objects,
+  {$ELSE}
+  Wasm.System,
+  Wasm.System.SysUtils,
+  Wasm.System.Classes,
+  Wasm.System.UITypes,
+  Wasm.System.Types,
+  Wasm.FMX.Layouts,
+  Wasm.FMX.StdCtrls,
+  Wasm.FMX.Types,
+  Wasm.FMX.Controls,
+  Wasm.FMX.Objects,
+  Wasm.System.Math,
+  {$ENDIF}
+  System_,
+  System.Diagnostics,
   FMX.DataControl.ScrollableControl.Intf;
 
 type
@@ -179,8 +192,10 @@ type
 
 implementation
 
+{$IFNDEF WEBASSEMBLY}
 uses
   System.Math;
+{$ENDIF}
 
 { TDCScrollableControl }
 
@@ -206,7 +221,11 @@ begin
   _vertScrollBar.Orientation := TOrientation.Vertical;
   _vertScrollBar.Width := 10;
   _vertScrollBar.Align := TAlignLayout.Right;
+  {$IFNDEF WEBASSEMBLY}
   _vertScrollBar.OnChange := OnScrollBarChange;
+  {$ELSE}
+  _vertScrollBar.OnChange := @OnScrollBarChange;
+  {$ENDIF}
   _vertScrollBar.SmallChange := 23; // same as Delphi under windows
   _vertScrollBar.Visible := False;
   Self.AddObject(_vertScrollBar);
@@ -217,7 +236,11 @@ begin
   _horzScrollBar.Height := 10;
   _horzScrollBar.Align := TAlignLayout.Bottom;
   _horzScrollBar.Margins.Right := _vertScrollBar.Width;
+  {$IFNDEF WEBASSEMBLY}
   _horzScrollBar.OnChange := OnHorzScrollBarChange;
+  {$ELSE}
+  _horzScrollBar.OnChange := @OnHorzScrollBarChange;
+  {$ENDIF}
   _horzScrollBar.Visible := False;
   Self.AddObject(_horzScrollBar);
 
@@ -225,12 +248,20 @@ begin
   _content.Stored := False;
   _content.Align := TAlignLayout.Client;
   _content.ClipChildren := True;
+  {$IFNDEF WEBASSEMBLY}
   _content.OnResized := OnContentResized;
+  {$ELSE}
+  _content.OnResized := @OnContentResized;
+  {$ENDIF}
   Self.AddObject(_content);
 
   _mouseRollingBoostTimer := TTimer.Create(Self);
   _mouseRollingBoostTimer.Stored := False;
+  {$IFNDEF WEBASSEMBLY}
   _mouseRollingBoostTimer.OnTimer := MouseRollingBoostTimer;
+  {$ELSE}
+  _mouseRollingBoostTimer.OnTimer := @MouseRollingBoostTimer;
+  {$ENDIF}
   _mouseRollingBoostTimer.Interval := 20;
   _mouseRollingBoostTimer.Enabled := False;
   Self.AddObject(_mouseRollingBoostTimer);
@@ -243,12 +274,20 @@ begin
 
   _checkWaitForRealignTimer := TTimer.Create(Self);
   _checkWaitForRealignTimer.Stored := False;
+  {$IFNDEF WEBASSEMBLY}
   _checkWaitForRealignTimer.OnTimer := WaitForRealignEndedWithoutAnotherScrollTimer;
+  {$ELSE}
+  _checkWaitForRealignTimer.OnTimer := @WaitForRealignEndedWithoutAnotherScrollTimer;
+  {$ENDIF}
   _checkWaitForRealignTimer.Enabled := False;
 
   _mouseWheelSmoothScrollTimer := TTimer.Create(Self);
   _mouseWheelSmoothScrollTimer.Stored := False;
+  {$IFNDEF WEBASSEMBLY}
   _mouseWheelSmoothScrollTimer.OnTimer := MouseWheelSmoothScrollingTimer;
+  {$ELSE}
+  _mouseWheelSmoothScrollTimer.OnTimer := @MouseWheelSmoothScrollingTimer;
+  {$ENDIF}
   _mouseWheelSmoothScrollTimer.Interval := 25;
   _mouseWheelSmoothScrollTimer.Enabled := False;
 
@@ -393,6 +432,7 @@ begin
     Exit;
   end;
 
+  {$IFNDEF WEBASSEMBLY}
   {$IFDEF DEBUG}
   if _stopwatch3.IsRunning then
   begin
@@ -400,6 +440,7 @@ begin
   end;
 
   _stopwatch3 := TStopwatch.StartNew;
+  {$ENDIF}
   {$ENDIF}
 
   _realignContentRequested := False;
@@ -463,7 +504,8 @@ end;
 
 function TDCScrollableControl.MouseScrollingBoostDistance: Single;
 begin
-  for var item in _mouseRollingLastPoints do
+  var item: TPointF;
+  for item in _mouseRollingLastPoints do
     if item.IsZero then
       Exit(0);
 
@@ -832,7 +874,17 @@ begin
 
   _mouseWheelSmoothScrollSpeedUp := 0;
   _mouseWheelDistanceToGo := _mouseWheelDistanceToGo + YChange;
+  {$IFNDEF WEBASSEMBLY}
   _scrollStopWatch_wheel_lastSpin.Reset;
+  {$ELSE}
+//  try
+//    _scrollStopWatch_wheel_lastSpin.Reset;
+//  except
+//    on e: Exception do
+//    begin
+//    end;
+//  end;
+  {$ENDIF}
 
   _mouseWheelSmoothScrollTimer.Enabled := True;
 end;

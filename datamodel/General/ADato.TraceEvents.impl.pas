@@ -3,11 +3,18 @@ unit ADato.TraceEvents.impl;
 interface
 
 uses
+  {$IFNDEF WEBASSEMBLY}
   System.Classes,
   System.SysUtils,
+  System.Types,
+  {$ELSE}
+  Wasm.System.Classes,
+  Wasm.System.SysUtils,
+  Wasm.System.Types,
+  {$ENDIF}
   ADato.TraceEvents.intf,
   System.Collections.Generic,
-  System.Types, System.Diagnostics;
+  System.Diagnostics;
 
 type
   IFileTraceItem = interface
