@@ -77,7 +77,7 @@ begin
       _Control.EditRowEnd := OnEditRowEnd;
     end;
     CheckedItems: begin
-      _orgCellSelectedEvent := _Control.CellSelected;
+      _orgCellSelectedEvent :=   _Control.CellSelected;
       _Control.CellSelected := OnCellSelectedEvent;
     end;
   end;
@@ -90,7 +90,7 @@ begin
   begin
     case _propType of
       DataList: _Control.EditRowEnd := _orgRowEndEdit;
-//      CheckedItems: _Control.CellItemClicked := _orgCellItemClicked;
+      CheckedItems: _Control.CellSelected := _orgCellSelectedEvent;
     end;
   end;
 
