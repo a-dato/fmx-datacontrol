@@ -2237,8 +2237,11 @@ begin
     DoCellFormatting(cell, False, {var} cellValue, {out} formatApplied);
 
     {$IFDEF APP_PLATFORM}
-    if (_app <> nil) and not formatApplied and not CString.IsNullOrEmpty(propName) and (cellValue <> nil) and (cell.Column.InfoControlClass = TInfoControlClass.Text) then
+    if (_app <> nil) and not formatApplied and
+        not CString.IsNullOrEmpty(propName) and (cellValue <> nil) and
+        (cell.Column.InfoControlClass = TInfoControlClass.Text) then
     begin
+      // Try using a formatter
       var item_type := GetItemType;
       if item_type <> nil then
       begin
@@ -2249,7 +2252,7 @@ begin
           var fmt := descr.Formatter;
           if fmt <> nil then
           begin
-            (ctrl as ICaption).Text := CStringToString(fmt.Format(cEll.Row.DataItem, cellValue, FlatColumn.Column.Format));
+            (ctrl as ICaption).Text := CStringToString(fmt.Format(Cell.Row.DataItem, cellValue, FlatColumn.Column.Format));
             Exit;
           end;
         end;

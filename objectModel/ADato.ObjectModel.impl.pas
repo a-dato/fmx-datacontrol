@@ -209,24 +209,7 @@ type
   {$ENDIF}
 
   {$IFDEF APP_PLATFORM}
-  TPropertyWithDescriptor = class(CPropertyWrapper, IPropertyDescriptor)
-  protected
-    _PropertyDescriptor: IPropertyDescriptor;
-    _marshaller: IMarshaller;
-
-    function  GetValue(const obj: CObject; const index: array of CObject): CObject; override;
-    procedure SetValue(const obj: CObject; const Value: CObject; const index: array of CObject; ExecuteTriggers: Boolean = false); override;
-
-  public
-    constructor Create(const AProperty: _PropertyInfo; const ADescriptor: IPropertyDescriptor);
-
-    property PropertyDescriptor: IPropertyDescriptor read _PropertyDescriptor implements IPropertyDescriptor;
-  end;
-  {$ENDIF}
-
-
-  {$IFDEF APP_PLATFORM}
-  TPathProperty = class(CPropertyWrapper, IPropertyDescriptor)
+  TPathProperty = class(CPropertyWrapper, IPropertyDescriptor, INotify)
   protected
     _propertyPath: TArray<_PropertyInfo>;
 
@@ -235,8 +218,13 @@ type
     function  GetValue(const obj: CObject; const index: array of CObject): CObject; override;
     procedure SetValue(const obj: CObject; const Value: CObject; const index: array of CObject; ExecuteTriggers: Boolean = false); override;
 
+    // INotify
+    function  OnChanging(const Context: CObject; const Value: CObject) : CObject;
+    procedure OnChanged(const Context: CObject; const Value: CObject);
+
   public
     constructor Create(const AProperty: _PropertyInfo; const APropertyPath: TArray<_PropertyInfo>);
+    destructor Destroy; override;
 
     property PropertyDescriptor: IPropertyDescriptor read get_PropertyDescriptor implements IPropertyDescriptor;
   end;
@@ -868,38 +856,23 @@ begin
 end;
 {$ENDIF}
 
-
-{$IFDEF APP_PLATFORM}
-constructor TPropertyWithDescriptor.Create(const AProperty: _PropertyInfo; const ADescriptor: IPropertyDescriptor);
-begin
-  inherited Create(AProperty);
-  _PropertyDescriptor := ADescriptor;
-  _marshaller := _PropertyDescriptor.Marshaller;
-end;
-
-function TPropertyWithDescriptor.GetValue(const obj: CObject; const index: array of CObject): CObject;
-begin
-  Result := inherited;
-  if _marshaller <> nil then
-    Result := _marshaller.Unmarshal(obj, Result);
-end;
-
-procedure TPropertyWithDescriptor.SetValue(const obj: CObject; const Value: CObject; const index: array of CObject; ExecuteTriggers: Boolean = false);
-begin
-  var val: CObject;
-  if _marshaller <> nil then
-    val := _marshaller.Marshal(obj, Value) else
-    val := Value;
-
-  inherited SetValue(obj, val, index, ExecuteTriggers);
-end;
-{$ENDIF}
-
 {$IFDEF APP_PLATFORM}
 constructor TPathProperty.Create(const AProperty: _PropertyInfo; const APropertyPath: TArray<_PropertyInfo>);
 begin
   inherited Create(AProperty);
   _propertyPath := APropertyPath;
+
+  var notify: INotifyPropertyChanged;
+  if (Length(_propertyPath) > 0) and Interfaces.Supports<INotifyPropertyChanged>(_propertyPath[0], notify) then
+    notify.Add(Self);
+end;
+
+destructor TPathProperty.Destroy;
+begin
+  var notify: INotifyPropertyChanged;
+  if (Length(_propertyPath) > 0) and Interfaces.Supports<INotifyPropertyChanged>(_propertyPath[0], notify) then
+    notify.Remove(Self);
+  inherited;
 end;
 
 function TPathProperty.get_PropertyDescriptor: IPropertyDescriptor;
@@ -907,18 +880,39 @@ begin
   Interfaces.Supports<IPropertyDescriptor>(_property, Result);
 end;
 
-function TPathProperty.GetValue(const obj: CObject; const index: array of CObject): CObject;
+procedure TPathProperty.OnChanged(const Context, Value: CObject);
 begin
-  Result := _propertyPath[0].GetValue(obj, []);
-  if Result = nil then
-    Exit;
+  if Value = nil then;
+end;
+
+function TPathProperty.OnChanging(const Context, Value: CObject): CObject;
+begin
+  var val := Value;
 
   for var i := 1 to High(_propertyPath) do
   begin
-    Result := _propertyPath[i].GetValue(Result, []);
-    if Result = nil then
+    val := _propertyPath[i].GetValue(val, []);
+    if val = nil then
       Exit;
   end;
+
+  SetValue(Context, val, [], True);
+end;
+
+function TPathProperty.GetValue(const obj: CObject; const index: array of CObject): CObject;
+begin
+  Result := inherited GetValue(obj, index);
+
+//  Result := _propertyPath[0].GetValue(obj, []);
+//  if Result = nil then
+//    Exit;
+//
+//  for var i := 1 to High(_propertyPath) do
+//  begin
+//    Result := _propertyPath[i].GetValue(Result, []);
+//    if Result = nil then
+//      Exit;
+//  end;
 end;
 
 procedure TPathProperty.SetValue(const obj: CObject; const Value: CObject; const index: array of CObject; ExecuteTriggers: Boolean = false);
