@@ -384,33 +384,37 @@ begin
 end;
 
 procedure TEditableDataControl.DoCellCheckChangedByUser(const Cell: IDCTreeCell);
+var
+  checkbox: IIsChecked;
 begin
   if Cell = nil then
     Exit;
 
   var item := cell.Row.DataItem;
-  var checkBox := Cell.InfoControl as IIsChecked;
 
-  UpdateColumnCheck(cell.Row.DataIndex, Cell.Column, checkBox.IsChecked);
-
-  if not CString.IsNullOrEmpty(Cell.Column.PropertyName) then
+  if Interfaces.Supports(Cell.InfoControl, IIsChecked, checkbox) then
   begin
-    SetCellData(cell, checkBox.IsChecked);
+    UpdateColumnCheck(cell.Row.DataIndex, Cell.Column, checkBox.IsChecked);
 
-    if (_model <> nil) and CObject.Equals(item, Cell.Row.DataItem) then
-      _model.ObjectModelContext.UpdatePropertyBindingValues;
+    if not CString.IsNullOrEmpty(Cell.Column.PropertyName) then
+    begin
+      SetCellData(cell, checkBox.IsChecked);
 
-//    DoDataItemChangedInternal(item);
-  end;
+      if (_model <> nil) and CObject.Equals(item, Cell.Row.DataItem) then
+        _model.ObjectModelContext.UpdatePropertyBindingValues;
 
-  var checkChangeArgs: DCCheckChangedEventArgs;
-  if Assigned(_cellCheckChanged) then
-  begin
-    AutoObject.Guard(DCCheckChangedEventArgs.Create(Cell), checkChangeArgs);
-    _cellCheckChanged(Self, checkChangeArgs);
+  //    DoDataItemChangedInternal(item);
+    end;
 
-    if checkChangeArgs.DoFollowCheckThroughChildren then
-      FollowCheckThroughChildren(Cell);
+    var checkChangeArgs: DCCheckChangedEventArgs;
+    if Assigned(_cellCheckChanged) then
+    begin
+      AutoObject.Guard(DCCheckChangedEventArgs.Create(Cell), checkChangeArgs);
+      _cellCheckChanged(Self, checkChangeArgs);
+
+      if checkChangeArgs.DoFollowCheckThroughChildren then
+        FollowCheckThroughChildren(Cell);
+    end;
   end;
 end;
 
