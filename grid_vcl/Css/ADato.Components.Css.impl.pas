@@ -1,4 +1,4 @@
-{$I ..\..\dn4d\Source\Adato.inc}
+﻿{$I ..\..\dn4d\Source\Adato.inc}
 
 {$R-}
 
@@ -7604,4 +7604,6 @@ begin
 end;
 
 end.
+
+
 

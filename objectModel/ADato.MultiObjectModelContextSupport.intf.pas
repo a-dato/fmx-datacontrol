@@ -1,4 +1,4 @@
-unit ADato.MultiObjectModelContextSupport.intf;
+﻿unit ADato.MultiObjectModelContextSupport.intf;
 
 interface
 
@@ -33,3 +33,5 @@ type
 implementation
 
 end.
+
+

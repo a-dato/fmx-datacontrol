@@ -1,4 +1,4 @@
-unit FMX.ControlCalculations;
+﻿unit FMX.ControlCalculations;
 
 interface
 
@@ -255,3 +255,5 @@ begin
 end;
 
 end.
+
+

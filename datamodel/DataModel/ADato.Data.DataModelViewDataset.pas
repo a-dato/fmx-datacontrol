@@ -1,4 +1,4 @@
-unit ADato.Data.DataModelViewDataset;
+﻿unit ADato.Data.DataModelViewDataset;
 
 interface
 
@@ -430,3 +430,5 @@ begin
 end;
 
 end.
+
+

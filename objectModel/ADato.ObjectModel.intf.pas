@@ -1,4 +1,4 @@
-{$IFNDEF LYNXWEB}
+﻿{$IFNDEF LYNXWEB}
 {$I ..\..\dn4d\Source\Adato.inc}
 {$ENDIF}
 
@@ -341,3 +341,5 @@ end;
 {$ENDIF}
 
 end.
+
+

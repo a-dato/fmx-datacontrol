@@ -1,4 +1,4 @@
-unit ADato.FMX.DataControl.Register;
+﻿unit ADato.FMX.DataControl.Register;
 
 interface
 
@@ -24,5 +24,7 @@ begin
 end;
 
 end.
+
+
 
 

@@ -1,4 +1,4 @@
-unit System.Text;
+﻿unit System.Text;
 
 interface
 
@@ -331,3 +331,5 @@ begin
 end;
 
 end.
+
+

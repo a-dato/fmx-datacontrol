@@ -1,4 +1,4 @@
-unit FMX.DataControl.ScrollableControl;
+﻿unit FMX.DataControl.ScrollableControl;
 
 interface
 
@@ -965,3 +965,5 @@ begin
 end;
 
 end.
+
+

@@ -1,4 +1,4 @@
-{$I Adato.inc}
+﻿{$I Adato.inc}
 
 unit System_.Threading;
 
@@ -399,5 +399,7 @@ begin
 end;
 
 end.
+
+
 
 

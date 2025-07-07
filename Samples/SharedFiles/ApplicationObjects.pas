@@ -1,4 +1,4 @@
-unit ApplicationObjects;
+﻿unit ApplicationObjects;
 
 interface
 
@@ -130,3 +130,5 @@ begin
 end;
 
 end.
+
+

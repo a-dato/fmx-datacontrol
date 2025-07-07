@@ -1,4 +1,4 @@
-unit ADato.VirtualDatasetDataModel.Register;
+﻿unit ADato.VirtualDatasetDataModel.Register;
 
 interface
 
@@ -20,3 +20,5 @@ begin
 end;
 
 end.
+
+

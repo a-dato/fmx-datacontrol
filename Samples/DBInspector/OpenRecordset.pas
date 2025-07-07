@@ -1,4 +1,4 @@
-unit OpenRecordset;
+﻿unit OpenRecordset;
 
 interface
 
@@ -347,3 +347,5 @@ begin
 end;
 
 end.
+
+

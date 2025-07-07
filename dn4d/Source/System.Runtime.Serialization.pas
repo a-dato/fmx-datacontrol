@@ -1,4 +1,4 @@
-unit System.Runtime.Serialization;
+﻿unit System.Runtime.Serialization;
 
 interface
 
@@ -968,3 +968,5 @@ begin
 end;
 
 end.
+
+

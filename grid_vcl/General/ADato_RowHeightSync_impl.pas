@@ -1,4 +1,4 @@
-unit ADato_RowHeightSync_impl;
+﻿unit ADato_RowHeightSync_impl;
 
 interface
 
@@ -106,3 +106,5 @@ begin
 end;
 
 end.
+
+

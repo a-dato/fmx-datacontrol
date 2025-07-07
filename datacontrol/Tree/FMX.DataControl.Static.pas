@@ -1,4 +1,4 @@
-unit FMX.DataControl.Static;
+﻿unit FMX.DataControl.Static;
 
 interface
 
@@ -2748,3 +2748,5 @@ begin
 end;
 
 end.
+
+

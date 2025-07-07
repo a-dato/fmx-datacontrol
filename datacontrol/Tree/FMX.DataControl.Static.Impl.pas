@@ -1,4 +1,4 @@
-unit FMX.DataControl.Static.Impl;
+﻿unit FMX.DataControl.Static.Impl;
 
 interface
 
@@ -3083,4 +3083,6 @@ begin
 end;
 
 end.
+
+
 

@@ -1,4 +1,4 @@
-unit Delphi.Extensions.ListDataset;
+﻿unit Delphi.Extensions.ListDataset;
 
 interface
 
@@ -652,3 +652,5 @@ begin
 end;
 
 end.
+
+

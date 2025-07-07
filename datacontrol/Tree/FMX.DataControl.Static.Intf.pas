@@ -1,4 +1,4 @@
-unit FMX.DataControl.Static.Intf;
+﻿unit FMX.DataControl.Static.Intf;
 
 interface
 
@@ -588,4 +588,6 @@ resourcestring
 implementation
 
 end.
+
+
 

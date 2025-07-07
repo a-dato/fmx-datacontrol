@@ -1,4 +1,4 @@
-{$IFNDEF WEBASSEMBLY}
+﻿{$IFNDEF WEBASSEMBLY}
 {$I Adato.inc}
 {$ENDIF}
 
@@ -1964,3 +1964,5 @@ initialization
     function(const Control: TFMXObject): IPropertyBinding begin Result := TComboColorBoxControlSmartLinkBinding.Create(TComboColorBox(Control)) end);
   {$ENDIF}
 end.
+
+

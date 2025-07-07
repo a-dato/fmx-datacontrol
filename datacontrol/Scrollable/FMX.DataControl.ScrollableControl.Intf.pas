@@ -1,4 +1,4 @@
-unit FMX.DataControl.ScrollableControl.Intf;
+﻿unit FMX.DataControl.ScrollableControl.Intf;
 
 interface
 
@@ -17,3 +17,5 @@ type
 implementation
 
 end.
+
+

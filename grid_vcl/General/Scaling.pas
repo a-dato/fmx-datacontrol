@@ -1,4 +1,4 @@
-unit Scaling;
+﻿unit Scaling;
 
 interface
 
@@ -73,3 +73,5 @@ begin
 end;
 
 end.
+
+

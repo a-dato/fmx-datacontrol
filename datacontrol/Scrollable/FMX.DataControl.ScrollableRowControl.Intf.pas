@@ -1,4 +1,4 @@
-unit FMX.DataControl.ScrollableRowControl.Intf;
+﻿unit FMX.DataControl.ScrollableRowControl.Intf;
 
 interface
 
@@ -364,3 +364,5 @@ begin
 end;
 
 end.
+
+

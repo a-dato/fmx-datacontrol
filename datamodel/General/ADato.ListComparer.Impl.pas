@@ -1,4 +1,4 @@
-{$IFNDEF WEBASSEMBLY}
+﻿{$IFNDEF WEBASSEMBLY}
 {$I ..\..\dn4d\Source\Adato.inc}
 {$ENDIF}
 
@@ -412,3 +412,5 @@ begin
 end;
 
 end.
+
+

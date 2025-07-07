@@ -1,4 +1,4 @@
-unit FMX.DataControl.Editable.Intf;
+﻿unit FMX.DataControl.Editable.Intf;
 
 interface
 
@@ -82,3 +82,5 @@ type
 implementation
 
 end.
+
+

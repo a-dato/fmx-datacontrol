@@ -1,4 +1,4 @@
-{$IFNDEF WEBASSEMBLY}
+﻿{$IFNDEF WEBASSEMBLY}
 {$I ADato.inc}
 {$ENDIF}
 
@@ -276,3 +276,5 @@ begin
 end;
 
 end.
+
+

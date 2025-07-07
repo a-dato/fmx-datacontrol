@@ -1,4 +1,4 @@
-unit ADato.TraceEvents.impl;
+﻿unit ADato.TraceEvents.impl;
 
 interface
 
@@ -383,3 +383,5 @@ begin
 end;
 
 end.
+
+

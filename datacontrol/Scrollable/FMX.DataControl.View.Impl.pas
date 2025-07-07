@@ -1,4 +1,4 @@
-unit FMX.DataControl.View.Impl;
+﻿unit FMX.DataControl.View.Impl;
 
 interface
 
@@ -956,3 +956,5 @@ begin
 end;
 
 end.
+
+

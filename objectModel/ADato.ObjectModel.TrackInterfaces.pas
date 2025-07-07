@@ -1,4 +1,4 @@
-{$IFNDEF WEBASSEMBLY}
+﻿{$IFNDEF WEBASSEMBLY}
 {$I ..\..\dn4d\Source\ADato.inc}
 {$ENDIF}
 
@@ -88,3 +88,5 @@ type
 implementation
 
 end.
+
+

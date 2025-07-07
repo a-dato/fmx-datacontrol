@@ -1,4 +1,4 @@
-{$I Adato.inc}
+﻿{$I Adato.inc}
 
 unit System.Collections.Specialized;
 
@@ -469,3 +469,5 @@ begin
 end;
 
 end.
+
+

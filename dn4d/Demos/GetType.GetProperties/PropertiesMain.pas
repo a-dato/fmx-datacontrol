@@ -1,4 +1,4 @@
-unit PropertiesMain;
+﻿unit PropertiesMain;
 
 interface
 
@@ -105,3 +105,5 @@ begin
 end;
 
 end.
+
+

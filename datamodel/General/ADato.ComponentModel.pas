@@ -1,4 +1,4 @@
-{$I ..\Source\Adato.inc}
+﻿{$I ..\Source\Adato.inc}
 
 unit ADato.ComponentModel;
 
@@ -157,3 +157,5 @@ begin
 end;
 
 end.
+
+

@@ -1,4 +1,4 @@
-{$I Adato.inc}
+﻿{$I Adato.inc}
 
 unit System.ComponentModel;
 
@@ -1106,3 +1106,5 @@ begin
 end;
 
 end.
+
+

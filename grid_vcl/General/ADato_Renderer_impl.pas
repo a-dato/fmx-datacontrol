@@ -1,4 +1,4 @@
-{$I ..\..\dn4d\Source\Adato.inc}
+﻿{$I ..\..\dn4d\Source\Adato.inc}
 
 unit ADato_Renderer_impl;
 
@@ -1518,3 +1518,5 @@ begin
 end;
 
 end.
+
+

@@ -1,4 +1,4 @@
-unit Delphi.Extensions.BaseInterfaceField.Register;
+﻿unit Delphi.Extensions.BaseInterfaceField.Register;
 
 interface
 
@@ -14,3 +14,5 @@ begin
 end;
 
 end.
+
+

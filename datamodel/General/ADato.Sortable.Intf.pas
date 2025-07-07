@@ -1,4 +1,4 @@
-{$I ..\..\dn4d\Source\Adato.inc}
+﻿{$I ..\..\dn4d\Source\Adato.inc}
 
 unit ADato.Sortable.Intf;
 
@@ -120,3 +120,5 @@ end;
 {$ENDIF}
 
 end.
+
+

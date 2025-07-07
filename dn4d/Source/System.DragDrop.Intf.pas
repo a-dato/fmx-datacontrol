@@ -1,4 +1,4 @@
-unit System.DragDrop.Intf;
+﻿unit System.DragDrop.Intf;
 {$I Adato.inc}
 interface
 uses
@@ -28,7 +28,8 @@ type
     DragAction_Cancel
   );
 
-  TDragDropEffect = record
+
+  TDragDropEffect = record
     All: DragDropEffectFlags;
     Copy: DragDropEffectFlag;
     Link: DragDropEffectFlag;
@@ -80,7 +81,8 @@ type
       AKeyState        : Integer);
   end;
 
-  IDragManager = {$IFDEF DOTNET}public{$ENDIF} interface
+
+  IDragManager = {$IFDEF DOTNET}public{$ENDIF} interface
     // Callback methods
     // CControl calls these methods from the event DD handlers
     procedure OnDragEnter(e: DragEventArgs);
@@ -206,8 +208,10 @@ const
     Cancel: DragAction_Cancel;
   );
 
-var
-  OleInitialized: Boolean;
+
+var
+
+  OleInitialized: Boolean;
 
 
 implementation
@@ -228,7 +232,8 @@ begin
   Y := _y;
 end;
 
-
+
+
 constructor GiveFeedbackEventArgs.Create(
   AEffect           : DragDropEffectFlag;
   AUseDefaultCursors: Boolean);
@@ -239,7 +244,8 @@ end;
 
 
 
-{ GiveFeedbackEventArgs }
+
+{ GiveFeedbackEventArgs }
 
 { QueryContinueDragEventArgs }
 
@@ -256,3 +262,5 @@ end;
 
 
 end.
+
+

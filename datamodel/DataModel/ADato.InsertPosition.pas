@@ -1,4 +1,4 @@
-unit ADato.InsertPosition;
+﻿unit ADato.InsertPosition;
 
 interface
 
@@ -9,3 +9,5 @@ implementation
 
 
 end.
+
+

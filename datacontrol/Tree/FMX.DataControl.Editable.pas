@@ -1,4 +1,4 @@
-unit FMX.DataControl.Editable;
+﻿unit FMX.DataControl.Editable;
 
 interface
 
@@ -1539,3 +1539,5 @@ begin
 end;
 
 end.
+
+

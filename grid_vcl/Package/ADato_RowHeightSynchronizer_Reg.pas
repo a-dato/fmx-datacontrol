@@ -1,4 +1,4 @@
-unit ADato_RowHeightSynchronizer_Reg;
+﻿unit ADato_RowHeightSynchronizer_Reg;
 
 interface
 
@@ -20,3 +20,5 @@ end;
 
 
 end.
+
+

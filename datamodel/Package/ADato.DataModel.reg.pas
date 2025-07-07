@@ -1,4 +1,4 @@
-unit ADato.DataModel.reg;
+﻿unit ADato.DataModel.reg;
 
 interface
 
@@ -21,3 +21,5 @@ begin
 end;
 
 end.
+
+

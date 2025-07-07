@@ -1,4 +1,4 @@
-{$i Adato.inc}
+﻿{$i Adato.inc}
 unit System.Drawing;
 
 interface
@@ -5896,3 +5896,5 @@ begin
 end;
 
 end.
+
+

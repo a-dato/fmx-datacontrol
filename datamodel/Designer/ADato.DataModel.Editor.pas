@@ -1,4 +1,4 @@
-unit ADato.DataModel.Editor;
+﻿unit ADato.DataModel.Editor;
 
 interface
 
@@ -52,3 +52,5 @@ begin
 end;
 
 end.
+
+

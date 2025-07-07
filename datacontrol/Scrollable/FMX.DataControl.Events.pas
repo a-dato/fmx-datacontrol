@@ -1,4 +1,4 @@
-unit FMX.DataControl.Events;
+﻿unit FMX.DataControl.Events;
 
 interface
 
@@ -532,6 +532,8 @@ begin
 end;
 
 end.
+
+
 
 
 

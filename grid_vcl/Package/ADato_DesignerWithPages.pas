@@ -1,4 +1,4 @@
-unit ADato_DesignerWithPages;
+﻿unit ADato_DesignerWithPages;
 
 { =============================================================================== }
 {                            TEzDataset designer object                           }
@@ -269,3 +269,5 @@ begin
 end;
 
 end.
+
+

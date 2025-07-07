@@ -1,4 +1,4 @@
-{$I ..\..\dn4d\Source\Adato.inc}
+﻿{$I ..\..\dn4d\Source\Adato.inc}
 
 unit ADato.Components.CssStyleSheet;
 
@@ -183,3 +183,5 @@ begin
 end;
 
 end.
+
+

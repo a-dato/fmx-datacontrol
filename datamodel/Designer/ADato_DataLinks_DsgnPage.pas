@@ -1,4 +1,4 @@
-unit ADato_DataLinks_DsgnPage;
+﻿unit ADato_DataLinks_DsgnPage;
 
 { =============================================================================== }
 {                            TEzDataset designer object                           }
@@ -440,3 +440,5 @@ begin
 end;
 
 end.
+
+

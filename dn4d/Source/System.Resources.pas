@@ -1,4 +1,4 @@
-{$I Adato.inc}
+﻿{$I Adato.inc}
 unit System.Resources;
 
 interface
@@ -1831,3 +1831,5 @@ begin
 end;
 
 end.
+
+

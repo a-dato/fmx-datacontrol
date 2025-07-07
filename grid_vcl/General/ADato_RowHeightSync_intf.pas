@@ -1,4 +1,4 @@
-{$I ..\..\dn4d\Source\Adato.inc}
+﻿{$I ..\..\dn4d\Source\Adato.inc}
 
 unit ADato_RowHeightSync_intf;
 
@@ -28,3 +28,5 @@ type
 implementation
 
 end.
+
+

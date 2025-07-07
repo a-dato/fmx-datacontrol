@@ -1,4 +1,4 @@
-unit FMX.DataControl.View.Intf;
+﻿unit FMX.DataControl.View.Intf;
 
 interface
 
@@ -191,3 +191,5 @@ begin
 end;
 
 end.
+
+

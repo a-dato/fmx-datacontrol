@@ -1,4 +1,4 @@
-unit System.Collections.Generic;
+﻿unit System.Collections.Generic;
 
 {$R-,T-,X+,H+,B-}
 
@@ -6796,3 +6796,5 @@ begin
 end;
 
 end.
+
+

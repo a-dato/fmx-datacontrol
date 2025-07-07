@@ -1,4 +1,4 @@
-{$I Adato.inc}
+﻿{$I Adato.inc}
 unit Delphi.Extensions.BaseInterfaceField;
 {$R-,T-,H+,X+}
 
@@ -87,3 +87,5 @@ begin
 end;
 
 end.
+
+

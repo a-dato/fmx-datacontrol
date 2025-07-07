@@ -1,4 +1,4 @@
-unit System.ClassHelpers;
+﻿unit System.ClassHelpers;
 
 interface
 
@@ -105,3 +105,5 @@ end;
 
 
 end.
+
+

@@ -1,4 +1,4 @@
-unit FMX.DataControl.Intf;
+﻿unit FMX.DataControl.Intf;
 
 interface
 
@@ -16,3 +16,5 @@ implementation
 
 
 end.
+
+

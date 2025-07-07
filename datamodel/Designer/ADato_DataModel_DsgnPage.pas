@@ -1,4 +1,4 @@
-unit ADato_DataModel_DsgnPage;
+﻿unit ADato_DataModel_DsgnPage;
 
 interface
 
@@ -345,3 +345,5 @@ begin
 end;
 
 end.
+
+

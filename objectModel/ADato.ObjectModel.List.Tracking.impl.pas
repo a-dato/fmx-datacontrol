@@ -1,4 +1,4 @@
-{$I Adato.inc}
+﻿{$I Adato.inc}
 unit ADato.ObjectModel.List.Tracking.impl;
 
 interface
@@ -550,3 +550,5 @@ begin
 end;
 
 end.
+
+

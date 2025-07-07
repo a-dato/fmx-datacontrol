@@ -1,4 +1,4 @@
-{$I Adato.inc}
+﻿{$I Adato.inc}
 
 unit System.IO;
 
@@ -989,3 +989,5 @@ begin
 end;
 
 end.
+
+

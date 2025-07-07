@@ -1,4 +1,4 @@
-unit ADato_AddTreeColumn_Dlg;
+﻿unit ADato_AddTreeColumn_Dlg;
 
 interface
 
@@ -30,3 +30,5 @@ implementation
 {$R *.dfm}
 
 end.
+
+

@@ -1,4 +1,4 @@
-unit System.Collections.LiveBindings;
+﻿unit System.Collections.LiveBindings;
 
 interface
 
@@ -128,3 +128,5 @@ begin
 end;
 
 end.
+
+

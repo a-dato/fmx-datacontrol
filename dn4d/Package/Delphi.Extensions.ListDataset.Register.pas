@@ -1,4 +1,4 @@
-unit Delphi.Extensions.ListDataset.Register;
+﻿unit Delphi.Extensions.ListDataset.Register;
 
 interface
 
@@ -22,3 +22,5 @@ end;
 
 
 end.
+
+

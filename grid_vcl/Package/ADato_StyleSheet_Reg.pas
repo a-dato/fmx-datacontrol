@@ -1,4 +1,4 @@
-unit ADato_StyleSheet_Reg;
+﻿unit ADato_StyleSheet_Reg;
 
 interface
 
@@ -20,3 +20,5 @@ end;
 
 
 end.
+
+

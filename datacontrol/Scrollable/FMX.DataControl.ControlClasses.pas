@@ -1,4 +1,4 @@
-unit FMX.DataControl.ControlClasses;
+﻿unit FMX.DataControl.ControlClasses;
 
 interface
 
@@ -251,3 +251,5 @@ finalization
   DataControlClassFactory := nil;
 
 end.
+
+
