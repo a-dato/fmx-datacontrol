@@ -179,18 +179,18 @@
         <DCCReference Include="..\Scrollable\FMX.DataControl.ScrollableControl.Intf.pas"/>
         <DCCReference Include="..\Scrollable\FMX.DataControl.Events.pas"/>
         <DCCReference Include="..\Scrollable\FMX.DataControl.ControlClasses.pas"/>
-        <DCCReference Include="..\Scrollable\FMX.DataControl.SortAndFilter.pas"/>
         <DCCReference Include="..\Tree\FMX.DataControl.Static.pas"/>
         <DCCReference Include="..\Tree\FMX.DataControl.Static.Intf.pas"/>
         <DCCReference Include="..\Tree\FMX.DataControl.Static.Impl.pas"/>
         <DCCReference Include="..\Tree\FMX.DataControl.Editable.pas"/>
         <DCCReference Include="..\Tree\FMX.DataControl.Editable.Impl.pas"/>
         <DCCReference Include="..\Tree\FMX.DataControl.Editable.Intf.pas"/>
-        <DCCReference Include="..\Tree\FMX.ControlCalculations.pas"/>
         <DCCReference Include="..\Tree\FMX.DataControl.Static.PopupMenu.pas"/>
         <DCCReference Include="..\Tree\FMX.DataControl.Intf.pas"/>
         <DCCReference Include="..\Tree\FMX.DataControl.Impl.pas"/>
         <DCCReference Include="..\Tree\FMX.DataControl.Binders.pas"/>
+        <DCCReference Include="..\Scrollable\FMX.ControlCalculations.pas"/>
+        <DCCReference Include="..\Tree\FMX.DataControl.SortAndFilter.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>
@@ -246,6 +246,12 @@
                     </Platform>
                 </DeployFile>
                 <DeployFile LocalName="C:\Users\Public\Documents\Embarcadero\Studio\23.0\Bpl\ADato.DataControl.FMX.bpl" Configuration="Debug" Class="ProjectOutput"/>
+                <DeployFile LocalName="C:\Users\Public\Documents\Embarcadero\Studio\23.0\Bpl\ADato.DataControl.FMX.bpl" Configuration="Debug" Class="ProjectOutput">
+                    <Platform Name="Win32">
+                        <RemoteName>ADato.DataControl.FMX.bpl</RemoteName>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployClass Name="AdditionalDebugSymbols">
                     <Platform Name="OSX32">
                         <Operation>1</Operation>

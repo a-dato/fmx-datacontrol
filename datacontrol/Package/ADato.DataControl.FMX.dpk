@@ -46,17 +46,17 @@ contains
   FMX.DataControl.ScrollableControl.Intf in '..\Scrollable\FMX.DataControl.ScrollableControl.Intf.pas',
   FMX.DataControl.Events in '..\Scrollable\FMX.DataControl.Events.pas',
   FMX.DataControl.ControlClasses in '..\Scrollable\FMX.DataControl.ControlClasses.pas',
-  FMX.DataControl.SortAndFilter in '..\Scrollable\FMX.DataControl.SortAndFilter.pas',
   FMX.DataControl.Static in '..\Tree\FMX.DataControl.Static.pas',
   FMX.DataControl.Static.Intf in '..\Tree\FMX.DataControl.Static.Intf.pas',
   FMX.DataControl.Static.Impl in '..\Tree\FMX.DataControl.Static.Impl.pas',
   FMX.DataControl.Editable in '..\Tree\FMX.DataControl.Editable.pas',
   FMX.DataControl.Editable.Impl in '..\Tree\FMX.DataControl.Editable.Impl.pas',
   FMX.DataControl.Editable.Intf in '..\Tree\FMX.DataControl.Editable.Intf.pas',
-  FMX.ControlCalculations in '..\Tree\FMX.ControlCalculations.pas',
   FMX.DataControl.Static.PopupMenu in '..\Tree\FMX.DataControl.Static.PopupMenu.pas',
   FMX.DataControl.Intf in '..\Tree\FMX.DataControl.Intf.pas',
   FMX.DataControl.Impl in '..\Tree\FMX.DataControl.Impl.pas',
-  FMX.DataControl.Binders in '..\Tree\FMX.DataControl.Binders.pas';
+  FMX.DataControl.Binders in '..\Tree\FMX.DataControl.Binders.pas',
+  FMX.ControlCalculations in '..\Scrollable\FMX.ControlCalculations.pas',
+  FMX.DataControl.SortAndFilter in '..\Tree\FMX.DataControl.SortAndFilter.pas';
 
 end.
