@@ -16,6 +16,7 @@ uses
   System.Runtime.Serialization;
 
 type
+  {$M+}
   ICancelAddNew = interface(IBaseInterface)
     ['{CF222852-2560-41F9-A442-F30987CC75D5}']
     procedure CancelNew(itemIndex: Integer);
