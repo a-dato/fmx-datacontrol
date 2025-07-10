@@ -387,7 +387,7 @@ uses
   FMX.ScrollControl.ControlClasses,
   FMX.ControlCalculations, System.Types, System.Character,
   ADato.Collections.Specialized, System.Reflection, FMX.Platform,
-  System.SysUtils, FMX.ComboMultiBox;
+  System.SysUtils{, FMX.ComboMultiBox};
 
 { TScrollControlWithEditableCells }
 
@@ -2467,22 +2467,19 @@ end;
 
 procedure TDCCellMultiSelectDropDownEditor.BeginEdit(const EditValue: CObject);
 begin
-  _editor := TComboMultiBox.Create(nil);
-  TComboMultiBox(_editor).Items := _PickList;
-  TComboMultiBox(_editor).SelectedItems := EditValue.AsType<IList>;
-  _cell.Control.AddObject(_editor);
+//  _editor := TComboMultiBox.Create(nil);
+//  TComboMultiBox(_editor).Items := _PickList;
+//  TComboMultiBox(_editor).SelectedItems := EditValue.AsType<IList>;
+//  _cell.Control.AddObject(_editor);
 
   inherited;
 
-//  var val := CStringToString(_originalValue.ToString(True));
-//  ce.ItemIndex := ce.Items.IndexOf(val);
-
-  Dropdown;
+//  Dropdown;
 end;
 
 procedure TDCCellMultiSelectDropDownEditor.Dropdown;
 begin
-  TComboMultiBox(_editor).DropDown;
+//  TComboMultiBox(_editor).DropDown;
 end;
 
 function TDCCellMultiSelectDropDownEditor.get_PickList: IList;
@@ -2492,14 +2489,8 @@ end;
 
 function TDCCellMultiSelectDropDownEditor.get_Value: CObject;
 begin
-  Result := TComboMultiBox(_editor).SelectedItems;
+//  Result := TComboMultiBox(_editor).SelectedItems;
 end;
-
-//procedure TDCCellMultiSelectDropDownEditor.OnEditorKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
-//begin
-//  inherited;
-//
-//end;
 
 procedure TDCCellMultiSelectDropDownEditor.set_PickList(const Value: IList);
 begin
@@ -2508,7 +2499,7 @@ end;
 
 procedure TDCCellMultiSelectDropDownEditor.set_Value(const Value: CObject);
 begin
-  TComboMultiBox(_editor).SelectedItems := Value.AsType<IList>;
+//  TComboMultiBox(_editor).SelectedItems := Value.AsType<IList>;
 end;
 
 end.
