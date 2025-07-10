@@ -1,4 +1,4 @@
-{$I Adato.inc}
+﻿{$I Adato.inc}
 
 {$IFDEF CROSSVCL}
 {$DEFINE MSWINDOWS}
@@ -4385,4 +4385,6 @@ begin
 end;
 
 end.
+
+
 

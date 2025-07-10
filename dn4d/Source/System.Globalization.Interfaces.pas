@@ -1,4 +1,4 @@
-unit System.Globalization.Interfaces;
+﻿unit System.Globalization.Interfaces;
 
 interface
 
@@ -370,3 +370,5 @@ begin
 end;
 
 end.
+
+

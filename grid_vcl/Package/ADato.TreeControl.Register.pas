@@ -1,4 +1,4 @@
-unit ADato.TreeControl.Register;
+﻿unit ADato.TreeControl.Register;
 
 interface
 
@@ -20,3 +20,5 @@ begin
 end;
 
 end.
+
+

@@ -1,4 +1,4 @@
-unit ADato_CollectionEditor_Dialog;
+﻿unit ADato_CollectionEditor_Dialog;
 
 interface
 
@@ -55,3 +55,5 @@ begin
 end;
 
 end.
+
+

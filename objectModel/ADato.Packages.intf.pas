@@ -1,4 +1,4 @@
-{$I Adato.inc}
+﻿{$I Adato.inc}
 
 unit ADato.Packages.intf;
 
@@ -26,3 +26,5 @@ var
 implementation
 
 end.
+
+

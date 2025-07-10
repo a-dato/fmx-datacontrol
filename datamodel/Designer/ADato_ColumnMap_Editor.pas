@@ -1,4 +1,4 @@
-{$I ..\..\dn4d\Source\Adato.inc}
+﻿{$I ..\..\dn4d\Source\Adato.inc}
 
 unit ADato_ColumnMap_Editor;
 
@@ -197,3 +197,5 @@ begin
 end;
 
 end.
+
+

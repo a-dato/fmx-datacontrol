@@ -1,4 +1,4 @@
-{$I ..\..\dn4d\Source\Adato.inc}
+﻿{$I ..\..\dn4d\Source\Adato.inc}
 
 unit System.Registration;
 
@@ -644,3 +644,5 @@ finalization
 {$ENDIF}
 
 end.
+
+

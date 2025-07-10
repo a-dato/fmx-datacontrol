@@ -1,4 +1,4 @@
-{$IFNDEF WEBASSEMBLY}
+﻿{$IFNDEF WEBASSEMBLY}
 {$I ADato.inc}
 {$ENDIF}
 
@@ -18,7 +18,7 @@ uses
   System.Collections,
   ADato.ObjectModel.intf,
   ADato.ObjectModel.impl,
-  System.ComponentModel, 
+  System.ComponentModel,
   ADato.Sortable.Intf;
 
 type
@@ -93,9 +93,12 @@ uses
 { TObjectListModel<T> }
 constructor TObjectListModel<T>.Create(const AType: &Type);
 begin
-  _ObjectType := AType;
-  Initialize;
-end;
+
+  _ObjectType := AType;
+
+  Initialize;
+
+end;
 
 constructor TObjectListModel<T>.Create;
 begin
@@ -273,3 +276,5 @@ begin
 end;
 
 end.
+
+

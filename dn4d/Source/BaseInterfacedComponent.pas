@@ -1,4 +1,4 @@
-unit BaseInterfacedComponent;
+﻿unit BaseInterfacedComponent;
 
 interface
 
@@ -71,3 +71,5 @@ begin
 end;
 
 end.
+
+

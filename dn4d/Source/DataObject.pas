@@ -1,4 +1,4 @@
-{$I Adato.inc}
+﻿{$I Adato.inc}
 
 {$IFDEF DELPHI}
 unit DataObject;
@@ -845,3 +845,5 @@ begin
 end;
 
 end.
+
+

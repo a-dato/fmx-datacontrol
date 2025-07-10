@@ -1,4 +1,4 @@
-unit FMX.ScrollControl.Impl;
+﻿unit FMX.ScrollControl.Impl;
 
 interface
 
@@ -1042,3 +1042,5 @@ begin
 end;
 
 end.
+
+

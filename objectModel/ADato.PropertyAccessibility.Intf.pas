@@ -1,4 +1,4 @@
-unit ADato.PropertyAccessibility.Intf;
+﻿unit ADato.PropertyAccessibility.Intf;
 
 interface
 
@@ -68,3 +68,5 @@ begin
 end;
 
 end.
+
+

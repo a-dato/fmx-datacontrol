@@ -1,4 +1,4 @@
-unit BitConverter;
+﻿unit BitConverter;
 
 interface
 
@@ -128,3 +128,5 @@ end;
 
 
 end.
+
+

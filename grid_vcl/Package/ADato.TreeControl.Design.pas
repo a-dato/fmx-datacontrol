@@ -1,4 +1,4 @@
-unit ADato.TreeControl.Design;
+﻿unit ADato.TreeControl.Design;
 
 interface
 
@@ -69,3 +69,5 @@ begin
 end;
 
 end.
+
+

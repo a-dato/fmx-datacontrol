@@ -1,4 +1,4 @@
-unit FMXDataControlColumnsDsgnPage;
+﻿unit FMXDataControlColumnsDsgnPage;
 
 interface
 
@@ -299,3 +299,5 @@ begin
 end;
 
 end.
+
+

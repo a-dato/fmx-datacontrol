@@ -1,4 +1,4 @@
-unit ADato_DataModelViewDataset_Reg;
+﻿unit ADato_DataModelViewDataset_Reg;
 
 interface
 
@@ -21,3 +21,5 @@ end;
 
 
 end.
+
+

@@ -1,4 +1,4 @@
-unit ADato_TreeControl_Columns_DsgnPage;
+﻿unit ADato_TreeControl_Columns_DsgnPage;
 
 interface
 
@@ -288,3 +288,5 @@ begin
 end;
 
 end.
+
+

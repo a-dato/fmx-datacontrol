@@ -1,4 +1,4 @@
-{$I ..\..\dn4d\Source\Adato.inc}
+﻿{$I ..\..\dn4d\Source\Adato.inc}
 
 unit ADato.Controls.Tree.Impl;
 
@@ -15236,5 +15236,7 @@ begin
 end;
 
 end.
+
+
 
 

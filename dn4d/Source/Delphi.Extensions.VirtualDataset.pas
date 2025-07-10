@@ -1,4 +1,4 @@
-{$I Adato.inc}
+﻿{$I Adato.inc}
 unit Delphi.Extensions.VirtualDataset;
 {$R-,T-,H+,X+}
 
@@ -1298,3 +1298,5 @@ begin
 end;
 
 end.
+
+

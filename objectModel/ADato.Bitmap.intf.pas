@@ -1,4 +1,4 @@
-{$I ..\Source\Adato.inc}
+﻿{$I ..\Source\Adato.inc}
 
 unit ADato.Bitmap.intf;
 
@@ -24,3 +24,5 @@ type
 implementation
 
 end.
+
+

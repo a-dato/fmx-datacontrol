@@ -1,4 +1,4 @@
-unit Delphi.Extensions.Strings;
+﻿unit Delphi.Extensions.Strings;
 
 interface
 
@@ -14,4 +14,6 @@ resourcestring
 implementation
  
 end.
+
+
 

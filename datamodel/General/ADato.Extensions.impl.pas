@@ -1,4 +1,4 @@
-{$IFNDEF WEBASSEMBLY}
+﻿{$IFNDEF WEBASSEMBLY}
 {$I ..\Source\Adato.inc}
 {$ENDIF}
 
@@ -423,3 +423,5 @@ finalization
   TExtensionManager.FinalizeGlobalExtensionManager;
 
 end.
+
+

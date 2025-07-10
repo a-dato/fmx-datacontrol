@@ -1,4 +1,4 @@
-{$I Adato.inc}
+﻿{$I Adato.inc}
 
 unit System.Collections.ListInterface.impl;
 
@@ -192,3 +192,4 @@ begin
 end;
 
 end.
+

@@ -1,4 +1,4 @@
-unit ADato.EditableObjectModelContext.impl;
+﻿unit ADato.EditableObjectModelContext.impl;
 
 interface
 
@@ -222,3 +222,5 @@ begin
 end;
 
 end.
+
+

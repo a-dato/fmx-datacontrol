@@ -1,4 +1,4 @@
-unit FMX.ScrollControl.View.Intf;
+﻿unit FMX.ScrollControl.View.Intf;
 
 interface
 
@@ -191,3 +191,5 @@ begin
 end;
 
 end.
+
+

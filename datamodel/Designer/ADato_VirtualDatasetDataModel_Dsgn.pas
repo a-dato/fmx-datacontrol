@@ -1,4 +1,4 @@
-unit ADato_VirtualDatasetDataModel_Dsgn;
+﻿unit ADato_VirtualDatasetDataModel_Dsgn;
 
 { =============================================================================== }
 {                            TEzDataset designer object                           }
@@ -216,3 +216,5 @@ begin
 end;
 
 end.
+
+

@@ -1,4 +1,4 @@
-unit ADato_Fields_DsgnPage;
+﻿unit ADato_Fields_DsgnPage;
 
 { =============================================================================== }
 {                            TEzDataset designer object                           }
@@ -545,3 +545,5 @@ begin
 end;
 
 end.
+
+

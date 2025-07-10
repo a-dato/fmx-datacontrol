@@ -1,4 +1,4 @@
-unit ADato_PropertyEditor_Reg;
+﻿unit ADato_PropertyEditor_Reg;
 
 interface
 
@@ -20,3 +20,5 @@ begin
 end;
 
 end.
+
+

@@ -1,4 +1,4 @@
-{$I Adato.inc}
+﻿{$I Adato.inc}
 
 unit CompanyObject;
 
@@ -195,3 +195,5 @@ begin
 end;
 
 end.
+
+

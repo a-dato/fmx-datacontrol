@@ -1,4 +1,4 @@
-unit ADato.Data.DB;
+﻿unit ADato.Data.DB;
 
 interface
 
@@ -23,3 +23,5 @@ type
 implementation
 
 end.
+
+

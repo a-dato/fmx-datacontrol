@@ -1,4 +1,4 @@
-unit ADato.Models.VirtualListItemDelegate;
+﻿unit ADato.Models.VirtualListItemDelegate;
 
 interface
 
@@ -53,3 +53,5 @@ begin
 end;
 
 end.
+
+

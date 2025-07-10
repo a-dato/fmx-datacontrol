@@ -1,4 +1,4 @@
-{$I Adato.inc}
+ï»¿{$I Adato.inc}
 
 unit System_;
 {$WARN DUPLICATE_CTOR_DTOR OFF}        //[dcc64 Warning] System_.pas(14320): W1029 Duplicate constructor 'IntPtr.CreateUnmanagedPointer' with identical parameters will be inacessible from C++
@@ -246,6 +246,8 @@ type
     function  Equals(const Other: &Type): Boolean;
     function  IsOfType<T> : Boolean;
     function  InheritsFrom<T> : Boolean;
+    function  Name: string;
+    function  ToString: string;
 
     class operator Equal(const a, b: &Type): Boolean;
     class operator Equal(const a: &Type; b: Pointer): Boolean;
@@ -3510,6 +3512,16 @@ procedure &Type.CheckNullReference;
 begin
   if _TypeInfo = nil then
     raise NullReferenceException.Create;
+end;
+
+function &Type.Name: string;
+begin
+  Result := TypeToString(Self);
+end;
+
+function &Type.ToString: string;
+begin
+  Result := TypeToString(Self);
 end;
 
 function &Type.get_PropertyInfo: _PropertyInfo;
@@ -8077,7 +8089,7 @@ end;
 
 class function CChar.IsLatin1(const ch: CChar): boolean;
 begin
-  Result := (ch <= 'ÿ')
+  Result := (ch <= 'ï¿½')
 end;
 
 class function CChar.IsLetter(const c: CChar): boolean;
@@ -15231,4 +15243,6 @@ begin
 end;
 
 end.
+
+
 

@@ -1,4 +1,4 @@
-unit ADato_CollectionEditor_Reg;
+﻿unit ADato_CollectionEditor_Reg;
 
 interface
 
@@ -75,3 +75,5 @@ begin
 end;
 
 end.
+
+

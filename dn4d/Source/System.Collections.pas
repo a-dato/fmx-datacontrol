@@ -1,4 +1,4 @@
-unit System.Collections;
+﻿unit System.Collections;
 
 interface
 
@@ -2889,3 +2889,5 @@ end;
 //  ShowMessage(CARRAY._stopwatch.ElapsedMilliseconds.TOSTring + ' ms');
 
 end.
+
+

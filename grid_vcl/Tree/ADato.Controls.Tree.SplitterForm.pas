@@ -1,4 +1,4 @@
-unit ADato.Controls.Tree.SplitterForm;
+﻿unit ADato.Controls.Tree.SplitterForm;
 
 interface
 
@@ -106,3 +106,5 @@ begin
 end;
 
 end.
+
+

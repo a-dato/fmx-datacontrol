@@ -1,4 +1,4 @@
-unit ADato_Renderer_intf;
+﻿unit ADato_Renderer_intf;
 
 interface
 
@@ -6,3 +6,5 @@ implementation
 
 
 end.
+
+

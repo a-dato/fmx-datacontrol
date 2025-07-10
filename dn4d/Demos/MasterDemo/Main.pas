@@ -1,4 +1,4 @@
-{$I Adato.inc}
+﻿{$I Adato.inc}
 
 unit Main;
 
@@ -91,3 +91,5 @@ begin
 end;
 
 end.
+
+

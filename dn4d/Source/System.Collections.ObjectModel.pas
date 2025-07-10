@@ -1,4 +1,4 @@
-{$I Adato.inc}
+﻿{$I Adato.inc}
 
 unit System.Collections.ObjectModel;
 
@@ -726,3 +726,5 @@ end;
 {$ENDIF}
 
 end.
+
+

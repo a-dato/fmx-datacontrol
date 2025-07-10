@@ -1,4 +1,4 @@
-unit Delphi.Extensions.VirtualDataset.Register;
+﻿unit Delphi.Extensions.VirtualDataset.Register;
 
 interface
 
@@ -22,3 +22,5 @@ end;
 
 
 end.
+
+

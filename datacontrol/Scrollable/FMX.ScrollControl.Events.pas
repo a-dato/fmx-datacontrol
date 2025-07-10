@@ -1,4 +1,4 @@
-unit FMX.ScrollControl.Events;
+﻿unit FMX.ScrollControl.Events;
 
 interface
 
@@ -559,6 +559,8 @@ begin
 end;
 
 end.
+
+
 
 
 

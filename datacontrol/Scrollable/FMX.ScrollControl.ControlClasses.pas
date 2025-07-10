@@ -1,4 +1,4 @@
-unit FMX.ScrollControl.ControlClasses;
+﻿unit FMX.ScrollControl.ControlClasses;
 
 interface
 
@@ -251,3 +251,5 @@ finalization
   DataControlClassFactory := nil;
 
 end.
+
+

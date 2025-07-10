@@ -1,4 +1,4 @@
-unit TypeInfoDemo;
+﻿unit TypeInfoDemo;
 
 interface
 
@@ -98,3 +98,5 @@ begin
 end;
 
 end.
+
+

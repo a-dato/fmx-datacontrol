@@ -1,4 +1,4 @@
-{$IFNDEF WEBASSEMBLY}
+﻿{$IFNDEF WEBASSEMBLY}
 {$I ..\Source\Adato.inc}
 {$ENDIF}
 
@@ -265,3 +265,5 @@ finalization
   EventTracer.StopTracing(not EventTracer.HasException);
 
 end.
+
+

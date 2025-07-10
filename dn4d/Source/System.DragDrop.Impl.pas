@@ -1,4 +1,4 @@
-unit System.DragDrop.Impl;
+﻿unit System.DragDrop.Impl;
 {$I Adato.inc}
 interface
 uses
@@ -527,7 +527,8 @@ end;
 
 function TDragManager.GetHandle: HWND;
 begin
-  Result := 0;
+
+  Result := 0;
 end;
 
 procedure TDragManager.Show(fShow: Boolean);
@@ -535,4 +536,6 @@ begin
   _DragDropInterfaceHelper.DropTargetHelper.Show(fShow);
 end;
 
-end.
+
+end.
+

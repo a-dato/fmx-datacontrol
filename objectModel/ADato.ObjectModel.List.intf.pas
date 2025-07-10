@@ -1,4 +1,4 @@
-{$IFNDEF WEBASSEMBLY}
+﻿{$IFNDEF WEBASSEMBLY}
 {$I ..\..\dn4d\Source\Adato.inc}
 {$ENDIF}
 
@@ -366,9 +366,11 @@ end;
 procedure TObjectModelMultiSelect.set_IsActive(const Value: Boolean);
 begin
   if _isActive = Value then
-    Exit;
 
-  _isActive := Value;
+    Exit;
+
+
+  _isActive := Value;
 
   if _isActive then
   begin
@@ -399,3 +401,5 @@ begin
 end;
 
 end.
+
+

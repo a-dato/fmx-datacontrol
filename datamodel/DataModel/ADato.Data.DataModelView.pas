@@ -1,4 +1,4 @@
-unit ADato.Data.DataModelView;
+﻿unit ADato.Data.DataModelView;
 
 interface
 
@@ -100,3 +100,5 @@ begin
 end;
 
 end.
+
+

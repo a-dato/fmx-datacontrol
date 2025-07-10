@@ -1,4 +1,4 @@
-{$I ..\Source\Adato.inc}
+﻿{$I ..\Source\Adato.inc}
 
 unit ADato.Collections.Specialized;
 
@@ -564,4 +564,6 @@ begin
 end;
 
 end.
+
+
 

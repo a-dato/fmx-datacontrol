@@ -1,4 +1,4 @@
-unit FMX.DataControl.ColumnsProperty;
+﻿unit FMX.DataControl.ColumnsProperty;
 
 interface
 
@@ -54,7 +54,8 @@ begin
 end;
 
 { TDataControlEditor }
-
+
+
 constructor TDataControlEditor.Create(AComponent: TComponent; ADesigner: IDesigner);
 begin
   inherited;
@@ -82,3 +83,5 @@ begin
 end;
 
 end.
+
+

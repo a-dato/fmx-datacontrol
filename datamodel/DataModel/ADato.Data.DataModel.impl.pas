@@ -1,4 +1,4 @@
-{$IFNDEF WEBASSEMBLY}
+ï»¿{$IFNDEF WEBASSEMBLY}
 {$I ..\..\dn4d\Source\Adato.inc}
 {$ENDIF}
 
@@ -1073,7 +1073,7 @@ procedure TDataRow.set_Level(Value: Integer);
 begin
   {$IFDEF DEBUG}
   if Data <> nil then
-    if Data.ToString = '90° Rotation' then
+    if Data.ToString = '90ï¿½ Rotation' then
       _Level := Value;
   {$ENDIF}
   _Level := Value;
@@ -5513,3 +5513,5 @@ finalization
   &Assembly.UnRegisterClass(DataModelColumn);
 {$ENDIF}
 end.
+
+
