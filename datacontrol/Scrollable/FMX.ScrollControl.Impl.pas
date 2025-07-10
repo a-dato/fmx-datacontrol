@@ -28,7 +28,8 @@ uses
   {$ENDIF}
   System_,
   System.Diagnostics,
-  FMX.ScrollControl.Intf;
+  FMX.ScrollControl.Intf,
+  FMX.ScrollControl.Events;
 
 type
   TRealignState = (Waiting, BeforeRealign, Realigning, AfterRealign, RealignDone);
@@ -40,7 +41,6 @@ type
 
   TDoLog = procedure(const Message: CString) of object;
   TOnViewportPositionChange = procedure(Sender: TObject; const OldViewportPosition, NewViewportPosition: TPointF; const ContentSizeChanged: Boolean) of object;
-
   TPointFArray = array of CDatetime;
 
   TScrollControl = class(TLayout, IRefreshControl)
@@ -110,6 +110,19 @@ type
     procedure UpdateMouseScrollingLastMoves(Reset: Boolean; LastPoint: TPointF);
 
   protected
+    _customHintShowing: Boolean;
+    _customHintTimer: TTimer;
+    _customHintPos: TPointF;
+    _mouseIsSticking: Boolean;
+    _onStickyClick: TNotifyEvent;
+
+    _onCustomToolTipEvent: TCustomToolTipEvent;
+
+    procedure OnCustomHintTimer(Sender: TObject);
+
+    procedure DoHintChange(DoShow: Boolean);
+
+  protected
     _vertScrollBar: TSmallScrollBar;
     _horzScrollBar: TSmallScrollBar;
 
@@ -165,6 +178,8 @@ type
     function  IsInitialized: Boolean;
     procedure RequestRealignContent;
 
+    procedure ForceImmeditiateRealignContent;
+
     procedure Painting; override;
     procedure Paint; override;
     procedure PaintChildren; override;
@@ -177,6 +192,8 @@ type
 
   published
     property OnViewPortPositionChanged: TOnViewportPositionChange read _onViewPortPositionChanged write _onViewPortPositionChanged;
+    property OnCustomToolTipEvent: TCustomToolTipEvent read _onCustomToolTipEvent write _onCustomToolTipEvent;
+    property OnStickyClick: TNotifyEvent read _onStickyClick write _onStickyClick;
 
   {$IFDEF DEBUG}
   protected
@@ -288,6 +305,16 @@ begin
   {$ENDIF}
   _mouseWheelSmoothScrollTimer.Interval := 25;
   _mouseWheelSmoothScrollTimer.Enabled := False;
+
+  _customHintTimer := TTimer.Create(Self);
+  _customHintTimer.Stored := False;
+  {$IFNDEF WEBASSEMBLY}
+  _customHintTimer.OnTimer := OnCustomHintTimer;
+  {$ELSE}
+  _customHintTimer.OnTimer := @OnCustomHintTimer;
+  {$ENDIF}
+  _customHintTimer.Interval := 500;
+  _customHintTimer.Enabled := False;
 
   SetLength(_mouseRollingLastPoints, 3);
   UpdateMouseScrollingLastMoves(True, TPointF.Zero)
@@ -413,6 +440,9 @@ end;
 procedure TScrollControl.DoMouseLeave;
 begin
   _clickEnable := False;
+  _customHintTimer.Enabled := False;
+  _mouseIsSticking := False;
+  DoHintChange(False);
 
   inherited;
 
@@ -480,6 +510,11 @@ begin
     _onViewPortPositionChanged(Self, _oldViewPortPos, newViewPointPos, False);
 
   _oldViewPortPos := newViewPointPos;
+end;
+
+procedure TScrollControl.ForceImmeditiateRealignContent;
+begin
+  BeforePainting;
 end;
 
 function TScrollControl.GetViewPortPosition: TPointF;
@@ -568,6 +603,14 @@ end;
 
 procedure TScrollControl.MouseMove(Shift: TShiftState; X, Y: Single);
 begin
+  _customHintPos := PointF(X, Y);
+
+  _mouseIsSticking := False;
+  _customHintTimer.Enabled := False;
+  _customHintTimer.Enabled := True;
+
+  DoHintChange(True);
+
   if not _clickEnable then
     Exit;
 
@@ -610,7 +653,12 @@ begin
 
     // determine the mouseUp as a click event
     if doMouseClick then
+    begin
       UserClicked(Button, Shift, X, Y - _content.Position.Y);
+
+      if Assigned(_onStickyClick) then
+        _onStickyClick(Self);
+    end;
 
     if _scrollStopWatch_mouse.IsRunning then
       _scrollStopWatch_mouse.Reset;
@@ -643,15 +691,17 @@ begin
   if Handled or (_scrollingType <> TScrollingType.None) then
     Exit;
 
-  if not CanRealignContent then
+  if not CanRealignContent or not CanRealignScrollCheck then
     Exit;
 
-  if not CanRealignScrollCheck then
+  var goUp := WheelDelta > 0;
+  if goUp and SameValue(_vertScrollBar.Value, 0) then
+    Exit
+  else if not goUp and SameValue(_vertScrollBar.Value + _vertScrollBar.ViewportSize, _vertScrollBar.Max) then
     Exit;
 
   Handled := True;
 
-  var goUp := WheelDelta > 0;
   var scrollDIstance := Round(DefaultMoveDistance(not goUp));
 
   _mouseWheelSmoothScrollSpeedUp := CMath.Min(_mouseWheelSmoothScrollSpeedUp + 1, 8);
@@ -703,6 +753,35 @@ begin
     Exit;
 
   DoContentResized(widthChanged, heightChanged);
+end;
+
+procedure TScrollControl.DoHintChange(DoShow: Boolean);
+begin
+  if not _customHintShowing and not DoShow then
+    Exit;
+
+  _customHintShowing := DoShow;
+
+  if Assigned(_onCustomToolTipEvent) then
+  begin
+    var args := TDCHintEventArgs.Create(DoShow, _customHintPos, _mouseIsSticking);
+    try
+      _onCustomToolTipEvent(Self, args);
+      _customHintShowing := args.ShowCustomHint;
+    finally
+      args.Free;
+    end;
+  end;
+end;
+
+procedure TScrollControl.OnCustomHintTimer(Sender: TObject);
+begin
+  _customHintTimer.Enabled := False;
+  if not IsMouseOver then
+    Exit;  // already at mouseLeave fired
+
+  _mouseIsSticking := True;
+  DoHintChange(True);
 end;
 
 procedure TScrollControl.OnHorzScrollBarChange(Sender: TObject);

@@ -301,6 +301,9 @@ type
     function  get_AutoExtraColumnSizeMax: Single;
     procedure set_AutoExtraColumnSizeMax(const Value: Single);
 
+    function  get_CellTopBottomPadding: Single;
+    procedure set_CellTopBottomPadding(const Value: Single);
+
     procedure ColumnVisibilityChanged(const Column: IDCTreeColumn; IsUserChange: Boolean);
     procedure ColumnWidthChanged(const Column: IDCTreeColumn);
 
@@ -318,6 +321,7 @@ type
     property HeaderTextTopMargin: Single read get_headerTextTopMargin write set_headerTextTopMargin;
     property HeaderTextBottomMargin: Single read get_headerTextBottomMargin write set_headerTextBottomMargin;
     property AutoExtraColumnSizeMax: Single read get_AutoExtraColumnSizeMax write set_AutoExtraColumnSizeMax;
+    property CellTopBottomPadding: Single read get_CellTopBottomPadding write set_CellTopBottomPadding;
   end;
 
   ITreeSortDescription = interface

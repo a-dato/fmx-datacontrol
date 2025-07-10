@@ -21,7 +21,7 @@ uses
   FMX.ScrollControl.Events, ADato.Data.DataModel.intf;
 
 type
-  TScrollControlWithEditableColumns = class(TScrollControlWithColumns, IDataControlEditorHandler)
+  TScrollControlWithEditableCells = class(TScrollControlWithCells, IDataControlEditorHandler)
   protected
     _modelListItemChanged: IListItemChanged;
     procedure set_Model(const Value: IObjectListModel); override;
@@ -317,9 +317,33 @@ type
     property SaveData: Boolean read _saveData write _saveData;
   end;
 
+  TDCCellMultiSelectDropDownEditor = class(TDCCellEditor, IPickListSupport)
+  private
+    _PickList: IList;
+    _Value: CObject;
+    _saveData: Boolean;
+  protected
+    function  get_Value: CObject; override;
+    procedure set_Value(const Value: CObject); override;
+
+    function  get_PickList: IList;
+    procedure set_PickList(const Value: IList);
+
+    procedure Dropdown;
+
+//    procedure OnEditorKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState); override;
+  public
+    procedure BeginEdit(const EditValue: CObject); override;
+
+//    function  TryBeginEditWithUserKey(UserKey: string): Boolean; override;
+
+    property PickList: IList read get_PickList write set_PickList;
+    property SaveData: Boolean read _saveData write _saveData;
+  end;
+
   TObjectListModelItemChangedDelegate = class(TBaseInterfacedObject, IListItemChanged, IUpdatableObject)
   protected
-    _Owner: TScrollControlWithEditableColumns;
+    _Owner: TScrollControlWithEditableCells;
     _UpdateCount: Integer;
 
     procedure AddingNew(const Value: CObject; var Index: Integer; Position: InsertPosition);
@@ -332,7 +356,7 @@ type
     procedure SetItemInCurrentView(const DataItem: CObject);
 
   public
-    constructor Create(const AOwner: TScrollControlWithEditableColumns);
+    constructor Create(const AOwner: TScrollControlWithEditableCells);
 
     procedure BeginUpdate;
     procedure EndUpdate;
@@ -363,18 +387,18 @@ uses
   FMX.ScrollControl.ControlClasses,
   FMX.ControlCalculations, System.Types, System.Character,
   ADato.Collections.Specialized, System.Reflection, FMX.Platform,
-  System.SysUtils;
+  System.SysUtils, FMX.ComboMultiBox;
 
-{ TScrollControlWithEditableColumns }
+{ TScrollControlWithEditableCells }
 
-constructor TScrollControlWithEditableColumns.Create(AOwner: TComponent);
+constructor TScrollControlWithEditableCells.Create(AOwner: TComponent);
 begin
   inherited;
   _editingInfo := TTreeEditingInfo.Create;
   _tempCachedEditingColumnCustomWidth := -1;
 end;
 
-function TScrollControlWithEditableColumns.CheckedItemsInColumn(const Column: IDCTreeColumn): List<CObject>;
+function TScrollControlWithEditableCells.CheckedItemsInColumn(const Column: IDCTreeColumn): List<CObject>;
 begin
   var checkedItems: List<Integer>;
   if not _checkedItems.TryGetValue(Column, checkedItems) or (checkedItems = nil) then
@@ -388,7 +412,7 @@ begin
     Result.Add(orgData[dataIndex]);
 end;
 
-procedure TScrollControlWithEditableColumns.ClearCheckboxCache(const Column: IDCTreeColumn = nil);
+procedure TScrollControlWithEditableCells.ClearCheckboxCache(const Column: IDCTreeColumn = nil);
 begin
   if _checkedItems = nil then
     Exit;
@@ -399,12 +423,12 @@ begin
     _checkedItems.Remove(Column);
 end;
 
-function TScrollControlWithEditableColumns.CanRealignContent: Boolean;
+function TScrollControlWithEditableCells.CanRealignContent: Boolean;
 begin
   Result := inherited and not _editingInfo.CellIsEditing;
 end;
 
-function TScrollControlWithEditableColumns.CheckCanChangeRow: Boolean;
+function TScrollControlWithEditableCells.CheckCanChangeRow: Boolean;
 begin
   // old row can be scrolled out of view. So always work with dummy rows
 
@@ -415,7 +439,7 @@ begin
   Result := DoCellCanChange(oldCell, nil);
 end;
 
-procedure TScrollControlWithEditableColumns.KeyDown(var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
+procedure TScrollControlWithEditableCells.KeyDown(var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
 
   function KeysImplyToAddRow: Boolean;
   begin
@@ -528,7 +552,7 @@ begin
   end;
 end;
 
-procedure TScrollControlWithEditableColumns.LoadDefaultDataIntoControl(const Cell: IDCTreeCell; const FlatColumn: IDCTreeLayoutColumn; const IsSubProp: Boolean);
+procedure TScrollControlWithEditableCells.LoadDefaultDataIntoControl(const Cell: IDCTreeCell; const FlatColumn: IDCTreeLayoutColumn; const IsSubProp: Boolean);
 begin
   inc(_updateCount);
   try
@@ -560,7 +584,7 @@ begin
   end;
 end;
 
-procedure TScrollControlWithEditableColumns.DoCellCheckChangedByUser(const Cell: IDCTreeCell);
+procedure TScrollControlWithEditableCells.DoCellCheckChangedByUser(const Cell: IDCTreeCell);
 begin
   if Cell = nil then
     Exit;
@@ -591,7 +615,7 @@ begin
   end;
 end;
 
-procedure TScrollControlWithEditableColumns.OnPropertyCheckBoxChange(Sender: TObject);
+procedure TScrollControlWithEditableCells.OnPropertyCheckBoxChange(Sender: TObject);
 begin
   if Self.IsUpdating or (_updateCount > 0) then
     Exit;
@@ -627,7 +651,7 @@ begin
   end;
 end;
 
-procedure TScrollControlWithEditableColumns.OnEditorExit;
+procedure TScrollControlWithEditableCells.OnEditorExit;
 begin
   // windows wants to clear the focus control after this point
   // therefor we need a little time untill we can EndEdit and free the editor
@@ -637,7 +661,7 @@ begin
   end);
 end;
 
-procedure TScrollControlWithEditableColumns.OnEditorKeyDown(var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
+procedure TScrollControlWithEditableCells.OnEditorKeyDown(var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
 begin
   if (Key = vkEscape) then
   begin
@@ -660,7 +684,7 @@ begin
   end;
 end;
 
-procedure TScrollControlWithEditableColumns.set_Model(const Value: IObjectListModel);
+procedure TScrollControlWithEditableCells.set_Model(const Value: IObjectListModel);
 begin
   if _model = Value then
     Exit;
@@ -687,7 +711,7 @@ begin
   end;
 end;
 
-procedure TScrollControlWithEditableColumns.UpdateColumnCheck(const DataIndex: Integer; const Column: IDCTreeColumn; IsChecked: Boolean);
+procedure TScrollControlWithEditableCells.UpdateColumnCheck(const DataIndex: Integer; const Column: IDCTreeColumn; IsChecked: Boolean);
 begin
   Assert(Column.InfoControlClass = TInfoControlClass.CheckBox);
 
@@ -701,14 +725,14 @@ begin
     columnCheckedItems.Remove(DataIndex);
 end;
 
-procedure TScrollControlWithEditableColumns.UpdateColumnCheck(const DataItem: CObject; const Column: IDCTreeColumn; IsChecked: Boolean);
+procedure TScrollControlWithEditableCells.UpdateColumnCheck(const DataItem: CObject; const Column: IDCTreeColumn; IsChecked: Boolean);
 begin
   var ix := _view.OriginalData.IndexOf(DataItem);
   if ix <> -1 then
     UpdateColumnCheck(ix, Column, IsChecked);
 end;
 
-procedure TScrollControlWithEditableColumns.UpdateMinColumnWidthOnShowEditor(const Cell: IDCTreeCell; const MinColumnWidth: Single);
+procedure TScrollControlWithEditableCells.UpdateMinColumnWidthOnShowEditor(const Cell: IDCTreeCell; const MinColumnWidth: Single);
 begin
   if (Cell.COlumn.InfoControlClass <> TInfoControlClass.CheckBox) and (Cell.LayoutColumn.Width < MinColumnWidth) then
   begin
@@ -720,7 +744,7 @@ begin
     _tempCachedEditingColumnCustomWidth := -1;
 end;
 
-procedure TScrollControlWithEditableColumns.ResetColumnWidthOnHideEditor(const Column: IDCTreeColumn);
+procedure TScrollControlWithEditableCells.ResetColumnWidthOnHideEditor(const Column: IDCTreeColumn);
 begin
   if not SameValue(_tempCachedEditingColumnCustomWidth, Column.CustomWidth) then
   begin
@@ -731,7 +755,7 @@ begin
   end;
 end;
 
-procedure TScrollControlWithEditableColumns.ResetView(const FromViewListIndex: Integer; ClearOneRowOnly: Boolean);
+procedure TScrollControlWithEditableCells.ResetView(const FromViewListIndex: Integer; ClearOneRowOnly: Boolean);
 begin
   if not IsEditOrNew then
   begin
@@ -742,9 +766,9 @@ begin
   _resetViewRec := TResetViewRec.CreateFrom(FromViewListIndex, ClearOneRowOnly, True, _resetViewRec);
 end;
 
-procedure TScrollControlWithEditableColumns.UserClicked(Button: TMouseButton; Shift: TShiftState; const X, Y: Single);
+procedure TScrollControlWithEditableCells.UserClicked(Button: TMouseButton; Shift: TShiftState; const X, Y: Single);
 begin
-  var clickedRow := GetRowByMouseY(Y);
+  var clickedRow := GetRowByLocalY(Y);
   if clickedRow = nil then Exit;
 
   var crrntCell := GetActiveCell;
@@ -801,7 +825,7 @@ begin
   end;
 end;
 
-procedure TScrollControlWithEditableColumns.StartEditCell(const Cell: IDCTreeCell; const UserValue: string = '');
+procedure TScrollControlWithEditableCells.StartEditCell(const Cell: IDCTreeCell; const UserValue: string = '');
 begin
   // row can be in edit mode already, but cell should not be in edit mode yet
   if (Cell = nil) or Cell.Column.ReadOnly or (TDCTreeOption.ReadOnly in _options) then
@@ -838,7 +862,7 @@ begin
   end;
 end;
 
-function TScrollControlWithEditableColumns.TryAddRow(const Position: InsertPosition): Boolean;
+function TScrollControlWithEditableCells.TryAddRow(const Position: InsertPosition): Boolean;
 begin
   Assert(not _editingInfo.RowIsEditing);
 
@@ -957,7 +981,7 @@ begin
   end;
 end;
 
-procedure TScrollControlWithEditableColumns.TryCheckParentIfAllSelected(const ParentDrv: IDataRowView; const ColumnCheckedItems: List<Integer>);
+procedure TScrollControlWithEditableCells.TryCheckParentIfAllSelected(const ParentDrv: IDataRowView; const ColumnCheckedItems: List<Integer>);
 begin
   if (ParentDrv = nil) or ColumnCheckedItems.Contains(ParentDrv.Row.get_Index) then
     Exit; // nothing to do
@@ -975,7 +999,7 @@ begin
   TryCheckParentIfAllSelected(parent, ColumnCheckedItems);
 end;
 
-function TScrollControlWithEditableColumns.TryDeleteSelectedRows: Boolean;
+function TScrollControlWithEditableCells.TryDeleteSelectedRows: Boolean;
 begin
   var em: IEditableModel;
   if (_model <> nil) and interfaces.Supports<IEditableModel>(_model, em) and em.CanRemove then
@@ -1019,7 +1043,7 @@ begin
   end;
 end;
 
-function TScrollControlWithEditableColumns.TrySelectCheckBoxes: Boolean;
+function TScrollControlWithEditableCells.TrySelectCheckBoxes: Boolean;
 begin
   var cell := GetActiveCell;
   if (cell = nil) or cell.Column.IsSelectionColumn or (cell.Column.InfoControlClass <> TInfoControlClass.CheckBox) then
@@ -1081,7 +1105,7 @@ begin
   Result := True;
 end;
 
-procedure TScrollControlWithEditableColumns.CancelEdit(CellOnly: Boolean = False);
+procedure TScrollControlWithEditableCells.CancelEdit(CellOnly: Boolean = False);
 begin
   if _editingInfo.CellIsEditing then
   begin
@@ -1131,7 +1155,7 @@ begin
   DoDataItemChangedInternal(GetActiveRow.DataItem); //, GetActiveRow.DataIndex);
 end;
 
-function TScrollControlWithEditableColumns.EditActiveCell(SetFocus: Boolean; const UserValue: string = ''): Boolean;
+function TScrollControlWithEditableCells.EditActiveCell(SetFocus: Boolean; const UserValue: string = ''): Boolean;
 begin
   StartEditCell(GetActiveCell, UserValue);
 
@@ -1140,7 +1164,7 @@ begin
     _cellEditor.Editor.SetFocus;
 end;
 
-function TScrollControlWithEditableColumns.CopyToClipBoard : Boolean;
+function TScrollControlWithEditableCells.CopyToClipBoard : Boolean;
 begin
   if Assigned(_copyToClipboard) then
   begin
@@ -1150,7 +1174,7 @@ begin
     Result := False;
 end;
 
-function TScrollControlWithEditableColumns.PasteFromClipBoard : Boolean;
+function TScrollControlWithEditableCells.PasteFromClipBoard : Boolean;
 begin
   if Assigned(_pasteFromClipboard) then
   begin
@@ -1165,7 +1189,7 @@ begin
   end;
 end;
 
-function TScrollControlWithEditableColumns.ProvideCellData(const Cell: IDCTreeCell; const PropName: CString; const IsSubProp: Boolean): CObject;
+function TScrollControlWithEditableCells.ProvideCellData(const Cell: IDCTreeCell; const PropName: CString; const IsSubProp: Boolean): CObject;
 begin
   Result := inherited;
 
@@ -1173,7 +1197,7 @@ begin
     Result := _cellEditor.Value;
 end;
 
-function TScrollControlWithEditableColumns.EndEditCell: Boolean;
+function TScrollControlWithEditableCells.EndEditCell: Boolean;
 begin
   // stop cell editing
   if _editingInfo.CellIsEditing then
@@ -1223,7 +1247,7 @@ begin
   Result := True;
 end;
 
-procedure TScrollControlWithEditableColumns.CancelEditFromExternal;
+procedure TScrollControlWithEditableCells.CancelEditFromExternal;
 begin
   if (_internalSelectCount > 0) or not IsEditOrNew then
     Exit;
@@ -1242,12 +1266,12 @@ begin
   DoDataItemChangedInternal(GetActiveRow.DataItem); //, GetActiveRow.DataIndex);
 end;
 
-function TScrollControlWithEditableColumns.CanEditCell(const Cell: IDCTreeCell): Boolean;
+function TScrollControlWithEditableCells.CanEditCell(const Cell: IDCTreeCell): Boolean;
 begin
   Result := not Cell.Column.ReadOnly and not (TDCTreeOption.ReadOnly in _options);
 end;
 
-procedure TScrollControlWithEditableColumns.EndEditFromExternal;
+procedure TScrollControlWithEditableCells.EndEditFromExternal;
 begin
   if (_internalSelectCount > 0) or not IsEditOrNew then
     Exit;
@@ -1267,7 +1291,7 @@ begin
     DoEditRowEnd(crrCell.Row as IDCTreeRow);
 end;
 
-procedure TScrollControlWithEditableColumns.FollowCheckThroughChildren(const Cell: IDCTreeCell);
+procedure TScrollControlWithEditableCells.FollowCheckThroughChildren(const Cell: IDCTreeCell);
 begin
   if not Cell.Row.DataItem.IsOfType<IDataRowView> then
     Exit;
@@ -1305,14 +1329,14 @@ begin
   RefreshControl(True);
 end;
 
-procedure TScrollControlWithEditableColumns.GenerateView;
+procedure TScrollControlWithEditableCells.GenerateView;
 begin
   inherited;
 
   _checkedItems := CDictionary<IDCTreeColumn, List<Integer>>.Create;
 end;
 
-procedure TScrollControlWithEditableColumns.ShowEditor(const Cell: IDCTreeCell; const StartEditArgs: DCStartEditEventArgs; const UserValue: string = '');
+procedure TScrollControlWithEditableCells.ShowEditor(const Cell: IDCTreeCell; const StartEditArgs: DCStartEditEventArgs; const UserValue: string = '');
 var
   dataType: &Type;
 begin
@@ -1328,7 +1352,11 @@ begin
   else if StartEditArgs.PickList <> nil then
   begin
     Assert(Cell.Column.InfoControlClass in [TInfoControlClass.Text, TInfoControlClass.Custom]);
-    _cellEditor := TDCCellDropDownEditor.Create(self, Cell);
+
+    if StartEditArgs.MultiSelect then
+      _cellEditor := TDCCellMultiSelectDropDownEditor.Create(self, Cell) else
+      _cellEditor := TDCCellDropDownEditor.Create(self, Cell);
+
     (_cellEditor as IPickListSupport).PickList := StartEditArgs.PickList;
   end
   else if Cell.Column.InfoControlClass = TInfoControlClass.CheckBox then
@@ -1358,7 +1386,7 @@ begin
     _cellEditor.BeginEdit(StartEditArgs.Value);
 end;
 
-procedure TScrollControlWithEditableColumns.HideEditor;
+procedure TScrollControlWithEditableCells.HideEditor;
 begin
   var clmn := _cellEditor.Cell.Column;
 
@@ -1372,7 +1400,7 @@ begin
   activeCell.InfoControl.Visible := True;
 end;
 
-procedure TScrollControlWithEditableColumns.InternalSetCurrent(const Index: Integer; const EventTrigger: TSelectionEventTrigger; Shift: TShiftState; SortOrFilterChanged: Boolean);
+procedure TScrollControlWithEditableCells.InternalSetCurrent(const Index: Integer; const EventTrigger: TSelectionEventTrigger; Shift: TShiftState; SortOrFilterChanged: Boolean);
 begin
   Assert(CanRealignContent);
 
@@ -1397,22 +1425,22 @@ begin
   inherited;
 end;
 
-function TScrollControlWithEditableColumns.IsEdit: Boolean;
+function TScrollControlWithEditableCells.IsEdit: Boolean;
 begin
   Result := _editingInfo.RowIsEditing and not _editingInfo.IsNew;
 end;
 
-function TScrollControlWithEditableColumns.IsEditOrNew: Boolean;
+function TScrollControlWithEditableCells.IsEditOrNew: Boolean;
 begin
   Result := _editingInfo.RowIsEditing or _editingInfo.IsNew;
 end;
 
-function TScrollControlWithEditableColumns.IsNew: Boolean;
+function TScrollControlWithEditableCells.IsNew: Boolean;
 begin
   Result := _editingInfo.IsNew;
 end;
 
-function TScrollControlWithEditableColumns.ItemCheckedInColumn(const Item: CObject; const Column: IDCTreeColumn): Boolean;
+function TScrollControlWithEditableCells.ItemCheckedInColumn(const Item: CObject; const Column: IDCTreeColumn): Boolean;
 begin
   var ix := _view.OriginalData.IndexOf(Item);
   if ix = -1 then
@@ -1422,7 +1450,7 @@ begin
   Result := (_checkedItems <> nil) and _checkedItems.TryGetValue(Column, columnCheckedItems) and columnCheckedItems.Contains(ix);
 end;
 
-function TScrollControlWithEditableColumns.DoCellCanChange(const OldCell, NewCell: IDCTreeCell): Boolean;
+function TScrollControlWithEditableCells.DoCellCanChange(const OldCell, NewCell: IDCTreeCell): Boolean;
 begin
   if _editingInfo.RowIsEditing then
   begin
@@ -1438,7 +1466,7 @@ begin
   Result := inherited;
 end;
 
-procedure TScrollControlWithEditableColumns.DoCellCheckChangedByUser(const DataItem: CObject; const Column: IDCTreeColumn; IsChecked: Boolean);
+procedure TScrollControlWithEditableCells.DoCellCheckChangedByUser(const DataItem: CObject; const Column: IDCTreeColumn; IsChecked: Boolean);
 begin
   var ix := _view.GetViewListIndex(DataItem);
   if ix = -1 then Exit;
@@ -1468,7 +1496,7 @@ begin
   DoCellCheckChangedByUser(checkCell);
 end;
 
-function TScrollControlWithEditableColumns.DoEditRowStart(const ARow: IDCTreeRow; var DataItem: CObject; IsNew: Boolean): Boolean;
+function TScrollControlWithEditableCells.DoEditRowStart(const ARow: IDCTreeRow; var DataItem: CObject; IsNew: Boolean): Boolean;
 var
   rowEditArgs: DCRowEditEventArgs;
 
@@ -1520,13 +1548,13 @@ begin
   end;
 end;
 
-procedure TScrollControlWithEditableColumns.DoUserDeletedRow;
+procedure TScrollControlWithEditableCells.DoUserDeletedRow;
 begin
   if Assigned(_rowDeleted) then
     _rowDeleted(Self);
 end;
 
-function TScrollControlWithEditableColumns.DoUserDeletingRow(const Item: CObject): Boolean;
+function TScrollControlWithEditableCells.DoUserDeletingRow(const Item: CObject): Boolean;
 begin
   if Assigned(_rowDeleting) then
   begin
@@ -1538,7 +1566,7 @@ begin
     Result := True;
 end;
 
-function TScrollControlWithEditableColumns.DoEditRowEnd(const ARow: IDCTreeRow): Boolean;
+function TScrollControlWithEditableCells.DoEditRowEnd(const ARow: IDCTreeRow): Boolean;
 var
   rowEditArgs: DCRowEditEventArgs;
 
@@ -1605,7 +1633,7 @@ begin
   end;
 end;
 
-function TScrollControlWithEditableColumns.DoCellParsing(const Cell: IDCTreeCell; IsCheckOnEndEdit: Boolean; var AValue: CObject) : Boolean;
+function TScrollControlWithEditableCells.DoCellParsing(const Cell: IDCTreeCell; IsCheckOnEndEdit: Boolean; var AValue: CObject) : Boolean;
 var
   e: DCCellParsingEventArgs;
 
@@ -1622,7 +1650,7 @@ begin
   end;
 end;
 
-function TScrollControlWithEditableColumns.DoAddingNew(out NewObject: CObject) : Boolean;
+function TScrollControlWithEditableCells.DoAddingNew(out NewObject: CObject) : Boolean;
 begin
   NewObject := nil;
 
@@ -1638,7 +1666,7 @@ begin
     Result := True; // Continue with add new
 end;
 
-procedure TScrollControlWithEditableColumns.SafeForcedEndEdit;
+procedure TScrollControlWithEditableCells.SafeForcedEndEdit;
 begin
   try
     if not EndEditCell then
@@ -1652,7 +1680,7 @@ begin
   end;
 end;
 
-procedure TScrollControlWithEditableColumns.SetCellData(const Cell: IDCTreeCell; const Data: CObject);
+procedure TScrollControlWithEditableCells.SetCellData(const Cell: IDCTreeCell; const Data: CObject);
 var
   s: string;
   msg: string;
@@ -1698,7 +1726,7 @@ begin
   end;
 end;
 
-procedure TScrollControlWithEditableColumns.SetSingleSelectionIfNotExists;
+procedure TScrollControlWithEditableCells.SetSingleSelectionIfNotExists;
 begin
 //  if IsNew then
 //    Exit;
@@ -2146,32 +2174,32 @@ begin
   if not ce.DroppedDown then
     ce.DropDown;
 
-  if PickList <> nil then
-  begin
-    var Value := get_Value;
-    if (get_Value = nil) or CString.IsNullOrEmpty(Value.ToString) then
-    begin
-      if PickList.Count > 0 then
-      begin
-        newValue := PickList[0];
-        if ParseValue(newValue) then
-          Value := newValue;
-      end;
-    end else
-      //
-      // Locate existing item in the picklist
-      //
-    begin
-      i := 0;
-      while i < PickList.Count do
-      begin
-        newValue := PickList[i];
-        if ParseValue(newValue) and Value.Equals(newValue) then
-          break;
-        inc(i);
-      end;
-    end;
-  end;
+//  if PickList <> nil then
+//  begin
+//    var Value := get_Value;
+//    if (get_Value = nil) or CString.IsNullOrEmpty(Value.ToString) then
+//    begin
+//      if PickList.Count > 0 then
+//      begin
+//        newValue := PickList[0];
+//        if ParseValue(newValue) then
+//          Value := newValue;
+//      end;
+//    end else
+//      //
+//      // Locate existing item in the picklist
+//      //
+//    begin
+//      i := 0;
+//      while i < PickList.Count do
+//      begin
+//        newValue := PickList[i];
+//        if ParseValue(newValue) and Value.Equals(newValue) then
+//          break;
+//        inc(i);
+//      end;
+//    end;
+//  end;
 end;
 
 procedure TDCCellDropDownEditor.set_PickList(const Value: IList);
@@ -2344,7 +2372,7 @@ begin
   SetItemInCurrentView(Item);
 end;
 
-constructor TObjectListModelItemChangedDelegate.Create(const AOwner: TScrollControlWithEditableColumns);
+constructor TObjectListModelItemChangedDelegate.Create(const AOwner: TScrollControlWithEditableCells);
 begin
   _Owner := AOwner;
 end;
@@ -2433,6 +2461,54 @@ end;
 procedure TDCCustomCellEditor.set_Value(const Value: CObject);
 begin
   _val := Value;
+end;
+
+{ TDCCellMultiSelectDropDownEditor }
+
+procedure TDCCellMultiSelectDropDownEditor.BeginEdit(const EditValue: CObject);
+begin
+  _editor := TComboMultiBox.Create(nil);
+  TComboMultiBox(_editor).Items := _PickList;
+  TComboMultiBox(_editor).SelectedItems := EditValue.AsType<IList>;
+  _cell.Control.AddObject(_editor);
+
+  inherited;
+
+//  var val := CStringToString(_originalValue.ToString(True));
+//  ce.ItemIndex := ce.Items.IndexOf(val);
+
+  Dropdown;
+end;
+
+procedure TDCCellMultiSelectDropDownEditor.Dropdown;
+begin
+  TComboMultiBox(_editor).DropDown;
+end;
+
+function TDCCellMultiSelectDropDownEditor.get_PickList: IList;
+begin
+  Result := _PickList;
+end;
+
+function TDCCellMultiSelectDropDownEditor.get_Value: CObject;
+begin
+  Result := TComboMultiBox(_editor).SelectedItems;
+end;
+
+//procedure TDCCellMultiSelectDropDownEditor.OnEditorKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
+//begin
+//  inherited;
+//
+//end;
+
+procedure TDCCellMultiSelectDropDownEditor.set_PickList(const Value: IList);
+begin
+  _PickList := Value;
+end;
+
+procedure TDCCellMultiSelectDropDownEditor.set_Value(const Value: CObject);
+begin
+  TComboMultiBox(_editor).SelectedItems := Value.AsType<IList>;
 end;
 
 end.

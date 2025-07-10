@@ -2686,12 +2686,11 @@ begin
       _rowList.RemoveAt(i);
     end;
 
-    OnListChanged(ListChangedType.ItemDeleted, _rowIndex, -1, Row, _parentRow, _siblingRow);
-    // OnListChanged(ListChangedType.ItemDeleted, _rowIndex);
-
     for _rowToDelete in _deleted do
       _rowToDelete.UpdateTable(nil);
 
+    OnListChanged(ListChangedType.ItemDeleted, _rowIndex, -1, Row, _parentRow, _siblingRow);
+    // OnListChanged(ListChangedType.ItemDeleted, _rowIndex);
   finally
     _deleted := nil;
   end;

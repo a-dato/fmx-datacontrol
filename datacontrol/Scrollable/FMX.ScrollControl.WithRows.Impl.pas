@@ -180,14 +180,13 @@ type
     procedure UserClicked(Button: TMouseButton; Shift: TShiftState; const X, Y: Single); override;
     function  DefaultMoveDistance(ScrollDown: Boolean): Single; override;
     function  CalculateAverageRowHeight: Single;
+    procedure DoContentResized(WidthChanged, HeightChanged: Boolean); override;
 
     procedure CheckVertScrollbarVisibility;
     procedure CalculateScrollBarMax; override;
     procedure InternalDoSelectRow(const Row: IDCRow; Shift: TShiftState);
 
-public
     procedure OnViewChanged;
-protected
 
     function  ListHoldsOrdinalType: Boolean;
     procedure HandleTreeOptionsChange(const OldFlags, NewFlags: TDCTreeOptions); virtual;
@@ -205,9 +204,9 @@ protected
 
     function  GetSelectableViewIndex(const FromViewListIndex: Integer; const Increase: Boolean; const FirstRound: Boolean = True): Integer;
 
-    function  GetRowByMouseY(const Y: Single): IDCRow;
     function  GetRowViewListIndexByKey(const Key: Word; Shift: TShiftState): Integer;
     function  GetActiveRow: IDCRow;
+
 
   public
     procedure OnItemAddedByUser(const Item: CObject; Index: Integer);
@@ -225,6 +224,7 @@ protected
     procedure BeginDrag;
 
     procedure ExecuteKeyFromExternal(var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
+    function  GetRowByLocalY(const Y: Single): IDCRow;
 
     function  ConvertToDataItem(const Item: CObject): CObject;
     function  ConvertedDataItem: CObject;
@@ -482,6 +482,18 @@ uses
 
 { TScrollControlWithRows }
 
+procedure TScrollControlWithRows.DoContentResized(WidthChanged, HeightChanged: Boolean);
+begin
+  if WidthChanged and (_view <> nil) then
+  begin
+    var row: IDCRow;
+    for row in _view.ActiveViewRows do
+      row.Control.Width := _content.Width;
+  end;
+
+  inherited;
+end;
+
 function TScrollControlWithRows.DefaultMoveDistance(ScrollDown: Boolean): Single;
 begin
   if _rowHeightFixed > 0 then
@@ -623,7 +635,7 @@ begin
     if not moved then
       Exit;
 
-    var row := GetRowByMouseY(Y - _content.Position.Y);
+    var row := GetRowByLocalY(Y - _content.Position.Y);
     if (row <> nil) and not _selectionInfo.IsSelected(row.DataIndex) then
       _dragObject := ConvertToDataItem(row.DataItem)
     else
@@ -811,7 +823,7 @@ begin
   end;
 end;
 
-function TScrollControlWithRows.GetRowByMouseY(const Y: Single): IDCRow;
+function TScrollControlWithRows.GetRowByLocalY(const Y: Single): IDCRow;
 begin
   if (_view = nil) or (Y < 0) then
     Exit(nil);
@@ -1793,7 +1805,7 @@ begin
     Exit;
   end;
 
-  var row := GetRowByMouseY(MousePos.Y);
+  var row := GetRowByLocalY(MousePos.Y);
   _hoverRect.Visible := (row <> nil) and (_selectionType <> TSelectionType.HideSelection) and _selectionInfo.CanSelect(row.DataIndex);
   if not _hoverRect.Visible then
     Exit;
@@ -2162,7 +2174,7 @@ end;
 
 procedure TScrollControlWithRows.UserClicked(Button: TMouseButton; Shift: TShiftState; const X, Y: Single);
 begin
-  var clickedRow := GetRowByMouseY(Y);
+  var clickedRow := GetRowByLocalY(Y);
   if clickedRow = nil then Exit;
 
   _selectionInfo.LastSelectionEventTrigger := TSelectionEventTrigger.Click;
@@ -2500,7 +2512,7 @@ begin
     // else scroll row partially into view.. It will be fully visible later. At this point we do not know the exact height
     else
     begin
-      if (_vertScrollBar.Value + _vertScrollBar.ViewportSize < (selRow.VirtualYPosition + selRow.Height)) then
+      if (_vertScrollBar.Value + _vertScrollBar.ViewportSize < (selRow.VirtualYPosition + selRow.Height)) and (_vertScrollBar.ViewportSize > selRow.Height) then
       begin
         // KV: 24/01/2025
         // Code dissabled, when scrolling down from the last line inside current view
@@ -2559,9 +2571,14 @@ end;
 
 function TScrollControlWithRows.SelectedItems: List<CObject>;
 begin
+  if _view = nil then
+    Exit(nil);
+
   Result := CList<CObject>.Create;
 
   var dataIndexes := _selectionInfo.SelectedDataIndexes;
+  dataIndexes.Sort;
+
   var ix: Integer;
   for ix in dataIndexes do
   begin

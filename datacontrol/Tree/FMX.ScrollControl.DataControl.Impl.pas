@@ -21,7 +21,7 @@ uses
 
 type
   [ComponentPlatformsAttribute(pidAllPlatforms)]
-  TDataControl = class(TScrollControlWithEditableColumns)
+  TDataControl = class(TScrollControlWithEditableCells)
   protected
     procedure DefineProperties(Filer: TFiler); override;
   public

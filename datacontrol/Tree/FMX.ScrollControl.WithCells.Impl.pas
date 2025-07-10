@@ -46,7 +46,7 @@ type
 
   TShowFlatColumnType = (Fully, Partly75, Partly50, Partly25, Hide);
 
-  TScrollControlWithColumns = class(TScrollControlWithRows, IRowAndCellCompare, IColumnsControl)
+  TScrollControlWithCells = class(TScrollControlWithRows, IRowAndCellCompare, IColumnsControl)
   private
     _headerRow: IDCHeaderRow;
     _treeLayout: IDCTreeLayout;
@@ -97,6 +97,7 @@ type
     _headerTextTopMargin: Single;
     _headerTextBottomMargin: Single;
     _scrollingHideColumnsFromIndex: Integer;
+    _cellTopBottomPadding: Single;
 
     procedure set_AutoFitColumns(const Value: Boolean);
     function  get_headerHeight: Single;
@@ -105,6 +106,8 @@ type
     procedure set_headerTextTopMargin(const Value: Single);
     function  get_headerTextBottomMargin: Single;
     procedure set_headerTextBottomMargin(const Value: Single);
+    function  get_CellTopBottomPadding: Single;
+    procedure set_CellTopBottomPadding(const Value: Single);
 
     function  IsScrollingHideColumnsFromIndexStored: Boolean;
 
@@ -263,6 +266,7 @@ type
     property HeaderTextBottomMargin: Single read get_headerTextBottomMargin write set_headerTextBottomMargin;
     property AutoExtraColumnSizeMax: Single read get_AutoExtraColumnSizeMax write set_AutoExtraColumnSizeMax;
     property ScrollingHideColumnsFromIndex: integer read _scrollingHideColumnsFromIndex write _scrollingHideColumnsFromIndex {$IFNDEF WEBASSEMBLY}stored IsScrollingHideColumnsFromIndexStored{$ENDIF};
+    property CellTopBottomPadding: Single read get_CellTopBottomPadding write set_CellTopBottomPadding;
 
     // events
     property CellLoading: CellLoadingEvent read _cellLoading write _cellLoading;
@@ -900,9 +904,9 @@ uses
   FMX.ScrollControl.Impl;
 
 
-{ TScrollControlWithColumns }
+{ TScrollControlWithCells }
 
-procedure TScrollControlWithColumns.ProcessColumnVisibilityRules;
+procedure TScrollControlWithCells.ProcessColumnVisibilityRules;
 begin
   var currentClmns := _treeLayout.FlatColumns;
   var clmn: IDCTreeLayoutColumn;
@@ -950,12 +954,12 @@ begin
       RefreshColumn(clmn2.Column);
 end;
 
-function TScrollControlWithColumns.ProvideCellData(const Cell: IDCTreeCell; const PropName: CString; const IsSubProp: Boolean): CObject;
+function TScrollControlWithCells.ProvideCellData(const Cell: IDCTreeCell; const PropName: CString; const IsSubProp: Boolean): CObject;
 begin
   Result := Cell.Column.ProvideCellData(cell, propName, IsSubProp);
 end;
 
-procedure TScrollControlWithColumns.RealignFinished;
+procedure TScrollControlWithCells.RealignFinished;
 begin
   if _headerRow <> nil then
     DoRowAligned(_headerRow);
@@ -963,7 +967,7 @@ begin
   inherited;
 end;
 
-procedure TScrollControlWithColumns.RefreshColumn(const Column: IDCTreeColumn);
+procedure TScrollControlWithCells.RefreshColumn(const Column: IDCTreeColumn);
 begin
   if (_view = nil) or (_treeLayout = nil) then
     Exit;
@@ -981,7 +985,7 @@ begin
   RefreshControl;
 end;
 
-procedure TScrollControlWithColumns.PositionTree;
+procedure TScrollControlWithCells.PositionTree;
 begin
   var startFromX := 0.0;
 
@@ -991,16 +995,14 @@ begin
     var newColumnsWidth := lastClmn.Left + lastClmn.Width;
 
     if not SameValue(_totalColumnWidth, newColumnsWidth) then
-    begin
       _totalColumnWidth := newColumnsWidth;
-
-      // execute "OnPositionTreeTimer" outside the paint methods..
-      _positionTreeTimer.Enabled := False;
-      _positionTreeTimer.Enabled := True;
-    end;
 
     if _autoCenterTree then
       startFromX := CMath.Max((Self.Width-_totalColumnWidth)/2, 0);
+
+    // execute "OnPositionTreeTimer" outside the paint methods..
+    _positionTreeTimer.Enabled := False;
+    _positionTreeTimer.Enabled := True;
   end else
     _totalColumnWidth := 0.0;
 
@@ -1009,7 +1011,7 @@ begin
     row.Control.Position.X := startFromX;
 end;
 
-procedure TScrollControlWithColumns.AfterRealignContent;
+procedure TScrollControlWithCells.AfterRealignContent;
 begin
   inherited;
 
@@ -1028,7 +1030,7 @@ begin
   EndDefaultTextLayout;
 end;
 
-procedure TScrollControlWithColumns.AssignWidthsToAlignColumns;
+procedure TScrollControlWithCells.AssignWidthsToAlignColumns;
 begin
   if _scrollingType = TScrollingType.WithScrollBar then
     Exit;
@@ -1065,7 +1067,7 @@ begin
     end;
 end;
 
-procedure TScrollControlWithColumns.UpdateHorzScrollbar;
+procedure TScrollControlWithCells.UpdateHorzScrollbar;
 begin
   var contentOverflow := _treeLayout.ContentOverFlow;
   if contentOverflow > 0 then
@@ -1100,7 +1102,7 @@ begin
   end;
 end;
 
-procedure TScrollControlWithColumns.UpdateHoverRect(MousePos: TPointF);
+procedure TScrollControlWithCells.UpdateHoverRect(MousePos: TPointF);
 begin
   inherited;
 
@@ -1134,7 +1136,7 @@ begin
 //    _hoverCellRect.Visible := False;
 end;
 
-procedure TScrollControlWithColumns.UpdatePositionAndWidthCells;
+procedure TScrollControlWithCells.UpdatePositionAndWidthCells;
 begin
   // this will only be done if columns or their sizes changed
   _treeLayout.RecalcColumnWidthsBasic;
@@ -1251,7 +1253,7 @@ begin
     RestartWaitForRealignTimer(100, True);
 end;
 
-function TScrollControlWithColumns.ShowFlatColumnContent(const FlatColumn: IDCTreeLayoutColumn; out IsOutOfView: Boolean): TShowFlatColumnType;
+function TScrollControlWithCells.ShowFlatColumnContent(const FlatColumn: IDCTreeLayoutColumn; out IsOutOfView: Boolean): TShowFlatColumnType;
 begin
   {out} IsOutOfView := False;
   if FlatColumn.Column.Frozen then
@@ -1285,7 +1287,7 @@ begin
 //  end;
 end;
 
-procedure TScrollControlWithColumns.GenerateView;
+procedure TScrollControlWithCells.GenerateView;
 begin
   if _defaultColumnsGenerated then
   begin
@@ -1298,7 +1300,7 @@ begin
   inherited;
 end;
 
-function TScrollControlWithColumns.GetActiveCell: IDCTreeCell;
+function TScrollControlWithCells.GetActiveCell: IDCTreeCell;
 begin
   var row := GetActiveRow;
   if row = nil then
@@ -1308,14 +1310,14 @@ begin
   Result := (row as IDCTreeRow).Cells[flatColumnindex];
 end;
 
-function TScrollControlWithColumns.GetCellByControl(const Control: TControl): IDCTreeCell;
+function TScrollControlWithCells.GetCellByControl(const Control: TControl): IDCTreeCell;
 begin
   Result := nil;
 
   var controlPoint := Control.LocalToScreen(PointF(0,0));
   var pointInDataControl := Self.ScreenToLocal(controlPoint);
 
-  var clickedRow := GetRowByMouseY(pointInDataControl.Y - _content.Position.Y);
+  var clickedRow := GetRowByLocalY(pointInDataControl.Y - _content.Position.Y);
   if clickedRow = nil then Exit;
 
   var flatColumn := GetFlatColumnByMouseX(pointInDataControl.X);
@@ -1324,7 +1326,7 @@ begin
   Result := (clickedRow as IDCTreeRow).Cells[FlatColumn.Index];
 end;
 
-function TScrollControlWithColumns.GetFlatColumnByKey(const Key: Word; Shift: TShiftState; FromColumnIndex: Integer): IDCTreeLayoutColumn;
+function TScrollControlWithCells.GetFlatColumnByKey(const Key: Word; Shift: TShiftState; FromColumnIndex: Integer): IDCTreeLayoutColumn;
 
   function CanSelectLayoutColumn(const LyColumn: IDCTreeLayoutColumn): Boolean;
   begin
@@ -1371,7 +1373,7 @@ begin
   Result := flatColumn;
 end;
 
-function TScrollControlWithColumns.GetSelectableFlatColumnByMouseX(const X: Single): IDCTreeLayoutColumn;
+function TScrollControlWithCells.GetSelectableFlatColumnByMouseX(const X: Single): IDCTreeLayoutColumn;
 begin
   Result := GetFlatColumnByMouseX(X);
 
@@ -1386,7 +1388,7 @@ begin
   end;
 end;
 
-function TScrollControlWithColumns.GetFlatColumnByMouseX(const X: Single): IDCTreeLayoutColumn;
+function TScrollControlWithCells.GetFlatColumnByMouseX(const X: Single): IDCTreeLayoutColumn;
 begin
   var virtualMouseposition: Single;
   if _horzScrollBar.Visible and (X > _treeLayout.FrozenColumnWidth) then
@@ -1409,7 +1411,7 @@ begin
   Result := nil;
 end;
 
-function TScrollControlWithColumns.GetHorzScroll(const Key: Word; Shift: TShiftState): TRightLeftScroll;
+function TScrollControlWithCells.GetHorzScroll(const Key: Word; Shift: TShiftState): TRightLeftScroll;
 begin
   case Key of
     vkHome:   Result := TRightLeftScroll.FullLeft;
@@ -1451,7 +1453,7 @@ begin
 //  end;
 end;
 
-procedure TScrollControlWithColumns.UserClicked(Button: TMouseButton; Shift: TShiftState; const X, Y: Single);
+procedure TScrollControlWithCells.UserClicked(Button: TMouseButton; Shift: TShiftState; const X, Y: Single);
 begin
 //  if _selectionType <> TSelectionType.CellSelection then
 //  begin
@@ -1463,7 +1465,7 @@ begin
 //    Exit;
 //  end;
 
-  var clickedRow := GetRowByMouseY(Y);
+  var clickedRow := GetRowByLocalY(Y);
   if clickedRow = nil then Exit;
 
   _selectionInfo.LastSelectionEventTrigger := TSelectionEventTrigger.Click;
@@ -1501,18 +1503,18 @@ begin
   TrySelectItem(requestedSelection, Shift);
 end;
 
-procedure TScrollControlWithColumns.VisualizeRowSelection(const Row: IDCRow);
+procedure TScrollControlWithCells.VisualizeRowSelection(const Row: IDCRow);
 begin
   inherited;
   UpdateSelectionCheckboxes(Row);
 end;
 
-procedure TScrollControlWithColumns.OnHeaderCellResizeClicked( const HeaderCell: IHeaderCell);
+procedure TScrollControlWithCells.OnHeaderCellResizeClicked( const HeaderCell: IHeaderCell);
 begin
   _headerColumnResizeControl.StartResizing(HeaderCell);
 end;
 
-procedure TScrollControlWithColumns.OnHeaderMouseUp(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Single);
+procedure TScrollControlWithCells.OnHeaderMouseUp(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Single);
 begin
   if _headerRow = nil then
     Exit;
@@ -1539,14 +1541,14 @@ begin
   UpdateColumnSort(flatColumn.Column, sortDirection, not (ssCtrl in Shift));
 end;
 
-procedure TScrollControlWithColumns.OnPositionTreeTimer(Sender: TObject);
+procedure TScrollControlWithCells.OnPositionTreeTimer(Sender: TObject);
 begin
   DoTreePositioned(_totalColumnWidth);
 
   _positionTreeTimer.Enabled := False;
 end;
 
-procedure TScrollControlWithColumns.UpdateColumnSort(const Column: IDCTreeColumn; SortDirection: ListSortDirection; ClearOtherSort: Boolean);
+procedure TScrollControlWithCells.UpdateColumnSort(const Column: IDCTreeColumn; SortDirection: ListSortDirection; ClearOtherSort: Boolean);
 begin
   var flatColumn := Self.FlatColumnByColumn(Column);
   if flatColumn = nil then
@@ -1598,7 +1600,7 @@ begin
 
 end;
 
-procedure TScrollControlWithColumns.UpdateColumnFilter(const Column: IDCTreeColumn; const FilterText: CString; const FilterValues: List<CObject>);
+procedure TScrollControlWithCells.UpdateColumnFilter(const Column: IDCTreeColumn; const FilterText: CString; const FilterValues: List<CObject>);
 begin
   var flatColumn := Self.FlatColumnByColumn(Column);
   if flatColumn = nil then
@@ -1644,7 +1646,7 @@ begin
   end;
 end;
 
-function TScrollControlWithColumns.GetColumnValues(const LayoutColumn: IDCTreeLayoutColumn): Dictionary<CObject, CString>;
+function TScrollControlWithCells.GetColumnValues(const LayoutColumn: IDCTreeLayoutColumn): Dictionary<CObject, CString>;
 begin
   var dict: Dictionary<Integer, CObject> := CDictionary<Integer, CObject>.Create;
 
@@ -1686,7 +1688,7 @@ begin
     Result.Add(filterableObj, filterableObj.ToString);
 end;
 
-procedure TScrollControlWithColumns.ShowHeaderPopupMenu(const LayoutColumn: IDCTreeLayoutColumn);
+procedure TScrollControlWithCells.ShowHeaderPopupMenu(const LayoutColumn: IDCTreeLayoutColumn);
 var
   showFilter: Boolean;
   dataValues: Dictionary<CObject, CString>;
@@ -1737,7 +1739,7 @@ begin
   end;
 end;
 
-procedure TScrollControlWithColumns.HeaderPopupMenu_Closed(Sender: TObject; var Action: TCloseAction);
+procedure TScrollControlWithCells.HeaderPopupMenu_Closed(Sender: TObject; var Action: TCloseAction);
 begin
   var popupForm := _frmHeaderPopupMenu as TfrmFMXPopupMenuDataControl;
   var flatColumn := _treeLayout.LayoutColumns[popupForm.LayoutColumn.Index];
@@ -1825,7 +1827,7 @@ begin
   end;
 end;
 
-procedure TScrollControlWithColumns.FastColumnAlignAfterColumnChange;
+procedure TScrollControlWithCells.FastColumnAlignAfterColumnChange;
 begin
   _treeLayout.ForceRecalc;
 
@@ -1833,7 +1835,7 @@ begin
   RealignFinished;
 end;
 
-//procedure TScrollControlWithColumns.OnSelectionCheckBoxChange(Sender: TObject);
+//procedure TScrollControlWithCells.OnSelectionCheckBoxChange(Sender: TObject);
 //begin
 //  if _selectionCheckBoxUpdateCount > 0 then
 //    Exit;
@@ -1846,7 +1848,7 @@ end;
 //    _selectionInfo.UpdateSingleSelection(cell.Row.DataIndex, cell.Row.ViewListIndex, cell.Row.DataItem);
 //end;
 
-procedure TScrollControlWithColumns.UpdateSelectionCheckboxes(const Row: IDCRow);
+procedure TScrollControlWithCells.UpdateSelectionCheckboxes(const Row: IDCRow);
 begin
   // select / deselect based on _selectionInfo
   var selectionCheckBoxColumn := SelectionCheckBoxColumn;
@@ -1864,7 +1866,7 @@ begin
   end;
 end;
 
-procedure TScrollControlWithColumns.OnSelectionInfoChanged;
+procedure TScrollControlWithCells.OnSelectionInfoChanged;
 begin
   inherited;
 
@@ -1884,7 +1886,7 @@ begin
   DoCellSelected(GetActiveCell, _selectionInfo.LastSelectionEventTrigger);
 end;
 
-function TScrollControlWithColumns.ScrollPerformanceShouldHideColumns(const FlatIndex: Integer): Boolean;
+function TScrollControlWithCells.ScrollPerformanceShouldHideColumns(const FlatIndex: Integer): Boolean;
 begin
   if (_scrollingHideColumnsFromIndex <= 0) or (_treeLayout.FlatColumns.Count >= _scrollingHideColumnsFromIndex) then
     Exit(False);
@@ -1904,7 +1906,7 @@ begin
     Result := True;
 end;
 
-procedure TScrollControlWithColumns.SelectAll;
+procedure TScrollControlWithCells.SelectAll;
 begin
   var selInfo := _selectionInfo as ITreeSelectionInfo;
   selInfo.BeginUpdate;
@@ -1924,7 +1926,7 @@ begin
   end;
 end;
 
-function TScrollControlWithColumns.SelectionCheckBoxColumn: IDCTreeLayoutColumn;
+function TScrollControlWithCells.SelectionCheckBoxColumn: IDCTreeLayoutColumn;
 begin
   Result := nil;
   if _treeLayout = nil then
@@ -1936,7 +1938,7 @@ begin
       Exit(lyClmn);
 end;
 
-procedure TScrollControlWithColumns.SetBasicHorzScrollBarValues;
+procedure TScrollControlWithCells.SetBasicHorzScrollBarValues;
 begin
   if _treeLayout = nil then
     inherited
@@ -1955,7 +1957,7 @@ begin
   end;
 end;
 
-procedure TScrollControlWithColumns.SetColumnSelectionIfNoneExists;
+procedure TScrollControlWithCells.SetColumnSelectionIfNoneExists;
 begin
   _selectionInfo.BeginUpdate;
   Try
@@ -1966,7 +1968,7 @@ begin
   end;
 end;
 
-procedure TScrollControlWithColumns.SetSingleSelectionIfNotExists;
+procedure TScrollControlWithCells.SetSingleSelectionIfNotExists;
 begin
   if (_selectionType <> TSelectionType.CellSelection) or _allowNoneSelected or (_view.ViewCount = 0) then
   begin
@@ -1986,7 +1988,7 @@ begin
   end;
 end;
 
-procedure TScrollControlWithColumns.BeforeRealignContent;
+procedure TScrollControlWithCells.BeforeRealignContent;
 begin
   // sorting / set data item / set current etc..
   var repaintInfo := (_waitForRepaintInfo as IDataControlWaitForRepaintInfo);
@@ -2012,7 +2014,7 @@ begin
   _singleLineHeight := -1; // reset to recalculate
 end;
 
-procedure TScrollControlWithColumns.ColumnsChanged(Sender: TObject; e: NotifyCollectionChangedEventArgs);
+procedure TScrollControlWithCells.ColumnsChanged(Sender: TObject; e: NotifyCollectionChangedEventArgs);
 begin
   if _treeLayout = nil then
     Exit;
@@ -2029,7 +2031,7 @@ begin
     DoColumnsChanged(column);
 end;
 
-procedure TScrollControlWithColumns.ColumnsChangedFromExternal;
+procedure TScrollControlWithCells.ColumnsChangedFromExternal;
 begin
 //  if (_treeLayout = nil) or (_treeLayout.FlatColumns = nil) or (_treeLayout.FlatColumns.Count = 0) then
 //    Exit;
@@ -2048,7 +2050,7 @@ begin
 //  end;
 end;
 
-procedure TScrollControlWithColumns.ColumnVisibilityChanged(const Column: IDCTreeColumn; IsUserChange: Boolean);
+procedure TScrollControlWithCells.ColumnVisibilityChanged(const Column: IDCTreeColumn; IsUserChange: Boolean);
 begin
   if _treeLayout = nil then
     Exit;
@@ -2066,7 +2068,7 @@ begin
       SetColumnSelectionIfNoneExists;
 end;
 
-procedure TScrollControlWithColumns.ColumnWidthChanged(const Column: IDCTreeColumn);
+procedure TScrollControlWithCells.ColumnWidthChanged(const Column: IDCTreeColumn);
 begin
   DoColumnsChanged(Column);
 
@@ -2074,22 +2076,22 @@ begin
   ResetView; // rowheighst need to be recalculated..
 end;
 
-function TScrollControlWithColumns.Content: TControl;
+function TScrollControlWithCells.Content: TControl;
 begin
   Result := _content;
 end;
 
-function TScrollControlWithColumns.Control: TControl;
+function TScrollControlWithCells.Control: TControl;
 begin
   Result := Self;
 end;
 
-function TScrollControlWithColumns.ColumnList: IDCTreeColumnList;
+function TScrollControlWithCells.ColumnList: IDCTreeColumnList;
 begin
   Result := _columns;
 end;
 
-constructor TScrollControlWithColumns.Create(AOwner: TComponent);
+constructor TScrollControlWithCells.Create(AOwner: TComponent);
 begin
   inherited;
 
@@ -2109,6 +2111,8 @@ begin
   _autoExtraColumnSizeMax := -1;
 
   _scrollingHideColumnsFromIndex := 5;
+
+  _cellTopBottomPadding := ROW_CONTENT_MARGIN;
 
 //  _hoverCellRect := TRectangle.Create(_hoverRect);
 //  _hoverCellRect.Stored := False;
@@ -2131,12 +2135,12 @@ begin
   _positionTreeTimer.Enabled := False;
 end;
 
-function TScrollControlWithColumns.CreateSelectioninfoInstance: IRowSelectionInfo;
+function TScrollControlWithCells.CreateSelectioninfoInstance: IRowSelectionInfo;
 begin
   Result := TTreeSelectionInfo.Create(Self);
 end;
 
-function TScrollControlWithColumns.GetInitializedWaitForRefreshInfo: IWaitForRepaintInfo;
+function TScrollControlWithCells.GetInitializedWaitForRefreshInfo: IWaitForRepaintInfo;
 begin
   // _waitForRepaintInfo is nilled after RealignContent
   if _waitForRepaintInfo = nil then
@@ -2145,32 +2149,37 @@ begin
   Result := _waitForRepaintInfo;
 end;
 
-function TScrollControlWithColumns.get_headerHeight: Single;
+function TScrollControlWithCells.get_headerHeight: Single;
 begin
   Result := _headerHeight;
 end;
 
-function TScrollControlWithColumns.get_headerTextBottomMargin: Single;
+function TScrollControlWithCells.get_headerTextBottomMargin: Single;
 begin
   Result := _headerTextBottomMargin;
 end;
 
-function TScrollControlWithColumns.get_headerTextTopMargin: Single;
+function TScrollControlWithCells.get_headerTextTopMargin: Single;
 begin
   Result := _headerTextTopMargin;
 end;
 
-function TScrollControlWithColumns.get_Layout: IDCTreeLayout;
+function TScrollControlWithCells.get_Layout: IDCTreeLayout;
 begin
   Result := _treeLayout;
 end;
 
-function TScrollControlWithColumns.get_AutoExtraColumnSizeMax: Single;
+function TScrollControlWithCells.get_AutoExtraColumnSizeMax: Single;
 begin
   Result := _autoExtraColumnSizeMax;
 end;
 
-function TScrollControlWithColumns.get_SelectedColumn: IDCTreeLayoutColumn;
+function TScrollControlWithCells.get_CellTopBottomPadding: Single;
+begin
+  Result := _cellTopBottomPadding;
+end;
+
+function TScrollControlWithCells.get_SelectedColumn: IDCTreeLayoutColumn;
 begin
   Result := nil;
   if _treeLayout = nil then Exit;
@@ -2178,7 +2187,7 @@ begin
   Result := _treeLayout.LayoutColumns[(_selectionInfo as ITreeSelectionInfo).SelectedLayoutColumn];
 end;
 
-procedure TScrollControlWithColumns.HandleTreeOptionsChange(const OldFlags, NewFlags: TDCTreeOptions);
+procedure TScrollControlWithCells.HandleTreeOptionsChange(const OldFlags, NewFlags: TDCTreeOptions);
 begin
   inherited;
 
@@ -2210,7 +2219,7 @@ begin
   end;
 end;
 
-function TScrollControlWithColumns.HeaderAndTreeRows: List<IDCTreeRow>;
+function TScrollControlWithCells.HeaderAndTreeRows: List<IDCTreeRow>;
 begin
   var headerShowing: Boolean := _headerRow <> nil;
 
@@ -2234,7 +2243,7 @@ begin
 
 end;
 
-procedure TScrollControlWithColumns.DataModelViewRowPropertiesChanged(Sender: TObject; Args: RowPropertiesChangedEventArgs);
+procedure TScrollControlWithCells.DataModelViewRowPropertiesChanged(Sender: TObject; Args: RowPropertiesChangedEventArgs);
 begin
   inherited;
 
@@ -2255,7 +2264,7 @@ begin
       (cell.ExpandButton as TExpandButton).ShowExpanded := not RowIsExpanded(drv.ViewIndex);
 end;
 
-destructor TScrollControlWithColumns.Destroy;
+destructor TScrollControlWithCells.Destroy;
 begin
   _view := nil;
   _headerRow := nil;
@@ -2272,7 +2281,7 @@ begin
   inherited;
 end;
 
-function TScrollControlWithColumns.DoCellCanChange(const OldCell, NewCell: IDCTreeCell): Boolean;
+function TScrollControlWithCells.DoCellCanChange(const OldCell, NewCell: IDCTreeCell): Boolean;
 begin
   if (_model <> nil) and not _model.ObjectModelContext.ContextCanChange then
   begin
@@ -2293,7 +2302,7 @@ begin
   end;
 end;
 
-procedure TScrollControlWithColumns.DoCellChanged(const OldCell, NewCell: IDCTreeCell);
+procedure TScrollControlWithCells.DoCellChanged(const OldCell, NewCell: IDCTreeCell);
 begin
   if Assigned(_cellChanged) then
   begin
@@ -2306,7 +2315,7 @@ begin
   end;
 end;
 
-procedure TScrollControlWithColumns.DoCellChanging(const OldCell, NewCell: IDCTreeCell);
+procedure TScrollControlWithCells.DoCellChanging(const OldCell, NewCell: IDCTreeCell);
 begin
   if Assigned(_cellChanging) then
   begin
@@ -2319,7 +2328,7 @@ begin
   end;
 end;
 
-procedure TScrollControlWithColumns.DoCellFormatting(const Cell: IDCTreeCell; RequestForSort: Boolean; var Value: CObject; out FormatApplied: Boolean);
+procedure TScrollControlWithCells.DoCellFormatting(const Cell: IDCTreeCell; RequestForSort: Boolean; var Value: CObject; out FormatApplied: Boolean);
 begin
   FormatApplied := False;
   if Assigned(_cellFormatting) then
@@ -2337,7 +2346,7 @@ begin
   end;
 end;
 
-procedure TScrollControlWithColumns.DoCellLoaded(const Cell: IDCTreeCell; RequestForSort: Boolean; var OverrideRowHeight: Single);
+procedure TScrollControlWithCells.DoCellLoaded(const Cell: IDCTreeCell; RequestForSort: Boolean; var OverrideRowHeight: Single);
 begin
   if Assigned(_CellLoaded) then
   begin
@@ -2359,7 +2368,7 @@ begin
   end;
 end;
 
-function TScrollControlWithColumns.DoCellLoading(const Cell: IDCTreeCell; RequestForSort: Boolean; var OverrideRowHeight: Single) : Boolean;
+function TScrollControlWithCells.DoCellLoading(const Cell: IDCTreeCell; RequestForSort: Boolean; var OverrideRowHeight: Single) : Boolean;
 begin
   Result := True; // LoadDefaultData
 
@@ -2384,7 +2393,7 @@ begin
   end;
 end;
 
-procedure TScrollControlWithColumns.DoCellSelected(const Cell: IDCTreeCell; EventTrigger: TSelectionEventTrigger);
+procedure TScrollControlWithCells.DoCellSelected(const Cell: IDCTreeCell; EventTrigger: TSelectionEventTrigger);
 begin
   if Assigned(_cellSelected) then
   begin
@@ -2397,7 +2406,7 @@ begin
   end;
 end;
 
-procedure TScrollControlWithColumns.DoColumnsChanged(const Column: IDCTreeColumn);
+procedure TScrollControlWithCells.DoColumnsChanged(const Column: IDCTreeColumn);
 var
   args: ColumnChangedByUserEventArgs;
 
@@ -2418,7 +2427,7 @@ begin
   end;
 end;
 
-function TScrollControlWithColumns.DoSortingGetComparer(const SortDescription: IListSortDescriptionWithComparer{; const ReturnSortComparer: Boolean}) : IComparer<CObject>;
+function TScrollControlWithCells.DoSortingGetComparer(const SortDescription: IListSortDescriptionWithComparer{; const ReturnSortComparer: Boolean}) : IComparer<CObject>;
 var
   args: DCColumnComparerEventArgs;
 
@@ -2437,7 +2446,7 @@ begin
     Result := SortDescription.Comparer;
 end;
 
-procedure TScrollControlWithColumns.DoTreePositioned(const TotalColumnWidth: Single);
+procedure TScrollControlWithCells.DoTreePositioned(const TotalColumnWidth: Single);
 begin
   if Assigned(_onTreePositioned) then
   begin
@@ -2450,7 +2459,7 @@ begin
   end;
 end;
 
-function TScrollControlWithColumns.FlatColumnByColumn(const Column: IDCTreeColumn): IDCTreeLayoutColumn;
+function TScrollControlWithCells.FlatColumnByColumn(const Column: IDCTreeColumn): IDCTreeLayoutColumn;
 begin
   Result := nil;
 
@@ -2461,21 +2470,21 @@ begin
         Exit(flatClmn);
 end;
 
-function TScrollControlWithColumns.DoOnCompareColumnCells(const Column: IDCTreeColumn; const Left, Right: CObject): Integer;
+function TScrollControlWithCells.DoOnCompareColumnCells(const Column: IDCTreeColumn; const Left, Right: CObject): Integer;
 begin
   if Assigned(_onCompareColumnCells) then
     Result := _onCompareColumnCells(Self, Column, Left, Right) else
     Result := 0;
 end;
 
-function TScrollControlWithColumns.DoOnCompareRows(const Left, Right: CObject): Integer;
+function TScrollControlWithCells.DoOnCompareRows(const Left, Right: CObject): Integer;
 begin
   if Assigned(_onCompareRows) then
     Result := _onCompareRows(Self, Left, Right) else
     Result := 0;
 end;
 
-procedure TScrollControlWithColumns.DoRowLoaded(const ARow: IDCRow);
+procedure TScrollControlWithCells.DoRowLoaded(const ARow: IDCRow);
 begin
   inherited;
 
@@ -2492,12 +2501,12 @@ begin
   end;
 end;
 
-function TScrollControlWithColumns.DoCreateNewRow: IDCRow;
+function TScrollControlWithCells.DoCreateNewRow: IDCRow;
 begin
   Result := TDCTreeRow.Create;
 end;
 
-procedure TScrollControlWithColumns.DoHorzScrollBarChanged;
+procedure TScrollControlWithCells.DoHorzScrollBarChanged;
 begin
   inherited;
 
@@ -2505,7 +2514,7 @@ begin
   _frozenRectLine.Visible := (_horzScrollBar.Value > _horzScrollBar.Min) and _treeLayout.HasFrozenColumns;
 end;
 
-function TScrollControlWithColumns.CreateDummyRowForChanging(const FromSelectionInfo: IRowSelectionInfo): IDCRow;
+function TScrollControlWithCells.CreateDummyRowForChanging(const FromSelectionInfo: IRowSelectionInfo): IDCRow;
 begin
   var treeRow := inherited as IDCTreeRow;
   var flatColumnIx := (FromSelectionInfo as ITreeSelectionInfo).SelectedLayoutColumn;
@@ -2519,12 +2528,12 @@ begin
   Result := treeRow;
 end;
 
-function TScrollControlWithColumns.TextForSizeCalc(const Text: string): string;
+function TScrollControlWithCells.TextForSizeCalc(const Text: string): string;
 begin
   Result := Text + ' _';
 end;
 
-procedure TScrollControlWithColumns.TryScrollToCellByKey(var Key: Word; var KeyChar: WideChar);
+procedure TScrollControlWithCells.TryScrollToCellByKey(var Key: Word; var KeyChar: WideChar);
 begin
 //  var gotit := False;
 //
@@ -2547,7 +2556,7 @@ begin
 //  end;
 end;
 
-function TScrollControlWithColumns.TrySelectItem(const RequestedSelectionInfo: IRowSelectionInfo; Shift: TShiftState): Boolean;
+function TScrollControlWithCells.TrySelectItem(const RequestedSelectionInfo: IRowSelectionInfo; Shift: TShiftState): Boolean;
 begin
   Result := False;
   if _treeLayout = nil then
@@ -2644,7 +2653,7 @@ begin
   Result := True;
 end;
 
-procedure TScrollControlWithColumns.UpdateScrollAndSelectionByKey(var Key: Word; Shift: TShiftState);
+procedure TScrollControlWithCells.UpdateScrollAndSelectionByKey(var Key: Word; Shift: TShiftState);
 begin
   var treeSelectionInfo := _selectionInfo as ITreeSelectionInfo;
   var flatColumn := GetFlatColumnByKey(Key, Shift, (_selectionInfo as ITreeSelectionInfo).SelectedLayoutColumn);
@@ -2673,7 +2682,7 @@ begin
     inherited;
 end;
 
-function TScrollControlWithColumns.FlatColumnIndexByLayoutIndex(const LayoutIndex: Integer): Integer;
+function TScrollControlWithCells.FlatColumnIndexByLayoutIndex(const LayoutIndex: Integer): Integer;
 begin
   if (LayoutIndex = -1) or (LayoutIndex > _treeLayout.LayoutColumns.Count - 1) then
     Exit(-1);
@@ -2682,7 +2691,7 @@ begin
   Result := _treeLayout.FlatColumns.IndexOf(layoutColumn);
 end;
 
-procedure TScrollControlWithColumns.InternalDoSelectColumn(const LayoutColumnIndex: Integer; Shift: TShiftState);
+procedure TScrollControlWithCells.InternalDoSelectColumn(const LayoutColumnIndex: Integer; Shift: TShiftState);
 begin
   var treeSelectionInfo := _selectionInfo as ITreeSelectionInfo;
   if (ssShift in Shift) then
@@ -2720,17 +2729,17 @@ begin
   end;
 end;
 
-function TScrollControlWithColumns.IsScrollingHideColumnsFromIndexStored: Boolean;
+function TScrollControlWithCells.IsScrollingHideColumnsFromIndexStored: Boolean;
 begin
   Result := _scrollingHideColumnsFromIndex <> 5;
 end;
 
-function TScrollControlWithColumns.IsSortingOrFiltering: Boolean;
+function TScrollControlWithCells.IsSortingOrFiltering: Boolean;
 begin
   Result := _isSortingOrFiltering > 0;
 end;
 
-procedure TScrollControlWithColumns.InitHeader;
+procedure TScrollControlWithCells.InitHeader;
 begin
   // make sure that the content does not execute a Resized
   //avoid DoContentResized/OnContentResized in between
@@ -2789,7 +2798,7 @@ begin
   end;
 end;
 
-procedure TScrollControlWithColumns.LoadDefaultDataIntoControl(const Cell: IDCTreeCell; const FlatColumn: IDCTreeLayoutColumn; const IsSubProp: Boolean);
+procedure TScrollControlWithCells.LoadDefaultDataIntoControl(const Cell: IDCTreeCell; const FlatColumn: IDCTreeLayoutColumn; const IsSubProp: Boolean);
 begin
   if Cell.Column.IsSelectionColumn then
   begin
@@ -2877,7 +2886,7 @@ begin
     FlatColumn.ContainsData := TColumnContainsData.Yes;
 end;
 
-procedure TScrollControlWithColumns.MouseMove(Shift: TShiftState; X, Y: Single);
+procedure TScrollControlWithCells.MouseMove(Shift: TShiftState; X, Y: Single);
 begin
   inherited;
 
@@ -2895,12 +2904,12 @@ begin
   end;
 end;
 
-function TScrollControlWithColumns.RadioInsteadOfCheck: Boolean;
+function TScrollControlWithCells.RadioInsteadOfCheck: Boolean;
 begin
   Result := not (TDCTreeOption.MultiSelect in  _options) and not AllowNoneSelected;
 end;
 
-procedure TScrollControlWithColumns.InnerInitRow(const Row: IDCRow);
+procedure TScrollControlWithCells.InnerInitRow(const Row: IDCRow);
 begin
   var cell: IDCTreeCell;
   var treeRow := Row as IDCTreeRow;
@@ -2969,7 +2978,7 @@ begin
   inherited;
 end;
 
-function TScrollControlWithColumns.CalculateCellWidth(const LayoutColumn: IDCTreeLayoutColumn; const Cell: IDCTreeCell): Single;
+function TScrollControlWithCells.CalculateCellWidth(const LayoutColumn: IDCTreeLayoutColumn; const Cell: IDCTreeCell): Single;
 begin
   Assert(LayoutColumn.Column.WidthType = TDCColumnWidthType.AlignToContent);
 
@@ -2991,7 +3000,7 @@ begin
     if (txt.Margins.Left > 0) or (txt.Margins.Right > 0) then
       customMargins := txt.Margins.Left + txt.Margins.Right;
 
-    Result := TextControlWidth(txt, txt.TextSettings, TextForSizeCalc(txt.Text)) + (2*ROW_CONTENT_MARGIN) + customMargins;
+    Result := TextControlWidth(txt, txt.TextSettings, TextForSizeCalc(txt.Text)) + (2*_cellTopBottomPadding) + customMargins;
   end;
 
   if not Cell.IsHeaderCell and (Cell.Column.SubInfoControlClass = TInfoControlClass.Text) then
@@ -3002,7 +3011,7 @@ begin
     if (subTxt.Margins.Left > 0) or (subTxt.Margins.Right > 0) then
       customMargins := subTxt.Margins.Left + subTxt.Margins.Right;
 
-    var subWidth := TextControlWidth(subTxt, subTxt.TextSettings, TextForSizeCalc(subTxt.Text)) + (2*ROW_CONTENT_MARGIN) + customMargins;
+    var subWidth := TextControlWidth(subTxt, subTxt.TextSettings, TextForSizeCalc(subTxt.Text)) + (2*_cellTopBottomPadding) + customMargins;
 
     Result := CMath.Max(Result, subWidth);
   end;
@@ -3011,18 +3020,18 @@ begin
   begin
     var headerCell := Cell as IHeaderCell;
     if (headerCell.SortControl <> nil) then
-      Result := Result + headerCell.SortControl.Width + (2*ROW_CONTENT_MARGIN);
+      Result := Result + headerCell.SortControl.Width + (2*_cellTopBottomPadding);
 
     if (headerCell.FilterControl <> nil) then
-      Result := Result + headerCell.FilterControl.Width + (2*ROW_CONTENT_MARGIN);
+      Result := Result + headerCell.FilterControl.Width + (2*_cellTopBottomPadding);
   end
   else begin
     if Cell.ExpandButton <> nil then
-      Result := Result + Cell.ExpandButton.Width + ROW_CONTENT_MARGIN;
+      Result := Result + Cell.ExpandButton.Width + _cellTopBottomPadding;
   end;
 end;
 
-function TScrollControlWithColumns.CalculateRowHeight(const Row: IDCTreeRow): Single;
+function TScrollControlWithCells.CalculateRowHeight(const Row: IDCTreeRow): Single;
 begin
   if _rowHeightFixed > 0 then
     Exit(_rowHeightFixed);
@@ -3063,13 +3072,13 @@ begin
         Result := cellHeight;
     end;
 
-  Result := Result + 2*ROW_CONTENT_MARGIN;
+  Result := Result + 2*_cellTopBottomPadding;
 
   if (_rowHeightMax > 0) and (_rowHeightMax < Result) then
     Result := _rowHeightMax;
 end;
 
-procedure TScrollControlWithColumns.GetSortAndFilterImages(out ImageList: TCustomImageList; out FilterIndex, SortAscIndex, SortDescIndex: Integer);
+procedure TScrollControlWithCells.GetSortAndFilterImages(out ImageList: TCustomImageList; out FilterIndex, SortAscIndex, SortDescIndex: Integer);
 begin
   if _frmHeaderPopupMenu = nil then
     _frmHeaderPopupMenu := TfrmFMXPopupMenuDataControl.Create(Self);
@@ -3081,7 +3090,7 @@ begin
   SortDescIndex := 1;
 end;
 
-procedure TScrollControlWithColumns.InitLayout;
+procedure TScrollControlWithCells.InitLayout;
 begin
   if (_view <> nil) and (_columns.Count = 0) then
     CreateDefaultColumns;
@@ -3089,7 +3098,7 @@ begin
   _treeLayout := TDCTreeLayout.Create(Self);
 end;
 
-procedure TScrollControlWithColumns.CreateDefaultColumns; //(const AList: ITreeColumnList);
+procedure TScrollControlWithCells.CreateDefaultColumns; //(const AList: ITreeColumnList);
 var
   typeData: &Type;
   propInfo: _PropertyInfo;
@@ -3155,7 +3164,7 @@ begin
   end;
 end;
 
-procedure TScrollControlWithColumns.DoContentResized(WidthChanged, HeightChanged: Boolean);
+procedure TScrollControlWithCells.DoContentResized(WidthChanged, HeightChanged: Boolean);
 begin
   inherited;
 
@@ -3171,7 +3180,7 @@ begin
     _frozenRectLine.Height := _content.Height;
 end;
 
-procedure TScrollControlWithColumns.OnExpandCollapseHierarchy(Sender: TObject);
+procedure TScrollControlWithCells.OnExpandCollapseHierarchy(Sender: TObject);
 
   procedure DoCollapseOrExpandRowQueued([weak] View: IBaseInterface; ViewListIndex: Integer; SetExpanded: Boolean);
   begin
@@ -3219,7 +3228,7 @@ begin
   DoCollapseOrExpandRowQueued(_view, viewListIndex, setExpanded);
 end;
 
-function TScrollControlWithColumns.OnGetCellDataForSorting(const Cell: IDCTreeCell): CObject;
+function TScrollControlWithCells.OnGetCellDataForSorting(const Cell: IDCTreeCell): CObject;
 begin
   AtomicIncrement(_isSortingOrFiltering);
   try
@@ -3261,7 +3270,7 @@ begin
   end;
 end;
 
-procedure TScrollControlWithColumns.set_AutoCenterTree(const Value: Boolean);
+procedure TScrollControlWithCells.set_AutoCenterTree(const Value: Boolean);
 begin
   if _autoCenterTree <> Value then
   begin
@@ -3275,7 +3284,7 @@ begin
   end;
 end;
 
-procedure TScrollControlWithColumns.set_AutoFitColumns(const Value: Boolean);
+procedure TScrollControlWithCells.set_AutoFitColumns(const Value: Boolean);
 begin
   if _autoFitColumns <> Value then
   begin
@@ -3292,7 +3301,12 @@ begin
   end;
 end;
 
-procedure TScrollControlWithColumns.set_HeaderHeight(const Value: Single);
+procedure TScrollControlWithCells.set_CellTopBottomPadding(const Value: Single);
+begin
+  _cellTopBottomPadding := Value;
+end;
+
+procedure TScrollControlWithCells.set_HeaderHeight(const Value: Single);
 begin
   if not SameValue(_headerHeight, Value) then
   begin
@@ -3305,7 +3319,7 @@ begin
   end;
 end;
 
-procedure TScrollControlWithColumns.set_headerTextBottomMargin(const Value: Single);
+procedure TScrollControlWithCells.set_headerTextBottomMargin(const Value: Single);
 begin
   if not SameValue(_headerTextBottomMargin, Value) then
   begin
@@ -3318,7 +3332,7 @@ begin
   end;
 end;
 
-procedure TScrollControlWithColumns.set_headerTextTopMargin(const Value: Single);
+procedure TScrollControlWithCells.set_headerTextTopMargin(const Value: Single);
 begin
   if not SameValue(_headerTextTopMargin, Value) then
   begin
@@ -3331,7 +3345,7 @@ begin
   end;
 end;
 
-procedure TScrollControlWithColumns.set_AutoExtraColumnSizeMax(const Value: Single);
+procedure TScrollControlWithCells.set_AutoExtraColumnSizeMax(const Value: Single);
 begin
   if not SameValue(_autoExtraColumnSizeMax, Value) then
   begin
@@ -4124,7 +4138,7 @@ begin
   if Cell.IsHeaderCell then
   begin
     var headerCell := Cell as IHeaderCell;
-    var startYPos := Cell.Control.Width - CELL_MIN_INDENT - (2*ROW_CONTENT_MARGIN);
+    var startYPos := Cell.Control.Width - CELL_MIN_INDENT - (2*_treeControl.CellTopBottomPadding);
 
     if headerCell.FilterControl <> nil then
     begin
@@ -4133,7 +4147,7 @@ begin
       headerCell.FilterControl.Width := HEADER_IMG_SIZE;
       headerCell.FilterControl.Height := HEADER_IMG_SIZE;
 
-      startYPos := startYPos - HEADER_IMG_SIZE - (2*ROW_CONTENT_MARGIN);
+      startYPos := startYPos - HEADER_IMG_SIZE - (2*_treeControl.CellTopBottomPadding);
     end;
     if headerCell.SortControl <> nil then
     begin
@@ -4144,19 +4158,19 @@ begin
     end;
   end
   else begin
-    var indentPerLevel := CMath.Max(Cell.Column.Indent, CELL_MIN_INDENT) + ROW_CONTENT_MARGIN;
+    var indentPerLevel := CMath.Max(Cell.Column.Indent, CELL_MIN_INDENT) + _treeControl.CellTopBottomPadding;
 
     if Cell.ExpandButton <> nil then
     begin
-      cell.ExpandButton.Position.Y := ROW_CONTENT_MARGIN;
-      cell.ExpandButton.Position.X := ROW_CONTENT_MARGIN + (indentPerLevel * cell.Row.ParentCount);
+      cell.ExpandButton.Position.Y := _treeControl.CellTopBottomPadding;
+      cell.ExpandButton.Position.X := _treeControl.CellTopBottomPadding + (indentPerLevel * cell.Row.ParentCount);
       spaceUsed := indentPerLevel * (cell.Row.ParentCount {can be 0} + 1);
     end
     else if Cell.Column.ShowHierarchy then
       spaceUsed := indentPerLevel * (cell.Row.ParentCount {can be 0});
   end;
 
-  var textCtrlHeight := IfThen(Cell.IsHeaderCell, Cell.Row.Control.Height, (Cell.Row.Control.Height - 2*ROW_CONTENT_MARGIN));
+  var textCtrlHeight := IfThen(Cell.IsHeaderCell, Cell.Row.Control.Height, (Cell.Row.Control.Height - 2*_treeControl.CellTopBottomPadding));
   var validSub := (Cell.SubInfoControl <> nil) and Cell.SubInfoControl.Visible;
   if validSub and (Cell.Column.SubInfoControlClass = TInfoControlClass.Text) then
     validSub := (Cell.SubInfoControl as ICaption).Text <> string.Empty;
@@ -4167,10 +4181,10 @@ begin
 
     if Cell.CustomSubInfoControlBounds.IsEmpty then
     begin
-      Cell.SubInfoControl.Width := get_Width - spaceUsed - (2*ROW_CONTENT_MARGIN);
+      Cell.SubInfoControl.Width := get_Width - spaceUsed - (2*_treeControl.CellTopBottomPadding);
       Cell.SubInfoControl.Height := textCtrlHeight;
-      Cell.SubInfoControl.Position.Y := ROW_CONTENT_MARGIN + textCtrlHeight + Cell.SubInfoControl.Margins.Top;
-      Cell.SubInfoControl.Position.X := spaceUsed + ROW_CONTENT_MARGIN + Cell.SubInfoControl.Margins.Left;
+      Cell.SubInfoControl.Position.Y := _treeControl.CellTopBottomPadding + textCtrlHeight + Cell.SubInfoControl.Margins.Top;
+      Cell.SubInfoControl.Position.X := spaceUsed + _treeControl.CellTopBottomPadding + Cell.SubInfoControl.Margins.Left;
     end else
       Cell.SubInfoControl.BoundsRect := Cell.CustomSubInfoControlBounds;
   end;
@@ -4179,12 +4193,12 @@ begin
   begin
     if Cell.CustomInfoControlBounds.IsEmpty then
     begin
-      Cell.InfoControl.Width := get_Width - spaceUsed - (2*ROW_CONTENT_MARGIN);
+      Cell.InfoControl.Width := get_Width - spaceUsed - (2*_treeControl.CellTopBottomPadding);
       Cell.InfoControl.Height := textCtrlHeight;
       // KV: 24/01/2025 Line is not used
       // Cell.InfoControl.Position.Y := (Cell.Control.Height - Cell.InfoControl.Height) / 2;
-      Cell.InfoControl.Position.Y := IfThen(Cell.IsHeaderCell, 0, ROW_CONTENT_MARGIN) + Cell.InfoControl.Margins.Top;
-      Cell.InfoControl.Position.X := spaceUsed + ROW_CONTENT_MARGIN + Cell.InfoControl.Margins.Left;
+      Cell.InfoControl.Position.Y := IfThen(Cell.IsHeaderCell, 0, _treeControl.CellTopBottomPadding) + Cell.InfoControl.Margins.Top;
+      Cell.InfoControl.Position.X := spaceUsed + _treeControl.CellTopBottomPadding + Cell.InfoControl.Margins.Left;
     end else
       Cell.InfoControl.BoundsRect := Cell.CustomInfoControlBounds;
   end;
