@@ -178,12 +178,12 @@
         <DCCReference Include="..\Scrollable\FMX.ScrollControl.WithRows.Impl.pas"/>
         <DCCReference Include="..\Scrollable\FMX.ScrollControl.Events.pas"/>
         <DCCReference Include="..\Scrollable\FMX.ScrollControl.ControlClasses.pas"/>
+        <DCCReference Include="..\Scrollable\FMX.ControlCalculations.pas"/>
         <DCCReference Include="..\Tree\FMX.ScrollControl.SortAndFilter.pas"/>
         <DCCReference Include="..\Tree\FMX.ScrollControl.WithCells.Intf.pas"/>
         <DCCReference Include="..\Tree\FMX.ScrollControl.WithCells.Impl.pas"/>
         <DCCReference Include="..\Tree\FMX.ScrollControl.WithEditableCells.Impl.pas"/>
         <DCCReference Include="..\Tree\FMX.ScrollControl.WithEditableCells.Intf.pas"/>
-        <DCCReference Include="..\Tree\FMX.ControlCalculations.pas"/>
         <DCCReference Include="..\Tree\FMX.ScrollControl.WithCells.PopupMenu.pas"/>
         <DCCReference Include="..\Tree\FMX.ScrollControl.DataControl.Intf.pas"/>
         <DCCReference Include="..\Tree\FMX.ScrollControl.DataControl.Impl.pas"/>
@@ -243,6 +243,12 @@
                     </Platform>
                 </DeployFile>
                 <DeployFile LocalName="C:\Users\Public\Documents\Embarcadero\Studio\23.0\Bpl\ADato.DataControl.FMX.bpl" Configuration="Debug" Class="ProjectOutput"/>
+                <DeployFile LocalName="C:\Users\Public\Documents\Embarcadero\Studio\23.0\Bpl\ADato.DataControl.FMX.bpl" Configuration="Debug" Class="ProjectOutput">
+                    <Platform Name="Win32">
+                        <RemoteName>ADato.DataControl.FMX.bpl</RemoteName>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployClass Name="AdditionalDebugSymbols">
                     <Platform Name="OSX32">
                         <Operation>1</Operation>
