@@ -742,7 +742,7 @@ type
 implementation
 
 uses
-  System.ClassHelpers, FMX.Dialogs, System.SysUtils;
+  System.ClassHelpers, System.SysUtils;
 
 constructor CArrayList.Create;
 begin
