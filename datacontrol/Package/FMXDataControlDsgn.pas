@@ -7,8 +7,8 @@ uses
   ADato_DesignerWithPages,
   FMXDataControlColumnsDsgnPage,
 //  ADato.Controls.FMX.Tree.Impl,
-  FMX.dataControl.Impl,
-  FMX.DataControl.Static.Impl,
+  FMX.ScrollControl.DataControl.Impl,
+  FMX.ScrollControl.WithCells.Impl,
   System.Classes;
 
 type

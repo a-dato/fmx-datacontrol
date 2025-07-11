@@ -1,4 +1,4 @@
-﻿unit FMX.DataControl.Static.Intf;
+unit FMX.ScrollControl.WithCells.Intf;
 
 interface
 
@@ -28,7 +28,7 @@ uses
   System.Collections.Generic,
   System.Collections,
   System.Collections.Specialized,
-  FMX.DataControl.ScrollableRowControl.Intf;
+  FMX.ScrollControl.WithRows.Intf;
 
 type
   TSortType = (None, Displaytext, CellData, PropertyValue, ColumnCellComparer, RowComparer);
@@ -301,6 +301,9 @@ type
     function  get_AutoExtraColumnSizeMax: Single;
     procedure set_AutoExtraColumnSizeMax(const Value: Single);
 
+    function  get_CellTopBottomPadding: Single;
+    procedure set_CellTopBottomPadding(const Value: Single);
+
     procedure ColumnVisibilityChanged(const Column: IDCTreeColumn; IsUserChange: Boolean);
     procedure ColumnWidthChanged(const Column: IDCTreeColumn);
 
@@ -318,6 +321,7 @@ type
     property HeaderTextTopMargin: Single read get_headerTextTopMargin write set_headerTextTopMargin;
     property HeaderTextBottomMargin: Single read get_headerTextBottomMargin write set_headerTextBottomMargin;
     property AutoExtraColumnSizeMax: Single read get_AutoExtraColumnSizeMax write set_AutoExtraColumnSizeMax;
+    property CellTopBottomPadding: Single read get_CellTopBottomPadding write set_CellTopBottomPadding;
   end;
 
   ITreeSortDescription = interface
@@ -588,6 +592,4 @@ resourcestring
 implementation
 
 end.
-
-
 

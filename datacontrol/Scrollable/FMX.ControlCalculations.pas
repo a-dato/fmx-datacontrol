@@ -20,7 +20,7 @@ uses
   Wasm.FMX.TextLayout,
   Wasm.FMX.Layouts
   {$ENDIF}
-  ;
+  , FMX.Types, FMX.Forms;
 
   function  TextControlWidth(const TextControl: TControl; const Settings: TTextSettings; const Text: string; MinWidth: Single = -1; MaxWidth: Single = -1; TextHeight: Single = -1): Single;
   function  TextControlHeight(const TextControl: TControl; const Settings: TTextSettings; const Text: string; MinHeight: Single = -1; MaxHeight: Single = -1; TextWidth: Single = -1): Single;
@@ -31,6 +31,10 @@ uses
   procedure BeginDefaultTextLayout;
   procedure EndDefaultTextLayout;
 
+  function  ControlEffectiveVisible(Control: TControl): Boolean;
+  function  MouseInObject(AControl: TControl): Boolean;
+  function  OwnerForm(AControl: TControl): TCustomForm;
+
 var
   DefaultLayout: TTextLayout;
 
@@ -40,7 +44,6 @@ uses
   {$IFNDEF WEBASSEMBLY}
   System.Types,
   System.Math,
-  FMX.Types,
   {$ELSE}
   Wasm.System.Types,
   Wasm.System.Math,
@@ -211,6 +214,20 @@ begin
   end;
 end;
 
+function ControlEffectiveVisible(Control: TControl): Boolean;
+begin
+  var ctrl := Control;
+  while (ctrl <> nil) do
+  begin
+    if not ctrl.Visible or (ctrl.Scene = nil) then
+      Exit(False);
+
+    ctrl := ctrl.ParentControl;
+  end;
+
+  Result := True;
+end;
+
 procedure ScrollControlInView(const Control: TControl; const ScrollBox: TCustomScrollBox; ControlMargin: Single = 10);
 begin
   if (Control = nil) or (ScrollBox = nil) then
@@ -252,6 +269,27 @@ begin
   end;
 
   ScrollBox.RealignContent;
+end;
+
+function MouseInObject(AControl: TControl): Boolean;
+var
+  c: IControl;
+  p: TFmxObject;
+begin
+  var pos := Screen.MousePos;
+  var localPos := AControl.ScreenToLocal(pos);
+  Result := AControl.PointInObjectLocal(localPos.X, localPos.Y);
+end;
+
+function OwnerForm(AControl: TControl): TCustomForm;
+begin
+  var owner := AControl.Owner;
+  while not (owner is TCustomForm) and (owner <> nil) do
+    owner := owner.Owner;
+
+  if owner <> nil then
+    Result := owner as TCustomForm else
+    Result := nil;
 end;
 
 end.

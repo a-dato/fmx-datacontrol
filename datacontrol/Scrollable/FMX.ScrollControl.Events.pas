@@ -1,4 +1,4 @@
-﻿unit FMX.DataControl.Events;
+﻿unit FMX.ScrollControl.Events;
 
 interface
 
@@ -15,8 +15,8 @@ uses
   {$ENDIF}
   System_,
   System.Collections,
-  FMX.DataControl.Static.Intf,
-  FMX.DataControl.ScrollableRowControl.Intf;
+  FMX.ScrollControl.WithCells.Intf,
+  FMX.ScrollControl.WithRows.Intf, System.Types;
 
 type
   TDataControlEventRegistration = class
@@ -146,7 +146,6 @@ type
   end;
 
   DCRowEditEventArgs = class(DCRowEventArgs)
-
   protected
     _IsEdit: Boolean;
 
@@ -163,9 +162,7 @@ type
     property IsEdit: Boolean read _IsEdit;
   end;
 
-
   DCAddingNewEventArgs = class(EventArgs)
-
   public
     NewObject: CObject;
     AcceptIfNil: Boolean;
@@ -173,7 +170,6 @@ type
 
 
   DCDeletingEventArgs = class(EventArgs)
-
   public
     DataItem: CObject;
     Cancel: Boolean;
@@ -181,11 +177,9 @@ type
     constructor Create(const ADataItem: CObject); reintroduce;
   end;
 
-
   DCStartEditEventArgs = class(BasicEventArgs)
   protected
     function get_DataItem: CObject;
-
   public
     // Tells TreeView if editing is allowed
     AllowEditing  : Boolean;
@@ -193,6 +187,7 @@ type
     Modified      : Boolean;
     // Holds a list of items to choose from when a DropDowenEditor is used
     PickList      : IList;
+    MultiSelect   : Boolean;
     // Holds the value to edit
     Value         : CObject;
     MultilineEdit : Boolean;  // True - show Multiline editor
@@ -207,7 +202,6 @@ type
 
 
   DCEndEditEventArgs = class(BasicEventArgs)
-
   protected
     _EditItem: CObject;
 
@@ -271,6 +265,19 @@ type
     function GetRowsHeight: Single;
   end;
 
+  TDCHintEventArgs = class(EventArgs)
+  private
+    LocalPoint: TPointF;
+    MouseIsSticking: Boolean;
+  public
+    ShowCustomHint: Boolean;
+
+    function GetLocalPoint: TPointF;
+    function GetMouseIsSticking: Boolean;
+
+    constructor Create(const ShowHint: Boolean; AtPoint: TPointF; AMouseIsSticking: Boolean);
+  end;
+
   CellLoadingEvent = procedure(const Sender: TObject; e: DCCellLoadingEventArgs) of object;
   CellLoadedEvent  = procedure(const Sender: TObject; e: DCCellLoadedEventArgs) of object;
   CellFormattingEvent  = procedure (const Sender: TObject; e: DCCellFormattingEventArgs) of object;
@@ -300,11 +307,12 @@ type
   RowDeletingEvent = procedure(const Sender: TObject; e: DCDeletingEventArgs) of object;
 
   TreePositionedEvent = procedure(const Sender: TObject; e: DCTreePositionArgs) of object;
+  TCustomToolTipEvent = procedure(Sender: TObject; const HintEventArgs: TDCHintEventArgs) of object;
 
 implementation
 
 uses
-  FMX.DataControl.ScrollableRowControl;
+  FMX.ScrollControl.WithRows.Impl;
 
 class procedure TDataControlEventRegistration.DoRegister;
 begin
@@ -505,7 +513,7 @@ end;
 
 function DCTreePositionArgs.AllViewRowsVisible: Boolean;
 begin
-  var dc := RowControl as TDCScrollableRowControl;
+  var dc := RowControl as TScrollControlWithRows;
   Result := dc.View.ViewCount = dc.View.ActiveViewRows.Count;
 end;
 
@@ -523,12 +531,31 @@ end;
 
 function DCTreePositionArgs.GetRowsHeight: Single;
 begin
-  var dc := RowControl as TDCScrollableRowControl;
+  var dc := RowControl as TScrollControlWithRows;
 
   Result := 0.0;
   var row: IDCRow;
   for row in dc.View.ActiveViewRows do
     Result := Result + row.Height;
+end;
+
+{ TDCHintEventArgs }
+
+constructor TDCHintEventArgs.Create(const ShowHint: Boolean; AtPoint: TPointF; AMouseIsSticking: Boolean);
+begin
+  ShowCustomHint := ShowHint;
+  LocalPoint := AtPoint;
+  MouseIsSticking := AMouseIsSticking;
+end;
+
+function TDCHintEventArgs.GetLocalPoint: TPointF;
+begin
+  Result := LocalPoint;
+end;
+
+function TDCHintEventArgs.GetMouseIsSticking: Boolean;
+begin
+  Result := MouseIsSticking;
 end;
 
 end.

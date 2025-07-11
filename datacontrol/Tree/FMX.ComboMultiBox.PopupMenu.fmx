@@ -1,0 +1,102 @@
+object frmComboMultiBoxPopup: TfrmComboMultiBoxPopup
+  Left = 480
+  Top = 300
+  BorderStyle = None
+  Caption = 'Form1'
+  ClientHeight = 344
+  ClientWidth = 206
+  Position = Designed
+  FormFactor.Width = 320
+  FormFactor.Height = 480
+  FormFactor.Devices = [Desktop]
+  OnCloseQuery = FormCloseQuery
+  OnDeactivate = FormDeactivate
+  Left = 480
+  Top = 300
+  DesignerMasterStyle = 0
+  object Rectangle1: TRectangle
+    Align = Contents
+    Fill.Color = xFFFDFDFE
+    HitTest = False
+    Size.Width = 206.000000000000000000
+    Size.Height = 344.000000000000000000
+    Size.PlatformDefault = False
+    Stroke.Color = xFFE3E3E3
+  end
+  object filterlist: TRectangle
+    Align = Client
+    Fill.Color = xFFEBECF0
+    Padding.Right = 2.000000000000000000
+    Size.Width = 206.000000000000000000
+    Size.Height = 344.000000000000000000
+    Size.PlatformDefault = False
+    Stroke.Color = xFFBCBCBC
+    XRadius = 3.000000000000000000
+    YRadius = 3.000000000000000000
+    object lyFilter: TLayout
+      Align = Top
+      Padding.Top = 3.000000000000000000
+      Margins.Left = 3.000000000000000000
+      Margins.Right = 3.000000000000000000
+      Position.X = 3.000000000000000000
+      Size.Width = 198.000000000000000000
+      Size.Height = 29.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 0
+      object cbSelectAll: TCheckBox
+        Align = Left
+        Hint = 'Select all'
+        Position.Y = 3.000000000000000000
+        Size.Width = 16.000000000000000000
+        Size.Height = 22.000000000000000000
+        Size.PlatformDefault = False
+        TabOrder = 0
+        OnClick = cbSelectAllClick
+      end
+      object edSearch: TEdit
+        Touch.InteractiveGestures = [LongTap, DoubleTap]
+        Align = Client
+        TabOrder = 1
+        Margins.Left = 3.000000000000000000
+        Margins.Right = 3.000000000000000000
+        Size.Width = 149.000000000000000000
+        Size.Height = 22.000000000000000000
+        Size.PlatformDefault = False
+        TextPrompt = 'Search...'
+        OnChangeTracking = edSearchChangeTracking
+      end
+      object Line1: TLine
+        Align = Bottom
+        LineType = Bottom
+        Margins.Left = 3.000000000000000000
+        Margins.Top = 3.000000000000000000
+        Margins.Right = 3.000000000000000000
+        Position.X = 3.000000000000000000
+        Position.Y = 28.000000000000000000
+        Size.Width = 192.000000000000000000
+        Size.Height = 1.000000000000000000
+        Size.PlatformDefault = False
+        Stroke.Color = xFF8A8A8A
+      end
+      object Button1: TButton
+        Align = Right
+        Position.X = 171.000000000000000000
+        Position.Y = 3.000000000000000000
+        Size.Width = 27.000000000000000000
+        Size.Height = 22.000000000000000000
+        Size.PlatformDefault = False
+        TabOrder = 2
+        Text = 'Go'
+        TextSettings.Trimming = None
+        OnClick = Button1Click
+      end
+    end
+  end
+  object Timer1: TTimer
+    Enabled = False
+    Interval = 250
+    OnTimer = Timer1Timer
+    Left = 91
+    Top = 259
+  end
+end

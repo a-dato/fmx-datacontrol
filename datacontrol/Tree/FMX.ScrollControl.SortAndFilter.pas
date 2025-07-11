@@ -1,4 +1,4 @@
-﻿unit FMX.DataControl.SortAndFilter;
+unit FMX.ScrollControl.SortAndFilter;
 
 interface
 
@@ -11,9 +11,9 @@ uses
   {$ENDIF}
   System_,
   System.Collections.Generic,
-  FMX.DataControl.View.Intf,
-  FMX.DataControl.Static.Intf,
-  FMX.DataControl.Static;
+  FMX.ScrollControl.View.Intf,
+  FMX.ScrollControl.WithCells.Intf,
+  FMX.ScrollControl.WithCells.Impl;
 
 type
   TTreeSortDescription = class(CListSortDescription, ITreeSortDescription)
@@ -96,7 +96,7 @@ uses
   Wasm.System.SysUtils,
   {$ENDIF}
   ADato.Data.DataModel.intf, 
-  FMX.DataControl.Static.Impl, FMX.DataControl.ControlClasses, FMX.ActnList,
+  FMX.ScrollControl.ControlClasses, FMX.ActnList,
   System.Collections;
 
 { CTreeSortDescriptionWithProperty }
@@ -275,5 +275,3 @@ begin
 end;
 
 end.
-
-

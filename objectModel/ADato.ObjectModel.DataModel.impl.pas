@@ -661,16 +661,16 @@ procedure TDataModelObjectListModel.ResetContextFromChangedItems;
               _dataModel.Remove(dr);
 
             // re-index
-            if _dataModel.FindByKey(rowInfo.Location) <> nil then
+            if rowInfo.Position <> InsertPosition.None {_dataModel.FindByKey(rowInfo.Location) <> nil} then
             begin
-              _dataModel.Add(obj, rowInfo.Location, rowInfo.Position);
+              _dataModel.Add(obj, rowInfo.Location {can be nil}, rowInfo.Position);
               foundItems.Add(obj);
             end;
           end;
           TObjectListChangeType.Removed:
-            if _dataModel.FindByKey(rowInfo.Location) <> nil then
+            if rowInfo.Position <> InsertPosition.None {_dataModel.FindByKey(rowInfo.Location) <> nil} then
             begin
-              _dataModel.Add(obj, rowInfo.Location, rowInfo.Position);
+              _dataModel.Add(obj, rowInfo.Location {can be nil}, rowInfo.Position);
               foundItems.Add(obj);
             end;
         end;
@@ -838,6 +838,7 @@ begin
   begin
     var dr := _dataModel.FindByKey(Obj);
     var rowInfo: TDataRowInfo;
+    rowInfo.Position := InsertPosition.None;
 
     if dr <> nil then
     begin
@@ -856,7 +857,14 @@ begin
           rowInfo.Position := InsertPosition.After;
           rowInfo.Location := prev.Data;
         end else
+        begin
           rowInfo.Position := InsertPosition.Before;
+
+          var next := _dataModel.Next(dr);
+          if next <> nil then
+            rowInfo.Location := next.Data else
+            rowInfo.Location := nil;
+        end;
       end;
     end else
       rowInfo.Level := 0;

@@ -4,12 +4,18 @@ interface
 
 uses
   System_,
-  FMX.DataControl.Impl, FMX.DataControl.ScrollableControl,
-  FMX.DataControl.ScrollableRowControl, FMX.DataControl.Static,
-  FMX.DataControl.Editable, System.Classes, System.Actions, FMX.ActnList,
+
+  FMX.ScrollControl.Events,
+  FMX.ScrollControl.Impl,
+  FMX.ScrollControl.WithRows.Impl,
+  FMX.ScrollControl.WithCells.Impl,
+  FMX.ScrollControl.WithEditableCells.Impl,
+  FMX.ScrollControl.DataControl.Impl,
+
+  System.Classes, System.Actions, FMX.ActnList,
   FMX.StdCtrls, FMX.Edit, FMX.Controls, FMX.Controls.Presentation, FMX.Types,
   FMX.Layouts, FMX.Forms, ADato.Data.DataModel.intf,
-  ADato.ObjectModel.List.intf, FMX.DataControl.Events;
+  ADato.ObjectModel.List.intf;
 
 type
   TForm1 = class(TForm)

@@ -186,6 +186,7 @@ type
 
   CArrayHelper = class helper for CArray
   protected
+
     class procedure SwapIfGreaterWithItems<T>(var keys: array of T; const comparer: IComparer<T>; a: Integer; b: Integer); overload;
     class procedure SwapIfGreaterWithItems<TKey, TValue>(var keys: array of TKey; var values: array of TValue; const comparer: IComparer<TKey>; a: Integer; b: Integer); overload;
 
@@ -202,6 +203,10 @@ type
     class procedure Copy<T>(const sourceArray: array of T; sourceIndex: Integer; var destinationArray: array of T; destinationIndex: Integer; length: Integer);
     class procedure Sort<T>(var &array: array of T; index: Integer; length: Integer; const comparer: IComparer<T>); overload;
     class procedure QuickSort<T>(var keys: array of T; left: Integer; right: Integer; const comparer: IComparer<T>); overload;
+
+    class procedure InsertionSort<T>(var A: array of T; Left, Right: Integer; const comparer: IComparer<T>);
+    class procedure MergeInternal<T>(var A: array of T; Left, Mid, Right: Integer; const comparer: IComparer<T>);
+    class procedure MergeSort<T>(var A: array of T; ArrLeft, ArrRight: Integer; const comparer: IComparer<T>);
 
     class procedure Sort<TKey, TValue>(var keys: array of TKey; var values: array of TValue; const comparer: IComparer<TKey>); overload;
     class procedure Sort<TKey, TValue>(var keys: array of TKey; var values: array of TValue; index: Integer; length: Integer; const comparer: IComparer<TKey>); overload;
@@ -521,6 +526,7 @@ type
     procedure Sort(const comparer: IComparer<T>); overload;
     procedure Sort(comparison: Comparison<T>); overload;
     procedure Sort(index: Integer; NumItems: Integer; const comparer: IComparer<T>); overload;
+
     function  ToArray: TArray<T>;
     function  RawArray: TArray<T>;
     function  InnerArray: TArray<T>;
@@ -1357,7 +1363,7 @@ type
 
 implementation
 
-uses TypInfo;
+uses TypInfo, System.Generics.Collections;
 
 class function Comparer<T>.Default: IComparer<T>;
 var
@@ -1655,8 +1661,11 @@ begin
   if ((System.Length(&array) - index) < length) then
     raise ArgumentException.Create(Environment.GetResourceString('Argument_InvalidOffLen'));
   if (length > 1) then // and (((comparer <> nil) and (comparer <> Comparer<T>.Default)) or not Array.TrySZSort(&array, nil, index, ((index + length) - 1)))) then
+  begin
     // ArraySortHelper<T>.Default.Sort(&array, index, length, comparer)
     QuickSort<T>(&array, index, (index + (length - 1)), comparer);
+//    MergeSort<T>(&array, index, (index + (length - 1)), comparer);
+  end;
 end;
 
 class procedure CArrayHelper.Sort<TKey, TValue>(var keys: array of TKey; var values: array of TValue; const comparer: IComparer<TKey>);
@@ -1709,6 +1718,111 @@ begin
       values[b] := local2
     end;
   end
+end;
+
+class procedure CArrayHelper.InsertionSort<T>(var A: array of T; Left, Right: Integer; const comparer: IComparer<T>);
+var
+  I, J: Integer;
+  Key: T;
+begin
+  for I := Left + 1 to Right do
+  begin
+    Key := A[I];
+    J := I - 1;
+    while (J >= Left) and (comparer.Compare(A[J], Key) > 0) do
+    begin
+      A[J + 1] := A[J];
+      Dec(J);
+    end;
+    A[J + 1] := Key;
+  end;
+end;
+
+class procedure CArrayHelper.MergeInternal<T>(var A: array of T; Left, Mid, Right: Integer; const comparer: IComparer<T>);
+var
+  LeftArray, RightArray: TArray<T>;
+  Len1, Len2, I, J, K: Integer;
+begin
+  Len1 := Mid - Left + 1;
+  Len2 := Right - Mid;
+
+  SetLength(LeftArray, Len1);
+  SetLength(RightArray, Len2);
+
+  for I := 0 to Len1 - 1 do
+    LeftArray[I] := A[Left + I];
+  for I := 0 to Len2 - 1 do
+    RightArray[I] := A[Mid + 1 + I];
+
+  I := 0;
+  J := 0;
+  K := Left;
+
+  while (I < Len1) and (J < Len2) do
+  begin
+    if comparer.Compare(LeftArray[I], RightArray[J]) <= 0 then
+    begin
+      A[K] := LeftArray[I];
+      Inc(I);
+    end
+    else
+    begin
+      A[K] := RightArray[J];
+      Inc(J);
+    end;
+    Inc(K);
+  end;
+
+  while I < Len1 do
+  begin
+    A[K] := LeftArray[I];
+    Inc(I);
+    Inc(K);
+  end;
+
+  while J < Len2 do
+  begin
+    A[K] := RightArray[J];
+    Inc(J);
+    Inc(K);
+  end;
+end;
+
+class procedure CArrayHelper.MergeSort<T>(var A: array of T; ArrLeft, ArrRight: Integer; const comparer: IComparer<T>);
+var
+  N, Size, Left, Mid, Right: Integer;
+const
+  MIN_RUN = 32;
+begin
+  N := ArrRight+1;
+  if N <= 2 then Exit;
+
+  // Stap 1: splits array in "runs" en sorteer met insertion sort
+  Left := ArrLeft;
+  while Left < N do
+  begin
+    Right := CMath.Min(Left + MIN_RUN - 1, N - 1);
+    InsertionSort<T>(A, Left, Right, comparer);
+    Left := Right + 1;
+  end;
+
+  // Stap 2: merge runs
+  Size := MIN_RUN;
+  while Size < N do
+  begin
+    Left := ArrLeft;
+    while Left < N do
+    begin
+      Mid := Left + Size - 1;
+      if Mid >= N then Break;
+
+      Right := CMath.Min(Left + 2 * Size - 1, N - 1);
+      MergeInternal<T>(A, Left, Mid, Right, comparer);
+
+      Left := Left + 2 * Size;
+    end;
+    Size := Size * 2;
+  end;
 end;
 
 class procedure CArrayHelper.QuickSort<T>(var keys: array of T; left: Integer; right: Integer; const comparer: IComparer<T>);
@@ -2735,7 +2849,7 @@ begin
   if (Count > 0) then
   begin
     comparer := FunctorComparer<T>.Create(comparison);
-    CArray.Sort<T>(self._items, 0, Count, comparer)
+    CArray.Sort<T>(self._items, 0, Count, comparer);
   end
 end;
 
@@ -2747,6 +2861,7 @@ begin
     ThrowHelper.ThrowArgumentOutOfRangeException(ExceptionArgument.count, ExceptionResource.ArgumentOutOfRange_NeedNonNegNum);
   if ((Count - index) < NumItems) then
     ThrowHelper.ThrowArgumentException(ExceptionResource.Argument_InvalidOffLen);
+
   CArray.Sort<T>(self._items, index, NumItems, comparer);
   inc(self._version)
 end;

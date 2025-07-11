@@ -219,6 +219,9 @@ type
       procedure SwapIfGreaterWithItems(a: Integer; b: Integer);
     end;
 
+//  protected
+//    class var _stopwatch: TStopwatch;
+
   private
     _items: CObject.ObjectArray;
 
@@ -739,7 +742,7 @@ type
 implementation
 
 uses
-  System.ClassHelpers;
+  System.ClassHelpers, System.SysUtils;
 
 constructor CArrayList.Create;
 begin
@@ -2878,6 +2881,12 @@ function CSortedList.ValueList.get_Item(Index: Integer): CObject;
 begin
   Result := sortedList.GetByIndex(index);
 end;
+
+//initialization
+//  CARRAY._stopwatch := TStopwatch.Create;
+//
+//finalization
+//  ShowMessage(CARRAY._stopwatch.ElapsedMilliseconds.TOSTring + ' ms');
 
 end.
 

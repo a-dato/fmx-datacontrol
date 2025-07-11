@@ -147,24 +147,25 @@ object frmInspector: TfrmInspector
             'Width><WidthMin>0</WidthMin><WidthMax>0</WidthMax></WidthSetting' +
             's><Visualisation><Visible>True</Visible><Frozen>False</Frozen><R' +
             'eadOnly>True</ReadOnly><Selectable>True</Selectable><AllowResize' +
-            '>False</AllowResize><AllowHide>False</AllowHide></Visualisation>' +
-            '<SortAndFilter><Sort>None</Sort><ShowSortMenu>False</ShowSortMen' +
-            'u><ShowFilterMenu>False</ShowFilterMenu></SortAndFilter><SubCont' +
-            'rolSettings><SubInfoControlClass>Custom</SubInfoControlClass></S' +
-            'ubControlSettings><Hierarchy><ShowHierarchy>False</ShowHierarchy' +
-            '><Indent>0</Indent></Hierarchy></Item><Item type="TDCTreeColumn"' +
-            '><Caption>ItemType</Caption><PropertyName>ItemType</PropertyName' +
-            '><InfoControlClass>Text</InfoControlClass><WidthSettings><WidthT' +
-            'ype>Percentage</WidthType><Width>30</Width><WidthMin>0</WidthMin' +
-            '><WidthMax>0</WidthMax></WidthSettings><Visualisation><Visible>T' +
-            'rue</Visible><Frozen>False</Frozen><ReadOnly>True</ReadOnly><Sel' +
-            'ectable>True</Selectable><AllowResize>False</AllowResize><AllowH' +
-            'ide>False</AllowHide></Visualisation><SortAndFilter><Sort>None</' +
-            'Sort><ShowSortMenu>False</ShowSortMenu><ShowFilterMenu>False</Sh' +
-            'owFilterMenu></SortAndFilter><SubControlSettings><SubInfoControl' +
-            'Class>Custom</SubInfoControlClass></SubControlSettings><Hierarch' +
-            'y><ShowHierarchy>False</ShowHierarchy><Indent>0</Indent></Hierar' +
-            'chy></Item></Columns>'#13#10
+            '>False</AllowResize><AllowHide>False</AllowHide><HideWhenEmpty>F' +
+            'alse</HideWhenEmpty></Visualisation><SortAndFilter><Sort>None</S' +
+            'ort><ShowSortMenu>False</ShowSortMenu><ShowFilterMenu>False</Sho' +
+            'wFilterMenu></SortAndFilter><SubControlSettings><SubInfoControlC' +
+            'lass>Custom</SubInfoControlClass></SubControlSettings><Hierarchy' +
+            '><ShowHierarchy>False</ShowHierarchy><Indent>0</Indent></Hierarc' +
+            'hy></Item><Item type="TDCTreeColumn"><Caption>ItemType</Caption>' +
+            '<PropertyName>ItemType</PropertyName><InfoControlClass>Text</Inf' +
+            'oControlClass><WidthSettings><WidthType>Percentage</WidthType><W' +
+            'idth>30</Width><WidthMin>0</WidthMin><WidthMax>0</WidthMax></Wid' +
+            'thSettings><Visualisation><Visible>True</Visible><Frozen>False</' +
+            'Frozen><ReadOnly>True</ReadOnly><Selectable>True</Selectable><Al' +
+            'lowResize>False</AllowResize><AllowHide>False</AllowHide><HideWh' +
+            'enEmpty>False</HideWhenEmpty></Visualisation><SortAndFilter><Sor' +
+            't>None</Sort><ShowSortMenu>False</ShowSortMenu><ShowFilterMenu>F' +
+            'alse</ShowFilterMenu></SortAndFilter><SubControlSettings><SubInf' +
+            'oControlClass>Custom</SubInfoControlClass></SubControlSettings><' +
+            'Hierarchy><ShowHierarchy>False</ShowHierarchy><Indent>0</Indent>' +
+            '</Hierarchy></Item></Columns>'#13#10
         end
       end
     end
@@ -239,35 +240,37 @@ object frmInspector: TfrmInspector
               'Width><WidthMin>0</WidthMin><WidthMax>0</WidthMax></WidthSetting' +
               's><Visualisation><Visible>True</Visible><Frozen>False</Frozen><R' +
               'eadOnly>True</ReadOnly><Selectable>True</Selectable><AllowResize' +
-              '>False</AllowResize><AllowHide>False</AllowHide></Visualisation>' +
-              '<SortAndFilter><Sort>None</Sort><ShowSortMenu>False</ShowSortMen' +
-              'u><ShowFilterMenu>False</ShowFilterMenu></SortAndFilter><SubCont' +
-              'rolSettings><SubInfoControlClass>Custom</SubInfoControlClass></S' +
-              'ubControlSettings><Hierarchy><ShowHierarchy>False</ShowHierarchy' +
-              '><Indent>0</Indent></Hierarchy></Item><Item type="TDCTreeColumn"' +
-              '><Caption>TypeName</Caption><PropertyName>TypeName</PropertyName' +
-              '><InfoControlClass>Text</InfoControlClass><WidthSettings><WidthT' +
-              'ype>Percentage</WidthType><Width>25</Width><WidthMin>0</WidthMin' +
-              '><WidthMax>0</WidthMax></WidthSettings><Visualisation><Visible>T' +
-              'rue</Visible><Frozen>False</Frozen><ReadOnly>True</ReadOnly><Sel' +
-              'ectable>True</Selectable><AllowResize>False</AllowResize><AllowH' +
-              'ide>False</AllowHide></Visualisation><SortAndFilter><Sort>None</' +
-              'Sort><ShowSortMenu>False</ShowSortMenu><ShowFilterMenu>False</Sh' +
-              'owFilterMenu></SortAndFilter><SubControlSettings><SubInfoControl' +
-              'Class>Custom</SubInfoControlClass></SubControlSettings><Hierarch' +
-              'y><ShowHierarchy>False</ShowHierarchy><Indent>0</Indent></Hierar' +
-              'chy></Item><Item type="TDCTreeColumn"><Caption>Size</Caption><Pr' +
-              'opertyName>Size</PropertyName><InfoControlClass>Text</InfoContro' +
-              'lClass><WidthSettings><WidthType>Percentage</WidthType><Width>15' +
-              '</Width><WidthMin>0</WidthMin><WidthMax>0</WidthMax></WidthSetti' +
-              'ngs><Visualisation><Visible>True</Visible><Frozen>False</Frozen>' +
-              '<ReadOnly>True</ReadOnly><Selectable>True</Selectable><AllowResi' +
-              'ze>False</AllowResize><AllowHide>False</AllowHide></Visualisatio' +
-              'n><SortAndFilter><Sort>None</Sort><ShowSortMenu>False</ShowSortM' +
-              'enu><ShowFilterMenu>False</ShowFilterMenu></SortAndFilter><SubCo' +
-              'ntrolSettings><SubInfoControlClass>Custom</SubInfoControlClass><' +
-              '/SubControlSettings><Hierarchy><ShowHierarchy>False</ShowHierarc' +
-              'hy><Indent>0</Indent></Hierarchy></Item></Columns>'#13#10
+              '>False</AllowResize><AllowHide>False</AllowHide><HideWhenEmpty>F' +
+              'alse</HideWhenEmpty></Visualisation><SortAndFilter><Sort>None</S' +
+              'ort><ShowSortMenu>False</ShowSortMenu><ShowFilterMenu>False</Sho' +
+              'wFilterMenu></SortAndFilter><SubControlSettings><SubInfoControlC' +
+              'lass>Custom</SubInfoControlClass></SubControlSettings><Hierarchy' +
+              '><ShowHierarchy>False</ShowHierarchy><Indent>0</Indent></Hierarc' +
+              'hy></Item><Item type="TDCTreeColumn"><Caption>TypeName</Caption>' +
+              '<PropertyName>TypeName</PropertyName><InfoControlClass>Text</Inf' +
+              'oControlClass><WidthSettings><WidthType>Percentage</WidthType><W' +
+              'idth>25</Width><WidthMin>0</WidthMin><WidthMax>0</WidthMax></Wid' +
+              'thSettings><Visualisation><Visible>True</Visible><Frozen>False</' +
+              'Frozen><ReadOnly>True</ReadOnly><Selectable>True</Selectable><Al' +
+              'lowResize>False</AllowResize><AllowHide>False</AllowHide><HideWh' +
+              'enEmpty>False</HideWhenEmpty></Visualisation><SortAndFilter><Sor' +
+              't>None</Sort><ShowSortMenu>False</ShowSortMenu><ShowFilterMenu>F' +
+              'alse</ShowFilterMenu></SortAndFilter><SubControlSettings><SubInf' +
+              'oControlClass>Custom</SubInfoControlClass></SubControlSettings><' +
+              'Hierarchy><ShowHierarchy>False</ShowHierarchy><Indent>0</Indent>' +
+              '</Hierarchy></Item><Item type="TDCTreeColumn"><Caption>Size</Cap' +
+              'tion><PropertyName>Size</PropertyName><InfoControlClass>Text</In' +
+              'foControlClass><WidthSettings><WidthType>Percentage</WidthType><' +
+              'Width>15</Width><WidthMin>0</WidthMin><WidthMax>0</WidthMax></Wi' +
+              'dthSettings><Visualisation><Visible>True</Visible><Frozen>False<' +
+              '/Frozen><ReadOnly>True</ReadOnly><Selectable>True</Selectable><A' +
+              'llowResize>False</AllowResize><AllowHide>False</AllowHide><HideW' +
+              'henEmpty>False</HideWhenEmpty></Visualisation><SortAndFilter><So' +
+              'rt>None</Sort><ShowSortMenu>False</ShowSortMenu><ShowFilterMenu>' +
+              'False</ShowFilterMenu></SortAndFilter><SubControlSettings><SubIn' +
+              'foControlClass>Custom</SubInfoControlClass></SubControlSettings>' +
+              '<Hierarchy><ShowHierarchy>False</ShowHierarchy><Indent>0</Indent' +
+              '></Hierarchy></Item></Columns>'#13#10
           end
         end
         object tbIndexes: TTabItem
@@ -312,24 +315,25 @@ object frmInspector: TfrmInspector
               'Width><WidthMin>0</WidthMin><WidthMax>0</WidthMax></WidthSetting' +
               's><Visualisation><Visible>True</Visible><Frozen>False</Frozen><R' +
               'eadOnly>True</ReadOnly><Selectable>True</Selectable><AllowResize' +
-              '>False</AllowResize><AllowHide>False</AllowHide></Visualisation>' +
-              '<SortAndFilter><Sort>None</Sort><ShowSortMenu>False</ShowSortMen' +
-              'u><ShowFilterMenu>False</ShowFilterMenu></SortAndFilter><SubCont' +
-              'rolSettings><SubInfoControlClass>Custom</SubInfoControlClass></S' +
-              'ubControlSettings><Hierarchy><ShowHierarchy>False</ShowHierarchy' +
-              '><Indent>0</Indent></Hierarchy></Item><Item type="TDCTreeColumn"' +
-              '><Caption>ItemType</Caption><PropertyName>ItemType</PropertyName' +
-              '><InfoControlClass>Text</InfoControlClass><WidthSettings><WidthT' +
-              'ype>Percentage</WidthType><Width>30</Width><WidthMin>0</WidthMin' +
-              '><WidthMax>0</WidthMax></WidthSettings><Visualisation><Visible>T' +
-              'rue</Visible><Frozen>False</Frozen><ReadOnly>True</ReadOnly><Sel' +
-              'ectable>True</Selectable><AllowResize>False</AllowResize><AllowH' +
-              'ide>False</AllowHide></Visualisation><SortAndFilter><Sort>None</' +
-              'Sort><ShowSortMenu>False</ShowSortMenu><ShowFilterMenu>False</Sh' +
-              'owFilterMenu></SortAndFilter><SubControlSettings><SubInfoControl' +
-              'Class>Custom</SubInfoControlClass></SubControlSettings><Hierarch' +
-              'y><ShowHierarchy>False</ShowHierarchy><Indent>0</Indent></Hierar' +
-              'chy></Item></Columns>'#13#10
+              '>False</AllowResize><AllowHide>False</AllowHide><HideWhenEmpty>F' +
+              'alse</HideWhenEmpty></Visualisation><SortAndFilter><Sort>None</S' +
+              'ort><ShowSortMenu>False</ShowSortMenu><ShowFilterMenu>False</Sho' +
+              'wFilterMenu></SortAndFilter><SubControlSettings><SubInfoControlC' +
+              'lass>Custom</SubInfoControlClass></SubControlSettings><Hierarchy' +
+              '><ShowHierarchy>False</ShowHierarchy><Indent>0</Indent></Hierarc' +
+              'hy></Item><Item type="TDCTreeColumn"><Caption>ItemType</Caption>' +
+              '<PropertyName>ItemType</PropertyName><InfoControlClass>Text</Inf' +
+              'oControlClass><WidthSettings><WidthType>Percentage</WidthType><W' +
+              'idth>30</Width><WidthMin>0</WidthMin><WidthMax>0</WidthMax></Wid' +
+              'thSettings><Visualisation><Visible>True</Visible><Frozen>False</' +
+              'Frozen><ReadOnly>True</ReadOnly><Selectable>True</Selectable><Al' +
+              'lowResize>False</AllowResize><AllowHide>False</AllowHide><HideWh' +
+              'enEmpty>False</HideWhenEmpty></Visualisation><SortAndFilter><Sor' +
+              't>None</Sort><ShowSortMenu>False</ShowSortMenu><ShowFilterMenu>F' +
+              'alse</ShowFilterMenu></SortAndFilter><SubControlSettings><SubInf' +
+              'oControlClass>Custom</SubInfoControlClass></SubControlSettings><' +
+              'Hierarchy><ShowHierarchy>False</ShowHierarchy><Indent>0</Indent>' +
+              '</Hierarchy></Item></Columns>'#13#10
           end
         end
         object tbIndexFields: TTabItem
@@ -373,24 +377,25 @@ object frmInspector: TfrmInspector
               'Width><WidthMin>0</WidthMin><WidthMax>0</WidthMax></WidthSetting' +
               's><Visualisation><Visible>True</Visible><Frozen>False</Frozen><R' +
               'eadOnly>True</ReadOnly><Selectable>True</Selectable><AllowResize' +
-              '>False</AllowResize><AllowHide>False</AllowHide></Visualisation>' +
-              '<SortAndFilter><Sort>None</Sort><ShowSortMenu>False</ShowSortMen' +
-              'u><ShowFilterMenu>False</ShowFilterMenu></SortAndFilter><SubCont' +
-              'rolSettings><SubInfoControlClass>Custom</SubInfoControlClass></S' +
-              'ubControlSettings><Hierarchy><ShowHierarchy>False</ShowHierarchy' +
-              '><Indent>0</Indent></Hierarchy></Item><Item type="TDCTreeColumn"' +
-              '><Caption>ItemType</Caption><PropertyName>ItemType</PropertyName' +
-              '><InfoControlClass>Text</InfoControlClass><WidthSettings><WidthT' +
-              'ype>Percentage</WidthType><Width>30</Width><WidthMin>0</WidthMin' +
-              '><WidthMax>0</WidthMax></WidthSettings><Visualisation><Visible>T' +
-              'rue</Visible><Frozen>False</Frozen><ReadOnly>True</ReadOnly><Sel' +
-              'ectable>True</Selectable><AllowResize>False</AllowResize><AllowH' +
-              'ide>False</AllowHide></Visualisation><SortAndFilter><Sort>None</' +
-              'Sort><ShowSortMenu>False</ShowSortMenu><ShowFilterMenu>False</Sh' +
-              'owFilterMenu></SortAndFilter><SubControlSettings><SubInfoControl' +
-              'Class>Custom</SubInfoControlClass></SubControlSettings><Hierarch' +
-              'y><ShowHierarchy>False</ShowHierarchy><Indent>0</Indent></Hierar' +
-              'chy></Item></Columns>'#13#10
+              '>False</AllowResize><AllowHide>False</AllowHide><HideWhenEmpty>F' +
+              'alse</HideWhenEmpty></Visualisation><SortAndFilter><Sort>None</S' +
+              'ort><ShowSortMenu>False</ShowSortMenu><ShowFilterMenu>False</Sho' +
+              'wFilterMenu></SortAndFilter><SubControlSettings><SubInfoControlC' +
+              'lass>Custom</SubInfoControlClass></SubControlSettings><Hierarchy' +
+              '><ShowHierarchy>False</ShowHierarchy><Indent>0</Indent></Hierarc' +
+              'hy></Item><Item type="TDCTreeColumn"><Caption>ItemType</Caption>' +
+              '<PropertyName>ItemType</PropertyName><InfoControlClass>Text</Inf' +
+              'oControlClass><WidthSettings><WidthType>Percentage</WidthType><W' +
+              'idth>30</Width><WidthMin>0</WidthMin><WidthMax>0</WidthMax></Wid' +
+              'thSettings><Visualisation><Visible>True</Visible><Frozen>False</' +
+              'Frozen><ReadOnly>True</ReadOnly><Selectable>True</Selectable><Al' +
+              'lowResize>False</AllowResize><AllowHide>False</AllowHide><HideWh' +
+              'enEmpty>False</HideWhenEmpty></Visualisation><SortAndFilter><Sor' +
+              't>None</Sort><ShowSortMenu>False</ShowSortMenu><ShowFilterMenu>F' +
+              'alse</ShowFilterMenu></SortAndFilter><SubControlSettings><SubInf' +
+              'oControlClass>Custom</SubInfoControlClass></SubControlSettings><' +
+              'Hierarchy><ShowHierarchy>False</ShowHierarchy><Indent>0</Indent>' +
+              '</Hierarchy></Item></Columns>'#13#10
           end
         end
       end

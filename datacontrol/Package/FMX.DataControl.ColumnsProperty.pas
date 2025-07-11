@@ -7,8 +7,8 @@ uses
   DesignIntf,
   DesignEditors,
   System.Collections,
-  FMX.DataControl.Impl,
-  FMX.DataControl.Static.Impl;
+  FMX.ScrollControl.DataControl.Impl,
+  FMX.ScrollControl.WithCells.Impl;
 
 type
   TDataControlEditor = class(TComponentEditor)
@@ -30,7 +30,10 @@ type
 
 implementation
 
-uses FMXDataControlDsgn, FMX.DataControl.Static.Intf, FMX.DataControl.Events;
+uses
+  FMXDataControlDsgn,
+  FMX.ScrollControl.WithCells.Intf,
+  FMX.ScrollControl.Events;
 
 procedure Register;
 begin
