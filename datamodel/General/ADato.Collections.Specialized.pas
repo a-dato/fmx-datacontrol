@@ -108,6 +108,7 @@ type
   end;
 
   CObservableCollectionSerializable<T: IBaseInterface> = class(CObservableCollection<T>, ISerializable)
+  protected
     _saveTypeData: Boolean;
 
     // ISerializable

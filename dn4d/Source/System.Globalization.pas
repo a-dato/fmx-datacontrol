@@ -1,9 +1,5 @@
 ﻿{$I Adato.inc}
 
-{$IFDEF CROSSVCL}
-{$DEFINE MSWINDOWS}
-{$ENDIF}
-
 {$W-}
 unit System.Globalization;
 
@@ -34,7 +30,8 @@ type
     property name: CString read get_Name write set_Name;
   end;
 
-  CCultureTableItem = class(TBaseInterfacedObject)
+  CCultureTableItem = class(TBaseInterfacedObject, CultureTableItem)
+  protected
     _Culture: Integer;
     _DataItem: Integer;
     _Name: CString;

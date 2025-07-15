@@ -66,6 +66,7 @@ const
 type
   CException = class;
   IAutoObject = interface;
+  {$M+}
   IBaseInterface = interface;
   //Needed for dotnet
   IBaseInterfaceAsObject = IBaseInterface;
@@ -1684,12 +1685,6 @@ type
     class operator implicit(AValue: Integer) : IntPtr;
     class operator implicit(AValue: Pointer) : IntPtr;
   end;
-
-  // Interface is defined in System.Collections.Generic
-//  IEquatable<T> = interface(IInterface)
-//    ['{B88A5298-0115-49D9-BBD2-71F0C7CCDCBB}']
-//    function Equals(const Value: T): Boolean;
-//  end;
 
   IBaseInterface = interface(IDisposable)
     ['{C17D64DB-975D-4AB2-96C2-71E35E9F692D}']

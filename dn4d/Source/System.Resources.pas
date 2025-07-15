@@ -62,8 +62,8 @@ type
 
   FastResourceComparer = class(TBaseInterfacedObject, IComparer, IEqualityComparer)
     class var _Default: IBaseInterface;
-    class function CompareOrdinal(const bytes: ByteArray; aCharLength: Integer; const b: CString): Integer; overload;
-    class function CompareOrdinal(const a: CString; const bytes: ByteArray; bCharLength: Integer): Integer; overload;
+    class function CompareOrdinal_A(const bytes: ByteArray; aCharLength: Integer; const b: CString): Integer;
+    class function CompareOrdinal_B(const a: CString; const bytes: ByteArray; bCharLength: Integer): Integer;
     class function Default: FastResourceComparer;
     function Compare(const x, y: CObject): Integer;
     function Equals(const x, y: CObject): Boolean;
@@ -313,12 +313,12 @@ begin
   raise NotImplementedException.Create;
 end;
 
-class function FastResourceComparer.CompareOrdinal(const bytes: ByteArray; aCharLength: Integer; const b: CString): Integer;
+class function FastResourceComparer.CompareOrdinal_A(const bytes: ByteArray; aCharLength: Integer; const b: CString): Integer;
 begin
-  Result := -FastResourceComparer.CompareOrdinal(b, bytes, aCharLength)
+  Result := -FastResourceComparer.CompareOrdinal_B(b, bytes, aCharLength)
 end;
 
-class function FastResourceComparer.CompareOrdinal(const a: CString; const bytes: ByteArray; bCharLength: Integer): Integer;
+class function FastResourceComparer.CompareOrdinal_B(const a: CString; const bytes: ByteArray; bCharLength: Integer): Integer;
 var
   num: Integer;
   num2: Integer;
@@ -780,7 +780,7 @@ begin
     dec(i, num3)
   end;
   begin
-    Result := (FastResourceComparer.CompareOrdinal(buffer, (byteLen div 2), name) = 0);
+    Result := (FastResourceComparer.CompareOrdinal_A(buffer, (byteLen div 2), name) = 0);
     exit
   end
 end;
@@ -837,34 +837,14 @@ begin
 
     memHandle := GlobalAlloc(GMEM_MOVEABLE, size);
     ptr := GlobalLock(memHandle);
-    self._store.BaseStream.Read(Ptr^, 0, size);
+    self._store.BaseStream.Read(Ptr, 0, size);
     GlobalUnlock(memHandle);
     OleCheck(CreateStreamOnHGlobal( memHandle,
                                     True, // Release memHandle after use
                                     streamIntf));
     Result := CBitmap.Create(streamIntf);
   end;
-//  _type := self.FindType(typeIndex);
-//  if (self._safeToDeserialize = nil) then
-//    self.InitSafeToDeserializeArray;
-//  if (self._safeToDeserialize[typeIndex]) then
-//  begin
-//    self._objFormatter.Binder := self._typeLimitingBinder;
-//    self._typeLimitingBinder.ExpectingToDeserialize(_type);
-//    obj2 := self._objFormatter.UnsafeDeserialize(self._store.BaseStream, nil);
-//  end
-//  else
-//  begin
-//    self._objFormatter.Binder := nil;
-//    obj2 := self._objFormatter.Deserialize(self._store.BaseStream)
-//  end;
-//  if (obj2.GetType <> type) then
-//    raise BadImageFormatException.Create(Environment.GetResourceString('BadImageFormat_ResType&SerBlobMismatch', New(array[2] of TObject, ( ( type.FullName, obj2.GetType.FullName ) ))));
-//  begin
-//    Result := obj2;
-//    exit
-//  end
-{$ENDIF}
+  {$ENDIF}
 end;
 
 function ResourceReader.FindPosForResource(const name: CString): Integer;

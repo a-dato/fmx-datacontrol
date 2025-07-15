@@ -814,9 +814,6 @@ end;
 {$ENDIF}
 
 function TComboBoxControlBinding.GetValue: CObject;
-var
-  o: CObject;
-  s: CString;
 begin
   {$IFDEF APP_PLATFORM}
   var ix := _control.ItemIndex;
@@ -834,14 +831,20 @@ begin
       Exit(_Control.Items[ix]) else
       Exit(nil);
 
+  var s: CString;
+
   if ix <> -1 then
     s := _Control.Items[ix] else
     s := nil;
 
   if GoWithPicklist and (s <> nil) then
+  begin
+    var o: CObject;
+
     for o in _pickList do
       if (o <> nil) and CObject.Equals(s, CStringToString(o.ToString)) then
         Exit(o); // for example an IUser
+  end;
 
   Result := nil;
   {$ELSE}
