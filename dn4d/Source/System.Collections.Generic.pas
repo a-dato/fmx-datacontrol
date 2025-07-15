@@ -1663,8 +1663,11 @@ begin
   if (length > 1) then // and (((comparer <> nil) and (comparer <> Comparer<T>.Default)) or not Array.TrySZSort(&array, nil, index, ((index + length) - 1)))) then
   begin
     // ArraySortHelper<T>.Default.Sort(&array, index, length, comparer)
+    {$IFDEF LYNXX}
     QuickSort<T>(&array, index, (index + (length - 1)), comparer);
-//    MergeSort<T>(&array, index, (index + (length - 1)), comparer);
+    {$ELSE}
+    MergeSort<T>(&array, index, (index + (length - 1)), comparer);
+    {$ENDIF}
   end;
 end;
 

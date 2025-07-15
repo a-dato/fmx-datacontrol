@@ -135,6 +135,8 @@ type
 
     _tryFindNewSelectionInDataModel: Boolean;
 
+    function  HasInternalSelectCount: Boolean;
+
     procedure DoEnter; override;
     procedure DoExit; override;
 
@@ -197,6 +199,7 @@ type
     procedure KeyDown(var Key: Word; var KeyChar: WideChar; Shift: TShiftState); override;
     procedure UpdateScrollAndSelectionByKey(var Key: Word; Shift: TShiftState); virtual;
 
+    procedure ResetAndRealign(FromIndex: Integer = -1);
     procedure DoCollapseOrExpandRow(const ViewListIndex: Integer; DoExpand: Boolean);
     function  RowIsExpanded(const ViewListIndex: Integer): Boolean;
 
@@ -206,7 +209,6 @@ type
 
     function  GetRowViewListIndexByKey(const Key: Word; Shift: TShiftState): Integer;
     function  GetActiveRow: IDCRow;
-
 
   public
     procedure OnItemAddedByUser(const Item: CObject; Index: Integer);
@@ -589,6 +591,11 @@ begin
   end;
 
   DoRowAligned(currentRow);
+end;
+
+function TScrollControlWithRows.HasInternalSelectCount: Boolean;
+begin
+  Result := (_internalSelectCount > 0) or ((_rowHeightSynchronizer <> nil) and (_rowHeightSynchronizer._internalSelectCount > 0));
 end;
 
 procedure TScrollControlWithRows.DoEnter;
@@ -1460,7 +1467,7 @@ end;
 
 procedure TScrollControlWithRows.DataModelViewRowPropertiesChanged(Sender: TObject; Args: RowPropertiesChangedEventArgs);
 begin
-  if (_internalSelectCount > 0) then
+  if HasInternalSelectCount then
     Exit;
 
   if (Args.Row = nil) or (Args.OldProperties.Flags = Args.NewProperties.Flags) then
@@ -1477,7 +1484,7 @@ end;
 
 procedure TScrollControlWithRows.DataModelViewRowChanged(const Sender: IBaseInterface; Args: RowChangedEventArgs);
 begin
-  if (_internalSelectCount > 0) then
+  if _internalSelectCount > 0 then
     Exit;
 
   if ((_activeRowHeightSynchronizer <> nil) and (_activeRowHeightSynchronizer._internalSelectCount > 0)) then
@@ -1499,7 +1506,7 @@ end;
 
 procedure TScrollControlWithRows.ModelContextChanged(const Sender: IObjectModelContext; const Context: CObject);
 begin
-  if _internalSelectCount > 0 then
+  if HasInternalSelectCount then
     Exit;
 
   var dItem := get_DataItem;
@@ -1553,6 +1560,17 @@ begin
 end;
 
 procedure TScrollControlWithRows.BeforeRealignContent;
+
+  procedure UpdateSelectionInfo(const ScrolControlWithRows: TScrollControlWithRows; ViewListIndex: Integer);
+  begin
+    ScrolControlWithRows._selectionInfo.BeginUpdate;
+    try
+      ScrolControlWithRows._selectionInfo.UpdateLastSelection(ScrolControlWithRows._view.GetDataIndex(ViewListIndex), ViewListIndex, ScrolControlWithRows._view.GetViewList[ViewListIndex]);
+    finally
+      ScrolControlWithRows._selectionInfo.EndUpdate(True {ignore events});
+    end;
+  end;
+
 var
   sortChanged: Boolean;
   filterChanged: Boolean;
@@ -1615,22 +1633,9 @@ begin
 
     if (viewIndex <> -1) and (_view.ViewCount > 0) then
     begin
-      _selectionInfo.BeginUpdate;
-      try
-//        if (GetDataModelView <> nil) and (viewIndex <> GetDataModelView.CurrencyManager.Current) then
-//        begin
-//          AtomicIncrement(_internalSelectCount);
-//          try
-//            GetDataModelView.CurrencyManager.Current := Self.DataItem.AsType<IDataRowView>.ViewIndex;
-//          finally
-//            AtomicDecrement(_internalSelectCount);
-//          end;
-//        end;
-
-        _selectionInfo.UpdateLastSelection(_view.GetDataIndex(viewIndex), viewIndex, _view.GetViewList[viewIndex]);
-      finally
-        _selectionInfo.EndUpdate(True {ignore events});
-      end;
+      UpdateSelectionInfo(self, viewIndex);
+      if _isMasterSynchronizer then
+        UpdateSelectionInfo(_activeRowHeightSynchronizer, viewIndex);
     end;
   end;
 
@@ -1872,6 +1877,7 @@ begin
     end;
   end;
 
+
   var rowViewListIndex := GetRowViewListIndexByKey(Key, Shift);
   if _selectionInfo.ViewListIndex <> rowViewListIndex then
   begin
@@ -1922,7 +1928,7 @@ end;
 
 procedure TScrollControlWithRows.DoCollapseOrExpandRow(const ViewListIndex: Integer; DoExpand: Boolean);
 begin
-  if (_internalSelectCount > 0) or ((_activeRowHeightSynchronizer <> nil) and (_activeRowHeightSynchronizer._internalSelectCount > 0))then
+  if HasInternalSelectCount then
     Exit;
 
   var drv: IDataRowView;
@@ -1943,11 +1949,7 @@ begin
     dec(_internalSelectCount);
   end;
 
-  // only clear row info from this row and below, because all rows above stay the same!
-  ResetView(ViewListIndex);
-
-  // make sure scrollbars are up-to-date
-  DoRealignContent;
+  ResetAndRealign(ViewListIndex);
 
   if DoExpand then
   begin
@@ -2069,8 +2071,7 @@ begin
   if not CanRealignContent then
     Exit;
 
-  ResetView;
-  DoRealignContent;
+  ResetAndRealign;
 
   if _selectionInfo.DataItem <> nil then
     Self.set_DataItem(_selectionInfo.DataItem);
@@ -2375,6 +2376,9 @@ procedure TScrollControlWithRows.RealignContentStart;
 begin
   inherited;
 
+  if _isMasterSynchronizer then
+    _activeRowHeightSynchronizer.RealignContentStart;
+
   if _view <> nil then
     _totalDataHeight := _view.TotalDataHeight(get_rowHeightDefault);
 end;
@@ -2435,6 +2439,22 @@ begin
 
   _resetViewRec := TResetViewRec.CreateNull;
 //  _waitingForViewChange := False;
+end;
+
+procedure TScrollControlWithRows.ResetAndRealign(FromIndex: Integer = -1);
+begin
+  Assert(_activeRowHeightSynchronizer = nil);
+
+  // only clear row info from this row and below, because all rows above stay the same!
+  StartMasterSynchronizer;
+  try
+    ResetView(FromIndex);
+  finally
+    StopMasterSynchronizer;
+  end;
+
+  // make sure scrollbars are up-to-date
+  DoRealignContent;
 end;
 
 function TScrollControlWithRows.RowIsExpanded(const ViewListIndex: Integer): Boolean;
