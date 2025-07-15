@@ -900,7 +900,11 @@ uses
   FMX.ControlCalculations,
   FMX.ScrollControl.Intf, FMX.ScrollControl.SortAndFilter,
   FMX.ScrollControl.WithCells.PopupMenu,
-  FMX.ScrollControl.Impl;
+  FMX.ScrollControl.Impl
+  {$IFDEF APP_PLATFORM}
+  , app.intf
+  {$ENDIF}
+  ;
 
 
 { TScrollControlWithCells }

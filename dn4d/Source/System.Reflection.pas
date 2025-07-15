@@ -78,6 +78,7 @@ type
   end;
 
   CEnumInformation = class(TBaseInterfacedObject, EnumInformation)
+  protected
     _Type: &Type;
     _Flags: Boolean;
     _Size: Integer;

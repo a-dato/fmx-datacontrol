@@ -430,7 +430,7 @@ begin
 
   if _OnItemChanged <> nil then
   begin
-    var &notify :IListItemChanged;
+    var &notify: IListItemChanged;
     for &notify in _OnItemChanged do
       &notify.Removed(Item, Index);
   end;

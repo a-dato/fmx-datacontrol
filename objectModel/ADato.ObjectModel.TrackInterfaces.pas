@@ -42,11 +42,6 @@ type
     procedure EndEdit;
     procedure Remove;{$IFDEF DEBUG}overload;{$ENDIF}
 
-//    {$IFDEF DEBUG}
-    // KV: Should be part of IEditableListObject??
-//    procedure Remove(Item: CObject);overload;
-//    {$ENDIF}
-
     function CanAdd : Boolean;
     function CanEdit : Boolean;
     function CanRemove : Boolean;
@@ -82,6 +77,7 @@ type
   IOnItemChangedSupport = interface(IBaseInterface)
     ['{43123070-3EDD-4836-A7EB-A286C8DB6503}']
     function  get_OnItemChanged: IList<IListItemChanged>;
+
     property OnItemChanged: IList<IListItemChanged> read get_OnItemChanged;
   end;
 
