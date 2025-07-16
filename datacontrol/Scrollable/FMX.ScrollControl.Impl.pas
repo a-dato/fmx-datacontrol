@@ -28,21 +28,13 @@ uses
   {$ENDIF}
   System_,
   System.Diagnostics,
-  FMX.ScrollControl.Intf,
-  FMX.ScrollControl.Events;
+  FMX.ScrollControl.Intf;
 
 type
-  TRealignState = (Waiting, BeforeRealign, Realigning, AfterRealign, RealignDone);
-
   TCustomSmallScrollBar = class(TSmallScrollBar)
   public
     function IsTracking: Boolean;
   end;
-
-  TDoLog = procedure(const Message: CString) of object;
-  TOnViewportPositionChange = procedure(Sender: TObject; const OldViewportPosition, NewViewportPosition: TPointF; const ContentSizeChanged: Boolean) of object;
-  TPointFArray = array of CDatetime;
-
   TScrollControl = class(TLayout, IRefreshControl)
   private
     _clickEnable: Boolean;

@@ -265,19 +265,6 @@ type
     function GetRowsHeight: Single;
   end;
 
-  TDCHintEventArgs = class(EventArgs)
-  private
-    LocalPoint: TPointF;
-    MouseIsSticking: Boolean;
-  public
-    ShowCustomHint: Boolean;
-
-    function GetLocalPoint: TPointF;
-    function GetMouseIsSticking: Boolean;
-
-    constructor Create(const ShowHint: Boolean; AtPoint: TPointF; AMouseIsSticking: Boolean);
-  end;
-
   CellLoadingEvent = procedure(const Sender: TObject; e: DCCellLoadingEventArgs) of object;
   CellLoadedEvent  = procedure(const Sender: TObject; e: DCCellLoadedEventArgs) of object;
   CellFormattingEvent  = procedure (const Sender: TObject; e: DCCellFormattingEventArgs) of object;
@@ -307,7 +294,6 @@ type
   RowDeletingEvent = procedure(const Sender: TObject; e: DCDeletingEventArgs) of object;
 
   TreePositionedEvent = procedure(const Sender: TObject; e: DCTreePositionArgs) of object;
-  TCustomToolTipEvent = procedure(Sender: TObject; const HintEventArgs: TDCHintEventArgs) of object;
 
 implementation
 
@@ -537,25 +523,6 @@ begin
   var row: IDCRow;
   for row in dc.View.ActiveViewRows do
     Result := Result + row.Height;
-end;
-
-{ TDCHintEventArgs }
-
-constructor TDCHintEventArgs.Create(const ShowHint: Boolean; AtPoint: TPointF; AMouseIsSticking: Boolean);
-begin
-  ShowCustomHint := ShowHint;
-  LocalPoint := AtPoint;
-  MouseIsSticking := AMouseIsSticking;
-end;
-
-function TDCHintEventArgs.GetLocalPoint: TPointF;
-begin
-  Result := LocalPoint;
-end;
-
-function TDCHintEventArgs.GetMouseIsSticking: Boolean;
-begin
-  Result := MouseIsSticking;
 end;
 
 end.
