@@ -433,7 +433,6 @@ type
   private
     [unsafe] _treeControl: IColumnsControl;
 
-//    _index: Integer;
     _caption: CString;
     _propertyName: CString;
     _tag: CObject;
@@ -1032,7 +1031,8 @@ begin
   UpdateHorzScrollbar;
   SetBasicVertScrollBarValues;
 
-  EndDefaultTextLayout;
+  if DefaultLayout <> nil then
+    EndDefaultTextLayout;
 end;
 
 procedure TScrollControlWithCells.AssignWidthsToAlignColumns;
@@ -2016,6 +2016,7 @@ begin
   inherited;
 
   BeginDefaultTextLayout;
+
   _singleLineHeight := -1; // reset to recalculate
 end;
 
@@ -2250,6 +2251,9 @@ end;
 
 procedure TScrollControlWithCells.DataModelViewRowPropertiesChanged(Sender: TObject; Args: RowPropertiesChangedEventArgs);
 begin
+  if HasInternalSelectCount then
+    Exit;
+
   inherited;
 
   if Args.Row = nil then
@@ -3170,7 +3174,6 @@ procedure TScrollControlWithCells.OnExpandCollapseHierarchy(Sender: TObject);
       if View = nil then
         Exit;
 
-      Self.Current := ViewListIndex;
       _treeLayout.ResetColumnDataAvailability(False);
       DoCollapseOrExpandRow(ViewListIndex, SetExpanded);
     end);
@@ -3205,7 +3208,8 @@ begin
     end;
   end;
 
-  DoCollapseOrExpandRowQueued(_view, viewListIndex, setExpanded);
+  Self.Current := ViewListIndex;
+  DoCollapseOrExpandRowQueued(_view, ViewListIndex, SetExpanded);
 end;
 
 function TScrollControlWithCells.OnGetCellDataForSorting(const Cell: IDCTreeCell): CObject;
