@@ -1688,14 +1688,14 @@ type
 
   IBaseInterface = interface(IDisposable)
     ['{C17D64DB-975D-4AB2-96C2-71E35E9F692D}']
-    function get_RefCount: Integer;
+    function getRefCount: Integer;
     function GetHashCode: Integer;
     function GetObject: TObject;
     function GetType: &Type;
     function Equals(const other: CObject): Boolean;
     function ToString: CString;
 
-    property RefCount: Integer read get_RefCount;
+    property RefCount: Integer read getRefCount; // Hidden property
   end;
 
   IComparable = interface
@@ -1826,7 +1826,7 @@ type
       IBaseInterface
   )
   protected
-    function  get_RefCount: Integer;
+    function  getRefCount: Integer;
     function  GetObject: TObject; virtual;
     function  GetType: &Type; virtual;
     procedure Dispose; virtual;
@@ -4791,7 +4791,7 @@ begin
   Result := &Type.Create(Self.ClassInfo);
 end;
 
-function TBaseInterfacedObject.get_RefCount: Integer;
+function TBaseInterfacedObject.getRefCount: Integer;
 begin
   Result := FRefCount;
 end;

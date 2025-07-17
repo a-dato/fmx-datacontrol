@@ -904,6 +904,7 @@ uses
   FMX.ScrollControl.Impl
   {$IFDEF APP_PLATFORM}
   , app.intf
+  , app.PropertyDescriptor.intf
   {$ENDIF}
   ;
 
@@ -2836,42 +2837,17 @@ begin
     {$IFDEF APP_PLATFORM}
     if not CString.IsNullOrEmpty(propName) and not formatApplied and (cellValue <> nil) and (_app <> nil) and (cell.Column.InfoControlClass = TInfoControlClass.Text) then
     begin
-      var js := TJSONObject.ParseJSONValue(cellValue.ToString(True));
-      try
-        var s: string;
-        if js.TryGetValue<string>('Value', s) then
+      var item_type := GetItemType;
+      if item_type <> nil then
+      begin
+        var prop := item_type.PropertyByName(propName);
+        var descr: IPropertyDescriptor;
+        if Interfaces.Supports<IPropertyDescriptor>(prop, descr) and (descr.Formatter <> nil) then
         begin
-          (ctrl as ICaption).Text := s;
+          (ctrl as ICaption).Text := CStringToString(descr.Formatter.Format(nil {Context}, cellValue, nil));
           Exit;
         end;
-
-      finally
-        js.Free;
       end;
-
-//      var item_type := GetItemType;
-//      if item_type <> nil then
-//      begin
-//        var prop := item_type.PropertyByName(propName);
-//        if prop <> nil then
-//        begin
-//          var tp := prop.GetType;
-//          var ot := _app.Config.ObjectType[tp];
-//          if ot <> nil then
-//          begin
-//            var descr := ot.PropertyDescriptor[tp.Name];
-//            if descr <> nil then
-//            begin
-//              var fmt := descr.Formatter;
-//              if fmt <> nil then
-//              begin
-//                (ctrl as ICaption).Text := CStringToString(fmt.Format(cellValue, FlatColumn.Column.Format));
-//                Exit;
-//              end;
-//            end;
-//          end;
-//        end;
-//      end;
     end;
     {$ENDIF}
 
