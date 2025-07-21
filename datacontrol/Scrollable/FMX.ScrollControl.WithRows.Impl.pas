@@ -2680,7 +2680,7 @@ end;
 
 procedure TScrollControlWithRows.set_Current(const Value: Integer);
 begin
-  if get_Current <> Value then
+  if (_selectionInfo = nil) or (get_Current <> Value) then
     GetInitializedWaitForRefreshInfo.Current := Value;
 end;
 

@@ -13,7 +13,7 @@ uses
   {$ENDIF}
   System_, 
   System.Collections.Generic, 
-  ADato.Data.DataModel.intf;
+  ADato.Data.DataModel.intf, FMX.ScrollControl.Intf;
 
 type
   TSelectionType = (HideSelection, CellSelection, RowSelection);
@@ -47,7 +47,7 @@ type
 
   IDCRow = interface;
 
-  IRowsControl = interface
+  IRowsControl = interface(IScrollControl)
     ['{DFFB7FC1-1AA5-419B-8125-6106792603B2}']
     function  get_AllowNoneSelected: Boolean;
     procedure set_AllowNoneSelected(const Value: Boolean);

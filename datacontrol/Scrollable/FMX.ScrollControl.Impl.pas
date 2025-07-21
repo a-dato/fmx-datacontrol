@@ -35,7 +35,8 @@ type
   public
     function IsTracking: Boolean;
   end;
-  TScrollControl = class(TLayout, IRefreshControl)
+
+  TScrollControl = class(TLayout, IRefreshControl, IScrollControl)
   private
     _clickEnable: Boolean;
     _safeObj: IBaseInterface;
@@ -44,6 +45,10 @@ type
 
     _additionalTimerTime: Integer;
     _timerDoRealignWhenScrollingStopped: Boolean;
+
+    function get_Content: TControl;
+    function get_Control: TControl;
+    function get_VertScrollBar: TSmallScrollBar;
 
   protected
     procedure DoViewPortPositionChanged; virtual;
@@ -180,7 +185,9 @@ type
 
     function  TryHandleKeyNavigation(var Key: Word; Shift: TShiftState): Boolean;
 
-    property VertScrollBar: TSmallScrollBar read _vertScrollBar;
+    property VertScrollBar: TSmallScrollBar read get_VertScrollBar;
+    property Content: TControl read get_Content;
+    property Control: TControl read get_Control;
 
   published
     property OnViewPortPositionChanged: TOnViewportPositionChange read _onViewPortPositionChanged write _onViewPortPositionChanged;
@@ -217,7 +224,6 @@ begin
 //  _debugCheck := False;
   {$ENDIF}
 
-//  Self.ClipChildren := True;
   Self.HitTest := True;
   Self.CanFocus := True;
 //  Self.Fill.Color := TAlphaColors.Orange;
@@ -522,6 +528,21 @@ begin
   Result := PointF(horzScrollBarPos, vertScrollBarPos);
 end;
 
+function TScrollControl.get_Content: TControl;
+begin
+  Result := _content;
+end;
+
+function TScrollControl.get_Control: TControl;
+begin
+  Result := Self;
+end;
+
+function TScrollControl.get_VertScrollBar: TSmallScrollBar;
+begin
+  Result := _vertScrollBar;
+end;
+
 function TScrollControl.IsInitialized: Boolean;
 begin
   Result := _realignState <> TRealignState.Waiting;
@@ -752,11 +773,9 @@ begin
   if not _customHintShowing and not DoShow then
     Exit;
 
-  _customHintShowing := DoShow;
-
   if Assigned(_onCustomToolTipEvent) then
   begin
-    var args := TDCHintEventArgs.Create(DoShow, _customHintPos, _mouseIsSticking);
+    var args := TDCHintEventArgs.Create(DoShow, _customHintPos, _customHintShowing, _mouseIsSticking);
     try
       _onCustomToolTipEvent(Self, args);
       _customHintShowing := args.ShowCustomHint;
@@ -769,8 +788,8 @@ end;
 procedure TScrollControl.OnCustomHintTimer(Sender: TObject);
 begin
   _customHintTimer.Enabled := False;
-  if not IsMouseOver then
-    Exit;  // already at mouseLeave fired
+//  if not IsMouseOver then
+//    Exit;  // already at mouseLeave fired
 
   _mouseIsSticking := True;
   DoHintChange(True);
