@@ -13783,9 +13783,22 @@ begin
 
   if _itemType.IsUnknown then
   begin
+    {$IFDEF DEBUG}
+    typeData := _data.InnerType;
+
+    if _data.Count > 0 then
+    begin
+      var o := _data[0];
+      if o <> nil then
+        typeData := o.GetType;
+    end
+    else
+      typeData := _data.InnerType;
+    {$ELSE}
     if _data.Count > 0 then
       typeData := _data[0].GetType else
       typeData := _data.InnerType;
+    {$ENDIF}
   end else
     typeData := _itemType;
 

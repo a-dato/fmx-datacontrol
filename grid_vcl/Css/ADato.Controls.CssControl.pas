@@ -91,7 +91,7 @@ type
 
     {$IFDEF DELPHI}
     // IBaseInterface methods
-    function  get_RefCount: Integer;
+    function  getRefCount: Integer;
     public function GetHashCode: Integer; override;
     protected function GetObject: TObject;
     function GetType: &Type;
@@ -365,7 +365,7 @@ begin
   Result := _styleSheet;
 end;
 
-function TCssControl.get_RefCount: Integer;
+function TCssControl.getRefCount: Integer;
 begin
   Result := -1;
 end;

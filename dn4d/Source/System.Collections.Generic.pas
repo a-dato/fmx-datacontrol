@@ -1664,9 +1664,9 @@ begin
   begin
     // ArraySortHelper<T>.Default.Sort(&array, index, length, comparer)
     {$IFDEF LYNXX}
-    QuickSort<T>(&array, index, (index + (length - 1)), comparer);
-    {$ELSE}
     MergeSort<T>(&array, index, (index + (length - 1)), comparer);
+    {$ELSE}
+    QuickSort<T>(&array, index, (index + (length - 1)), comparer);
     {$ENDIF}
   end;
 end;
