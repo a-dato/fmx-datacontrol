@@ -1473,9 +1473,13 @@ begin
   if (Args.Row = nil) or (Args.OldProperties.Flags = Args.NewProperties.Flags) then
     Exit;
 
-  var drv := GetDataModelView.FindRow(Args.Row);
-  if drv = nil then
-    Exit;
+  // The same datamodel can be used on multiple datamodelviews..
+  // therefor carefully check if the dmv and the row exist..
+  var dmv := GetDataModelView;
+  if dmv = nil then Exit;
+
+  var drv := dmv.FindRow(Args.Row);
+  if drv = nil then Exit;
 
   var doExpand := RowFlag.Expanded in Args.NewProperties.Flags;
   if drv.DataView.IsExpanded[drv.Row] <> DoExpand then
