@@ -1660,8 +1660,6 @@ begin
   var rowIndex := TopReferenceRow.ViewPortIndex;
   var createdRowsCount := _view.ActiveViewRows.Count;
 
-  var startPoint := thisRow.VirtualYPosition;
-
   while thisRow <> nil do
   begin
     InitRow(thisRow, False);

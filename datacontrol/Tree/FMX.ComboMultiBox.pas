@@ -27,7 +27,7 @@ uses
 
 type
   TComboMultiBox = class(TRectangle)
-  private
+  protected
     _dropDownButton: TDropDownEditButton;
     _txt: TText;
     _popupMenu: TfrmComboMultiBoxPopup;
@@ -137,8 +137,6 @@ begin
 end;
 
 procedure TComboMultiBox.UpdateDisplayText;
-var
-  I: Integer;
 begin
   var s: CString := nil;
 

@@ -320,7 +320,6 @@ type
   TDCCellMultiSelectDropDownEditor = class(TDCCellEditor, IPickListSupport)
   private
     _PickList: IList;
-    _Value: CObject;
     _saveData: Boolean;
   protected
     function  get_Value: CObject; override;
@@ -392,7 +391,7 @@ uses
   System.Reflection,
   FMX.Platform,
   System.SysUtils,
-  FMX.ComboMultiBox;
+  FMX.ComboMultiBox, System.TypInfo;
 
 { TScrollControlWithEditableCells }
 
@@ -914,7 +913,6 @@ begin
   end;
 
   var newDataItem: CObject := nil;
-  var newDataIndex := 0;
   var newViewListIndex := Self.Current;
 
   if ViewIsDataModelView then
@@ -944,7 +942,6 @@ begin
       end;
 
       _view.RecalcSortedRows;
-      newDataIndex := dataRow.get_Index;
 
       var drv := GetDataModelView.FindRow(dataRow);
       if drv <> nil then
@@ -971,7 +968,7 @@ begin
     ResetView;
 
     newDataItem := newItem;
-    newDataIndex := _view.OriginalData.IndexOf(NewItem);
+    var newDataIndex := _view.OriginalData.IndexOf(NewItem);
     _editingInfo.StartRowEdit(newDataIndex, NewItem, True);
   end;
 
@@ -2153,8 +2150,6 @@ end;
 procedure TDCCellDropDownEditor.DropDown;
 var
   newItemWidth: Single;
-  i: Integer;
-  newValue: CObject;
 begin
   var ce := TComboEdit(_editor);
 
@@ -2174,33 +2169,6 @@ begin
 
   if not ce.DroppedDown then
     ce.DropDown;
-
-//  if PickList <> nil then
-//  begin
-//    var Value := get_Value;
-//    if (get_Value = nil) or CString.IsNullOrEmpty(Value.ToString) then
-//    begin
-//      if PickList.Count > 0 then
-//      begin
-//        newValue := PickList[0];
-//        if ParseValue(newValue) then
-//          Value := newValue;
-//      end;
-//    end else
-//      //
-//      // Locate existing item in the picklist
-//      //
-//    begin
-//      i := 0;
-//      while i < PickList.Count do
-//      begin
-//        newValue := PickList[i];
-//        if ParseValue(newValue) and Value.Equals(newValue) then
-//          break;
-//        inc(i);
-//      end;
-//    end;
-//  end;
 end;
 
 procedure TDCCellDropDownEditor.set_PickList(const Value: IList);
