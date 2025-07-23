@@ -1007,11 +1007,19 @@ end;
 
 function TScrollControlWithRows.get_Current: Integer;
 begin
+  // check if a dataitem just has been set, but no realigncontent has been done yet
+  if (_waitForRepaintInfo <> nil) and (TTreeRowState.RowChanged in _waitForRepaintInfo.RowStateFlags) then
+    ForceImmeditiateRealignContent;
+
   Result := _selectionInfo.ViewListIndex;
 end;
 
 function TScrollControlWithRows.get_DataItem: CObject;
 begin
+  // check if a dataitem just has been set, but no realigncontent has been done yet
+  if (_waitForRepaintInfo <> nil) and (TTreeRowState.RowChanged in _waitForRepaintInfo.RowStateFlags) then
+    ForceImmeditiateRealignContent;
+
   Result := _selectionInfo.DataItem;
 end;
 
