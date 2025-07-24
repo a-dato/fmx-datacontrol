@@ -1473,9 +1473,13 @@ begin
   if (Args.Row = nil) or (Args.OldProperties.Flags = Args.NewProperties.Flags) then
     Exit;
 
-  var drv := GetDataModelView.FindRow(Args.Row);
-  if drv = nil then
-    Exit;
+  // The same datamodel can be used on multiple datamodelviews..
+  // therefor carefully check if the dmv and the row exist..
+  var dmv := GetDataModelView;
+  if dmv = nil then Exit;
+
+  var drv := dmv.FindRow(Args.Row);
+  if drv = nil then Exit;
 
   var doExpand := RowFlag.Expanded in Args.NewProperties.Flags;
   if drv.DataView.IsExpanded[drv.Row] <> DoExpand then
@@ -1655,8 +1659,6 @@ begin
   var thisRow := TopReferenceRow;
   var rowIndex := TopReferenceRow.ViewPortIndex;
   var createdRowsCount := _view.ActiveViewRows.Count;
-
-  var startPoint := thisRow.VirtualYPosition;
 
   while thisRow <> nil do
   begin
@@ -2680,7 +2682,7 @@ end;
 
 procedure TScrollControlWithRows.set_Current(const Value: Integer);
 begin
-  if get_Current <> Value then
+  if (_selectionInfo = nil) or (get_Current <> Value) then
     GetInitializedWaitForRefreshInfo.Current := Value;
 end;
 

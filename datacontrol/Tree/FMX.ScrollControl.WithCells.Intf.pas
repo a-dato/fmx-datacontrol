@@ -290,7 +290,7 @@ type
     property TreeControl: IColumnsControl read get_TreeControl;
   end;
 
-  IColumnsControl = interface
+  IColumnsControl = interface(IRowsControl)
     ['{AC852A77-01E3-4419-8F8F-D6162F758A74}']
     function  get_headerHeight: Single;
     procedure set_HeaderHeight(const Value: Single);

@@ -905,7 +905,7 @@ uses
   , app.intf
   , app.PropertyDescriptor.intf
   {$ENDIF}
-  ;
+  , System.Rtti;
 
 
 { TScrollControlWithCells }

@@ -279,9 +279,6 @@ begin
 end;
 
 function MouseInObject(AControl: TControl): Boolean;
-var
-  c: IControl;
-  p: TFmxObject;
 begin
   var pos := Screen.MousePos;
   var localPos := AControl.ScreenToLocal(pos);

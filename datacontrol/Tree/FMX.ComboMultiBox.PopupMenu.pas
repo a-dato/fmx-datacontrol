@@ -73,13 +73,14 @@ type
     procedure TreeCellSelected(const Sender: TObject; e: DCCellSelectedEventArgs);
     procedure TreeCellFormatting(const Sender: TObject; e: DCCellFormattingEventArgs);
 
-    procedure KeyDown(var Key: Word; var KeyChar: WideChar; Shift: TShiftState); override;
     procedure CancelChanges;
 
   public
     DataControl: TDataControl;
 
     constructor Create(ParentControl: TControl); reintroduce;
+
+    procedure KeyDown(var Key: Word; var KeyChar: WideChar; Shift: TShiftState); override;
 
     property  SelectedItems: List<CObject> read get_SelectedItems;
 
