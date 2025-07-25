@@ -679,7 +679,8 @@ type
     class function Supports<T>(const Value: Variant; out Intf) : Boolean; overload;
 
     class procedure Call<T>(const Value: IInterface; Proc: TProc<T>);
-    class function TryCall<T>(const Value: IInterface; Proc: TProc<T>) : Boolean;
+    class function TryCall<T>(const Value: IInterface; Proc: TProc<T>) : Boolean; overload;
+    class function TryCall<T>(const Value: CObject; Proc: TProc<T>) : Boolean; overload;
     class function AsType<T>(const Value: IInterface) : T;
     class function TryAsType<T>(const Value: IInterface) : T;
 
@@ -4946,6 +4947,17 @@ begin
 end;
 
 class function Interfaces.TryCall<T>(const Value: IInterface; Proc: TProc<T>) : Boolean;
+begin
+  var ii: T;
+  if Supports<T>(Value, ii) then
+  begin
+    Result := True;
+    Proc(ii);
+  end else
+    Result := False;
+end;
+
+class function Interfaces.TryCall<T>(const Value: CObject; Proc: TProc<T>) : Boolean;
 begin
   var ii: T;
   if Supports<T>(Value, ii) then
