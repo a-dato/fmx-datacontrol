@@ -1307,12 +1307,15 @@ end;
 
 function TScrollControlWithCells.GetActiveCell: IDCTreeCell;
 begin
-  var row := GetActiveRow;
-  if row = nil then
+  var row := GetActiveRow as IDCTreeRow;
+  if (row = nil) or (row.Cells.Count = 0) then
     Exit(nil);
 
-  var flatColumnindex := (_selectionInfo as ITreeSelectionInfo).SelectedLayoutColumn;
-  Result := (row as IDCTreeRow).Cells[flatColumnindex];
+  var treeSelection := _selectionInfo as ITreeSelectionInfo;
+  if treeSelection.SelectedLayoutColumn = -1 then
+    treeSelection.SelectedLayoutColumn := GetFlatColumnByKey(vkHome, [], -1).Index; // get first valid column
+
+  Result := row.Cells[treeSelection.SelectedLayoutColumn];
 end;
 
 function TScrollControlWithCells.GetCellByControl(const Control: TControl): IDCTreeCell;
@@ -1342,6 +1345,9 @@ begin
   var horzScroll := GetHorzScroll(Key, Shift);
   if horzScroll = TRightLeftScroll.None then
   begin
+    if FromColumnIndex = -1 then
+      Exit(GetFlatColumnByKey(vkHome, Shift, 0));
+
     Result := _treeLayout.LayoutColumns[FromColumnIndex];
     Exit;
   end;
@@ -1349,6 +1355,7 @@ begin
   var treeSelectionInfo := _selectionInfo as ITreeSelectionInfo;
 
   var flatColumn: IDCTreeLayoutColumn;
+  var flatIx: Integer;
   if horzScroll = TRightLeftScroll.FullLeft then
     flatColumn := _treeLayout.FlatColumns[0]
   else if horzScroll = TRightLeftScroll.FullRight then
@@ -1967,7 +1974,7 @@ begin
   _selectionInfo.BeginUpdate;
   Try
     var treeSelectionInfo := _selectionInfo as ITreeSelectionInfo;
-    treeSelectionInfo.SelectedLayoutColumn := GetFlatColumnByKey(vkHome, [], (_selectionInfo as ITreeSelectionInfo).SelectedLayoutColumn).Index; // get first valid column
+    treeSelectionInfo.SelectedLayoutColumn := -1;
   finally
     _selectionInfo.EndUpdate(True {ignore events});
   end;
@@ -2613,17 +2620,28 @@ begin
     Exit(True);
   end;
 
-  var customShift := Shift;
-//  if (ssCtrl in Shift) and (_selectionInfo.LastSelectionEventTrigger = TSelectionEventTrigger.Key) then
-//    customShift := customShift - [ssCtrl];
-
   // Okay, we now know for sure that we have a changed cell..
   // old row can be scrolled out of view. So always work with dummy rows
+
+  var customShift := Shift;
+
+
+  // old activecell
+  if currentSelection.SelectedLayoutColumn = -1 then
+    currentSelection.SelectedLayoutColumn :=  GetFlatColumnByKey(vkHome, [], -1).Index; // get first valid column
+
   var dummyOldRow := CreateDummyRowForChanging(currentSelection) as IDCTreeRow;
   var oldCell := dummyOldRow.Cells[currentSelection.SelectedLayoutColumn];
 
+
+  // new activecell
+  if requestedSelection.SelectedLayoutColumn = -1 then
+    requestedSelection.SelectedLayoutColumn := currentSelection.SelectedLayoutColumn;
+
   var dummyNewRow := CreateDummyRowForChanging(requestedSelection) as IDCTreeRow;
   var newCell := dummyNewRow.Cells[requestedSelection.SelectedLayoutColumn];
+
+
 
   var ignoreSelectionChanges := not CanRealignContent;
   if not DoCellCanChange(oldCell, newCell) then
@@ -5184,7 +5202,7 @@ end;
 
 procedure TTreeSelectionInfo.Clear;
 begin
-  _lastSelectedLayoutColumn := 0;
+  _lastSelectedLayoutColumn := -1;
   inherited;
 end;
 
@@ -5210,7 +5228,7 @@ begin
   inherited;
 
   _SelectedLayoutColumns := CList<Integer>.Create;
-  _lastSelectedLayoutColumn := 0;
+  _lastSelectedLayoutColumn := -1;
 end;
 
 function TTreeSelectionInfo.CreateInstance: IRowSelectionInfo;
