@@ -680,11 +680,15 @@ end;
 
 procedure TScrollControlWithRows.DoRealignContent;
 begin
-  StartMasterSynchronizer;
+  var hadSync := _activeRowHeightSynchronizer <> nil;
+
+  if not hadSync then
+    StartMasterSynchronizer;
   try
     inherited;
   finally
-    StopMasterSynchronizer;
+    if not hadSync then
+      StopMasterSynchronizer;
   end;
 end;
 
@@ -2453,14 +2457,17 @@ end;
 
 procedure TScrollControlWithRows.ResetAndRealign(FromIndex: Integer = -1);
 begin
-  Assert(_activeRowHeightSynchronizer = nil);
+  var hadSync := _activeRowHeightSynchronizer <> nil;
 
   // only clear row info from this row and below, because all rows above stay the same!
-  StartMasterSynchronizer;
+
+  if not hadSync then
+    StartMasterSynchronizer;
   try
     ResetView(FromIndex);
   finally
-    StopMasterSynchronizer;
+    if not hadSync then
+      StopMasterSynchronizer;
   end;
 
   // make sure scrollbars are up-to-date
