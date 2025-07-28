@@ -2537,13 +2537,7 @@ end;
 
 function CList<T>.IndexOf(const Value: CObject): Integer;
 begin
-  {$IFDEF DEBUG}
-  var s: string := Value.ToString;
-  var item: T := ReverseCast(Value);
-  Result := IndexOf_T(item);
-  {$ELSE}
   Result := IndexOf_T(ReverseCast(Value));
-  {$ENDIF}
 end;
 
 procedure CList<T>.Insert(index: Integer; const item: T);
