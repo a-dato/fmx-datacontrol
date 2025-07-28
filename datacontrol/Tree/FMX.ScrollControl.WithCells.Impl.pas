@@ -905,7 +905,7 @@ uses
   , app.intf
   , app.PropertyDescriptor.intf
   {$ENDIF}
-  , System.Rtti;
+  , System.Rtti, System.TypInfo;
 
 
 { TScrollControlWithCells }
@@ -1355,7 +1355,6 @@ begin
   var treeSelectionInfo := _selectionInfo as ITreeSelectionInfo;
 
   var flatColumn: IDCTreeLayoutColumn;
-  var flatIx: Integer;
   if horzScroll = TRightLeftScroll.FullLeft then
     flatColumn := _treeLayout.FlatColumns[0]
   else if horzScroll = TRightLeftScroll.FullRight then
@@ -3050,7 +3049,7 @@ begin
   Result := 0.0;
   var cell: IDCTreeCell;
   for cell in Row.Cells.Values do
-    if cell.Column.InfoControlClass = TInfoControlClass.Text then
+    if (cell.Column.InfoControlClass = TInfoControlClass.Text) and (cell.InfoControl <> nil) then
     begin
       var txt := cell.InfoControl as TText;
 

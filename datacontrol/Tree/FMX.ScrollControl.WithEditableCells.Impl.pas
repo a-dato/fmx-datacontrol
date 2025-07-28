@@ -949,7 +949,7 @@ begin
         _editingInfo.StartRowEdit(drv.Row.get_Index, drv, True);
 
         newDataItem := drv;
-        newViewListIndex := drv.ViewIndex;
+//        newViewListIndex := drv.ViewIndex;
 
         GetDataModelView.Refresh;
         ResetView;
