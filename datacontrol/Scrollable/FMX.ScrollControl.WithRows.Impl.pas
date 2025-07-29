@@ -1495,7 +1495,8 @@ begin
 
   var doExpand := RowFlag.Expanded in Args.NewProperties.Flags;
   if drv.DataView.IsExpanded[drv.Row] <> DoExpand then
-    DoCollapseOrExpandRow(drv.ViewIndex, doExpand);
+    DoCollapseOrExpandRow(drv.ViewIndex, doExpand) else
+    ResetView(drv.ViewIndex);
 end;
 
 procedure TScrollControlWithRows.DataModelViewRowChanged(const Sender: IBaseInterface; Args: RowChangedEventArgs);
