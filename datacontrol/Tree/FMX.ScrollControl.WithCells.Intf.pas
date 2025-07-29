@@ -117,6 +117,8 @@ type
     procedure set_AllowHide(const Value: Boolean);
     function  get_HideWhenEmpty: Boolean;
     procedure set_HideWhenEmpty(const Value: Boolean);
+    function  get_HideGrid: Boolean;
+    procedure set_HideGrid(const Value: Boolean);
     function  get_Format: CString;
     procedure set_Format(const Value: CString);
 
@@ -129,6 +131,7 @@ type
     property AllowResize: Boolean read get_AllowResize write set_AllowResize;
     property AllowHide: Boolean read get_AllowHide write set_AllowHide;
     property HideWhenEmpty: Boolean read get_HideWhenEmpty write set_HideWhenEmpty;
+    property HideGrid: Boolean read get_HideGrid write set_HideGrid;
     property Format: CString read get_Format write set_Format;
   end;
 

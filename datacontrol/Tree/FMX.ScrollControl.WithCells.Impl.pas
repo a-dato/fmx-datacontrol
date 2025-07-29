@@ -188,6 +188,8 @@ type
     procedure MouseMove(Shift: TShiftState; X, Y: Single); override;
     procedure UpdateHorzScrollbar;
 
+    function  CellHasData(const Cell: IDCTreeCell): Boolean;
+
     procedure UpdateHoverRect(MousePos: TPointF); override;
     function  ScrollPerformanceShouldHideColumns(const FlatIndex: Integer): Boolean;
     function  ShowFlatColumnContent(const FlatColumn: IDCTreeLayoutColumn; out IsOutOfView: Boolean): TShowFlatColumnType;
@@ -392,6 +394,7 @@ type
     _allowResize: Boolean;
     _allowHide: Boolean;
     _hideWhenEmpty: Boolean;
+    _hideGrid: Boolean;
     _format: CString;
 
     function  get_Visible: Boolean;
@@ -408,6 +411,8 @@ type
     procedure set_AllowHide(const Value: Boolean);
     function  get_HideWhenEmpty: Boolean;
     procedure set_HideWhenEmpty(const Value: Boolean);
+    function  get_HideGrid: Boolean;
+    procedure set_HideGrid(const Value: Boolean);
     function  get_Format: CString;
     procedure set_Format(const Value: CString);
 
@@ -425,6 +430,7 @@ type
     property AllowResize: Boolean read get_AllowResize write set_AllowResize;
     property AllowHide: Boolean read get_AllowHide write set_AllowHide;
     property HideWhenEmpty: Boolean read get_HideWhenEmpty write set_HideWhenEmpty;
+    property HideGrid: Boolean read get_HideGrid write set_HideGrid;
     property Format: CString read get_Format write set_Format;
 
   end;
@@ -2826,6 +2832,7 @@ end;
 
 procedure TScrollControlWithCells.LoadDefaultDataIntoControl(const Cell: IDCTreeCell; const FlatColumn: IDCTreeLayoutColumn; const IsSubProp: Boolean);
 begin
+  // checkbox selection
   if Cell.Column.IsSelectionColumn then
   begin
     Cell.InfoControl.Visible := _selectionInfo.CanSelect(Cell.Row.DataIndex);
@@ -2910,10 +2917,31 @@ begin
   Result := not (TDCTreeOption.MultiSelect in  _options) and not AllowNoneSelected;
 end;
 
+function TScrollControlWithCells.CellHasData(const Cell: IDCTreeCell): Boolean;
+begin
+  // heavy method.. DOn't use if it is not needed!!
+
+  if (cell.InfoControl = nil) or not cell.InfoControl.Visible then
+    Exit(False);
+
+  case cell.Column.InfoControlClass of
+    Text: Exit((cell.InfoControl as ICaption).Text <> '');
+    CheckBox: Exit((cell.InfoControl as IISChecked).IsChecked);
+    Button: Exit((cell.InfoControl as TButton).ImageIndex <> -1);
+    Glyph: Exit((cell.InfoControl as TGlyph).ImageIndex <> -1);
+  end;
+
+  Result := True;
+end;
+
 procedure TScrollControlWithCells.InnerInitRow(const Row: IDCRow);
 begin
   var cell: IDCTreeCell;
   var treeRow := Row as IDCTreeRow;
+
+  // if we do horz lines, we do them on cell controls..
+  TRectangle(treeRow.Control).Sides := [];
+
   var manualHeight: Single := -1;
 
   var waitForRepaintInfo := _waitForRepaintInfo as IDataControlWaitForRepaintInfo;
@@ -2963,10 +2991,12 @@ begin
 
       if not CString.IsNullOrEmpty(cell.Column.SubPropertyName) then
         LoadDefaultDataIntoControl(cell, flatColumn, True);
-    end else
-      flatColumn.ContainsData := TColumnContainsData.Yes;
+    end;
 
     DoCellLoaded(cell, False, {var} manualHeight);
+
+    if (flatColumn.ContainsData = TColumnContainsData.Unknown) and CellHasData(cell) then
+      flatColumn.ContainsData := TColumnContainsData.Yes;
   end;
 
   if _forceRealignRowAfterScrolling then
@@ -4268,8 +4298,9 @@ begin
       var rect := DataControlClassFactory.CreateHeaderCellRect(Cell.Row.Control);
 
       var headerCell := Cell as IHeaderCell;
-
-      if not ShowVertGrid then
+      if Cell.Column.Visualisation.HideGrid then
+        rect.Sides := []
+      else if not ShowVertGrid then
         rect.Sides := [TSide.Bottom]
       else if (Cell.Index = 0) then
         rect.Sides := [TSide.Left, TSide.Right, TSide.Bottom, TSide.Top]
@@ -4295,8 +4326,11 @@ begin
     begin
       var rect := DataControlClassFactory.CreateRowCellRect(Cell.Row.Control);
 
-      if _index = 0 then
-        rect.Sides := [TSide.Left, TSide.Right] else
+      if Cell.Column.Visualisation.HideGrid then
+        rect.Sides := []
+      else if _index = 0 then
+        rect.Sides := [TSide.Left, TSide.Right]
+      else
         rect.Sides := [TSide.Right];
 
       Cell.Control := rect;
@@ -5524,6 +5558,7 @@ begin
     _allowHide := _src.AllowHide;
     _allowResize := _src.AllowResize;
     _hideWhenEmpty := _src.HideWhenEmpty;
+    _hideGrid := _src.HideGrid;
     _format := _src.Format;
   end;
 end;
@@ -5551,6 +5586,11 @@ end;
 function TDCColumnVisualisation.get_Frozen: Boolean;
 begin
   Result := _frozen;
+end;
+
+function TDCColumnVisualisation.get_HideGrid: Boolean;
+begin
+  Result := _hideGrid;
 end;
 
 function TDCColumnVisualisation.get_HideWhenEmpty: Boolean;
@@ -5591,6 +5631,11 @@ end;
 procedure TDCColumnVisualisation.set_Frozen(const Value: Boolean);
 begin
   _frozen := Value;
+end;
+
+procedure TDCColumnVisualisation.set_HideGrid(const Value: Boolean);
+begin
+  _hideGrid := Value;
 end;
 
 procedure TDCColumnVisualisation.set_HideWhenEmpty(const Value: Boolean);
