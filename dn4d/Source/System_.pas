@@ -81,6 +81,7 @@ type
   CharArray = array of SystemChar;
   PCharArray = ^CharArray;
   IntegerArray = array of Integer;
+  Int64Array = array of Int64;
   PByteArray = ^ByteArray;
   ByteArray = array of Byte;
 
@@ -3955,6 +3956,14 @@ function TInterfacePropertyAccessor.GetValue(const obj: CObject; const index: ar
 begin
   if (_getter <> nil) and (obj <> nil) then
   begin
+    var prop_index: array of TValue;
+    if Length(index) > 0 then
+    begin
+      SetLength(prop_index, Length(index));
+      for var i := 0 to High(index) do
+        prop_index[i] := index[i].AsType<TValue>;
+    end;
+
     if obj.IsInterface then
     begin
       var v: TValue;
@@ -3970,10 +3979,10 @@ begin
       end else
         v := obj.FValue;
 
-      Result := CObject.From<TValue>(_getter.Invoke(v, []));
+      Result := CObject.From<TValue>(_getter.Invoke(v, prop_index));
     end
     else if obj.IsObject then
-      Result := CObject.From<TValue>(_getter.Invoke(obj.FValue, []));
+      Result := CObject.From<TValue>(_getter.Invoke(obj.FValue, prop_index));
   end;
 end;
 

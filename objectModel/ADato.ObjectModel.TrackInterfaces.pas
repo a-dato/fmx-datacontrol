@@ -21,6 +21,13 @@ type
     function CreateInstance: CObject;
   end;
 
+  {$IFDEF APP_PLATFORM}
+  IAddRange = interface(IBaseInterface)
+    ['{D8499336-7B4E-42FB-A883-05C959EFA88E}']
+    function AddRange(const Data: CObject) : Integer;
+  end;
+  {$ENDIF}
+
   IEditState = interface(IBaseInterface)
     ['{E64C221B-1C01-412D-A048-07B1C1DBF4C0}']
     function  get_IsChanged: Boolean;

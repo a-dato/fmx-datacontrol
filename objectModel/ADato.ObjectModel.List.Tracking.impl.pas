@@ -11,7 +11,6 @@ uses
   System.Collections,
   System.Collections.Generic,
   System.ComponentModel,
-
   ADato.ObjectModel.impl,
   ADato.ObjectModel.intf,
   ADato.ObjectModel.List.impl,
@@ -34,7 +33,12 @@ type
     IEditState,
     IEditableModel,
     INotifyListItemChanged,
-    IOnItemChangedSupport)
+    IOnItemChangedSupport
+    {$IFDEF APP_PLATFORM}
+    , IUpdatableObject
+    , IAddRange
+    {$ENDIF}
+    )
 
   protected
     _CreatorFunc  : TFunc<T>;
@@ -48,11 +52,18 @@ type
     _StoreChangedItems: Boolean;
 
     procedure Initialize; override;
-    procedure BeginUpdate;
-    procedure EndUpdate;
     function  CreateObjectModelContext : IObjectModelContext; override;
     procedure UpdateEditContext(const Context: IObjectModelContext; Cancel: Boolean = False);
     procedure OnObjectPropertyChanged(const Sender: IObjectModelContext; const Context: CObject; const AProperty: _PropertyInfo);
+
+    // IUpdatableObject
+    procedure BeginUpdate;
+    procedure EndUpdate;
+
+    {$IFDEF APP_PLATFORM}
+    // IAddRange
+    function AddRange(const Data: CObject) : Integer;
+    {$ENDIF}
 
     // INotifyListItemChanged
     procedure NotifyAddingNew(const Context: IObjectModelContext; var Index: Integer; Position: InsertPosition);
@@ -145,6 +156,34 @@ begin
   if Interfaces.Supports<IEditableListObject>(get_ObjectModelContext, e) then
     e.BeginEdit(Index);
 end;
+
+{$IFDEF APP_PLATFORM}
+// IAddRange
+function TObjectListModelWithChangeTracking<T>.AddRange(const Data: CObject) : Integer;
+begin
+  var upd: IUpdatableObject;
+  Interfaces.Supports<IUpdatableObject>(_Context, upd);
+
+  try
+    if upd <> nil then
+      upd.BeginUpdate;
+
+    Result := 0;
+    var e: IEnumerable;
+    if Data.TryAsType<IEnumerable>(e) then
+    begin
+      for var item in e do
+      begin
+        _Context.Add(item);
+        inc(Result);
+      end;
+    end;
+  finally
+    if upd <> nil then
+      upd.EndUpdate;
+  end;
+end;
+{$ENDIF}
 
 procedure TObjectListModelWithChangeTracking<T>.BeginUpdate;
 begin
