@@ -391,9 +391,7 @@ uses
   System.Reflection,
   FMX.Platform,
   System.SysUtils,
-  {$IFDEF WIN64}
   FMX.ComboMultiBox,
-  {$ENDIF}
   System.TypInfo;
 
 { TScrollControlWithEditableCells }
@@ -2439,7 +2437,6 @@ end;
 
 procedure TDCCellMultiSelectDropDownEditor.BeginEdit(const EditValue: CObject);
 begin
-  {$IFDEF WIN64}
   _editor := TComboMultiBox.Create(nil);
   TComboMultiBox(_editor).Items := _PickList;
   TComboMultiBox(_editor).SelectedItems := EditValue.AsType<IList>;
@@ -2448,14 +2445,11 @@ begin
   inherited;
 
   Dropdown;
-  {$ENDIF}
 end;
 
 procedure TDCCellMultiSelectDropDownEditor.Dropdown;
 begin
-  {$IFDEF WIN64}
   TComboMultiBox(_editor).DropDown;
-  {$ENDIF}
 end;
 
 function TDCCellMultiSelectDropDownEditor.get_PickList: IList;
@@ -2465,9 +2459,7 @@ end;
 
 function TDCCellMultiSelectDropDownEditor.get_Value: CObject;
 begin
-  {$IFDEF WIN64}
   Result := TComboMultiBox(_editor).SelectedItems;
-  {$ENDIF}
 end;
 
 procedure TDCCellMultiSelectDropDownEditor.set_PickList(const Value: IList);
@@ -2477,9 +2469,7 @@ end;
 
 procedure TDCCellMultiSelectDropDownEditor.set_Value(const Value: CObject);
 begin
-  {$IFDEF WIN64}
   TComboMultiBox(_editor).SelectedItems := Value.AsType<IList>;
-  {$ENDIF}
 end;
 
 end.
