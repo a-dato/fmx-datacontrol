@@ -391,7 +391,8 @@ uses
   System.Reflection,
   FMX.Platform,
   System.SysUtils,
-  FMX.ComboMultiBox, System.TypInfo;
+  FMX.ComboMultiBox,
+  System.TypInfo;
 
 { TScrollControlWithEditableCells }
 
