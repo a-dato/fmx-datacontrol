@@ -1789,6 +1789,7 @@ type
     function get_Index: Integer;
 
     function  GetAttributes: TArray<TCustomAttribute>;
+    function  IsIndexedProperty: Boolean;
     function  GetValue(const obj: CObject; const index: array of CObject): CObject;
     procedure SetValue(const obj: CObject; const value: CObject; const index: array of CObject; ExecuteTriggers: Boolean = false);
 
@@ -1811,6 +1812,7 @@ type
 
     function  GetType: &Type;
     function  GetAttributes: TArray<TCustomAttribute>;
+    function  IsIndexedProperty: Boolean;
     function  GetValue(const obj: CObject; const index: array of CObject): CObject;
     procedure SetValue(const obj: CObject; const value: CObject; const index: array of CObject; ExecuteTriggers: Boolean = false);
 
@@ -2247,6 +2249,7 @@ type
     function get_Index: Integer;
 
     function  GetAttributes: TArray<TCustomAttribute>;
+    function  IsIndexedProperty: Boolean;
     function  GetValue(const obj: CObject; const index: array of CObject): CObject;
     procedure SetValue(const obj: CObject; const value: CObject; const index: array of CObject; ExecuteTriggers: Boolean = false);
   public
@@ -2268,6 +2271,7 @@ type
     function get_Index: Integer;
 
     function  GetAttributes: TArray<TCustomAttribute>;
+    function  IsIndexedProperty: Boolean;
     function  GetValue(const obj: CObject; const index: array of CObject): CObject;
     procedure SetValue(const obj: CObject; const value: CObject; const index: array of CObject; ExecuteTriggers: Boolean = false);
   public
@@ -2309,6 +2313,7 @@ type
     procedure set_Setter(const Value: TRttiMethod);
 
     function  GetAttributes: TArray<TCustomAttribute>;
+    function  IsIndexedProperty: Boolean;
     function  GetValue(const obj: CObject; const index: array of CObject): CObject;
     procedure SetValue(const obj: CObject; const value: CObject; const index: array of CObject; ExecuteTriggers: Boolean = false);
   public
@@ -2329,6 +2334,7 @@ type
     function  get_OwnerType: &Type;
 
     function  GetAttributes: TArray<TCustomAttribute>;
+    function  IsIndexedProperty: Boolean; virtual;
     function  GetValue(const obj: CObject; const index: array of CObject): CObject; virtual;
     procedure SetValue(const obj: CObject; const Value: CObject; const index: array of CObject; ExecuteTriggers: Boolean = false); virtual;
 
@@ -2356,6 +2362,7 @@ type
     function  get_OwnerType: &Type;
 
     function  GetAttributes: TArray<TCustomAttribute>;
+    function  IsIndexedProperty: Boolean;
     function  GetValue(const obj: CObject; const index: array of CObject): CObject; virtual;
     procedure SetValue(const obj: CObject; const Value: CObject; const index: array of CObject; ExecuteTriggers: Boolean = false); virtual;
 
@@ -3320,6 +3327,11 @@ begin
   Result := _PropInfo.GetAttributes;
 end;
 
+function CPropertyInfo.IsIndexedProperty: Boolean;
+begin
+  Result := _PropInfo.IsIndexedProperty;
+end;
+
 function CPropertyInfo.GetType: &Type;
 begin
   Result := _Type;
@@ -3379,6 +3391,11 @@ end;
 function CPropertyWrapper.GetAttributes: TArray<TCustomAttribute>;
 begin
   Result := _property.GetAttributes;
+end;
+
+function CPropertyWrapper.IsIndexedProperty: Boolean;
+begin
+  Result := _property.IsIndexedProperty;
 end;
 
 function CPropertyWrapper.GetType: &Type;
@@ -3759,8 +3776,10 @@ begin
     begin
       virtualProp := TInterfacePropertyAccessor.Create(AType);
       virtualProp.Getter := method;
+      var set_name := method.Name.Replace('get_', 'set_');
+
       for method2 in &Type.GlobalContext.GetType(AType.GetTypeInfo).GetMethods do
-        if method2.Name = method.Name.Replace('get_', 'set_') then
+        if method2.Name.Equals(set_name) then
         begin
           virtualProp.Setter := method2;
           break;
@@ -4006,9 +4025,24 @@ begin
   Result := _getter;
 end;
 
+function TInterfacePropertyAccessor.IsIndexedProperty: Boolean;
+begin
+  if (_getter <> nil) then
+    Result := Length(_getter.GetParameters) > 0
+  else if (_setter <> nil) then
+    Result := Length(_setter.GetParameters) > 1
+  else
+    Result := False;
+end;
+
 function TInterfacePropertyAccessor.get_Index: Integer;
 begin
-  raise ENotSupportedException.Create('Get index of object''s prop itself (obj.gettype.propbyname().index)');
+  if (_getter <> nil) and (Length(_getter.GetParameters) > 0) then
+    Result := Length(_getter.GetParameters)
+  else if (_setter <> nil) and (Length(_setter.GetParameters) > 1) then
+    Result := Length(_setter.GetParameters)
+  else
+    Result := Low(Integer);
 end;
 
 function TInterfacePropertyAccessor.get_Name: CString;
@@ -4096,6 +4130,11 @@ begin
     if p <> nil then
       Result := p.GetAttributes;
   end;
+end;
+
+function TInterfacedPropInfo.IsIndexedProperty: Boolean;
+begin
+  Result := _propInfo^.Index <> Low(_propInfo^.Index);  //  From System.TypInfo -> TPropSet<T>.GetProc
 end;
 
 function TInterfacedPropInfo.GetHashCode: Integer;
@@ -4272,6 +4311,11 @@ begin
 //    if p <> nil then
 //      Result := p.GetAttributes;
 //  end;
+end;
+
+function TRecordFieldProperty.IsIndexedProperty: Boolean;
+begin
+  Result := False;
 end;
 
 function TRecordFieldProperty.GetHashCode: Integer;

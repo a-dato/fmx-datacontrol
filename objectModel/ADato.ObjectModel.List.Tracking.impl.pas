@@ -67,7 +67,6 @@ type
 
     // INotifyListItemChanged
     procedure NotifyAddingNew(const Context: IObjectModelContext; var Index: Integer; Position: InsertPosition);
-//    procedure NotifyAdded(const Item: CObject; const Index: Integer);
     procedure NotifyRemoved(const Item: CObject; const Index: Integer);
     procedure NotifyBeginEdit(const Context: IObjectModelContext); virtual;
     procedure NotifyCancelEdit(const Context: IObjectModelContext; const OriginalObject: CObject);
