@@ -5139,10 +5139,13 @@ begin
     _selectionRect.BringToFront;
   end;
 
-  var rr := _selectionRect as TRectangle;
+  var clr: TAlphaColor;
   if OwnerIsFocused then
-    rr.Fill.Color := DEFAULT_ROW_SELECTION_ACTIVE_COLOR else
-    rr.Fill.Color := DEFAULT_ROW_SELECTION_INACTIVE_COLOR;
+    clr := DEFAULT_ROW_SELECTION_ACTIVE_COLOR else
+    clr := DEFAULT_ROW_SELECTION_INACTIVE_COLOR;
+
+  (_selectionRect as TRectangle).Fill.Color := clr;
+
 end;
 
 procedure TDCTreeCell.UpdateSelectionVisibility(const RowIsSelected: Boolean; const SelectionInfo: ITreeSelectionInfo; OwnerIsFocused: Boolean);
