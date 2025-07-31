@@ -51,10 +51,9 @@ type
     procedure ModelContextPropertyChanged(const Sender: IObjectModelContext; const Context: CObject; const AProperty: _PropertyInfo);
     procedure ModelContextChanged(const Sender: IObjectModelContext; const Context: CObject);
 
-    procedure DataModelViewRowChanged(const Sender: IBaseInterface; Args: RowChangedEventArgs);
-    procedure DataModelViewRowPropertiesChanged(Sender: TObject; Args: RowPropertiesChangedEventArgs); virtual;
-
     procedure GenerateView; virtual;
+
+    function  MeOrSynchronizerIsUpdating: Boolean;
 
   // published property variables
 
@@ -188,8 +187,6 @@ type
     procedure CalculateScrollBarMax; override;
     procedure InternalDoSelectRow(const Row: IDCRow; Shift: TShiftState);
 
-    procedure OnViewChanged;
-
     function  ListHoldsOrdinalType: Boolean;
     procedure HandleTreeOptionsChange(const OldFlags, NewFlags: TDCTreeOptions); virtual;
 
@@ -209,6 +206,15 @@ type
 
     function  GetRowViewListIndexByKey(const Key: Word; Shift: TShiftState): Integer;
     function  GetActiveRow: IDCRow;
+
+  protected
+    _ignoreNextViewChanged: Boolean;
+    _ignoreNextRowChanged: Boolean;
+    _ignoreNextRowPropertiesChanged: Boolean;
+
+    procedure OnViewChanged;
+    procedure DataModelViewRowChanged(const Sender: IBaseInterface; Args: RowChangedEventArgs);
+    procedure DataModelViewRowPropertiesChanged(Sender: TObject; Args: RowPropertiesChangedEventArgs); virtual;
 
   public
     procedure OnItemAddedByUser(const Item: CObject; Index: Integer);
@@ -870,6 +876,11 @@ begin
     Result := dm.DefaultView;
 end;
 
+function TScrollControlWithRows.MeOrSynchronizerIsUpdating: Boolean;
+begin
+  Result := IsUpdating or ((_rowHeightSynchronizer <> nil) and _rowHeightSynchronizer.IsUpdating);
+end;
+
 procedure TScrollControlWithRows.GenerateView;
 begin
   inc(_scrollUpdateCount);
@@ -1182,6 +1193,7 @@ begin
   if _isMasterSynchronizer then
   begin
     _activeRowHeightSynchronizer._realignContentTime := _realignContentTime;
+    _activeRowHeightSynchronizer._realignContentRequested := False;
     _isMasterSynchronizer := False;
     _activeRowHeightSynchronizer._scrollingType := _scrollingType;
   end;
@@ -1482,6 +1494,12 @@ begin
   if HasInternalSelectCount then
     Exit;
 
+  if (_rowHeightSynchronizer <> nil) and not HasInternalSelectCount and _ignoreNextRowPropertiesChanged then
+  begin
+    _ignoreNextRowPropertiesChanged := False;
+    Exit;
+  end;
+
   if (Args.Row = nil) or (Args.OldProperties.Flags = Args.NewProperties.Flags) then
     Exit;
 
@@ -1497,12 +1515,21 @@ begin
   if drv.DataView.IsExpanded[drv.Row] <> DoExpand then
     DoCollapseOrExpandRow(drv.ViewIndex, doExpand) else
     ResetView(drv.ViewIndex);
+
+  if (_rowHeightSynchronizer <> nil) and not HasInternalSelectCount then
+    _rowHeightSynchronizer._ignoreNextRowPropertiesChanged := True;
 end;
 
 procedure TScrollControlWithRows.DataModelViewRowChanged(const Sender: IBaseInterface; Args: RowChangedEventArgs);
 begin
   if _internalSelectCount > 0 then
     Exit;
+
+  if (_rowHeightSynchronizer <> nil) and not HasInternalSelectCount and _ignoreNextRowChanged then
+  begin
+    _ignoreNextRowChanged := False;
+    Exit;
+  end;
 
   if ((_activeRowHeightSynchronizer <> nil) and (_activeRowHeightSynchronizer._internalSelectCount > 0)) then
   begin
@@ -1519,6 +1546,9 @@ begin
       VisualizeRowSelection(row);
   end else
     set_Current(Args.NewIndex);
+
+  if (_rowHeightSynchronizer <> nil) and not HasInternalSelectCount then
+    _rowHeightSynchronizer._ignoreNextRowChanged := True;
 end;
 
 procedure TScrollControlWithRows.ModelContextChanged(const Sender: IObjectModelContext; const Context: CObject);
@@ -1538,7 +1568,7 @@ end;
 
 procedure TScrollControlWithRows.ModelContextPropertyChanged(const Sender: IObjectModelContext; const Context: CObject; const AProperty: _PropertyInfo);
 begin
-  if not Self.IsUpdating and (_updateCount = 0) then
+  if not MeOrSynchronizerIsUpdating and (_updateCount = 0) then
     DoDataItemChangedInternal(Context);
 end;
 
@@ -1593,6 +1623,10 @@ var
   filterChanged: Boolean;
 
 begin
+  Assert(not _ignoreNextViewChanged);
+  Assert(not _ignoreNextRowChanged);
+  Assert(not _ignoreNextRowPropertiesChanged);
+
   if _isMasterSynchronizer then
     _activeRowHeightSynchronizer.BeforeRealignContent;
 
@@ -2075,6 +2109,12 @@ end;
 
 procedure TScrollControlWithRows.OnViewChanged;
 begin
+  if (_rowHeightSynchronizer <> nil) and not HasInternalSelectCount and _ignoreNextViewChanged then
+  begin
+    _ignoreNextViewChanged := False;
+    Exit;
+  end;
+
   if (_activeRowHeightSynchronizer <> nil) and not _isMasterSynchronizer then
   begin
     if not _activeRowHeightSynchronizer._isMasterSynchronizer then
@@ -2090,6 +2130,9 @@ begin
 
   if _selectionInfo.DataItem <> nil then
     Self.set_DataItem(_selectionInfo.DataItem);
+
+  if (_rowHeightSynchronizer <> nil) and not HasInternalSelectCount then
+    _rowHeightSynchronizer._ignoreNextViewChanged := True;
 end;
 
 function TScrollControlWithRows.CalculateAverageRowHeight: Single;
