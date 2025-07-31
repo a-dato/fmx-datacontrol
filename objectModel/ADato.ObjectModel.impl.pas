@@ -190,6 +190,7 @@ type
 
     function  GetType: &Type; {$IFDEF DELPHI}override;{$ENDIF}
     {$IFDEF DELPHI}
+    function  IsIndexedProperty: Boolean;
     function  GetAttributes: TArray<TCustomAttribute>;
     {$ENDIF}
     function  GetValue(const obj: CObject; const index: array of CObject): CObject; {$IFDEF DOTNET} override;  {$ELSE} virtual; {$ENDIF}
@@ -782,6 +783,11 @@ end;
 function TObjectModelPropertyWrapper.GetAttributes: TArray<TCustomAttribute>;
 begin
   Result := FContainedProperty.GetAttributes;
+end;
+
+function TObjectModelPropertyWrapper.IsIndexedProperty: Boolean;
+begin
+  Result := FContainedProperty.IsIndexedProperty;
 end;
 
 function TObjectModelPropertyWrapper.GetType: &Type;
