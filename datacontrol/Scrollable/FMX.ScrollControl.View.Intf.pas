@@ -79,7 +79,8 @@ type
     procedure ApplyFilter(const Filters: List<IListFilterDescription>);
     function  ItemIsFilteredOut(const DataItem: CObject): Boolean;
 
-    procedure ViewLoadingStart(const TotalStartYPosition, TotalStopYPosition, DefaultRowHeight: Single); overload;
+    procedure Prepare(const DefaultRowHeight: Single);
+    procedure ViewLoadingStart(const VirtualYPositionStart, VirtualYPositionStop: Single); overload;
     procedure ViewLoadingStart(const SynchronizeFromView: IDataViewList); overload;
     procedure ViewLoadingFinished;
     procedure ViewLoadingRemoveNonUsedRows(const TillSpecifiedViewFrameIndex: Integer = -1; const FromTop: Boolean = True);

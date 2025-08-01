@@ -200,9 +200,11 @@ type
     procedure DoCollapseOrExpandRow(const ViewListIndex: Integer; DoExpand: Boolean);
     function  RowIsExpanded(const ViewListIndex: Integer): Boolean;
 
+    procedure PrepareView;
     procedure ResetView(const FromViewListIndex: Integer = -1; ClearOneRowOnly: Boolean = False); virtual;
 
     function  GetSelectableViewIndex(const FromViewListIndex: Integer; const Increase: Boolean; const FirstRound: Boolean = True): Integer;
+    procedure TryUpdateScrollValuesByCurrent(const ViewIndex: Integer);
 
     function  GetRowViewListIndexByKey(const Key: Word; Shift: TShiftState): Integer;
     function  GetActiveRow: IDCRow;
@@ -506,6 +508,22 @@ function TScrollControlWithRows.DefaultMoveDistance(ScrollDown: Boolean): Single
 begin
   if _rowHeightFixed > 0 then
     Result := _rowHeightFixed
+  else if (_view <> nil) and (_view.ActiveViewRows.Count > 2) then
+  begin
+    var topRow := _view.ActiveViewRows[0];
+
+    if ScrollDown then
+    begin
+      if topRow.VirtualYPosition < _vertScrollBar.Value then
+        Result :=  _vertScrollBar.Value - topRow.VirtualYPosition else
+        Result := 0;
+
+      Result := Result + topRow.Height;
+    end else
+      Result := (_vertScrollBar.Value - topRow.VirtualYPosition) + _view.GetRowHeight(topRow.ViewListIndex-1);
+
+    Exit;
+  end
   else if get_rowHeightDefault > 0 then
     Result := _rowHeightDefault
   else
@@ -696,6 +714,14 @@ begin
     if not hadSync then
       StopMasterSynchronizer;
   end;
+
+  // for now it seems this is required!!
+  // since we are in the paint method, the repaint of the other control can not be added without ForceQueue..
+  if _rowHeightSynchronizer <> nil then
+    TThread.ForceQueue(nil, procedure
+    begin
+      _rowHeightSynchronizer.Repaint;
+    end);
 end;
 
 procedure TScrollControlWithRows.UpdateRowHeightSynchronizerScrollbar;
@@ -1068,7 +1094,9 @@ begin
     inc(_scrollUpdateCount);
     try
       var newHeight := CMath.Max(_totalDataHeight, _content.Height);
-      if (_realignState > TRealignState.Realigning) or (newHeight > _vertScrollBar.Max) then
+
+      // gives issues when scrolling immidiate to bottom
+      if (_realignState >= TRealignState.Realigning) or (newHeight > _vertScrollBar.Max) then
         _vertScrollBar.Max := newHeight;
     finally
       dec(_scrollUpdateCount);
@@ -1270,7 +1298,7 @@ end;
 function TScrollControlWithRows.get_rowHeightDefault: Single;
 begin
   if _rowHeightFixed > 0 then
-    Result := _rowHeightFixed
+    Exit(_rowHeightFixed)
   else begin
     if _rowHeightDefault = -1 {dynamic height} then
     begin
@@ -1339,6 +1367,8 @@ begin
       GetDataModelView.CurrencyManager.CurrentRowChanged += DataModelViewRowChanged;
       GetDataModelView.RowPropertiesChanged += DataModelViewRowPropertiesChanged;
       {$ENDIF}
+
+      Self.Current := GetDataModelView.CurrencyManager.Current;
     end;
   end else
     _dataModelView := nil;
@@ -1633,16 +1663,7 @@ begin
   if _view = nil then
     Exit;
 
-  if _isMasterSynchronizer then
-  begin
-    var bestDefault := CMath.Max(_rowHeightDefault, _activeRowHeightSynchronizer._rowHeightDefault);
-    var bestFixed := CMath.Max(_rowHeightFixed, _activeRowHeightSynchronizer._rowHeightFixed);
-
-    _rowHeightDefault := bestDefault;
-    _activeRowHeightSynchronizer._rowHeightDefault := bestDefault;
-    _rowHeightFixed := bestFixed;
-    _activeRowHeightSynchronizer._rowHeightFixed := bestFixed;
-  end;
+  PrepareView;
 
   sortChanged := (_waitForRepaintInfo <> nil) and (TTreeRowState.SortChanged in _waitForRepaintInfo.RowStateFlags);
   filterChanged := (_waitForRepaintInfo <> nil) and (TTreeRowState.FilterChanged in _waitForRepaintInfo.RowStateFlags);
@@ -1685,6 +1706,7 @@ begin
     if (viewIndex <> -1) and (_view.ViewCount > 0) then
     begin
       UpdateSelectionInfo(self, viewIndex);
+
       if _isMasterSynchronizer then
         UpdateSelectionInfo(_activeRowHeightSynchronizer, viewIndex);
     end;
@@ -1694,6 +1716,32 @@ begin
   // otherwise nothing is done till the endedit is called
   if _resetViewRec.DoResetView then
     ResetView(_resetViewRec.FromIndex, _resetViewRec.OneRowOnly);
+end;
+
+procedure TScrollControlWithRows.TryUpdateScrollValuesByCurrent(const ViewIndex: Integer);
+begin
+  PrepareView;
+  if (_view.ActiveViewRows <> nil) and (_view.ActiveViewRows.Count > 0) then
+  begin
+    if (_view.ActiveViewRows[0].ViewListIndex <= ViewIndex) and (_view.ActiveViewRows[_view.ActiveViewRows.Count - 1].ViewListIndex >= ViewIndex) then
+      Exit; //don't update!!
+  end;
+
+  var di: CObject;
+  var yPos: Single;
+  _view.GetSlowPerformanceRowInfo(ViewIndex, {out} di, {out} yPos);
+
+  inc(_scrollUpdateCount);
+  try
+    var val := CMath.Max(CMath.Min(yPos, _vertScrollBar.Max - _vertScrollBar.ViewportSize), 0);
+    if not SameValue(val, _vertScrollBar.Value) then
+    begin
+      _vertScrollBar.Value := val;
+      UpdateRowHeightSynchronizerScrollbar;
+    end;
+  finally
+    dec(_scrollUpdateCount);
+  end;
 end;
 
 procedure TScrollControlWithRows.BeginDrag;
@@ -1771,7 +1819,7 @@ end;
 procedure TScrollControlWithRows.InitRow(const Row: IDCRow; const IsAboveRefRow: Boolean = False);
 begin
   var rowInfo := _view.RowLoadedInfo(Row.ViewListIndex);
-  var rowNeedsReload := Row.IsScrollingIntoView or not rowInfo.InnerCellsAreApplied or (rowInfo.ControlNeedsResizeSoft and (_scrollingType = TScrollingType.None));
+  var rowNeedsReload := Row.IsScrollingIntoView or not rowInfo.InnerCellsAreApplied or (rowInfo.ControlNeedsResizeSoft and (_scrollingType <> TScrollingType.WithScrollBar));
 
   if rowInfo.ControlNeedsResizeForced then
   begin
@@ -1965,16 +2013,6 @@ begin
     inherited;
 end;
 
-function TScrollControlWithRows.ListHoldsOrdinalType: Boolean;
-begin
-  {$IFNDEF WEBASSEMBLY}
-  Result := not (&Type.GetTypeCode(GetItemType) in [TypeCode.&Object, TypeCode.&Interface, TypeCode.&Array]);
-  {$ELSE}
-  var tc := &Type.GetTypeCode(GetItemType);
-  Result := not ((tc = TypeCode.Object) or GetItemType.IsInterface or GetItemType.IsArray);
-  {$ENDIF}
-end;
-
 procedure TScrollControlWithRows.DoCollapseOrExpandRow(const ViewListIndex: Integer; DoExpand: Boolean);
 begin
   if HasInternalSelectCount then
@@ -2135,6 +2173,29 @@ begin
     _rowHeightSynchronizer._ignoreNextViewChanged := True;
 end;
 
+procedure TScrollControlWithRows.PrepareView;
+begin
+  if (_rowHeightSynchronizer <> nil) then
+  begin
+    if not SameValue(_rowHeightDefault, _rowHeightSynchronizer._rowHeightDefault) then
+    begin
+      var bestDefault := CMath.Max(_rowHeightDefault, _rowHeightSynchronizer._rowHeightDefault);
+      _rowHeightDefault := bestDefault;
+      _rowHeightSynchronizer._rowHeightDefault := bestDefault;
+    end;
+
+    if not SameValue(_rowHeightFixed, _rowHeightSynchronizer._rowHeightFixed) then
+    begin
+      var bestFixed := CMath.Max(_rowHeightFixed, _rowHeightSynchronizer._rowHeightFixed);
+      _rowHeightFixed := bestFixed;
+      _rowHeightSynchronizer._rowHeightFixed := bestFixed;
+    end;
+  end;
+
+  // must be below bestDefault/bestFixed
+  _view.Prepare(get_rowHeightDefault);
+end;
+
 function TScrollControlWithRows.CalculateAverageRowHeight: Single;
 begin
   if _rowHeightFixed > 0 then
@@ -2173,6 +2234,8 @@ begin
       else if scrollBarWillGetHigher then
         _vertScrollBar.Value := _vertScrollBar.Value + _scrollbarMaxChangeSinceViewLoading
       else ; // do nothing, for setting _vertScrollBar.Max lower already updated _vertScrollbar.Value
+
+      UpdateRowHeightSynchronizerScrollbar;
     end;
   finally
     dec(_scrollUpdateCount);
@@ -2300,7 +2363,7 @@ begin
   _scrollbarMaxChangeSinceViewLoading := 0;
   _scrollbarRefToTopHeightChangeSinceViewLoading := 0;
 
-  _view.ViewLoadingStart(StartY, StopY, get_rowHeightDefault);
+  _view.ViewLoadingStart(StartY, StopY);
   if _isMasterSynchronizer then
   begin
     _activeRowHeightSynchronizer._realignState := TRealignState.Realigning;
@@ -2469,6 +2532,7 @@ begin
 
   inherited;
 end;
+
 
 procedure TScrollControlWithRows.ResetView(const FromViewListIndex: Integer = -1; ClearOneRowOnly: Boolean = False);
 begin
@@ -2742,7 +2806,10 @@ end;
 procedure TScrollControlWithRows.set_Current(const Value: Integer);
 begin
   if (_selectionInfo = nil) or (get_Current <> Value) then
+  begin
     GetInitializedWaitForRefreshInfo.Current := Value;
+    TryUpdateScrollValuesByCurrent(Value);
+  end;
 end;
 
 procedure TScrollControlWithRows.set_DataItem(const Value: CObject);
@@ -2752,7 +2819,10 @@ begin
     dItem := dItem.AsType<IDataRowView>.Row.Data;
 
   if not CObject.Equals(dItem, Value) then
+  begin
     GetInitializedWaitForRefreshInfo.DataItem := Value;
+    TryUpdateScrollValuesByCurrent(_view.GetViewListIndex(Value));
+  end;
 end;
 
 function TScrollControlWithRows.GetItemType: &Type;
@@ -3462,6 +3532,16 @@ begin
   _rowStateFlags := _rowStateFlags + [TTreeRowState.SortChanged];
   if _owner.IsInitialized then
     _owner.RefreshControl;
+end;
+
+function TScrollControlWithRows.ListHoldsOrdinalType: Boolean;
+begin
+  {$IFDEF WEBASSEMBLY}
+  Result := not ((tc = TypeCode.Object) or GetItemType.IsInterface or GetItemType.IsArray);
+  Result := not (&Type.GetTypeCode(GetItemType) in [TypeCode.&Object, TypeCode.&Interface, TypeCode.&Array]);
+  {$ELSE}
+  var tc := &Type.GetTypeCode(GetItemType);
+  {$ENDIF}
 end;
 
 end.

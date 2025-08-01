@@ -86,7 +86,8 @@ type
     procedure ApplyFilter(const Filters: List<IListFilterDescription>);
     function  ItemIsFilteredOut(const DataItem: CObject): Boolean;
 
-    procedure ViewLoadingStart(const VirtualYPositionStart, VirtualYPositionStop, DefaultRowHeight: Single); overload;
+    procedure Prepare(const DefaultRowHeight: Single);
+    procedure ViewLoadingStart(const VirtualYPositionStart, VirtualYPositionStop: Single); overload;
     procedure ViewLoadingStart(const SynchronizeFromView: IDataViewList); overload;
 
     procedure ViewLoadingFinished;
@@ -831,9 +832,13 @@ begin
   _editItem := nil;
 end;
 
-procedure TDataViewList.ViewLoadingStart(const VirtualYPositionStart, VirtualYPositionStop, DefaultRowHeight: Single);
+procedure TDataViewList.Prepare(const DefaultRowHeight: Single);
 begin
   _defaultRowHeight := DefaultRowHeight;
+end;
+
+procedure TDataViewList.ViewLoadingStart(const VirtualYPositionStart, VirtualYPositionStop: Single);
+begin
   var ix: Integer;
   for ix := _activeRows.Count - 1 downto 0 do
   begin

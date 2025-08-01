@@ -89,7 +89,6 @@ type
 
     procedure MouseRollingBoostTimer(Sender: TObject);
 
-//    procedure PerformanceSafeRealign(ScrollingType: TScrollingType = TScrollingType.None);
     function  CanRealignScrollCheck: Boolean;
     function  RealignContentTime: Integer;
 
@@ -347,6 +346,9 @@ end;
 procedure TScrollControl.BeforeRealignContent;
 begin
   _realignState := TRealignState.BeforeRealign;
+
+  // in case of rowHeightSync, don't let them both realign content
+  _checkWaitForRealignTimer.Enabled := False;
 
   CalculateScrollBarMax;
   UpdateScrollbarMargins;
