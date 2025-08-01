@@ -323,7 +323,6 @@ type
   TDCCellMultiSelectDropDownEditor = class(TDCCellEditor, IPickListSupport)
   private
     _PickList: IList;
-    _Value: CObject;
     _saveData: Boolean;
   protected
     function  get_Value: CObject; override;
@@ -397,8 +396,14 @@ uses
   {$ENDIF}
   FMX.ScrollControl.ControlClasses,
   FMX.ControlCalculations,
-  ADato.Collections.Specialized, System.Reflection
-  {, FMX.ComboMultiBox};
+  System.Types,
+  System.Character,
+  ADato.Collections.Specialized,
+  System.Reflection,
+  FMX.Platform,
+  System.SysUtils,
+  FMX.ComboMultiBox,
+  System.TypInfo;
 
 { TScrollControlWithEditableCells }
 
@@ -707,10 +712,18 @@ begin
 
     Key := 0;
   end
-  else if (Key in [vkUp, vkDown, vkTab]) and EndEditCell then
+  else if (Key in [vkUp, vkDown]) and EndEditCell then
   begin
-    Self.KeyDown(Key, KeyChar, Shift);
+    var crr := Self.Current;
+    if not DoEditRowEnd(GetActiveRow as IDCTreeRow) then
+      Exit;
+
+    if Key = vkUp then
+      Self.Current := CMath.Max(crr-1, 0) else
+      Self.Current := CMath.Min(crr+1, _view.ViewCount-1);
+
     Self.SetFocus;
+    Key := 0;
   end;
 end;
 
@@ -935,7 +948,6 @@ begin
   end;
 
   var newDataItem: CObject := nil;
-  var newDataIndex := 0;
   var newViewListIndex := Self.Current;
 
   if ViewIsDataModelView then
@@ -965,7 +977,6 @@ begin
       end;
 
       _view.RecalcSortedRows;
-      newDataIndex := dataRow.get_Index;
 
       var drv := GetDataModelView.FindRow(dataRow);
       if drv <> nil then
@@ -973,7 +984,7 @@ begin
         _editingInfo.StartRowEdit(drv.Row.get_Index, drv, True);
 
         newDataItem := drv;
-        newViewListIndex := drv.ViewIndex;
+//        newViewListIndex := drv.ViewIndex;
 
         GetDataModelView.Refresh;
         ResetView;
@@ -992,7 +1003,7 @@ begin
     ResetView;
 
     newDataItem := newItem;
-    newDataIndex := _view.OriginalData.IndexOf(NewItem);
+    var newDataIndex := _view.OriginalData.IndexOf(NewItem);
     _editingInfo.StartRowEdit(newDataIndex, NewItem, True);
   end;
 
@@ -2017,22 +2028,10 @@ end;
 
 procedure TDCTextCellEditor.OnEditorKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
 begin
-  if (Key in [vkUp, vkDown]) {and TEdit(_editor).TextSettings.WordWrap} then
-  begin
-    var ed := TEdit(_editor);
-    if (Key = vkUp) and (ed.CaretPosition > 0) then
-    begin
-      ed.CaretPosition := 0;
-      Key := 0;
-    end
-    else if (Key = vkDown) and (ed.CaretPosition < Length(ed.Text)) then
-    begin
-      ed.CaretPosition := Length(ed.Text);
-      Key := 0;
-    end;
-  end;
-
-  if Key <> 0 then
+//  if (Key in [vkUp, vkDown]) then
+//  begin
+//    // do nothing at all..
+//  end else
     inherited;
 end;
 
@@ -2216,8 +2215,6 @@ end;
 procedure TDCCellDropDownEditor.DropDown;
 var
   newItemWidth: Single;
-  i: Integer;
-  newValue: CObject;
 begin
   var ce := TComboEdit(_editor);
 
@@ -2237,33 +2234,6 @@ begin
 
   if not ce.DroppedDown then
     ce.DropDown;
-
-//  if PickList <> nil then
-//  begin
-//    var Value := get_Value;
-//    if (get_Value = nil) or CString.IsNullOrEmpty(Value.ToString) then
-//    begin
-//      if PickList.Count > 0 then
-//      begin
-//        newValue := PickList[0];
-//        if ParseValue(newValue) then
-//          Value := newValue;
-//      end;
-//    end else
-//      //
-//      // Locate existing item in the picklist
-//      //
-//    begin
-//      i := 0;
-//      while i < PickList.Count do
-//      begin
-//        newValue := PickList[i];
-//        if ParseValue(newValue) and Value.Equals(newValue) then
-//          break;
-//        inc(i);
-//      end;
-//    end;
-//  end;
 end;
 
 procedure TDCCellDropDownEditor.set_PickList(const Value: IList);
@@ -2347,10 +2317,10 @@ end;
 
 procedure TDCTextCellMultilineEditor.OnEditorKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
 begin
-  if (Key in [vkUp, vkDown]) then
-  begin
-    // do nothing at all..
-  end else
+//  if (Key in [vkUp, vkDown]) then
+//  begin
+//    // do nothing at all..
+//  end else
     inherited;
 end;
 
@@ -2539,19 +2509,19 @@ end;
 
 procedure TDCCellMultiSelectDropDownEditor.BeginEdit(const EditValue: CObject);
 begin
-//  _editor := TComboMultiBox.Create(nil);
-//  TComboMultiBox(_editor).Items := _PickList;
-//  TComboMultiBox(_editor).SelectedItems := EditValue.AsType<IList>;
-//  _cell.Control.AddObject(_editor);
+  _editor := TComboMultiBox.Create(nil);
+  TComboMultiBox(_editor).Items := _PickList;
+  TComboMultiBox(_editor).SelectedItems := EditValue.AsType<IList>;
+  _cell.Control.AddObject(_editor);
 
   inherited;
 
-//  Dropdown;
+  Dropdown;
 end;
 
 procedure TDCCellMultiSelectDropDownEditor.Dropdown;
 begin
-//  TComboMultiBox(_editor).DropDown;
+  TComboMultiBox(_editor).DropDown;
 end;
 
 function TDCCellMultiSelectDropDownEditor.get_PickList: IList;
@@ -2561,7 +2531,7 @@ end;
 
 function TDCCellMultiSelectDropDownEditor.get_Value: CObject;
 begin
-//  Result := TComboMultiBox(_editor).SelectedItems;
+  Result := TComboMultiBox(_editor).SelectedItems;
 end;
 
 procedure TDCCellMultiSelectDropDownEditor.set_PickList(const Value: IList);
@@ -2571,7 +2541,7 @@ end;
 
 procedure TDCCellMultiSelectDropDownEditor.set_Value(const Value: CObject);
 begin
-//  TComboMultiBox(_editor).SelectedItems := Value.AsType<IList>;
+  TComboMultiBox(_editor).SelectedItems := Value.AsType<IList>;
 end;
 
 end.

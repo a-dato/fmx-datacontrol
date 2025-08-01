@@ -12,7 +12,7 @@ type
     IBaseInterface)
   protected
     // Dummy implementation for IBaseInterface methods
-    function  get_RefCount: Integer;
+    function  getRefCount: Integer;
     procedure DefineProperties(Filer: TFiler); override;
 
   public
@@ -29,7 +29,7 @@ implementation
 uses System.Runtime.Serialization;
 
 { TBaseInterfacedComponent }
-function  TBaseInterfacedComponent.get_RefCount: Integer;
+function  TBaseInterfacedComponent.getRefCount: Integer;
 begin
   Result := -1;
 end;

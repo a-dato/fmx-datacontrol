@@ -3,16 +3,31 @@ unit FMX.ComboMultiBox;
 interface
 
 uses
-  System_, System.SysUtils, System.Classes, System.Generics.Collections,
-  FMX.Edit, FMX.Controls, FMX.ListBox, FMX.StdCtrls, FMX.Types, FMX.Layouts,
-  FMX.Forms, FMX.Objects, FMX.Controls.Presentation, FMX.Graphics,
-  FMX.ScrollControl.DataControl.Impl, System.Collections,
-  System.Collections.Generic, FMX.ScrollControl.Events, System.UITypes,
+  System_,
+  System.SysUtils,
+  System.Classes,
+  System.Generics.Collections,
+  System.Collections,
+  System.Collections.Generic,
+  System.UITypes,
+
+  FMX.Edit,
+  FMX.Controls,
+  FMX.ListBox,
+  FMX.StdCtrls,
+  FMX.Types,
+  FMX.Layouts,
+  FMX.Forms,
+  FMX.Objects,
+  FMX.Controls.Presentation,
+  FMX.Graphics,
+  FMX.ScrollControl.DataControl.Impl,
+  FMX.ScrollControl.Events,
   FMX.ComboMultiBox.PopupMenu;
 
 type
   TComboMultiBox = class(TRectangle)
-  private
+  protected
     _dropDownButton: TDropDownEditButton;
     _txt: TText;
     _popupMenu: TfrmComboMultiBoxPopup;
@@ -45,7 +60,8 @@ type
 implementation
 
 uses
-  FMX.ScrollControl.WithCells.Intf, FMX.ScrollControl.WithCells.Impl,
+  FMX.ScrollControl.WithCells.Intf,
+  FMX.ScrollControl.WithCells.Impl,
   FMX.ScrollControl.WithRows.Intf;
 
 { TComboMultiBox }
@@ -121,8 +137,6 @@ begin
 end;
 
 procedure TComboMultiBox.UpdateDisplayText;
-var
-  I: Integer;
 begin
   var s: CString := nil;
 

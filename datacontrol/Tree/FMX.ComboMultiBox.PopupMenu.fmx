@@ -6,6 +6,7 @@ object frmComboMultiBoxPopup: TfrmComboMultiBoxPopup
   ClientHeight = 344
   ClientWidth = 206
   Position = Designed
+  FormStyle = StayOnTop
   FormFactor.Width = 320
   FormFactor.Height = 480
   FormFactor.Devices = [Desktop]

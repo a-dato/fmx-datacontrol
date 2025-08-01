@@ -30,6 +30,7 @@ type
     class operator Implicit(AValue: SeekOrigin) : TSeekOrigin;
   end;
 
+  {$TYPEINFO OFF}
   Stream = interface(IBaseInterface)
     ['{F4FE9A85-61C4-4DFA-B91D-6D4FDFE75FB9}']
     function  get_Position: Int64;
@@ -38,10 +39,10 @@ type
     function  get_StreamObject: TStream;
 
     procedure Close;
-    function  Read(var buffer; index: Integer; count: Integer): Integer;
+    function  Read(buffer: Pointer; index: Integer; count: Integer): Integer;
     function  ReadByte: Byte;
     function  Seek(offset: Int64; origin: SeekOrigin): Int64;
-    procedure Write(const buffer; offset: Integer; count: Integer);
+    procedure Write(buffer: Pointer; offset: Integer; count: Integer);
 
     property Position: Int64
       read get_Position
@@ -65,10 +66,10 @@ type
     function  get_StreamObject: TStream;
 
     procedure Close;
-    function  Read(var buffer; index: Integer; count: Integer): Integer; virtual;
+    function  Read(buffer: Pointer; index: Integer; count: Integer): Integer; virtual;
     function  ReadByte: Byte; virtual;
     function  Seek(offset: Int64; origin: SeekOrigin): Int64;
-    procedure Write(const buffer; offset: Integer; count: Integer);
+    procedure Write(buffer: Pointer; offset: Integer; count: Integer);
 
   public
     constructor Create(AStream: TStream);
@@ -162,7 +163,7 @@ type
   end;
 
   FileStream = interface(Stream)
-  ['{B8744384-74DE-4D6C-B503-59A4CCC3A845}']
+    ['{B8744384-74DE-4D6C-B503-59A4CCC3A845}']
   end;
 
   CFileStream = class(CStream, FileStream)
@@ -172,11 +173,9 @@ type
   end;
 
   MemoryStream = interface(Stream)
-
   end;
 
   CMemoryStream = class(CStream, MemoryStream)
-
   end;
 
   BinaryReader = interface(IBaseInterface)
@@ -482,9 +481,9 @@ begin
   FreeAndNil(_stream);
 end;
 
-function  CStream.Read(var buffer; index: Integer; count: Integer): Integer;
+function  CStream.Read(buffer: Pointer; index: Integer; count: Integer): Integer;
 begin
-  Result := _stream.Read(buffer, index, count);
+  Result := _stream.Read(buffer^, index, count);
 end;
 
 function  CStream.ReadByte: Byte;
@@ -497,9 +496,9 @@ begin
   Result := _stream.Seek(offset, origin);
 end;
 
-procedure CStream.Write(const buffer; offset: Integer; count: Integer);
+procedure CStream.Write(buffer: Pointer; offset: Integer; count: Integer);
 begin
-  _stream.Write(buffer, count);
+  _stream.Write(buffer^, count);
 end;
 { CFileStream }
 
@@ -604,7 +603,7 @@ begin
   end
   else
     repeat
-      num2 := self.m_stream.Read(Pointer(self.m_buffer)^, offset, (numBytes - offset));
+      num2 := self.m_stream.Read(Pointer(self.m_buffer), offset, (numBytes - offset));
       if (num2 = 0) then
         __Error.EndOfFile;
       inc(offset, num2)
@@ -624,7 +623,7 @@ begin
   if (self.m_stream = nil) then
     __Error.FileNotOpen;
   begin
-    Result := self.m_stream.Read(Pointer(buffer)^, index, count);
+    Result := self.m_stream.Read(Pointer(buffer), index, count);
     exit
   end
 end;
@@ -710,7 +709,7 @@ begin
       count := $80 else
       count := (capacity - num);
 
-    byteCount := self.m_stream.Read(Pointer(m_charBytes)^, 0, count);
+    byteCount := self.m_stream.Read(Pointer(m_charBytes), 0, count);
     if (byteCount = 0) then
       __Error.EndOfFile;
     length := self.m_decoder.GetChars(self.m_charBytes, 0, byteCount, self.m_charBuffer, 0);
@@ -884,6 +883,8 @@ begin
   if (not self._checkPreamble) then
     self.byteLen := 0;
   repeat
+    Assert(False);
+
     if (self._checkPreamble) then
     begin
       num := self.stream.Read(self.byteBuffer, self.bytePos, (Length(self.byteBuffer) - self.bytePos));
@@ -900,7 +901,7 @@ begin
     end
     else
     begin
-      self.byteLen := self.stream.Read(Pointer(self.byteBuffer)^, 0, Length(self.byteBuffer));
+      self.byteLen := self.stream.Read(Pointer(self.byteBuffer), 0, Length(self.byteBuffer));
       if (self.byteLen = 0) then
         begin
           Result := self.charLen;
@@ -914,6 +915,7 @@ begin
         self.DetectEncoding;
       inc(self.charLen, self.decoder.GetChars(self.byteBuffer, 0, self.byteLen, self.charBuffer, self.charLen))
     end
+
   until (self.charLen <> 0);
   begin
     Result := self.charLen;

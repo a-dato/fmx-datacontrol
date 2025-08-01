@@ -21,6 +21,13 @@ type
     function CreateInstance: CObject;
   end;
 
+  {$IFDEF APP_PLATFORM}
+  IAddRange = interface(IBaseInterface)
+    ['{D8499336-7B4E-42FB-A883-05C959EFA88E}']
+    function AddRange(const Data: CObject) : Integer;
+  end;
+  {$ENDIF}
+
   IEditState = interface(IBaseInterface)
     ['{E64C221B-1C01-412D-A048-07B1C1DBF4C0}']
     function  get_IsChanged: Boolean;
@@ -41,11 +48,6 @@ type
     procedure CancelEdit;
     procedure EndEdit;
     procedure Remove;{$IFDEF DEBUG}overload;{$ENDIF}
-
-//    {$IFDEF DEBUG}
-    // KV: Should be part of IEditableListObject??
-//    procedure Remove(Item: CObject);overload;
-//    {$ENDIF}
 
     function CanAdd : Boolean;
     function CanEdit : Boolean;
@@ -82,6 +84,7 @@ type
   IOnItemChangedSupport = interface(IBaseInterface)
     ['{43123070-3EDD-4836-A7EB-A286C8DB6503}']
     function  get_OnItemChanged: IList<IListItemChanged>;
+
     property OnItemChanged: IList<IListItemChanged> read get_OnItemChanged;
   end;
 

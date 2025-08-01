@@ -33,7 +33,7 @@ type
                                   Flags: Boolean;
                                   Size: Integer;
                                   const Names: CString;
-                                  const Values: array of Integer); overload;
+                                  const Values: Int64Array); overload;
     class procedure UnRegisterEnum(const AType: &Type);
     class function  IsRegisteredEnum(const AType: &Type) : Boolean;
     class function  GetRegisteredEnum(const AType: &Type) : EnumInformation;
@@ -63,7 +63,7 @@ type
     function get_Flags: Boolean;
     function get_Size: Integer;
     function get_Names: StringArray;
-    function get_Values: IntegerArray;
+    function get_Values: Int64Array;
 
     function GetName(Value: Int64) : CString;
     function Parse(const Value: CString) : CInt64; overload;
@@ -74,21 +74,22 @@ type
     property Flags: Boolean read get_Flags;
     property Size: Integer read get_Size;
     property Names: StringArray read get_Names;
-    property Values: IntegerArray read get_Values;
+    property Values: Int64Array read get_Values;
   end;
 
   CEnumInformation = class(TBaseInterfacedObject, EnumInformation)
+  protected
     _Type: &Type;
     _Flags: Boolean;
     _Size: Integer;
     _Names: StringArray;
-    _Values: IntegerArray;
+    _Values: Int64Array;
 
     function get_Type: &Type;
     function get_Flags: Boolean;
     function get_Size: Integer;
     function get_Names: StringArray;
-    function get_Values: IntegerArray;
+    function get_Values: Int64Array;
 
     function GetName(Value: Int64) : CString;
     function Parse(const Value: CString) : CInt64; overload;
@@ -100,7 +101,7 @@ type
                         AFlags: Boolean;
                         ASize: Integer;
                         const ANames: CString;
-                        const AValues: array of Integer);
+                        const AValues: Int64Array);
   end;
 
   // #####
@@ -306,7 +307,7 @@ class procedure Assembly.RegisterEnum(
   Flags: Boolean;
   Size: Integer;
   const Names: CString;
-  const Values: array of Integer);
+  const Values: Int64Array);
 var
   Info: EnumInformation;
 
@@ -353,7 +354,7 @@ constructor CEnumInformation.Create(
   AFlags: Boolean;
   ASize: Integer;
   const ANames: CString;
-  const AValues: array of Integer);
+  const AValues: Int64Array);
 var
   i: Integer;
 
@@ -467,7 +468,7 @@ begin
   Result := _Size;
 end;
 
-function CEnumInformation.get_Values: IntegerArray;
+function CEnumInformation.get_Values: Int64Array;
 begin
   Result := _Values;
 end;

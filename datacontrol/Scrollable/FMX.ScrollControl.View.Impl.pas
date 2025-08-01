@@ -526,8 +526,16 @@ begin
     var dm: IDataModel;
     var dr: IDataRow;
     if interfaces.Supports<IDataModel>(orgData, dm) then
+    begin
+      if dm.Rows.Count <= DataIndex then
+        Exit(-1);
+
       dr := dm.Rows[DataIndex]
+    end
     else begin
+      if orgData.Count <= DataIndex then
+        Exit(-1);
+
       var di := orgData[DataIndex];
       dr := di.AsType<IDataRow>;
     end;

@@ -55,10 +55,14 @@ uses
   {$ENDIF}
   System_;
 
+var
+  _textLayoutUpdateCount: Integer;
 
 procedure BeginDefaultTextLayout;
 begin
-  if DefaultLayout = nil then
+  inc(_textLayoutUpdateCount);
+
+  if _textLayoutUpdateCount = 1 then
   begin
     {$IFNDEF WEBASSEMBLY}
     DefaultLayout := TTextLayoutManager.DefaultTextLayout.Create;
@@ -83,7 +87,10 @@ end;
 
 procedure EndDefaultTextLayout;
 begin
-  if DefaultLayout <> nil then
+  dec(_textLayoutUpdateCount);
+  Assert(_textLayoutUpdateCount >= 0);
+
+  if _textLayoutUpdateCount = 0 then
   begin
     DefaultLayout.Free;
     DefaultLayout := nil;
@@ -276,9 +283,6 @@ begin
 end;
 
 function MouseInObject(AControl: TControl): Boolean;
-var
-  c: IControl;
-  p: TFmxObject;
 begin
   var pos := Screen.MousePos;
   var localPos := AControl.ScreenToLocal(pos);

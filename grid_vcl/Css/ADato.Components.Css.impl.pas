@@ -20,12 +20,13 @@ uses
   ADato.Collections.Specialized;
 
 type
-  CBox = {$IFDEF DOTNET}public{$ENDIF} class(
-    TBaseInterfacedObject, IBox)
+  CBox = {$IFDEF DOTNET}public{$ENDIF} class(TBaseInterfacedObject, IBox)
+  protected
     _left: Integer;
     _top: Integer;
     _right: Integer;
     _bottom: Integer;
+
   private
     function get_Left: Integer;
     procedure set_Left(Value: Integer);
@@ -83,8 +84,8 @@ type
   end;
 
 type
-  CPen = {$IFDEF DOTNET}public{$ENDIF} class(
-    TBaseInterfacedObject, IPen)
+  CPen = {$IFDEF DOTNET}public{$ENDIF} class(TBaseInterfacedObject, IPen)
+  protected
     _color: CColor;
     _width: Integer;
     _style: PenStyleFlag;
@@ -229,8 +230,8 @@ type
   end;
 
 type
-  CShadow = {$IFDEF DOTNET}public{$ENDIF} class(
-    TBaseInterfacedObject, IShadow)
+  CShadow = {$IFDEF DOTNET}public{$ENDIF} class(TBaseInterfacedObject, IShadow)
+  protected
     _color: CColor;
     _offsetX: Integer;
     _offsetY: Integer;
@@ -267,8 +268,8 @@ type
  end;
 
 type
-  CScaling = {$IFDEF DOTNET}public{$ENDIF} class(
-    TBaseInterfacedObject, IScaling)
+  CScaling = {$IFDEF DOTNET}public{$ENDIF} class(TBaseInterfacedObject, IScaling)
+  protected
     _scaling: ScalingStyleFlag;
   private
     function get_scaling : ScalingStyleFlag;
@@ -290,8 +291,8 @@ type
  end;
 
 type
-  CTicks = {$IFDEF DOTNET}public{$ENDIF} class(
-    TBaseInterfacedObject, ITicks)
+  CTicks = {$IFDEF DOTNET}public{$ENDIF} class(TBaseInterfacedObject, ITicks)
+  protected
     _ticks: Integer;
   private
     function get_Hidden : boolean;
@@ -320,8 +321,8 @@ type
  end;
 
 type
-  BorderLineStyle = {$IFDEF DOTNET}public{$ENDIF} class(
-    TBaseInterfacedObject, IBorderLineStyle)
+  BorderLineStyle = {$IFDEF DOTNET}public{$ENDIF} class(TBaseInterfacedObject, IBorderLineStyle)
+  protected
     _color: CColor;
     _width: Integer;
     _style: BorderStyleFlag;
@@ -362,8 +363,7 @@ type
 
 
 type
-  CBorderStyle = {$IFDEF DOTNET}public{$ENDIF} class(
-    TBaseInterfacedObject, IBorderStyle)
+  CBorderStyle = {$IFDEF DOTNET}public{$ENDIF} class(TBaseInterfacedObject, IBorderStyle)
   protected
     _Collapse: BorderCollapseFlag;
     _left : IBorderLineStyle;
@@ -410,8 +410,8 @@ type
 
 
 type
-  CBackground = {$IFDEF DOTNET}public{$ENDIF} class(
-    TBaseInterfacedObject, IBackground)
+  CBackground = {$IFDEF DOTNET}public{$ENDIF} class(TBaseInterfacedObject, IBackground)
+  protected
     _color: CColor;
     _image: CString;
     _repeatX: Boolean;
@@ -456,10 +456,7 @@ type
 
 
 type
-  CStyle = {$IFDEF DOTNET}public{$ENDIF} class(
-    TBaseInterfacedObject,
-    IStyle,
-    ICloneable)
+  CStyle = {$IFDEF DOTNET}public{$ENDIF} class(TBaseInterfacedObject, IStyle, ICloneable)
   protected
     _Active: IStyle;
     _Parser: Pointer;
