@@ -599,6 +599,7 @@ begin
 end;
 
 { TObjectModel }
+
 constructor TObjectModel.Create(const AObjectType: &Type);
 begin
   inherited Create(AObjectType);
@@ -691,6 +692,13 @@ end;
 
 { TObjectModelPropertyWrapper }
 
+{$IFDEF APP_PLATFORM}
+constructor TObjectModelPropertyWrapper.Create(const AProperty: _PropertyInfo);
+begin
+  inherited;
+  FBindings := CList<IPropertyBinding>.Create;
+end;
+
 procedure TObjectModelPropertyWrapper.AddBinding(const ABinding: IPropertyBinding);
 begin
   FBindings.Add(ABinding);
@@ -746,29 +754,6 @@ begin
       b.SetValue(Self, Context, Value);
 end;
 
-{$IFDEF APP_PLATFORM}
-constructor TObjectModelPropertyWrapper.Create(const AProperty: _PropertyInfo);
-begin
-  inherited;
-  FBindings := CList<IPropertyBinding>.Create;
-end;
-{$ELSE}
-constructor TObjectModelPropertyWrapper.Create(const AProperty: _PropertyInfo);
-begin
-  inherited Create;
-  FContainedProperty := AProperty;
-  FBindings := CList<IPropertyBinding>.Create;
-end;
-{$ENDIF}
-
-{$IFDEF DELPHI}
-destructor TObjectModelPropertyWrapper.Destroy;
-begin
-  inherited Destroy;
-end;
-{$ENDIF}
-
-{$IFDEF APP_PLATFORM}
 function TObjectModelPropertyWrapper.get_PropertyDescriptor: IPropertyDescriptor;
 begin
   Interfaces.Supports<IPropertyDescriptor>(_property, Result);
@@ -778,11 +763,106 @@ function TObjectModelPropertyWrapper.get_ContainedProperty: _PropertyInfo;
 begin
   Result := _property;
 end;
+
+destructor TObjectModelPropertyWrapper.Destroy;
+begin
+  inherited Destroy;
+end;
+
+function TObjectModelPropertyWrapper.GetValue(const obj: CObject; const index: array of CObject): CObject;
+begin
+  Result := GetObjectProperty(obj).GetValue(obj, index);
+end;
+
+function TObjectModelPropertyWrapper.get_Bindings: List<IPropertyBinding>;
+begin
+  Result := FBindings;
+end;
+
+function TObjectModelPropertyWrapper.GetObjectProperty(const obj: CObject): _PropertyInfo;
+begin
+  Result := get_ContainedProperty;
+end;
+
+procedure TObjectModelPropertyWrapper.SetValue(const Obj, Value: CObject; const Index: array of CObject; ExecuteTriggers: Boolean);
+begin
+  {$IFDEF DELPHI}
+  GetObjectProperty(obj).SetValue(Obj, Value, Index, ExecuteTriggers);
+  {$ELSE}
+  GetObjectProperty(obj).SetValue(Obj, Value, Index);
+  {$ENDIF}
+
+  NotifyBindings(Obj, Value, True);
+end;
 {$ELSE}
+constructor TObjectModelPropertyWrapper.Create(const AProperty: _PropertyInfo);
+begin
+  inherited Create;
+  FContainedProperty := AProperty;
+  FBindings := CList<IPropertyBinding>.Create;
+end;
+
+procedure TObjectModelPropertyWrapper.AddBinding(const ABinding: IPropertyBinding);
+begin
+  FBindings.Add(ABinding);
+  ABinding.PropertyInfo := Self;
+end;
+
+procedure TObjectModelPropertyWrapper.RemoveBinding(const ABinding: IPropertyBinding);
+begin
+  if FBindings.Remove(ABinding) then
+  begin
+    ABinding.PropertyInfo := nil;
+//    ABinding.ObjectModelContext := nil;
+  end;
+end;
+
+procedure TObjectModelPropertyWrapper.Unbind(const Context: IObjectModelContext);
+var
+  b: IPropertyBinding;
+  i: Integer;
+begin
+  for i := FBindings.Count-1 downto 0 do
+  begin
+    b := FBindings[i];
+    if b.ObjectModelContext = Context then
+    begin
+      RemoveBinding(b);
+      b := nil;
+    end;
+  end;
+end;
+
+procedure TObjectModelPropertyWrapper.AddLink(const ABinding: IPropertyBinding);
+begin
+  FBindings.Add(ABinding);
+end;
+
+procedure TObjectModelPropertyWrapper.RemoveLink(const ABinding: IPropertyBinding);
+begin
+  FBindings.Remove(ABinding);
+end;
+
+function TObjectModelPropertyWrapper.IsLink(const ABinding: IPropertyBinding): Boolean;
+begin
+  Assert(ABinding.PropertyInfo <> nil, 'binding should be set');
+  Result := not ABinding.PropertyInfo.Equals(Self);
+end;
+
+procedure TObjectModelPropertyWrapper.NotifyBindings(const Context, Value: CObject; NotifyLinks: Boolean);
+begin
+  var b: IPropertyBinding;
+  for b in FBindings do
+    if (NotifyLinks or not IsLink(b)) and CObject.Equals(b.ObjectModelContext.Context, Context) then
+      b.SetValue(Self, Context, Value);
+end;
+
+{$IFDEF DELPHI}
 function TObjectModelPropertyWrapper.GetAttributes: TArray<TCustomAttribute>;
 begin
   Result := FContainedProperty.GetAttributes;
 end;
+{$ENDIF}
 
 function TObjectModelPropertyWrapper.GetType: &Type;
 begin
@@ -821,6 +901,11 @@ begin
   Result := FContainedProperty;
 end;
 
+{$IFDEF DELPHI}
+destructor TObjectModelPropertyWrapper.Destroy;
+begin
+  inherited Destroy;
+end;
 {$ENDIF}
 
 function TObjectModelPropertyWrapper.GetValue(const obj: CObject; const index: array of CObject): CObject;
@@ -848,6 +933,7 @@ begin
 
   NotifyBindings(Obj, Value, True);
 end;
+{$ENDIF}
 
 {$IFDEF DOTNET}
 procedure TObjectModelContext.InvokeOnPropertyChanged(const Sender: IObjectModelContext; const Context: CObject; const AProperty: _PropertyInfo);
@@ -855,6 +941,8 @@ begin
   _OnPropertyChanged.Invoke(Sender, Context, AProperty);
 end;
 {$ENDIF}
+
+{ TPathProperty }
 
 {$IFDEF APP_PLATFORM}
 constructor TPathProperty.Create(const AProperty: _PropertyInfo; const APropertyPath: TArray<_PropertyInfo>);
@@ -889,7 +977,8 @@ function TPathProperty.OnChanging(const Context, Value: CObject): CObject;
 begin
   var val := Value;
 
-  for var i := 1 to High(_propertyPath) do
+  var i: Integer;
+  for i := 1 to High(_propertyPath) do
   begin
     val := _propertyPath[i].GetValue(val, []);
     if val = nil then

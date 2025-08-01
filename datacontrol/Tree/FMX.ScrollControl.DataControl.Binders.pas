@@ -238,8 +238,8 @@ begin
       l := Value.AsType<IList>;
 
     _control.ClearSelections;
-    //var item: CObject;
-    for var item in data do
+    var item: CObject;
+    for item in data do
     begin
       var cvItem := ConvertToDataItem(item);
       if cvItem = nil then Continue;  // level 1 row

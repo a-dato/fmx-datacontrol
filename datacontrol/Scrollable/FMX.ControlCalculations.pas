@@ -10,7 +10,9 @@ uses
   FMX.Objects,
   FMX.Graphics,
   FMX.TextLayout,
-  FMX.Layouts
+  FMX.Layouts,
+  FMX.Types,
+  FMX.Forms
   {$ELSE}
   Wasm.FMX.Controls,
   Wasm.FMX.StdCtrls,
@@ -18,9 +20,11 @@ uses
   Wasm.FMX.Objects,
   Wasm.FMX.Graphics,
   Wasm.FMX.TextLayout,
-  Wasm.FMX.Layouts
+  Wasm.FMX.Layouts,
+  Wasm.FMX.Types,
+  Wasm.FMX.Forms
   {$ENDIF}
-  , FMX.Types, FMX.Forms;
+  ;
 
   function  TextControlWidth(const TextControl: TControl; const Settings: TTextSettings; const Text: string; MinWidth: Single = -1; MaxWidth: Single = -1; TextHeight: Single = -1): Single;
   function  TextControlHeight(const TextControl: TControl; const Settings: TTextSettings; const Text: string; MinHeight: Single = -1; MaxHeight: Single = -1; TextWidth: Single = -1): Single;

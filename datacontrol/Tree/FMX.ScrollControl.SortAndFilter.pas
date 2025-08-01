@@ -4,12 +4,12 @@ interface
 
 uses
   {$IFNDEF WEBASSEMBLY}
-  System.ComponentModel,
   System.Generics.Defaults,
   {$ELSE}
   Wasm.System.ComponentModel,
   {$ENDIF}
   System_,
+  System.ComponentModel,
   System.Collections.Generic,
   FMX.ScrollControl.View.Intf,
   FMX.ScrollControl.WithCells.Intf,
@@ -91,12 +91,14 @@ uses
   {$IFNDEF WEBASSEMBLY}
   System.Classes, 
   System.SysUtils,
+  FMX.ActnList,
   {$ELSE}
   Wasm.System.Classes,
   Wasm.System.SysUtils,
+  Wasm.FMX.ActnList,
   {$ENDIF}
   ADato.Data.DataModel.intf, 
-  FMX.ScrollControl.ControlClasses, FMX.ActnList,
+  FMX.ScrollControl.ControlClasses,
   System.Collections;
 
 { CTreeSortDescriptionWithProperty }

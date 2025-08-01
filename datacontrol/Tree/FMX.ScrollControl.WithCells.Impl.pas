@@ -7,13 +7,16 @@ uses
   System.JSON,
   FMX.Controls,
   FMX.StdCtrls,
-  System.Classes, 
+  System.Classes,
   System.SysUtils,
-  FMX.Layouts, 
-  System.UITypes, 
-  System.Types, 
-  FMX.ImgList, 
+  FMX.Layouts,
+  System.UITypes,
+  System.Types,
+  FMX.ImgList,
   FMX.Objects,
+  FMX.Forms,
+  System.Generics.Defaults,
+  FMX.Types,
   {$ELSE}
   Wasm.FMX.Controls,
   Wasm.FMX.StdCtrls,
@@ -25,21 +28,21 @@ uses
   Wasm.FMX.ImgList, 
   Wasm.FMX.Objects,
   Wasm.System.ComponentModel,
+  Wasm.FMX.Forms,
+  Wasm.FMX.Types,
   {$ENDIF}
   System_,
   System.ComponentModel,
   System.Collections.Generic,
   System.Collections,
 
-
-
   FMX.ScrollControl.WithCells.Intf,
   FMX.ScrollControl.WithRows.Impl,
 
   ADato.Collections.Specialized, System.Collections.Specialized,
-  FMX.ScrollControl.WithRows.Intf, FMX.Forms,
-  FMX.ScrollControl.Events, System.Generics.Defaults, ADato.Data.DataModel.intf,
-  FMX.Types;
+  FMX.ScrollControl.WithRows.Intf, 
+  FMX.ScrollControl.Events, 
+  ADato.Data.DataModel.intf;
 
 type
   TRightLeftScroll = (None, FullLeft, Left, Right, FullRight);
@@ -237,6 +240,10 @@ type
     procedure OnPositionTreeTimer(Sender: TObject);
     procedure PositionTree;
 
+    {$IFDEF WEBASSEMBLY}
+    function  GetItemType: &Type; 
+    {$ENDIF}
+
   public
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
@@ -431,7 +438,7 @@ type
 
   TDCTreeColumn = class(TObservableObject, IDCTreeColumn)
   private
-    [unsafe] _treeControl: IColumnsControl;
+    {$IFNDEF WEBASSEMBLY}[unsafe]{$ENDIF} _treeControl: IColumnsControl;
 
 //    _index: Integer;
     _caption: CString;
@@ -572,7 +579,7 @@ type
 
   TDCTreeColumnList = class(CObservableCollectionEx<IDCTreeColumn>, IDCTreeColumnList)
   protected
-    [unsafe] _treeControl: IColumnsControl;
+    {$IFNDEF WEBASSEMBLY}[unsafe]{$ENDIF} _treeControl: IColumnsControl;
 
     function  get_TreeControl: IColumnsControl;
 //    procedure OnCollectionChanged(e: NotifyCollectionChangedEventArgs); override;
@@ -607,8 +614,8 @@ type
     _hideColumnInView: Boolean;
     _containsData: TColumnContainsData;
 
-    [weak] _activeFilter: ITreeFilterDescription;
-    [weak] _activeSort: IListSortDescription;
+    {$IFNDEF WEBASSEMBLY}[weak]{$ENDIF} _activeFilter: ITreeFilterDescription;
+    {$IFNDEF WEBASSEMBLY}[weak]{$ENDIF} _activeSort: IListSortDescription;
 
     function  get_Column: IDCTreeColumn;
     function  get_Index: Integer;
@@ -660,7 +667,7 @@ type
 
   TDCTreeLayout = class(TBaseInterfacedObject, IDCTreeLayout)
   protected
-    [unsafe] _columnsControl: IColumnsControl;
+    {$IFNDEF WEBASSEMBLY}[unsafe]{$ENDIF} _columnsControl: IColumnsControl;
     _recalcRequired: Boolean;
 
     _layoutColumns: List<IDCTreeLayoutColumn>;
@@ -703,12 +710,12 @@ type
     _customSubInfoControlBounds: TRectF;
     _customTag: CObject;
 
-    [unsafe] _row     : IDCRow;
+    {$IFNDEF WEBASSEMBLY}[unsafe]{$ENDIF} _row     : IDCRow;
 
     _data: CObject;
     _subData: CObject;
 
-    [unsafe] _layoutColumn   : IDCTreeLayoutColumn;
+    {$IFNDEF WEBASSEMBLY}[unsafe]{$ENDIF} _layoutColumn   : IDCTreeLayoutColumn;
 
     function  get_Column: IDCTreeColumn;
     function  get_LayoutColumn: IDCTreeLayoutColumn;
@@ -861,7 +868,7 @@ type
 
   THeaderColumnResizeControl = class(TInterfacedObject, IHeaderColumnResizeControl)
   private
-    [unsafe] _headerCell: IHeaderCell;
+    {$IFNDEF WEBASSEMBLY}[unsafe]{$ENDIF} _headerCell: IHeaderCell;
     _treeControl: IColumnsControl;
 
 //      _onResized: TNotifyEvent;
@@ -891,6 +898,7 @@ uses
   FMX.Graphics,
   System.ClassHelpers,
   FMX.Ani,
+  FMX.ScrollControl.WithCells.PopupMenu,
   {$ELSE}
   Wasm.FMX.ActnList,
   Wasm.FMX.Types,
@@ -899,8 +907,8 @@ uses
   {$ENDIF}
   FMX.ScrollControl.ControlClasses,
   FMX.ControlCalculations,
-  FMX.ScrollControl.Intf, FMX.ScrollControl.SortAndFilter,
-  FMX.ScrollControl.WithCells.PopupMenu,
+  FMX.ScrollControl.Intf, 
+  FMX.ScrollControl.SortAndFilter,
   FMX.ScrollControl.Impl;
 
 
@@ -1010,6 +1018,13 @@ begin
   for row in HeaderAndTreeRows do
     row.Control.Position.X := startFromX;
 end;
+
+{$IFDEF WEBASSEMBLY}
+function  TScrollControlWithCells.GetItemType: &Type; 
+begin
+  inherited;
+end;
+{$ENDIF}
 
 procedure TScrollControlWithCells.AfterRealignContent;
 begin
@@ -1570,7 +1585,11 @@ begin
   begin
     if FlatColumn.Column.SortType in [TSortType.ColumnCellComparer, TSortType.RowComparer] then
     begin
+      {$IFNDEF WEBASSEMBLY}
       var cmpDescriptor: IListSortDescriptionWithComparer := TTreeSortDescriptionWithComparer.Create(FlatColumn, OnGetCellDataForSorting);
+      {$ELSE}
+      var cmpDescriptor: IListSortDescriptionWithComparer := TTreeSortDescriptionWithComparer.Create(FlatColumn, @OnGetCellDataForSorting);
+      {$ENDIF}
 
       var comparer := DoSortingGetComparer(cmpDescriptor);
       if comparer = nil then
@@ -1580,7 +1599,14 @@ begin
 
       sortDesc := cmpDescriptor;
     end else
+    begin
+      {$IFNDEF WEBASSEMBLY}
       sortDesc := TTreeSortDescription.Create(FlatColumn, OnGetCellDataForSorting);
+      {$ELSE}
+      sortDesc := TTreeSortDescription.Create(FlatColumn, @OnGetCellDataForSorting);
+      {$ENDIF}
+    end;
+      
 
     FlatColumn.ActiveSort := sortDesc;
   end;
@@ -1626,7 +1652,11 @@ begin
     var filter: ITreeFilterDescription;
     if flatColumn.ActiveFilter = nil then
     begin
+      {$IFNDEF WEBASSEMBLY}
       filter := TTreeFilterDescription.Create(flatColumn, OnGetCellDataForSorting);
+      {$ELSE}
+      filter := TTreeFilterDescription.Create(flatColumn, @OnGetCellDataForSorting);
+      {$ENDIF}
       FlatColumn.ActiveFilter := filter;
     end;
 
@@ -1650,7 +1680,11 @@ function TScrollControlWithCells.GetColumnValues(const LayoutColumn: IDCTreeLayo
 begin
   var dict: Dictionary<Integer, CObject> := CDictionary<Integer, CObject>.Create;
 
+  {$IFNDEF WEBASSEMBLY}
   var filterDescription: IListFilterDescription := TTreeFilterDescription.Create(LayoutColumn, OnGetCellDataForSorting);
+  {$ELSE}
+  var filterDescription: IListFilterDescription := TTreeFilterDescription.Create(LayoutColumn, @OnGetCellDataForSorting);
+  {$ENDIF}
 
   var orgDataList := _view.OriginalData;
 
@@ -1659,7 +1693,8 @@ begin
   if ViewIsDataModelView and interfaces.Supports<IDataModel>(orgDataList, dm) then
     orgDataList := dm.Rows as IList;
 
-  for var item in orgDataList do
+  var item: CObject;
+  for item in orgDataList do
   begin
     var obj := filterDescription.GetFilterableValue(item);
     if obj = nil then
@@ -1693,6 +1728,7 @@ var
   showFilter: Boolean;
   dataValues: Dictionary<CObject, CString>;
 begin
+  {$IFNDEF WEBASSEMBLY}
   (_selectionInfo as ITreeSelectionInfo).SelectedLayoutColumn := LayoutColumn.Index;
 
   // Popup form will be created once, then reused for any column
@@ -1737,10 +1773,14 @@ begin
 
     popupMenu.AllowClearColumnFilter := (filter <> nil);
   end;
+  {$ELSE}
+  raise NotImplementedException.Create('procedure TScrollControlWithCells.ShowHeaderPopupMenu(const LayoutColumn: IDCTreeLayoutColumn)');
+  {$ENDIF}
 end;
 
 procedure TScrollControlWithCells.HeaderPopupMenu_Closed(Sender: TObject; var Action: TCloseAction);
 begin
+  {$IFNDEF WEBASSEMBLY}
   var popupForm := _frmHeaderPopupMenu as TfrmFMXPopupMenuDataControl;
   var flatColumn := _treeLayout.LayoutColumns[popupForm.LayoutColumn.Index];
 
@@ -1825,6 +1865,9 @@ begin
         cell.LayoutColumn.UpdateCellControlsByRow(cell);
     end;
   end;
+  {$ELSE}
+  raise NotImplementedException.Create('procedure TScrollControlWithCells.HeaderPopupMenu_Closed(Sender: TObject; var Action: TCloseAction)');
+  {$ENDIF}
 end;
 
 procedure TScrollControlWithCells.FastColumnAlignAfterColumnChange;
@@ -2127,10 +2170,18 @@ begin
   _headerColumnResizeControl := THeaderColumnResizeControl.Create(Self);
 
   _columns := TDCTreeColumnList.Create(Self);
+  {$IFNDEF WEBASSEMBLY}
   (_columns as INotifyCollectionChanged).CollectionChanged.Add(ColumnsChanged);
+  {$ELSE}
+  (_columns as INotifyCollectionChanged).CollectionChanged += @ColumnsChanged;
+  {$ENDIF}
 
   _positionTreeTimer := TTimer.Create(Self);
+  {$IFNDEF WEBASSEMBLY}
   _positionTreeTimer.OnTimer := OnPositionTreeTimer;
+  {$ELSE}
+  _positionTreeTimer.OnTimer := @OnPositionTreeTimer;
+  {$ENDIF}
   _positionTreeTimer.Interval := 100;
   _positionTreeTimer.Enabled := False;
 end;
@@ -2757,7 +2808,11 @@ begin
       _headerRow := TDCHeaderRow.Create;
       _headerRow.DataIndex := -1;
       _headerRow.CreateHeaderControls(Self);
+      {$IFNDEF WEBASSEMBLY}
       _headerRow.ContentControl.OnMouseUp := OnHeaderMouseUp;
+      {$ELSE}
+      _headerRow.ContentControl.OnMouseUp := @OnHeaderMouseUp;
+      {$ENDIF}
 
       if _treeLayout.RecalcRequired then
         _treeLayout.RecalcColumnWidthsBasic;
@@ -2766,7 +2821,11 @@ begin
       for flatColumn in _treeLayout.FlatColumns do
       begin
         var headerCell: IHeaderCell := THeaderCell.Create(_headerRow, flatColumn);
+        {$IFNDEF WEBASSEMBLY}
         headerCell.OnHeaderCellResizeClicked := OnHeaderCellResizeClicked;
+        {$ELSE}
+        headerCell.OnHeaderCellResizeClicked := @OnHeaderCellResizeClicked;
+        {$ENDIF}
 
         var dummyManualHeight: Single := -1;
         DoCellLoading(headerCell, False, {var} dummyManualHeight);
@@ -2953,7 +3012,11 @@ begin
     if cell.ExpandButton <> nil then
     begin
       (cell.ExpandButton as TExpandButton).ShowExpanded := not RowIsExpanded(cell.Row.ViewListIndex);
+      {$IFNDEF WEBASSEMBLY}
       cell.ExpandButton.OnClick := OnExpandCollapseHierarchy;
+      {$ELSE}
+      cell.ExpandButton.OnClick := @OnExpandCollapseHierarchy;
+      {$ENDIF}
     end;
 
     if loadDefaultData then
@@ -3080,6 +3143,7 @@ end;
 
 procedure TScrollControlWithCells.GetSortAndFilterImages(out ImageList: TCustomImageList; out FilterIndex, SortAscIndex, SortDescIndex: Integer);
 begin
+  {$IFNDEF WEBASSEMBLY}
   if _frmHeaderPopupMenu = nil then
     _frmHeaderPopupMenu := TfrmFMXPopupMenuDataControl.Create(Self);
 
@@ -3088,6 +3152,9 @@ begin
   FilterIndex := 4;
   SortAscIndex := 0;
   SortDescIndex := 1;
+  {$ELSE}
+  raise NotImplementedException.Create('procedure TScrollControlWithCells.GetSortAndFilterImages(out ImageList: TCustomImageList; out FilterIndex, SortAscIndex, SortDescIndex: Integer)');
+  {$ENDIF}
 end;
 
 procedure TScrollControlWithCells.InitLayout;
@@ -3503,10 +3570,17 @@ begin
     if (column.Tag <> nil) then
     begin
       var p: _PropertyInfo;
+      {$IFNDEF WEBASSEMBLY}
       if column.Tag.IsInterface and Interfaces.Supports<_PropertyInfo>(column.Tag, p) then
         co.AddPair('Tag', p.OwnerType.Name + '.' + p.Name)
       else if not CString.IsNullOrEmpty(column.Tag.ToString) then
         co.AddPair('Tag', column.Tag.ToString);
+      {$ELSE}
+      if column.Tag.IsInterface and Interfaces.Supports<_PropertyInfo>(column.Tag, p) then
+        co.AddPair('Tag', p.DeclaringType.Name + '.' + p.Name)
+      else if not CString.IsNullOrEmpty(column.Tag.ToString) then
+        co.AddPair('Tag', column.Tag.ToString);
+      {$ENDIF}
     end;
 
     if (column.InfoControlClass <> TInfoControlClass.Text) then
@@ -4701,7 +4775,8 @@ begin
   // step 1: hide all columns that do not fit on the right
   var minimumTotalWidth := 0.0;
 
-  for var ix := 0 to 1 do
+  var ix: Integer;
+  for ix := 0 to 1 do
     for layoutClmn in get_FlatColumns do
     begin
       var minColumnWidth: Single := -1;
@@ -4789,12 +4864,12 @@ begin
 //  if (_flatColumns.Count = potentialCount) and (extraWidthPerColumnOng > 20) then
 //    Exit;
 
-  var ix: Integer;
+  var ix2: Integer;
   // add width to max size columns
   if addableColumns.Count > 0 then
-    for ix := addableColumns.Count - 1 downto 0 do
+    for ix2 := addableColumns.Count - 1 downto 0 do
     begin
-      var flatClmn := addableColumns[ix];
+      var flatClmn := addableColumns[ix2];
       if flatClmn.Column.WidthMax = 0 then
         Continue;
 
@@ -4810,15 +4885,16 @@ begin
       begin
         widthLeft := widthLeft - (flatClmn.Column.WidthMax - flatClmn.Width);
         flatClmn.Width := flatClmn.Column.WidthMax;
-        addableColumns.RemoveAt(ix);
+        addableColumns.RemoveAt(ix2);
       end;
     end;
 
   // add width to all remaining columns
+  var ix3: Integer;
   if addableColumns.Count > 0 then
-    for ix := addableColumns.Count - 1 downto 0 do
+    for ix3 := addableColumns.Count - 1 downto 0 do
     begin
-      var flatClmn := addableColumns[ix];
+      var flatClmn := addableColumns[ix3];
       var extraWidthPerColumn := widthLeft / addableColumns.Count;
       if (_flatColumns.Count = potentialCount) and ((_columnsControl.AutoExtraColumnSizeMax/potentialCount) > extraWidthPerColumn) then
         extraWidthPerColumn := CMath.Min(extraWidthPerColumn, _columnsControl.AutoExtraColumnSizeMax);
@@ -4829,7 +4905,7 @@ begin
         flatClmn.Width := flatClmn.Width + extraWidthPerColumn;
 
       widthLeft := widthLeft - extraWidthPerColumn;
-      addableColumns.RemoveAt(ix);
+      addableColumns.RemoveAt(ix3);
     end;
 
   var startXPosition: Double := 0;
@@ -5187,8 +5263,13 @@ begin
 
   _resizeControl := Value;
 
+  {$IFNDEF WEBASSEMBLY}
   if _resizeControl <> nil then
     _resizeControl.OnMouseDown := OnResizeControlMouseDown;
+  {$ELSE}
+  if _resizeControl <> nil then
+    _resizeControl.OnMouseDown := @OnResizeControlMouseDown;
+  {$ENDIF}
 end;
 
 procedure THeaderCell.set_SortControl(const Value: TControl);
@@ -5639,9 +5720,15 @@ begin
   ly.HitTest := True;
   ly.Align := TAlignLayout.None;
   ly.BoundsRect := _headerCell.Row.Control.BoundsRect;
+  {$IFNDEF WEBASSEMBLY}
   ly.OnMouseMove := DoSplitterMouseMove;
   ly.OnMouseUp := DoSplitterMouseUp;
   ly.OnMouseLeave := DoSplitterMouseLeave;
+  {$ELSE}
+  ly.OnMouseMove := @DoSplitterMouseMove;
+  ly.OnMouseUp := @DoSplitterMouseUp;
+  ly.OnMouseLeave := @DoSplitterMouseLeave;
+  {$ENDIF}
   ly.Cursor := crSizeWE;
 
   _treeControl.Control.AddObject(ly);

@@ -207,10 +207,13 @@ type
 
 implementation
 
-{$IFNDEF WEBASSEMBLY}
 uses
-  System.Math, FMX.ControlCalculations;
-{$ENDIF}
+  {$IFNDEF WEBASSEMBLY}
+  System.Math, 
+  {$ELSE}
+  Wasm.System.Math,
+  {$ENDIF}
+  FMX.ControlCalculations;
 
 { TScrollControl }
 

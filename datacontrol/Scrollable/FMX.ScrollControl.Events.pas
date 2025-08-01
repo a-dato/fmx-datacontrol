@@ -8,15 +8,17 @@ uses
   System.Generics.Defaults,
   FMX.Controls,
   System.ComponentModel,
+  System.Types,
   {$ELSE}
   Wasm.System,
   Wasm.FMX.Controls,
   Wasm.System.ComponentModel,
+  Wasm.System.Types,
   {$ENDIF}
   System_,
   System.Collections,
   FMX.ScrollControl.WithCells.Intf,
-  FMX.ScrollControl.WithRows.Intf, System.Types;
+  FMX.ScrollControl.WithRows.Intf;
 
 type
   TDataControlEventRegistration = class
