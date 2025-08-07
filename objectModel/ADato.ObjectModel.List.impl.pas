@@ -8,7 +8,7 @@ interface
 
 uses
   {$IFDEF DELPHI}
-  System.TypInfo, 
+  System.TypInfo,
   System.SysUtils,
   System.Classes,
   {$ENDIF}
