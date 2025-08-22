@@ -396,12 +396,8 @@ uses
   {$ENDIF}
   FMX.ScrollControl.ControlClasses,
   FMX.ControlCalculations,
-  System.Types,
-  System.Character,
   ADato.Collections.Specialized,
   System.Reflection,
-  FMX.Platform,
-  System.SysUtils,
   FMX.ComboMultiBox,
   System.TypInfo;
 
