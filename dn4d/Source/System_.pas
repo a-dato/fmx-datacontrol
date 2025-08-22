@@ -1829,6 +1829,13 @@ type
       IDisposable,
       IBaseInterface
   )
+  {$IFDEF APP_PLATFORM}
+  protected
+    function QueryInterface(const IID: TGUID; out Obj): HResult; virtual; stdcall;
+    function _AddRef: Integer; virtual; stdcall;
+    function _Release: Integer; virtual; stdcall;
+  {$ENDIF}
+
   protected
     function  getRefCount: Integer;
     function  GetObject: TObject; virtual;
@@ -4797,6 +4804,23 @@ begin
   if s = '' then;
 
   inherited;
+end;
+{$ENDIF}
+
+{$IFDEF APP_PLATFORM}
+function TBaseInterfacedObject.QueryInterface(const IID: TGUID; out Obj): HResult;
+begin
+  Result := inherited QueryInterface(IID, Obj);
+end;
+
+function TBaseInterfacedObject._AddRef: Integer;
+begin
+  Result := inherited _AddRef;
+end;
+
+function TBaseInterfacedObject._Release: Integer;
+begin
+  Result := inherited _Release;
 end;
 {$ENDIF}
 
