@@ -813,6 +813,11 @@ begin
   var v: TValue := Value.AsType<TValue>;
   if v.TypeInfo = Inst.TypeInfo then
     v.ExtractRawData(@Obj)
+  else if v.Kind = tkInterface then
+  begin
+    if not Interfaces.Supports(v.AsInterface, Inst.TypeInfo.TypeData.Guid, Obj) then
+      raise InvalidCastException.Create('Interface not supported');
+  end
   else if not TObject(Value).GetInterface(Inst.TypeInfo.TypeData.Guid, Obj) then
     raise InvalidCastException.Create('Interface not supported');
 end;
