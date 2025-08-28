@@ -340,8 +340,12 @@ begin
   var h := totalTextsHeight;
 
   var sideButtonSize := 12;
+  var sideButtonMargin := 0;
   if HasSideButton then
-    w := w + sideButtonSize + 9 {margin};
+  begin
+    sideButtonMargin := 9;
+    w := w + sideButtonSize + sideButtonMargin {margin};
+  end;
 
   var offset: Single;
   case get_TagType of
@@ -400,7 +404,7 @@ begin
   begin
     var startY := (h-sideButtonSize)/2;
     _sideBounds := RectF(offset + wLeft - sideButtonSize, startY, offSet + wLeft, startY + sideButtonSize);
-    wLeft := wLeft - _sideBounds.Width;
+    wLeft := wLeft - _sideBounds.Width - sideButtonMargin {margin};
   end else
     _sideBounds := TRectF.Empty;
 
@@ -524,7 +528,12 @@ end;
 
 destructor TADatoClickLayout.Destroy;
 begin
-  _config.Free;
+  if _config <> nil then
+  begin
+    _config.OnRequestRecalc := nil;
+    FreeAndNil(_config);
+  end;
+
   inherited;
 end;
 
