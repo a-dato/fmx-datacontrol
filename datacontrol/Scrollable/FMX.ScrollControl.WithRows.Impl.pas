@@ -1973,9 +1973,14 @@ begin
         Exit;
 
       var rowZero := _view.ActiveViewRows[0];
+
       if rowZero.ViewListIndex <= 1 then
         InternalSetCurrent(0, TSelectionEventTrigger.Key, Shift)
       else begin
+        // check if row is only partly visible
+        if (rowZero.VirtualYPosition < _vertScrollBar.Value) and (_view.ActiveViewRows.Count > 1) then
+          rowZero := _view.ActiveViewRows[1];
+
         // in case the up/down button stays pressed, and the tree is not quick enough to repaint before it recalculates again
         if not RealignedButNotPainted and CanRealignScrollCheck then
         begin
@@ -1986,7 +1991,14 @@ begin
             dec(_scrollUpdateCount);
           end;
 
-          InternalSetCurrent(rowZero.ViewListIndex-1, TSelectionEventTrigger.Key, Shift);
+          DoRealignContent;
+
+          rowZero := _view.ActiveViewRows[0];
+          // check if row is only partly visible
+          if (rowZero.VirtualYPosition < _vertScrollBar.Value) and (_view.ActiveViewRows.Count > 1) then
+            rowZero := _view.ActiveViewRows[1];
+
+          InternalSetCurrent(rowZero.ViewListIndex, TSelectionEventTrigger.Key, Shift);
         end;
       end;
 
@@ -2000,11 +2012,16 @@ begin
         Exit;
 
       var rowBottom := _view.ActiveViewRows[_view.ActiveViewRows.Count - 1];
+
       if _view.ViewCount = rowBottom.ViewListIndex + 1 then
       begin
         InternalSetCurrent(rowBottom.ViewListIndex, TSelectionEventTrigger.Key, Shift);
         Exit;
       end;
+
+      // check if row is only partly visible
+      if (rowBottom.VirtualYPosition + rowBottom.Height > _vertScrollBar.Value + _vertScrollBar.ViewportSize) and (_view.ActiveViewRows.Count > 1) then
+        rowBottom := _view.ActiveViewRows[_view.ActiveViewRows.Count - 2];
 
       // in case the up/down button stays pressed, and the tree is not quick enough to repaint before it recalculates again
       if not RealignedButNotPainted and CanRealignScrollCheck then
@@ -2016,7 +2033,14 @@ begin
           dec(_scrollUpdateCount);
         end;
 
-        InternalSetCurrent(rowBottom.ViewListIndex+1, TSelectionEventTrigger.Key, Shift);
+        DoRealignContent;
+
+        rowBottom := _view.ActiveViewRows[_view.ActiveViewRows.Count - 1];
+        // check if bottomrow is only partly visible
+        if (rowBottom.VirtualYPosition + rowBottom.Height > _vertScrollBar.Value + _vertScrollBar.ViewportSize) and (_view.ActiveViewRows.Count > 1) then
+          rowBottom := _view.ActiveViewRows[_view.ActiveViewRows.Count - 2];
+
+        InternalSetCurrent(rowBottom.ViewListIndex, TSelectionEventTrigger.Key, Shift);
       end;
 
       Key := 0;
