@@ -53,6 +53,10 @@ type
     procedure set_AllowNoneSelected(const Value: Boolean);
     function  get_SelectionType: TSelectionType;
     procedure set_SelectionType(const Value: TSelectionType);
+    function  get_rowHeightDefault: Single;
+    procedure set_RowHeightDefault(const Value: Single);
+    function  get_rowHeightFixed: Single;
+    procedure set_RowHeightFixed(const Value: Single);
 
     procedure OnSelectionInfoChanged;
 
@@ -62,6 +66,8 @@ type
 
     property AllowNoneSelected: Boolean read get_AllowNoneSelected write set_AllowNoneSelected;
     property SelectionType: TSelectionType read get_SelectionType write set_SelectionType;
+    property RowHeightFixed: Single read get_rowHeightFixed write set_RowHeightFixed;
+    property RowHeightDefault: Single read get_rowHeightDefault write set_RowHeightDefault;
   end;
 
   TDataIndexArray = array of Integer;

@@ -32,31 +32,27 @@ uses
   Wasm.FMX.ImgList,
   Wasm.FMX.Types,
   {$ENDIF}
-  System_;
+  System_,
+  FMX.Layouts,
+  FMX.TextLayout,
+  ADato.FMX.FastControls.Text,
+  ADato.FMX.FastControls.Button;
 
 type
-  TDateTimeEditOnKeyDownOverride = class(TDateEdit)
-  protected
-    procedure KeyDown(var Key: Word; var KeyChar: System.WideChar; Shift: TShiftState); override;
-  end;
-
-//  function GetCellInfoControl(CellControl: TControl; IsCheckBox: Boolean): IControl; //TText; or TLabel
-//  function CreateDefaultTextClassControl(AOwner: TComponent): TControl;
-
   IDataControlClassFactory = interface
     ['{08ADE46F-92EA-4A14-9208-51FD5347C754}']
     function CreateHeaderRect(const Owner: TComponent): TRectangle;
-    function CreateRowRect(const Owner: TComponent): TRectangle;
+    function CreateHeaderCellRect(const Owner: TComponent): TRectangle;
 
     function IsCustomFactory: Boolean;
 
-    function CreateHeaderCellRect(const Owner: TComponent): TRectangle;
     function CreateRowCellRect(const Owner: TComponent): TRectangle;
+    function CreateRowRect(const Owner: TComponent): TRectangle;
 
-    function CreateText(const Owner: TComponent): TText;
+    function CreateText(const Owner: TComponent): TFastText;
     function CreateCheckBox(const Owner: TComponent): TCheckBox;
     function CreateRadioButton(const Owner: TComponent): TRadioButton;
-    function CreateButton(const Owner: TComponent): TButton;
+    function CreateButton(const Owner: TComponent): TFastButton;
     function CreateGlyph(const Owner: TComponent): TGlyph;
     function CreateEdit(const Owner: TComponent): TEdit;
     function CreateMemo(const Owner: TComponent): TMemo;
@@ -80,10 +76,10 @@ type
     function CreateHeaderCellRect(const Owner: TComponent): TRectangle; virtual;
     function CreateRowCellRect(const Owner: TComponent): TRectangle; virtual;
 
-    function CreateText(const Owner: TComponent): TText; virtual;
+    function CreateText(const Owner: TComponent): TFastText; virtual;
     function CreateCheckBox(const Owner: TComponent): TCheckBox; virtual;
     function CreateRadioButton(const Owner: TComponent): TRadioButton; virtual;
-    function CreateButton(const Owner: TComponent): TButton; virtual;
+    function CreateButton(const Owner: TComponent): TFastButton; virtual;
     function CreateGlyph(const Owner: TComponent): TGlyph; virtual;
     function CreateEdit(const Owner: TComponent): TEdit; virtual;
     function CreateMemo(const Owner: TComponent): TMemo; virtual;
@@ -92,7 +88,6 @@ type
 
     procedure HandleRowBackground(const RowRect: TRectangle; Alternate: Boolean); virtual;
   end;
-
 
 var
   // see Initialization section
@@ -117,20 +112,7 @@ uses
   {$ELSE}
   Wasm.System.SysUtils
   {$ENDIF}
-  ;
-
-{ TDateTimeEditOnKeyDownOverride }
-
-procedure TDateTimeEditOnKeyDownOverride.KeyDown(var Key: Word; var KeyChar: System.WideChar; Shift: TShiftState);
-begin
-  // Send vkReturn to any listener!
-  // Delphi's TDateEdit control passes vkReturn to the Observer only
-
-  if (Key = vkReturn) and Assigned(OnKeyDown) then
-    OnKeyDown(Self, Key, KeyChar, Shift);
-
-  inherited;
-end;
+  , System.Types;
 
 { TDataControlClassFactory }
 
@@ -156,9 +138,9 @@ begin
   Result := TMemo.Create(Owner);
 end;
 
-function TDataControlClassFactory.CreateButton(const Owner: TComponent): TButton;
+function TDataControlClassFactory.CreateButton(const Owner: TComponent): TFastButton;
 begin
-  Result := TButton.Create(Owner);
+  Result := TFastButton.Create(Owner);
 end;
 
 function TDataControlClassFactory.CreateCheckBox(const Owner: TComponent): TCheckBox;
@@ -190,7 +172,7 @@ function TDataControlClassFactory.CreateHeaderCellRect(const Owner: TComponent):
 begin
   Result := TRectangle.Create(Owner);
 
-  Result.Fill.Kind := TBrushKind.None;
+//  Result.Fill.Kind := TBrushKind.None;
   Result.Fill.Color := TAlphaColors.Null;
   Result.Stroke.Color := DEFAULT_HEADER_STROKE;
   Result.Sides := [TSide.Bottom];
@@ -215,14 +197,14 @@ begin
   Result.Stroke.Color := DEFAULT_CELL_STROKE;
 end;
 
-function TDataControlClassFactory.CreateText(const Owner: TComponent): TText;
+function TDataControlClassFactory.CreateText(const Owner: TComponent): TFastText;
 begin
-  Result := TText.Create(Owner);
+  Result := TFastText.Create(Owner);
 end;
 
 procedure TDataControlClassFactory.HandleRowBackground(const RowRect: TRectangle; Alternate: Boolean);
 begin
-  RowRect.Fill.Kind := TBrushKind.Solid;
+//  RowRect.Fill.Kind := TBrushKind.Solid;
   if Alternate then
     RowRect.Fill.Color := DEFAULT_GREY_COLOR else
     RowRect.Fill.Color := DEFAULT_WHITE_COLOR;

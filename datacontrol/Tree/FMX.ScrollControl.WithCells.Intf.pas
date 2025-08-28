@@ -28,7 +28,7 @@ uses
   System.Collections.Generic,
   System.Collections,
   System.Collections.Specialized,
-  FMX.ScrollControl.WithRows.Intf;
+  FMX.ScrollControl.WithRows.Intf, FMX.ActnList, FMX.Objects;
 
 type
   TSortType = (None, Displaytext, CellData, PropertyValue, ColumnCellComparer, RowComparer);
@@ -306,6 +306,8 @@ type
 
     function  get_CellTopBottomPadding: Single;
     procedure set_CellTopBottomPadding(const Value: Single);
+    function  get_CellLeftRightPadding: Single;
+    procedure set_CellLeftRightPadding(const Value: Single);
 
     procedure ColumnVisibilityChanged(const Column: IDCTreeColumn; IsUserChange: Boolean);
     procedure ColumnWidthChanged(const Column: IDCTreeColumn);
@@ -314,6 +316,16 @@ type
     function  Content: TControl;
     function  ColumnList: IDCTreeColumnList;
     function  GetItemType: &Type;
+
+
+    procedure S0;
+    procedure S1;
+    procedure S2;
+    procedure S3;
+    procedure E0(Pause: Boolean = False);
+    procedure E1(Pause: Boolean = False);
+    procedure E2(Pause: Boolean = False);
+    procedure E3(Pause: Boolean = False);
 
     function  RadioInsteadOfCheck: Boolean;
 
@@ -325,6 +337,7 @@ type
     property HeaderTextBottomMargin: Single read get_headerTextBottomMargin write set_headerTextBottomMargin;
     property AutoExtraColumnSizeMax: Single read get_AutoExtraColumnSizeMax write set_AutoExtraColumnSizeMax;
     property CellTopBottomPadding: Single read get_CellTopBottomPadding write set_CellTopBottomPadding;
+    property CellLeftRightPadding: Single read get_CellLeftRightPadding write set_CellLeftRightPadding;
   end;
 
   ITreeSortDescription = interface
@@ -469,9 +482,17 @@ type
     function  get_Index: Integer;
     function  get_CustomTag: CObject;
     procedure set_CustomTag(const Value: CObject);
+    function  get_PerformanceModeWhileScrolling: Boolean;
+    procedure set_PerformanceModeWhileScrolling(const Value: Boolean);
 
     function  IsHeaderCell: Boolean;
     procedure UpdateSelectionVisibility(const RowIsSelected: Boolean; const SelectionInfo: ITreeSelectionInfo; OwnerIsFocused: Boolean);
+
+    function  IsAsTextControl: ICaption;
+    function  IsAsCheckControl: IIsChecked;
+
+    procedure ClearCellForReassignment;
+    procedure CheckPerformanceRoutine(GoPerformanceMode: Boolean);
 
     property Column: IDCTreeColumn read get_Column;
     property LayoutColumn: IDCTreeLayoutColumn read get_LayoutColumn;
@@ -494,9 +515,7 @@ type
 
     property Index: Integer read get_Index;
     property Row: IDCRow read get_Row;
-//    property BackgroundColor: TAlphaColor read {$IFDEF DELPHI}get_BackgroundColor{$ENDIF} write {$IFDEF DELPHI}set_BackgroundColor{$ENDIF};
-    { Change background color of the cell, it will work even with custom user style, but style should be without
-      own 'background' control or it should be transparent. To disable background color - set TAlphaColorRec.Null. }
+    property PerformanceModeWhileScrolling: Boolean read get_PerformanceModeWhileScrolling write set_PerformanceModeWhileScrolling;
   end;
 
   IHeaderCell = interface;

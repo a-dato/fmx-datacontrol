@@ -391,8 +391,7 @@ uses
   System.Reflection,
   FMX.Platform,
   System.SysUtils,
-  FMX.ComboMultiBox,
-  System.TypInfo;
+  System.TypInfo, ADato.FMX.ComboMultiBox;
 
 { TScrollControlWithEditableCells }
 
@@ -1216,7 +1215,9 @@ begin
     var EditRowEnd := False;
 
     var val := _cellEditor.Value;
-    if not DoCellParsing(_cellEditor.Cell, True, {var} val) then
+    var cell := _cellEditor.Cell;
+
+    if not DoCellParsing(cell, True, {var} val) then
     begin
       CancelEdit(True);
       Exit(False);
@@ -1226,7 +1227,7 @@ begin
     if Assigned(_editCellEnd) then
     begin
       var endEditArgs: DCEndEditEventArgs;
-      AutoObject.Guard(DCEndEditEventArgs.Create(_cellEditor.Cell, val, _cellEditor.Editor, _editingInfo.EditItem), endEditArgs);
+      AutoObject.Guard(DCEndEditEventArgs.Create(cell, val, _cellEditor.Editor, _editingInfo.EditItem), endEditArgs);
       endEditArgs.EndRowEdit := False;
 
       _editCellEnd(Self, endEditArgs);
@@ -1238,16 +1239,25 @@ begin
       EditRowEnd := endEditArgs.EndRowEdit;
     end;
 
-    SetCellData(_cellEditor.Cell, val);
+    SetCellData(cell, val);
 
-    // KV: 24/01/2025
-    // Update the actual contents of the cell after the data in the cell has changed
-    LoadDefaultDataIntoControl(_cellEditor.Cell, _cellEditor.Cell.LayoutColumn, False);
+    var isDataItemChange := CString.Equals(cell.Column.PropertyName, COLUMN_SHOW_DEFAULT_OBJECT_TEXT);
+
+    if not isDataItemChange then
+    begin
+      // KV: 24/01/2025
+      // Update the actual contents of the cell after the data in the cell has changed
+      LoadDefaultDataIntoControl(cell, cell.LayoutColumn, False);
+    end;
 
     _editingInfo.CellEditingFinished;
 
-    var row := _cellEditor.Cell.Row as IDCTreeRow;
+    var row := cell.Row as IDCTreeRow;
     HideEditor;
+
+    // reset width of the cell
+    if row.ContentCellSizes.ContainsKey(cell.Index) then
+      row.ContentCellSizes.Remove(cell.Index);
 
     DoDataItemChangedInternal(row.DataItem);
 
@@ -1374,7 +1384,7 @@ begin
     _cellEditor := TDCCheckBoxCellEditor.Create(Self, Cell)
   else
   begin
-    if not CString.IsNullOrEmpty(Cell.Column.PropertyName) then
+    if not CString.IsNullOrEmpty(Cell.Column.PropertyName) and not CString.Equals(Cell.Column.PropertyName, COLUMN_SHOW_DEFAULT_OBJECT_TEXT) then
     begin
       if ViewIsDataModelView then
         dataType := GetDataModelView.DataModel.FindColumnByName(Cell.Column.PropertyName).DataType else
@@ -1623,12 +1633,15 @@ begin
       end;
     end;
 
-    var ix := _view.GetViewList.IndexOf(_editingInfo.EditItem);
-    if ix <> -1 then
-      _view.GetViewList[ix] := _editingInfo.EditItem;
+//    var ix := _view.GetViewList.IndexOf(_editingInfo.EditItem);
+//    if ix <> -1 then
+//      _view.GetViewList[ix] := _editingInfo.EditItem;
 
     var editItem := _editingInfo.EditItem;
     var dataIndex := _editingInfo.EditItemDataIndex;
+
+    if not ViewIsDataModelView then
+      _view.OriginalData[dataIndex] := editItem;
 
     _view.EndEdit;
     _editingInfo.RowEditingFinished;
@@ -1702,7 +1715,10 @@ begin
     Inc(_updateCount);
     try
       if CString.Equals(Cell.Column.PropertyName, COLUMN_SHOW_DEFAULT_OBJECT_TEXT) then
-        _editingInfo.EditItem := Data
+      begin
+        _editingInfo.EditItem := Data;
+        Cell.Row.DataItem := Data;
+      end
       else if not CString.IsNullOrEmpty(Cell.Column.PropertyName) then
       begin
         if ViewIsDataModelView then

@@ -30,7 +30,7 @@ type
   public
     function GetCalculatedHeight: Single;
     function ControlNeedsResizeSoft: Boolean;
-    function ControlNeedsResizeForced: Boolean;
+    function ReloadAfterScroll: Boolean;
     function InnerCellsAreApplied: Boolean;
     function RowIsInActiveView: Boolean;
 
@@ -57,7 +57,8 @@ type
     function  InsertNewRowBeneeth: IDCRow;
     function  InsertNewRowFromIndex(const ViewListIndex, ViewPortIndex: Integer): IDCRow;
     procedure ReindexActiveRow(const Row: IDCRow);
-    function  ProvideReferenceRowForViewRange(const StartY, StopY: Single; BottomTop: Boolean; PrefferedIndex: Integer = -1): IDCRow;
+    function  ProvideReferenceRowForViewIndex(const PreferedIndex: Integer): IDCRow;
+    function  ProvideReferenceRowForViewRange(const StartY, StopY: Single; BottomTop: Boolean): IDCRow;
 
     procedure RemoveRowFromActiveView(const Row: IDCRow);
 
@@ -108,7 +109,7 @@ implementation
 
 { TRowInfoRecord }
 
-function TRowInfoRecord.ControlNeedsResizeForced: Boolean;
+function TRowInfoRecord.ReloadAfterScroll: Boolean;
 begin
   Result := ForceReloadAfterScroll;
 end;
@@ -164,8 +165,10 @@ end;
 function TRowInfoRecord.UpdateForceReloadAfterScrolling(DoForce: Boolean): TRowInfoRecord;
 begin
   Result.ForceReloadAfterScroll := DoForce;
+  if Self.ForceReloadAfterScroll and not DoForce then
+    Result.CalculatedHeight := -1 else
+    Result.CalculatedHeight := Self.CalculatedHeight;
 
-  Result.CalculatedHeight := Self.CalculatedHeight;
   Result.NeedsResize := Self.NeedsResize;
   Result.CellsApplied := Self.CellsApplied;
   Result.RowInActiveView := Self.RowInActiveView;

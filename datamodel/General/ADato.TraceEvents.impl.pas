@@ -91,7 +91,9 @@ type
 
     procedure StopTracing(CleanupTempFile: Boolean); override;
     function  StartTimer(const Group: string; const TimerID: string; const Level: TLevel = TLevel.Normal) : Boolean; override;
+    procedure PauseTimer(const Group: string; const TimerID: string); override;
     procedure StopTimer(const Group: string; const TimerID: string); override;
+    procedure StopTimers(const Group: string); override;
   public
     constructor Create(const AppName: string; const FileName: string = string.Empty; FormatAsJson: Boolean = True);
 
@@ -259,10 +261,28 @@ function TEventTraceToFile.StartTimer(const Group: string; const TimerID: string
 begin
   if IsActive(Group, Level) then
   begin
-    FTimers[TimerID] := TStopWatch.StartNew;
-    TraceMessageInternal(Group, Format('Timer started: %s', [TimerID]), Level);
+    var s: TStopwatch;
+    if FTimers.TryGetValue(TimerID, s) then
+    begin
+      s.Start;
+      FTimers[TimerID] := s;
+    end
+    else begin
+      FTimers.Add(TimerID, TStopWatch.StartNew);
+//      TraceMessageInternal(Group, Format('Timer started: %s', [TimerID]), Level);
+    end;
   end;
   Exit(True);
+end;
+
+procedure TEventTraceToFile.PauseTimer(const Group, TimerID: string);
+begin
+  var s: TStopWatch;
+  if FTimers.TryGetValue(TimerID, s) then
+  begin
+    s.Stop;
+    FTimers[TimerID] := s;
+  end;
 end;
 
 procedure TEventTraceToFile.StopTimer(const Group: string; const TimerID: string);
@@ -273,6 +293,15 @@ begin
     TraceMessageInternal(Group, Format('Timer stopped: %s, elapsed time: %d', [TimerID, s.ElapsedMilliseconds]), TLevel.Normal);
     FTimers.Remove(TimerID)
   end;
+end;
+
+procedure TEventTraceToFile.StopTimers(const Group: string);
+begin
+  var timerPair: KeyValuePair<string, TStopWatch>;
+  for timerPair in FTimers do
+    TraceMessageInternal(Group, Format('Timer stopped: %s, elapsed time: %d', [timerPair.Key, timerPair.Value.ElapsedMilliseconds]), TLevel.Normal);
+
+  FTimers.Clear
 end;
 
 function TEventTraceToFile.GetPath: string;
