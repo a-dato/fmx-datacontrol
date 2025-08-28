@@ -37,6 +37,12 @@ requires
   ADato.ObjectModel;
 
 contains
+  ADato.FMX.FastControls.Text in '..\..\Controls\ADato.FMX.FastControls.Text.pas',
+  ADato.FMX.FastControls.Button in '..\..\Controls\ADato.FMX.FastControls.Button.pas',
+  ADato.FMX.ComboMultiBox in '..\..\Controls\ADato.FMX.ComboMultiBox.pas',
+  ADato.FMX.ComboMultiBox.PopupMenu in '..\..\Controls\ADato.FMX.ComboMultiBox.PopupMenu.pas',
+  FMX.ControlCalculations in '..\..\Controls\FMX.ControlCalculations.pas',
+
   FMX.ScrollControl.Intf in '..\Scrollable\FMX.ScrollControl.Intf.pas',
   FMX.ScrollControl.Impl in '..\Scrollable\FMX.ScrollControl.Impl.pas',
   FMX.ScrollControl.View.Intf in '..\Scrollable\FMX.ScrollControl.View.Intf.pas',
@@ -45,7 +51,6 @@ contains
   FMX.ScrollControl.WithRows.Impl in '..\Scrollable\FMX.ScrollControl.WithRows.Impl.pas',
   FMX.ScrollControl.Events in '..\Scrollable\FMX.ScrollControl.Events.pas',
   FMX.ScrollControl.ControlClasses in '..\Scrollable\FMX.ScrollControl.ControlClasses.pas',
-  FMX.ControlCalculations in '..\Scrollable\FMX.ControlCalculations.pas',
 
   FMX.ScrollControl.SortAndFilter in '..\Tree\FMX.ScrollControl.SortAndFilter.pas',
   FMX.ScrollControl.WithCells.Intf in '..\Tree\FMX.ScrollControl.WithCells.Intf.pas',
@@ -55,9 +60,6 @@ contains
   FMX.ScrollControl.WithCells.PopupMenu in '..\Tree\FMX.ScrollControl.WithCells.PopupMenu.pas',
   FMX.ScrollControl.DataControl.Intf in '..\Tree\FMX.ScrollControl.DataControl.Intf.pas',
   FMX.ScrollControl.DataControl.Impl in '..\Tree\FMX.ScrollControl.DataControl.Impl.pas',
-  FMX.ScrollControl.DataControl.Binders in '..\Tree\FMX.ScrollControl.DataControl.Binders.pas',
-
-  FMX.ComboMultiBox in '..\Tree\FMX.ComboMultiBox.pas',
-  FMX.ComboMultiBox.PopupMenu in '..\Tree\FMX.ComboMultiBox.PopupMenu.pas';
+  FMX.ScrollControl.DataControl.Binders in '..\Tree\FMX.ScrollControl.DataControl.Binders.pas';
 
 end.

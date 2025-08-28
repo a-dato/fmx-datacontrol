@@ -1,4 +1,4 @@
-unit FMX.ComboMultiBox;
+unit ADato.FMX.ComboMultiBox;
 
 interface
 
@@ -23,7 +23,7 @@ uses
   FMX.Graphics,
   FMX.ScrollControl.DataControl.Impl,
   FMX.ScrollControl.Events,
-  FMX.ComboMultiBox.PopupMenu;
+  ADato.FMX.ComboMultiBox.PopupMenu;
 
 type
   TComboMultiBox = class(TRectangle)
