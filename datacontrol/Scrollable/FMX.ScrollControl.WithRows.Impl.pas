@@ -11,6 +11,7 @@ uses
   System.ComponentModel,
   System.UITypes,
   System.Types,
+  FMX.Graphics,
   {$ELSE}
   Wasm.FMX.Controls,
   Wasm.System.SysUtils,
@@ -27,8 +28,8 @@ uses
   FMX.ScrollControl.Intf,
   FMX.ScrollControl.Impl, ADato.Data.DataModel.intf,
   ADato.ObjectModel.List.intf, ADato.ObjectModel.intf,
-  FMX.ScrollControl.View.Intf, FMX.ScrollControl.Events, System.UITypes,
-  System.Types, System.Diagnostics, FMX.Graphics;
+  FMX.ScrollControl.View.Intf, FMX.ScrollControl.Events,
+  System.Diagnostics;
 
 type
   TScrollControlWithRows = class(TScrollControl, IRowsControl)
@@ -506,8 +507,7 @@ uses
   System.Math, 
   FMX.Platform, 
   System.Rtti, 
-  FMX.Forms, 
-  FMX.Graphics,
+  FMX.Forms,
   FMX.ActnList,
   {$ELSE}
   Wasm.FMX.Types,
@@ -519,9 +519,8 @@ uses
   Wasm.FMX.Graphics,
   Wasm.FMX.ActnList,
   {$ENDIF}
-  FMX.ScrollControl.ControlClasses
-  , System.Math, FMX.Platform, System.Rtti, FMX.Forms,
-  FMX.ScrollControl.View.Impl, FMX.ControlCalculations, FMX.ActnList,
+  FMX.ScrollControl.ControlClasses,
+  FMX.ScrollControl.View.Impl, FMX.ControlCalculations,
   ADato.TraceEvents.intf;
 
 

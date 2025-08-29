@@ -40,9 +40,9 @@ uses
   FMX.ScrollControl.WithRows.Impl,
 
   ADato.Collections.Specialized, System.Collections.Specialized,
-  FMX.ScrollControl.WithRows.Intf, FMX.Forms,
-  FMX.ScrollControl.Events, System.Generics.Defaults, ADato.Data.DataModel.intf,
-  FMX.Types, FMX.ActnList, FMX.Text;
+  FMX.ScrollControl.WithRows.Intf,
+  FMX.ScrollControl.Events, ADato.Data.DataModel.intf,
+  FMX.ActnList, FMX.Text;
 
 type
   TRightLeftScroll = (None, FullLeft, Left, Right, FullRight);
