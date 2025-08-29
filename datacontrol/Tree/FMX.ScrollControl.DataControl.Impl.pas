@@ -20,7 +20,9 @@ uses
   FMX.ScrollControl.WithCells.Impl;
 
 type
+  {$IFNDEF WEBASSEMBLY}
   [ComponentPlatformsAttribute(pidAllPlatforms)]
+  {$ENDIF}
   TDataControl = class(TScrollControlWithEditableCells)
   protected
     procedure DefineProperties(Filer: TFiler); override;
@@ -85,7 +87,11 @@ end;
 procedure TDataControl.DefineProperties(Filer: TFiler);
 begin
   inherited;
+  {$IFNDEF WEBASSEMBLY}
   DefineDotNetProperties(Filer);
+  {$ELSE}
+  raise Exception.Create('Need to add DefineDotNetProperties to WASM');
+  {$ENDIF}
 end;
 
 
@@ -93,14 +99,18 @@ initialization
 begin
   // Must use unique name here, VCL version of TTreeControl already
   // uses name 'TTreeColumn'
+  {$IFNDEF WEBASSEMBLY}
   &Assembly.RegisterClass(TDCTreeColumn);
   &Assembly.RegisterClass(TDCTreeCheckboxColumn);
+  {$ENDIF}
 end;
 
 finalization
 begin
+  {$IFNDEF WEBASSEMBLY}
   &Assembly.UnRegisterClass(TDCTreeColumn);
   &Assembly.UnRegisterClass(TDCTreeCheckboxColumn);
+  {$ENDIF}
 end;
 
 end.

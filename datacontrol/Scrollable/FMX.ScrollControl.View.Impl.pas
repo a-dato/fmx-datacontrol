@@ -177,8 +177,8 @@ begin
       else
       begin
         var data: IList<CObject> := CList<CObject>.Create(DataList.Count);
-        //var item: CObject;
-        for var item in DataList do
+        var item: CObject;
+        for item in DataList do
           data.Add(item);
 
         _comparer := CComparableList<CObject>.Create(data, CComparableList<CObject>.CreateReusableComparer);
@@ -398,8 +398,8 @@ begin
   Assert(HasCustomDataList and (_comparer <> nil));
 
   _comparer.Data.Clear;
-  //var item: CObject;
-  for var item in Context do
+  var item: CObject;
+  for item in Context do
     _comparer.Data.Add(item);
 
   _comparer.Comparer.ResetSortedRows(False);

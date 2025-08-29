@@ -6,18 +6,21 @@ uses
   {$IFNDEF WEBASSEMBLY}
   FMX.Controls, 
   System.Classes, 
-  FMX.Types, 
+  FMX.Types,
+  System.UITypes,
   {$ELSE}
   Wasm.FMX.Controls,
   Wasm.System.Classes,
   Wasm.FMX.Types,
+  Wasm.System.UITypes,
+  Wasm.System.ComponentModel,
   {$ENDIF}
   System_,
   FMX.ScrollControl.WithCells.Impl,
   FMX.ScrollControl.WithEditableCells.Intf, ADato.ObjectModel.TrackInterfaces,
   System.ComponentModel, ADato.InsertPosition, FMX.ScrollControl.WithCells.Intf,
   System.Collections, ADato.ObjectModel.List.intf, System.Collections.Generic,
-  System.UITypes, FMX.ScrollControl.WithRows.Intf,
+  FMX.ScrollControl.WithRows.Intf,
   FMX.ScrollControl.Events, ADato.Data.DataModel.intf;
 
 type
@@ -373,6 +376,10 @@ uses
   FMX.StdCtrls, 
   FMX.Graphics, 
   FMX.ActnList,
+  System.Types,
+  System.Character,
+  FMX.Platform,
+  System.SysUtils,
   {$ELSE}
   Wasm.FMX.Edit,
   Wasm.FMX.DateTimeCtrls,
@@ -381,16 +388,16 @@ uses
   Wasm.FMX.Memo,
   Wasm.FMX.StdCtrls,
   Wasm.FMX.Graphics,
+  Wasm.FMX.ActnList,
   Wasm.System.UITypes,
+  Wasm.System.Types,
+  Wasm.FMX.Platform,
+  Wasm.System.SysUtils,
   {$ENDIF}
   FMX.ScrollControl.ControlClasses,
   FMX.ControlCalculations,
-  System.Types,
-  System.Character,
   ADato.Collections.Specialized,
   System.Reflection,
-  FMX.Platform,
-  System.SysUtils,
   System.TypInfo, ADato.FMX.ComboMultiBox;
 
 { TScrollControlWithEditableCells }
@@ -543,6 +550,7 @@ begin
         Exit;
     end;
 
+    {$IFNDEF WEBASSEMBLY}
     if KeyChar.IsLetterOrDigit then
     begin
       if CanEditCell(GetActiveCell) then
@@ -553,6 +561,18 @@ begin
       else
         TryScrollToCellByKey(Key, KeyChar);
     end;
+    {$ELSE}
+    if WideChar.IsLetterOrDigit(KeyChar) then
+    begin
+      if CanEditCell(GetActiveCell) then
+      begin
+        StartEditCell(GetActiveCell, KeyChar);
+        KeyChar := #0;
+      end
+      else
+        TryScrollToCellByKey(Key, KeyChar);
+    end;
+    {$ENDIF}
   end;
 end;
 
@@ -576,9 +596,15 @@ begin
 
       ctrl.Tag := Cell.Row.ViewListIndex;
 
+      {$IFNDEF WEBASSEMBLY}
       if ctrl is TCheckBox then
         (ctrl as TCheckBox).OnChange := OnPropertyCheckBoxChange else
         (ctrl as TRadioButton).OnChange := OnPropertyCheckBoxChange;
+      {$ELSE}
+      if ctrl is TCheckBox then
+        (ctrl as TCheckBox).OnChange := @OnPropertyCheckBoxChange else
+        (ctrl as TRadioButton).OnChange := @OnPropertyCheckBoxChange;
+      {$ENDIF}
 
       chkCtrl.IsChecked := _checkedItems.ContainsKey(Cell.Column) and _checkedItems[Cell.Column].Contains(cell.Row.DataIndex);
     end;
@@ -903,7 +929,11 @@ begin
       else if (_view.OriginalData.Count > 0) then
       begin
         var referenceItem := ConvertToDataItem(_view.OriginalData[0]);
+        {$IFNDEF WEBASSEMBLY}
         var obj: CObject := &Assembly.CreateInstanceFromObject(referenceItem);
+        {$ELSE}
+        var obj: CObject := Activator.CreateInstance(referenceItem.GetType);
+        {$ENDIF}
         if obj = nil then
           raise NullReferenceException.Create(CString.Format('Failed to create instance of object {0}, implement event OnAddingNew', referenceItem.GetType));
         if not obj.TryCast(TypeOf(referenceItem), {out} NewItem, True) then
@@ -1193,9 +1223,15 @@ begin
   end else
   begin
     var clipboard: IFMXClipboardService;
+    {$IFNDEF WEBASSEMBLY}
     if TPlatformServices.Current.SupportsPlatformService(IFMXClipboardService, ClipBoard) then
       Result := EditActiveCell(True, ClipBoard.GetClipboard.AsString) else
       Result := False;
+    {$ELSE}
+    if TPlatformServices.Current.SupportsPlatformService<IFMXClipboardService>(ClipBoard) then
+      Result := EditActiveCell(True, ClipBoard.GetClipboard.ToString) else
+      Result := False;
+    {$ENDIF}
   end;
 end;
 
@@ -1390,7 +1426,11 @@ begin
         dataType := GetDataModelView.DataModel.FindColumnByName(Cell.Column.PropertyName).DataType else
         dataType := GetItemType.PropertyByName(Cell.Column.PropertyName).GetType;
     end else
+      {$IFNDEF WEBASSEMBLY}
       dataType := Global.StringType;
+      {$ELSE}
+      dataType := &Global.GetTypeOf<String>;
+      {$ENDIF}
 
     if dataType.IsDateTime then
       _cellEditor := TDCCellDateTimeEditor.Create(self, Cell)
@@ -1742,9 +1782,15 @@ begin
           s := Data.ToString else
           s := '<empty>';
 
+        {$IFNDEF WEBASSEMBLY}
         if (propInfo.PropInfo <> nil) and (propInfo.PropInfo.PropType <> nil) then
           msg := CString.Format('Invalid value: ''{0}'' (field expects a {1})', s, propInfo.PropInfo.PropType^.NameFld.ToString) else
           msg := CString.Format('Invalid value: ''{0}''', s);
+        {$ELSE}
+        if Assigned(propInfo) and (propInfo.PropertyType <> nil) then
+          msg := CString.Format('Invalid value: ''{0}'' (field expects a {1})', s, propInfo.PropertyType) else
+          msg := CString.Format('Invalid value: ''{0}''', s);
+        {$ENDIF}
       except
         raise EConvertError.Create(msg);
       end;
@@ -1872,8 +1918,13 @@ begin
   // otherwise
   if not (Self is TDCCellDropDownEditor) then
   begin
+    {$IFNDEF WEBASSEMBLY}
     _editor.OnKeyDown := OnEditorKeyDown;
     _editor.OnExit := OnEditorExit;
+    {$ELSE}
+    _editor.OnKeyDown := @OnEditorKeyDown;
+    _editor.OnExit := @OnEditorExit;
+    {$ENDIF}
   end;
 
   _cell.Control.AddObject(_editor);
@@ -1978,7 +2029,11 @@ begin
   _editor := DataControlClassFactory.CreateEdit(nil);
   _cell.Control.AddObject(_editor);
 
+  {$IFNDEF WEBASSEMBLY}
   TEdit(_editor).OnChangeTracking := OnTextCellEditorChangeTracking;
+  {$ELSE}
+  TEdit(_editor).OnChangeTracking := @OnTextCellEditorChangeTracking;
+  {$ENDIF}
 
   inherited BeginEdit(EditValue);
 end;
@@ -2030,8 +2085,13 @@ begin
 
   _editor.TabStop := false;
 
+  {$IFNDEF WEBASSEMBLY}
   TDateEdit(_editor).OnOpenPicker := OnDateTimeEditorOpen;
   TDateEdit(_editor).OnChange := OnDateTimeEditorChange;
+  {$ELSE}
+  TDateEdit(_editor).OnOpenPicker := @OnDateTimeEditorOpen;
+  TDateEdit(_editor).OnChange := @OnDateTimeEditorChange;
+  {$ENDIF}
 
   inherited;
   Dropdown;
@@ -2259,7 +2319,11 @@ begin
   _cell.Control.AddObject(_editor);
 
   TMemo(_editor).ShowScrollBars := false;
+  {$IFNDEF WEBASSEMBLY}
   TMemo(_editor).OnChangeTracking := OnTextCellEditorChangeTracking;
+  {$ELSE}
+  TMemo(_editor).OnChangeTracking := @OnTextCellEditorChangeTracking;
+  {$ENDIF}
   inherited BeginEdit(EditValue);
 end;
 
@@ -2385,7 +2449,11 @@ begin
 
   _originalOnChange := TCheckBox(_editor).OnChange;
 
+  {$IFNDEF WEBASSEMBLY}
   TCheckBox(_editor).OnChange := OnCheckBoxCellEditorChangeTracking;
+  {$ELSE}
+  TCheckBox(_editor).OnChange := @OnCheckBoxCellEditorChangeTracking;
+  {$ENDIF}
   //inherited;
 //
 //  set_Value((_cell.InfoControl as TCheckBox).IsChecked);

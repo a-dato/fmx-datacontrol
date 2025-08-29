@@ -23,6 +23,7 @@ uses
   FMX.DateTimeCtrls,
   FMX.Colors,
   System.SysUtils,
+  System.UITypes,
   {$ELSE}
   //ADato.CustomControls,
   System.Text,
@@ -42,12 +43,13 @@ uses
   Wasm.FMX.ListBox,
   Wasm.FMX.DateTimeCtrls,
   Wasm.System.SysUtils,
+  Wasm.System.UITypes,
   {$ENDIF}
   System_,
   ADato.PropertyAccessibility.Intf,
   ADato.ObjectModel.intf,
   System.Collections,
-  System.Collections.Generic, System.UITypes
+  System.Collections.Generic
   {$IFDEF APP_PLATFORM}
   , App.PropertyDescriptor.intf
   {$ENDIF}
@@ -415,6 +417,7 @@ uses
   FMX.Text,
   System.Math,
   FMX.Ani,
+  System.JSON,
   {$ELSE}
   Wasm.FMX.Text,
   Wasm.System.Math,
@@ -422,7 +425,7 @@ uses
   {$ENDIF}
   ADato.Bitmap.intf,
   ADato.Duration,
-  ADato.Data.DataModel.intf, System.JSON;
+  ADato.Data.DataModel.intf;
 
 function TryConvertToUserFriendlyText(const Value: CObject; const PropertyInfo: _PropertyInfo; out AResult: CString): Boolean;
 var
@@ -796,7 +799,8 @@ begin
       _control.Items.Clear;
       var formatter := descriptor.Formatter;
 
-      for var item in _picklist do
+      var item: CObject;
+      for item in _picklist do
       begin
         var s: CString;
         if formatter <> nil then

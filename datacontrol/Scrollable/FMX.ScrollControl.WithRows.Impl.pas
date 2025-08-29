@@ -9,11 +9,17 @@ uses
   System.Classes,
   FMX.Objects,
   System.ComponentModel,
+  System.UITypes,
+  System.Types,
+  FMX.Graphics,
   {$ELSE}
   Wasm.FMX.Controls,
   Wasm.System.SysUtils,
+  Wasm.System.Classes,
   Wasm.FMX.Objects,
   Wasm.System.ComponentModel,
+  Wasm.System.UITypes,
+  Wasm.System.Types,
   {$ENDIF}
   System_,
   FMX.ScrollControl.WithRows.Intf,
@@ -22,8 +28,8 @@ uses
   FMX.ScrollControl.Intf,
   FMX.ScrollControl.Impl, ADato.Data.DataModel.intf,
   ADato.ObjectModel.List.intf, ADato.ObjectModel.intf,
-  FMX.ScrollControl.View.Intf, FMX.ScrollControl.Events, System.UITypes,
-  System.Types, System.Diagnostics, FMX.Graphics;
+  FMX.ScrollControl.View.Intf, FMX.ScrollControl.Events,
+  System.Diagnostics;
 
 type
   TScrollControlWithRows = class(TScrollControl, IRowsControl)
@@ -498,14 +504,23 @@ uses
   FMX.Types,
   FMX.StdCtrls,
   System.Generics.Collections,
+  System.Math, 
+  FMX.Platform, 
+  System.Rtti, 
+  FMX.Forms,
+  FMX.ActnList,
   {$ELSE}
   Wasm.FMX.Types,
   Wasm.FMX.StdCtrls,
   Wasm.System.UITypes,
+  Wasm.System.Math,
+  Wasm.FMX.Platform,
+  Wasm.FMX.Forms,
+  Wasm.FMX.Graphics,
+  Wasm.FMX.ActnList,
   {$ENDIF}
-  FMX.ScrollControl.ControlClasses
-  , System.Math, FMX.Platform, System.Rtti, FMX.Forms,
-  FMX.ScrollControl.View.Impl, FMX.ControlCalculations, FMX.ActnList,
+  FMX.ScrollControl.ControlClasses,
+  FMX.ScrollControl.View.Impl, FMX.ControlCalculations,
   ADato.TraceEvents.intf;
 
 
@@ -1561,8 +1576,8 @@ begin
   var arr: TDataIndexArray;
   SetLength(arr, 0);
 
-  //var item: CObject;
-  for var item in Value do
+  var item: CObject;
+  for item in Value do
   begin
     var ix := _view.GetDataIndex(item);
     if ix <> -1 then
@@ -2428,8 +2443,8 @@ begin
         _selectionInfo.UpdateSingleSelection(dataIndex, viewListIndex, SelectedItems[0]);
     end else
     begin
-      //var item: CObject;
-      for var item in SelectedItems do
+      var item: CObject;
+      for item in SelectedItems do
       begin
         var viewListIndex := _view.GetViewListIndex(item);
         var dataIndex := _view.GetDataIndex(viewListIndex);
