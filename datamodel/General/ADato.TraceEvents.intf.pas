@@ -51,7 +51,9 @@ type
     procedure StopTracing(CleanupTempFile: Boolean);
 
     function  StartTimer(const Group: string; const TimerID: string; const Level: TLevel = TLevel.Normal) : Boolean;
+    procedure PauseTimer(const Group: string; const TimerID: string);
     procedure StopTimer(const Group: string; const TimerID: string);
+    procedure StopTimers(const Group: string);
 
     property UseCsvFormatting: Boolean read get_UseCsvFormatting write set_UseCsvFormatting;
     property HasException: Boolean read GetHasException write SetHasException;
@@ -98,7 +100,9 @@ type
     procedure StopTracing(CleanupTempFile: Boolean); virtual;
 
     function  StartTimer(const Group: string; const TimerID: string; const Level: TLevel = TLevel.Normal) : Boolean; virtual;
+    procedure PauseTimer(const Group: string; const TimerID: string); virtual;
     procedure StopTimer(const Group: string; const TimerID: string); virtual;
+    procedure StopTimers(const Group: string); virtual;
   end;
 
   function PointerToString(P: Pointer) : string;
@@ -183,6 +187,11 @@ begin
   Result := _WriteToStdOut;
 end;
 
+procedure TEmptyEventTracer.PauseTimer(const Group, TimerID: string);
+begin
+
+end;
+
 procedure TEmptyEventTracer.SetHasException(const Value: Boolean);
 begin
   _HasException := _HasException or Value;
@@ -254,6 +263,11 @@ begin
 end;
 
 procedure TEmptyEventTracer.StopTimer(const Group: string; const TimerID: string);
+begin
+
+end;
+
+procedure TEmptyEventTracer.StopTimers(const Group: string);
 begin
 
 end;

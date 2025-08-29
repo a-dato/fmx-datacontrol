@@ -170,6 +170,11 @@
         <DCCReference Include="xmlrtl.dcp"/>
         <DCCReference Include="ADato.Datamodel.dcp"/>
         <DCCReference Include="ADato.ObjectModel.dcp"/>
+        <DCCReference Include="..\..\Controls\ADato.FMX.FastControls.Text.pas"/>
+        <DCCReference Include="..\..\Controls\ADato.FMX.FastControls.Button.pas"/>
+        <DCCReference Include="..\..\Controls\ADato.FMX.ComboMultiBox.pas"/>
+        <DCCReference Include="..\..\Controls\ADato.FMX.ComboMultiBox.PopupMenu.pas"/>
+        <DCCReference Include="..\..\Controls\FMX.ControlCalculations.pas"/>
         <DCCReference Include="..\Scrollable\FMX.ScrollControl.Intf.pas"/>
         <DCCReference Include="..\Scrollable\FMX.ScrollControl.Impl.pas"/>
         <DCCReference Include="..\Scrollable\FMX.ScrollControl.View.Intf.pas"/>
@@ -178,7 +183,6 @@
         <DCCReference Include="..\Scrollable\FMX.ScrollControl.WithRows.Impl.pas"/>
         <DCCReference Include="..\Scrollable\FMX.ScrollControl.Events.pas"/>
         <DCCReference Include="..\Scrollable\FMX.ScrollControl.ControlClasses.pas"/>
-        <DCCReference Include="..\Scrollable\FMX.ControlCalculations.pas"/>
         <DCCReference Include="..\Tree\FMX.ScrollControl.SortAndFilter.pas"/>
         <DCCReference Include="..\Tree\FMX.ScrollControl.WithCells.Intf.pas"/>
         <DCCReference Include="..\Tree\FMX.ScrollControl.WithCells.Impl.pas"/>
@@ -188,8 +192,6 @@
         <DCCReference Include="..\Tree\FMX.ScrollControl.DataControl.Intf.pas"/>
         <DCCReference Include="..\Tree\FMX.ScrollControl.DataControl.Impl.pas"/>
         <DCCReference Include="..\Tree\FMX.ScrollControl.DataControl.Binders.pas"/>
-        <DCCReference Include="..\Tree\FMX.ComboMultiBox.pas"/>
-        <DCCReference Include="..\Tree\FMX.ComboMultiBox.PopupMenu.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>

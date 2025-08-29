@@ -442,6 +442,8 @@ type
     _parser           : IDataModelParser;
     _validatePosition: TValidatePosition;
 
+    _cachedProperties: Dictionary<CString, _PropertyInfo>;
+
     // Events
     {$IFDEF DELPHI}
     function  get_DataModelChanged: EventHandler;
@@ -1201,6 +1203,8 @@ begin
   {$ELSE}
   (_columns as INotifyCollectionChanged).CollectionChanged += @ColumnsChanged;
   {$ENDIF}
+
+  _cachedProperties := CDictionary<CString, _PropertyInfo>.Create;
 
   _validIndexIndex := -1;
   _validChildIndexIndex := -1;
@@ -2185,7 +2189,14 @@ begin
   else if CanAccessProperties and (Row.Data <> nil) then
   begin
     t := DoGetRowObjectType(Row);
-    prop := t.GetProperty(Column.Name);
+
+    var key := CString.Concat(t.Name, '_', Column.Name);
+    if not _cachedProperties.TryGetValue(key, prop) then
+    begin
+      prop := t.GetProperty(Column.Name);
+      _cachedProperties.Add(key, prop {can be nil})
+    end;
+
     if prop <> nil then
       Result := prop.GetValue(Row.Data, []);
   end;
@@ -2603,6 +2614,7 @@ procedure TDataModel.ColumnsChanged(
   Sender: TObject;
   e: NotifyCollectionChangedEventArgs);
 begin
+  _cachedProperties.Clear;
   OnDataModelChanged;
 end;
 

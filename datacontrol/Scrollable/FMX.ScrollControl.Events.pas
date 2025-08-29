@@ -61,17 +61,19 @@ type
   DCCellLoadEventArgs = class(DCCellEventArgs)
   private
     _showVertGrid: Boolean;
-    _treeIsScrolling: Boolean;
+    _IsFastScrolling: Boolean;
     _realignAfterScrolling: Boolean;
+    _performanceModeWhileScrolling: Boolean;
 
   public
-    constructor Create(const ACell: IDCTreeCell; ShowVertGrid, ATreeIsScrolling: Boolean); reintroduce;
+    constructor Create(const ACell: IDCTreeCell; ShowVertGrid, AIsFastScrolling, APerformanceModeWhileScrolling: Boolean); reintroduce;
 
     function AssignCellStyleLookUp(const StyleLookUp: CString): TStyledControl;
     function AssignCellCustomInfoControl(const Control: TControl): TControl;
 
-    property TreeIsScrolling: Boolean read _treeIsScrolling;
+    property IsFastScrolling: Boolean read _IsFastScrolling;
     property RealignTreeAfterScrolling: Boolean read _realignAfterScrolling write _realignAfterScrolling;
+    property PerformanceModeWhileScrolling: Boolean read _performanceModeWhileScrolling write _performanceModeWhileScrolling;
   end;
 
   DCCellLoadingEventArgs = class(DCCellLoadEventArgs)
@@ -81,7 +83,7 @@ type
       Tree calls CellFormatting event where user is able to set a custom text.
       LoadDefaulData = False: CellFormatting will not be triggered. }
 
-    constructor Create(const ACell: IDCTreeCell; ShowVertGrid, ATreeIsScrolling: Boolean); reintroduce;
+    constructor Create(const ACell: IDCTreeCell; ShowVertGrid, AIsFastScrolling, APerformanceModeWhileScrolling: Boolean); reintroduce;
   end;
 
   DCCellLoadedEventArgs = DCCellLoadEventArgs;
@@ -142,9 +144,15 @@ type
   protected
     _row: IDCRow;
 
+    _IsFastScrolling: Boolean;
+    _realignAfterScrolling: Boolean;
+
   public
-    constructor Create(const ARow: IDCRow); reintroduce;
+    constructor Create(const ARow: IDCRow; AIsFastScrolling: Boolean); reintroduce;
     property Row: IDCRow read _row;
+
+    property IsFastScrolling: Boolean read _IsFastScrolling;
+    property RealignAfterScrolling: Boolean read _realignAfterScrolling write _realignAfterScrolling;
   end;
 
   DCRowEditEventArgs = class(DCRowEventArgs)
@@ -352,7 +360,7 @@ end;
 
 { DCCellLoadingEventArgs }
 
-constructor DCCellLoadingEventArgs.Create(const ACell: IDCTreeCell; ShowVertGrid, ATreeIsScrolling: Boolean);
+constructor DCCellLoadingEventArgs.Create(const ACell: IDCTreeCell; ShowVertGrid, AIsFastScrolling, APerformanceModeWhileScrolling: Boolean);
 begin
   inherited;
   LoadDefaultData := True;
@@ -371,7 +379,7 @@ end;
 
 constructor DCRowEditEventArgs.Create(const ARow: IDCTreeRow; const DataItem: CObject; IsEdit: Boolean);
 begin
-  inherited Create(ARow);
+  inherited Create(ARow, False);
 
   Accept := True;
   _IsEdit := IsEdit;
@@ -423,10 +431,13 @@ end;
 
 { DCRowEventArgs }
 
-constructor DCRowEventArgs.Create(const ARow: IDCRow);
+constructor DCRowEventArgs.Create(const ARow: IDCRow; AIsFastScrolling: Boolean);
 begin
   inherited Create;
   _row := ARow;
+
+  _IsFastScrolling := AIsFastScrolling;
+  _realignAfterScrolling := False;
 end;
 
 { DCCellLoadEventArgs }
@@ -446,13 +457,14 @@ begin
   Result := _cell.InfoControl as TStyledControl;
 end;
 
-constructor DCCellLoadEventArgs.Create(const ACell: IDCTreeCell; ShowVertGrid, ATreeIsScrolling: Boolean);
+constructor DCCellLoadEventArgs.Create(const ACell: IDCTreeCell; ShowVertGrid, AIsFastScrolling, APerformanceModeWhileScrolling: Boolean);
 begin
   inherited Create(ACell);
   _showVertGrid := ShowVertGrid;
 
   _realignAfterScrolling := False;
-  _treeIsScrolling := ATreeIsScrolling;
+  _IsFastScrolling := AIsFastScrolling;
+  _performanceModeWhileScrolling := APerformanceModeWhileScrolling;
 end;
 
 { DCCellSelectedEventArgs }
