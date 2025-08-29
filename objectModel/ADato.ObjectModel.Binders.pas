@@ -828,7 +828,7 @@ begin
   end
   else if (ix >= 0) and (ix < (_picklist.Count - 1)) then
     Result := _picklist[ix];
-  {$ELSEIF DELPHI}
+  {$ELSEIF Defined(DELPHI)}
   var ix := _Control.ItemIndex;
   if not GoWithPicklist then
   if ix <> -1 then
