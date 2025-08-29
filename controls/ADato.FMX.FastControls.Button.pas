@@ -14,7 +14,7 @@ uses
   FMX.ActnList,
   FMX.Types,
   FMX.Layouts,
-  FMX.TabControl;
+  FMX.TabControl, FMX.Graphics;
 
 type
   TButtonType = (None, Positive, Negative, Emphasized);
@@ -89,6 +89,9 @@ type
 
     function  CheckHoveredChanged(const ParentPoint: TPointF): Boolean;
     function  CheckClicked(const ParentPoint: TPointF): Boolean; virtual;
+    function  GetPaintOpacity: Single;
+
+    function  GetBitmap(const Images: TCustomImageList; const BitmapSize: TSize; const BitmapIndex: Integer): TBitmap; virtual;
 
     property Polygon: TPolygon read get_Polygon;
     property InnerBounds: TRectF read _innerBounds;
@@ -146,8 +149,6 @@ type
 
     procedure set_Innertagscontrol(const Value: TCustomADatoTagRunTimeControl);
 
-    procedure AskForRecalc(ChangeType: TChangeType);
-
   private
     procedure set_Imagename(const Value: string);
     procedure set_TagType(const Value: TTagType);
@@ -162,6 +163,8 @@ type
     procedure set_FontSize(const Value: Single);
     procedure set_FontStyles(const Value: TFontStyles);
 
+  protected
+    procedure AskForRecalc(ChangeType: TChangeType);
   public
     constructor Create(Collection: TCollection); override;
     destructor Destroy; override;
@@ -188,7 +191,6 @@ type
     property Innertagscontrol: TCustomADatoTagRunTimeControl read _innertagscontrol write set_Innertagscontrol;
   end;
 
-//  [ComponentPlatformsAttribute(pidAllPlatforms)]
   TFastButton = class(TADatoClickLayout, IIsChecked)
   private
     _buttonType: TButtonType;
@@ -231,6 +233,9 @@ type
     procedure Painting; override;
     procedure DoResized; override;
 
+    procedure SetEnabled(const Value: Boolean); override;
+    procedure SetVisible(const Value: Boolean); override;
+
     procedure DoMouseLeave; override;
     procedure MouseMove(Shift: TShiftState; X, Y: Single); override;
     procedure MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Single); override;
@@ -239,6 +244,7 @@ type
     procedure ActionChange(Sender: TBasicAction; CheckDefaults: Boolean); override;
 
     procedure RecalcNeeded;
+    procedure RepaintNeeded;
     procedure OnConfigRequestRecalc(const ADatoClickLayout: TADatoClickLayout; const ChangeType: TChangeType);
 
     function  GetSidePadding: Single;
@@ -279,7 +285,7 @@ type
 implementation
 
 uses
-  System.Math, System.Actions, FMX.Graphics;
+  System.Math, System.Actions;
 
 { TADatoClickLayout }
 
@@ -562,6 +568,18 @@ begin
   Result := _config.TagType;
 end;
 
+function TADatoClickLayout.GetBitmap(const Images: TCustomImageList; const BitmapSize: TSize; const BitmapIndex: Integer): TBitmap;
+begin
+  Result := Images.Bitmap(BitmapSize, BitmapIndex);
+end;
+
+function TADatoClickLayout.GetPaintOpacity: Single;
+begin
+  if not Self.Enabled then
+    Result := Opacity * 0.6 else
+    Result := Opacity;
+end;
+
 function TADatoClickLayout.GetText: string;
 begin
   Result := _config.Text;
@@ -692,7 +710,7 @@ begin
   if (_imageIndex = -1) then
     Exit;
 
-  var bitmap := get_Images.Bitmap(bitmapSize, _imageIndex);
+  var bitmap := GetBitmap(get_Images, bitmapSize, _imageIndex);
 
   if bitmap <> nil then
   begin
@@ -711,8 +729,8 @@ begin
   cvs.Stroke.Kind := TBrushKind.Solid;
 
   case get_TagType of
-    TTagType.RoundPost: cvs.FillRect(_innerBounds, get_radius, get_Radius, AllCorners, Self.Opacity * IfThen(_isAddTag, 0.6, 1));
-    TTagType.SignPost: cvs.FillPolygon(_polygon, Self.Opacity * IfThen(_isAddTag, 0.6, 1));
+    TTagType.RoundPost: cvs.FillRect(_innerBounds, get_radius, get_Radius, AllCorners, GetPaintOpacity * IfThen(_isAddTag, 0.6, 1));
+    TTagType.SignPost: cvs.FillPolygon(_polygon, GetPaintOpacity * IfThen(_isAddTag, 0.6, 1));
   end;
 
   if _hover or _hoverSide then
@@ -720,11 +738,11 @@ begin
     cvs.Fill.Color := TAlphaColor($FFC3CBE6);
 
     if _hoverSide then
-      cvs.FillRect(_sideBounds, get_Radius, get_Radius, AllCorners, Self.Opacity * IfThen(MouseIsDown, 0.6, 1))
+      cvs.FillRect(_sideBounds, get_Radius, get_Radius, AllCorners, GetPaintOpacity * IfThen(MouseIsDown, 0.6, 1))
     else if get_TagType = TTagType.RoundPost then
-      cvs.FillRect(_innerBounds, get_Radius, get_Radius, AllCorners, Self.Opacity * IfThen(MouseIsDown, 0.6, 1))
+      cvs.FillRect(_innerBounds, get_Radius, get_Radius, AllCorners, GetPaintOpacity * IfThen(MouseIsDown, 0.6, 1))
     else if get_TagType = TTagType.SignPost then
-      cvs.FillPolygon(_polygon, Self.Opacity * IfThen(MouseIsDown, 0.6, 1));
+      cvs.FillPolygon(_polygon, GetPaintOpacity * IfThen(MouseIsDown, 0.6, 1));
   end;
 
   var horzAlign := TTextAlign.Center;
@@ -741,7 +759,7 @@ begin
 //    Canvas.Stroke.Color := GetLynxXFontColor(_contrast, _contrastSpeciale);
     cvs.Fill.Color := _config.FontColor;
     cvs.Font.Style := _config.FontStyles;
-    cvs.FillText(_textBounds, Text, False, Self.Opacity, [], horzAlign, TTextAlign.Leading);
+    cvs.FillText(_textBounds, Text, False, GetPaintOpacity, [], horzAlign, TTextAlign.Leading);
   end;
 
   if HasSubText then
@@ -749,7 +767,7 @@ begin
     cvs.Fill.Color := TAlphaColors.Lightslategray;
     cvs.Font.Style := [];
     cvs.Font.Size := 10;
-    cvs.FillText(_subTextBounds, SubText, False, Self.Opacity, [], horzAlign, TTextAlign.Leading);
+    cvs.FillText(_subTextBounds, SubText, False, GetPaintOpacity, [], horzAlign, TTextAlign.Leading);
   end;
 
   if HasImage then
@@ -758,18 +776,18 @@ begin
   if HasSideButton then
   begin
     var marg := 3;
-    cvs.DrawLine(PointF(_sideBounds.Left+marg, _sideBounds.Top+marg), PointF(_sideBounds.Right-marg, _sideBounds.Bottom-marg), Self.Opacity);
-    cvs.DrawLine(PointF(_sideBounds.Left+marg, _sideBounds.Bottom-marg), PointF(_sideBounds.Right-marg, _sideBounds.Top+marg), Self.Opacity);
+    cvs.DrawLine(PointF(_sideBounds.Left+marg, _sideBounds.Top+marg), PointF(_sideBounds.Right-marg, _sideBounds.Bottom-marg), GetPaintOpacity);
+    cvs.DrawLine(PointF(_sideBounds.Left+marg, _sideBounds.Bottom-marg), PointF(_sideBounds.Right-marg, _sideBounds.Top+marg), GetPaintOpacity);
   end;
 
   cvs.Stroke.Color := TAlphaColor($FFDCDCDC);
 
   case get_TagType of
     TTagType.RoundPost: begin
-      cvs.DrawRect(_innerBounds, 3, 3, AllCorners, Self.Opacity, TCornerType.Round);
+      cvs.DrawRect(_innerBounds, 3, 3, AllCorners, GetPaintOpacity, TCornerType.Round);
     end;
     TTagType.SignPost: begin
-      cvs.DrawPolygon(_polygon, Self.Opacity);
+      cvs.DrawPolygon(_polygon, GetPaintOpacity);
     end;
   end;
 
@@ -783,7 +801,7 @@ begin
 
     Canvas.Stroke.Thickness := 1;
     Canvas.Stroke.Color := TAlphaColors.Lightslategrey;
-    Canvas.DrawLine(PointF(xPos, yPos), PointF(xPos, yPos+lineHeight), Self.Opacity);
+    Canvas.DrawLine(PointF(xPos, yPos), PointF(xPos, yPos+lineHeight), 1);
   end;
 
 
@@ -872,7 +890,7 @@ begin
   _showHoverEffect := True;
   _showUnderline := False;
   _underlineType := TUnderlineType.NoUnderline;
-  _buttonType := TButtonType.None;
+  set_ButtonType(TButtonType.None);
   _contentHorzAlign := TTextAlign.Leading;
 
   ImagePositionMargin := 3;
@@ -885,17 +903,17 @@ begin
   if _buttonType = TButtonType.Emphasized then
   begin
     Canvas.Fill.Color := TAlphaColor($3399ACCF);
-    Canvas.FillRect(RectF(0,0, Width, Height), 3, 3, AllCorners, 1);
+    Canvas.FillRect(RectF(0,0, Width, Height), 3, 3, AllCorners, GetPaintOpacity);
   end
   else if _buttonType = TButtonType.Positive then
   begin
     Canvas.Fill.Color := TAlphaColor($FF37539E);
-    Canvas.FillRect(RectF(0,0, Width, Height), 3, 3, AllCorners, 1);
+    Canvas.FillRect(RectF(0,0, Width, Height), 3, 3, AllCorners, GetPaintOpacity);
   end
   else if _buttonType = TButtonType.Negative then
   begin
     Canvas.Fill.Color := TAlphaColor($FFFDFDFE);
-    Canvas.FillRect(RectF(0,0, Width, Height), 3, 3, AllCorners, 1);
+    Canvas.FillRect(RectF(0,0, Width, Height), 3, 3, AllCorners, GetPaintOpacity);
   end;
 
   if not _showHoverEffect then
@@ -921,7 +939,7 @@ begin
   else if _buttonType = TButtonType.Negative then
   begin
     Canvas.Stroke.Color := TAlphaColor($FF99ACCF);
-    Canvas.DrawRect(RectF(0,0, Width, Height), 3, 3, AllCorners, 1);
+    Canvas.DrawRect(RectF(0,0, Width, Height), 3, 3, AllCorners, GetPaintOpacity);
   end;
 
 //  Canvas.Fill.Color := TAlphaColors.Blue;
@@ -987,7 +1005,11 @@ end;
 procedure TFastButton.RecalcNeeded;
 begin
   _recalcNeeded := True;
+  RepaintNeeded;
+end;
 
+procedure TFastButton.RepaintNeeded;
+begin
   if not FInPaintTo and not _waitForRepaint then
   begin
     _waitForRepaint := True;
@@ -995,17 +1017,32 @@ begin
   end;
 end;
 
+procedure TFastButton.SetEnabled(const Value: Boolean);
+begin
+  inherited;
+  RepaintNeeded;
+end;
+
 procedure TFastButton.SetIsChecked(const Value: Boolean);
 begin
-  if Value then
-    ButtonType := TButtonType.Emphasized else
-    ButtonType := TButtonType.None;
+  if GetIsChecked <> Value then
+  begin
+    if Value then
+      ButtonType := TButtonType.Emphasized else
+      ButtonType := TButtonType.None;
+  end;
+end;
+
+procedure TFastButton.SetVisible(const Value: Boolean);
+begin
+  inherited;
+
 end;
 
 procedure TFastButton.OnConfigRequestRecalc(const ADatoClickLayout: TADatoClickLayout; const ChangeType: TChangeType);
 begin
   case ChangeType of
-    DoRepaint: if not FInPaintTo then Repaint;
+    DoRepaint: RepaintNeeded;
     DoRecalc: RecalcNeeded;
     ControlAdded: ;
     ControlRemoved: ;
@@ -1029,7 +1066,7 @@ begin
   _mouseIsDown := True;
   inherited;
 
-  Repaint;
+  RepaintNeeded;
 end;
 
 function TFastButton.MouseIsDown: Boolean;
@@ -1043,8 +1080,8 @@ begin
 
   if not _hover then
   begin
-    _hover := Self.Enabled and ((Action = nil) or (Action as TAction).Enabled);
-    Self.Repaint;
+    _hover := Self.Enabled;
+    RepaintNeeded;
   end;
 end;
 
@@ -1056,7 +1093,7 @@ begin
   inherited;
 
   _mouseIsDown := False;
-  Repaint;
+  RepaintNeeded;
 end;
 
 procedure TFastButton.DoMouseLeave;
@@ -1064,7 +1101,7 @@ begin
   inherited;
   _mouseIsDown := False;
   _hover := False;
-  Repaint;
+  RepaintNeeded;
 end;
 
 procedure TFastButton.set_ButtonType(const Value: TButtonType);
@@ -1072,7 +1109,7 @@ begin
   if _ButtonType <> Value then
   begin
     _ButtonType := Value;
-    Repaint;
+    RepaintNeeded;
   end;
 end;
 
@@ -1099,7 +1136,7 @@ begin
   if _EmphasizePicture <> Value then
   begin
     _EmphasizePicture := Value;
-    Repaint;
+    RepaintNeeded;
   end;
 end;
 
@@ -1124,7 +1161,7 @@ begin
   if _showUnderline <> Value then
   begin
     _showUnderline := Value;
-    Repaint;
+    RepaintNeeded;
   end;
 end;
 
@@ -1142,15 +1179,13 @@ begin
   if _underlineType <> Value then
   begin
     _underlineType := Value;
-    Repaint;
+    RepaintNeeded;
   end;
 end;
 
 function TFastButton.GetSidePadding: Single;
 begin
-  if HasImage then
-    Result := System.Math.Min(10, System.Math.Max(5, (Self.Height - _innerBounds.Height)/2)) else
-    Result := 5;
+  Result := System.Math.Min(10, System.Math.Max(5, (Self.Height - _innerBounds.Height)/2));
 end;
 
 { TFastButtonConfig }
