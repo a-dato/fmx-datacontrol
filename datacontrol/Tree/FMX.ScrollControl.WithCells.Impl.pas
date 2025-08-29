@@ -2947,7 +2947,8 @@ begin
   var treeRow := Row as IDCTreeRow;
 
   // if we do horz lines, we do them on cell controls..
-  TRectangle(treeRow.Control).Sides := [];
+  if (TreeOption_ShowVertGrid in _options) then
+    TRectangle(treeRow.Control).Sides := [];
 
   var manualHeight: Single := -1;
 
@@ -4232,7 +4233,7 @@ begin
       cell.ExpandButton.Position.X := _treeControl.CellLeftRightPadding + (indentPerLevel * cell.Row.ParentCount);
       spaceUsed := indentPerLevel * (cell.Row.ParentCount {can be 0} + 1);
     end
-    else if Cell.Column.ShowHierarchy then
+    else if Cell.Column.ShowHierarchy or (Cell.Column.Indent > 0) then
       spaceUsed := indentPerLevel * (cell.Row.ParentCount {can be 0});
   end;
 
