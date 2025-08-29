@@ -488,9 +488,6 @@ type
     function  IsHeaderCell: Boolean;
     procedure UpdateSelectionVisibility(const RowIsSelected: Boolean; const SelectionInfo: ITreeSelectionInfo; OwnerIsFocused: Boolean);
 
-    function  IsAsTextControl: ICaption;
-    function  IsAsCheckControl: IIsChecked;
-
     procedure ClearCellForReassignment;
     procedure CheckPerformanceRoutine(GoPerformanceMode: Boolean);
 

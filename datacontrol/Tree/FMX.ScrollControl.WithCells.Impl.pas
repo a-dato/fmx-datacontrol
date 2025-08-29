@@ -755,9 +755,6 @@ type
     procedure set_PerformanceModeWhileScrolling(const Value: Boolean);
 
   protected
-    [unsafe] _fastTxtCtrl: ICaption;
-    [unsafe] _fastCheckCtrl: IIsChecked;
-
     _selectionRect: TControl;
 
     procedure UpdateSelectionRect(OwnerIsFocused: Boolean);
@@ -773,8 +770,6 @@ type
 
     function  IsHeaderCell: Boolean; virtual;
 
-    function  IsAsTextControl: ICaption;
-    function  IsAsCheckControl: IIsChecked;
     procedure ClearCellForReassignment;
     procedure CheckPerformanceRoutine(GoPerformanceMode: Boolean);
 
@@ -1473,7 +1468,7 @@ begin
   begin
     var treeRow := clickedRow as IDCTreeRow;
     var treeCell := treeRow.Cells[flatColumn.Index];
-    var checkBox := treeCell.IsAsCheckControl;
+    var checkBox := treeCell.InfoControl as IIsChecked;
 
     if checkBox.IsChecked then
     begin
@@ -1855,7 +1850,7 @@ begin
   inc(_selectionCheckBoxUpdateCount);
   try
     var checkBoxCell := (Row as IDCTreeRow).Cells[selectionCheckBoxColumn.Index];
-    var checkBox := checkBoxCell.IsAsCheckControl;
+    var checkBox := checkBoxCell.InfoControl as IIsChecked;
 
     checkBox.IsChecked := _selectionInfo.IsSelected(Row.DataIndex);
   finally
@@ -2811,7 +2806,7 @@ begin
 
         flatColumn.UpdateCellControlsByRow(headerCell);
 
-        headerCell.IsAsTextControl.Text := CStringToString(flatColumn.Column.Caption);
+        (headerCell.InfoControl as ICaption).Text := CStringToString(flatColumn.Column.Caption);
 
         DoCellLoaded(headerCell, False, {var} dummyPerformanceMode, {var} dummyManualHeight);
 
@@ -2841,16 +2836,19 @@ begin
 
   var ctrl: TControl;
   var propName: CString;
+  var infoClass: TInfoControlClass;
 
   if not IsSubProp then
   begin
     ctrl := cell.InfoControl;
     propName := cell.Column.PropertyName;
+    infoClass := cell.Column.InfoControlClass;
   end
   else
   begin
     ctrl := Cell.SubInfoControl;
     propName := cell.Column.SubPropertyName;
+    infoClass := cell.Column.SubInfoControlClass;
   end;
 
   var formattedValue: CObject := nil;
@@ -2880,13 +2878,16 @@ begin
 
     formattedValue := FlatColumn.Column.GetDefaultCellData(cell, cellValue, formatApplied);
 
-    if cell.IsAsTextControl <> nil then
+    if ctrl <> nil then
     begin
-      var s := CStringToString(formattedValue.ToString(True));
-      cell.IsAsTextControl.Text := s;
-    end
-    else if cell.IsAsCheckControl <> nil then
-      cell.IsAsCheckControl.IsChecked := formattedValue.AsType<Boolean>;
+      if infoClass = TInfoControlClass.Text then
+      begin
+        var s := CStringToString(formattedValue.ToString(True));
+        (ctrl as ICaption).Text := s;
+      end
+      else if infoClass = TInfoControlClass.CheckBox then
+        (ctrl as IIsChecked).IsChecked := formattedValue.AsType<Boolean>;
+    end;
   end;
 
   if formattedValue <> nil then
@@ -2924,8 +2925,8 @@ function TScrollControlWithCells.CellHasData(const Cell: IDCTreeCell): Boolean;
       Exit(False);
 
     case CtrlClass of
-      Text: Exit(Cell.IsAsTextControl.Text <> '');
-      CheckBox: Exit(Cell.IsAsCheckControl.IsChecked);
+      Text: Exit((Cell.InfoControl as ICaption).Text <> '');
+      CheckBox: Exit((Cell.InfoControl as IIsChecked).IsChecked);
       Button: Exit((Ctrl as TFastButton).ImageIndex <> -1);
       Glyph: Exit((Ctrl as TGlyph).ImageIndex <> -1);
     end;
@@ -3312,7 +3313,7 @@ begin
     end else
     begin
       DoCellLoaded(Cell, True, dummyPerfMode, dummyHeightVar);
-      Result := Cell.IsAsTextControl.Text;
+      Result := (Cell.InfoControl as ICaption).Text;
     end;
 
     if Cell.Column.SortType = TSortType.Displaytext then
@@ -3976,7 +3977,7 @@ begin
     end;
   end
   else if not Cell.Column.HasPropertyAttached and (Cell.Column.InfoControlClass = TInfoControlClass.CheckBox) then
-    data := Cell.IsAsCheckControl.IsChecked;
+    data := (Cell.InfoControl as IIsChecked).IsChecked;
 
   if not IsSubProp then
     Cell.Data := data else
@@ -5001,11 +5002,6 @@ begin
     Result := False;
 end;
 
-function TDCTreeCell.IsAsCheckControl: IIsChecked;
-begin
-  Result := _fastCheckCtrl;
-end;
-
 procedure TDCTreeCell.CheckPerformanceRoutine(GoPerformanceMode: Boolean);
 begin
   if not _performanceModeWhileScrolling then
@@ -5164,18 +5160,6 @@ end;
 procedure TDCTreeCell.set_InfoControl(const Value: TControl);
 begin
   _infoControl := Value;
-
-  if _infoControl = nil then
-  begin
-    _fastTxtCtrl := nil;
-    _fastCheckCtrl := nil;
-    Exit;
-  end;
-
-  if IsHeaderCell or (_layoutColumn.Column.InfoControlClass = TInfoControlClass.Text) then
-    _fastTxtCtrl := _infoControl as ICaption
-  else if _layoutColumn.Column.InfoControlClass =TInfoControlClass.CheckBox then
-    _fastCheckCtrl := _infoControl as IIsChecked;
 end;
 
 procedure TDCTreeCell.set_PerformanceModeWhileScrolling(const Value: Boolean);
@@ -5266,11 +5250,6 @@ begin
 //
 //  if _subInfoControl <> nil then
 //    _subInfoControl.Visible := not Activate;
-end;
-
-function TDCTreeCell.IsAsTextControl: ICaption;
-begin
-  Result := _fastTxtCtrl;
 end;
 
 procedure TDCTreeCell.UpdateSelectionRect(OwnerIsFocused: Boolean);
