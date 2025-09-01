@@ -317,7 +317,7 @@ type
     function  ColumnList: IDCTreeColumnList;
     function  GetItemType: &Type;
 
-
+    {$IFDEF DEBUG}
     procedure S0;
     procedure S1;
     procedure S2;
@@ -326,6 +326,7 @@ type
     procedure E1(Pause: Boolean = False);
     procedure E2(Pause: Boolean = False);
     procedure E3(Pause: Boolean = False);
+    {$ENDIF}
 
     function  RadioInsteadOfCheck: Boolean;
 

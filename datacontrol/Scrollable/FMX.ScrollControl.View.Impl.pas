@@ -55,7 +55,7 @@ type
     function  get_OriginalData: IList;
 
     procedure DataModelViewChanged(Sender: TObject; e: EventArgs);
-    procedure OnViewChangedArgs(const Sender: TObject; const e: EventArgs);
+//    procedure OnViewChangedArgs(const Sender: TObject; const e: EventArgs);
     procedure OnViewChanged;
 
     function  GetNewActiveRow: IDCRow;
@@ -254,11 +254,11 @@ begin
     _onViewChanged(nil, nil);
 end;
 
-procedure TDataViewList.OnViewChangedArgs(const Sender: TObject; const e: EventArgs);
-begin
-  if Assigned(_onViewChanged) then
-    _onViewChanged(Sender, e);
-end;
+//procedure TDataViewList.OnViewChangedArgs(const Sender: TObject; const e: EventArgs);
+//begin
+//  if Assigned(_onViewChanged) then
+//    _onViewChanged(Sender, e);
+//end;
 
 function TDataViewList.FastPerformanceDataIndexIsActive(const DataIndex: Integer): Boolean;
 begin

@@ -160,6 +160,7 @@ type
     procedure ExecuteAfterRealignOnly(DoBeginUpdate: Boolean);
 
   protected
+    {$IFDEF DEBUG}
     procedure S0;
     procedure S1;
     procedure S2;
@@ -168,6 +169,7 @@ type
     procedure E1(Pause: Boolean = False);
     procedure E2(Pause: Boolean = False);
     procedure E3(Pause: Boolean = False);
+    {$ENDIF}
 
     procedure RealignFromSelectionChange;
     procedure AfterRowHeightsChanged(const TopVirtualYPosition: Single; SelectedRowIsAtBottom: Boolean = False);
@@ -544,7 +546,6 @@ begin
   begin
     var topRow := _view.ActiveViewRows[0];
 
-    Result := 0;
     var count := _view.ActiveViewRows.Count;
 
     if ScrollDown then
@@ -761,9 +762,11 @@ begin
   begin
     inc(_logIx);
 
+    {$IFDEF DEBUG}
     _stopwatch1.Reset;
     _stopwatch2.Reset;
     _stopwatch3.Reset;
+    {$ENDIF}
 
     Log('START OF ' + _logIx.ToString);
   end;
@@ -775,9 +778,11 @@ begin
     StopMasterSynchronizer(goMaster);
   end;
 
+  {$IFDEF DEBUG}
   E1;
   E2;
   E3;
+  {$ENDIF}
 
   if (_rowHeightSynchronizer <> nil) and ControlEffectiveVisible(_rowHeightSynchronizer) then
     _rowHeightSynchronizer.RestartWaitForRealignTimer;
@@ -1763,9 +1768,9 @@ begin
 end;
 
 procedure TScrollControlWithRows.BeforeRealignContent;
-var
-  sortChanged: Boolean;
-  filterChanged: Boolean;
+//var
+//  sortChanged: Boolean;
+//  filterChanged: Boolean;
 
 begin
   if IsMasterSynchronizer then
@@ -1979,8 +1984,6 @@ begin
       Key := 0;
       Exit;
     end;
-
-    var viewListindex: Integer;
 
     if Key = vkPrior then
     begin
@@ -2709,7 +2712,9 @@ end;
 
 procedure TScrollControlWithRows.RealignContentStart;
 begin
+  {$IFDEF DEBUG}
   S0;
+  {$ENDIF}
   var isRealStart := _realignState in [TRealignState.Waiting, TRealignState.RealignDone];
 
   inherited;
@@ -2742,10 +2747,12 @@ begin
   if IsMasterSynchronizer then
     _rowHeightSynchronizer.RealignFinished;
 
+  {$IFDEF DEBUG}
   E0;
   E1;
   E2;
   E3;
+  {$ENDIF}
 end;
 
 procedure TScrollControlWithRows.RefreshControl(const DataChanged: Boolean = False);
@@ -3139,7 +3146,7 @@ end;
 
 procedure TDCRow.UpdateControlVisibility;
 begin
-  if (_control <> nil) then
+  if (_control <> nil) and not (csDestroying in _control.ComponentState) then
     _control.Visible := get_IsHeaderRow or (_virtualYPosition <> -1);
 end;
 
@@ -3194,7 +3201,8 @@ end;
 
 destructor TDCRow.Destroy;
 begin
-//  try
+  ClearRowForReassignment;
+
   if (_control <> nil) and not (csDestroying in _control.ComponentState) then
   begin
     FreeAndNil(_selectionRect);
@@ -3202,9 +3210,6 @@ begin
   end;
 
   inherited;
-//  except
-//    inherited;
-//  end;
 end;
 
 function TDCRow.get_Control: TControl;
@@ -3751,13 +3756,15 @@ end;
 function TScrollControlWithRows.ListHoldsOrdinalType: Boolean;
 begin
   {$IFDEF WEBASSEMBLY}
-  Result := not ((tc = TypeCode.Object) or GetItemType.IsInterface or GetItemType.IsArray);
   Result := not (&Type.GetTypeCode(GetItemType) in [TypeCode.&Object, TypeCode.&Interface, TypeCode.&Array]);
   {$ELSE}
   var tc := &Type.GetTypeCode(GetItemType);
+  Result := not ((tc = TypeCode.Object) or GetItemType.IsInterfaceType or GetItemType.IsArray);
   {$ENDIF}
 end;
 
+
+{$IFDEF DEBUG}
 procedure TScrollControlWithRows.S0;
 begin
   if (_logs = nil) and ((_rowHeightSynchronizer = nil) or (_rowHeightSynchronizer._logs = nil)) then
@@ -3838,5 +3845,6 @@ begin
   if not Pause and (_stopwatch3.ElapsedMilliseconds > 0) then
     Log('Stopwatch 3: ' + _stopwatch3.ElapsedMilliseconds.ToString);
 end;
+{$ENDIF}
 
 end.

@@ -203,7 +203,7 @@ type
     _recalcNeeded: Boolean;
     _waitForRepaint: Boolean;
     _mouseIsDown: Boolean;
-    _calculateOwnWidth: Boolean;
+    _autoWidth: Boolean;
     _contentHorzAlign: TTextAlign;
 
     procedure set_ButtonType(const Value: TButtonType);
@@ -218,7 +218,7 @@ type
     procedure set_ImagePositionMargin(const Value: Integer);
     procedure set_ImageIndex(const Value: Integer);
     function  get_imageIndex: Integer;
-    procedure set_CalculateOwnWidth(const Value: Boolean);
+    procedure set_AutoWidth(const Value: Boolean);
     function  get_ContentHorzAlign: TTextAlign;
     procedure set_ContentHorzAlign(const Value: TTextAlign);
 
@@ -229,7 +229,6 @@ type
 
     procedure Calculate; override;
     procedure DoPaint; override;
-    procedure PrepareForPaint; override;
     procedure Painting; override;
     procedure DoResized; override;
 
@@ -257,6 +256,7 @@ type
   public
     constructor Create(AOwner: TComponent); override;
 
+    procedure PrepareForPaint; override;
     function  CalcWidth: Single;
 
     property IsChecked: Boolean read GetIsChecked write SetIsChecked;
@@ -273,7 +273,7 @@ type
     property UnderlineType: TUnderlineType read _underlineType write set_UnderlineType default TUnderlineType.NoUnderline;
     property ButtonType: TButtonType read _buttonType write set_ButtonType default TButtonType.None;
     property ForceOrange: Boolean read _emphasizePicture write set_EmphasizePicture;
-    property CalculateOwnWidth: Boolean read _calculateOwnWidth write set_CalculateOwnWidth default False;
+    property AutoWidth: Boolean read _autoWidth write set_AutoWidth default False;
     property ContentHorzAlign: TTextAlign read get_ContentHorzAlign write set_ContentHorzAlign default TTextAlign.Leading;
 
     property Action;
@@ -285,7 +285,7 @@ type
 implementation
 
 uses
-  System.Math, System.Actions;
+  System.Math, System.Actions, FMX.Controls;
 
 { TADatoClickLayout }
 
@@ -353,14 +353,14 @@ begin
     w := w + sideButtonSize + sideButtonMargin {margin};
   end;
 
-  var offset: Single;
+  var offset: Single := 0;
   case get_TagType of
     SignPost: offSet := h/2;
     RoundPost: begin
       offSet := 5;
       w := w + 10;
     end;
-    NoBounds: offSet := 0;
+//    NoBounds: offSet := 0;
   end;
 
   if HasImage then
@@ -404,7 +404,6 @@ begin
   end;
 
   var wLeft := w;
-  var hLeft := h;
 
   if HasSideButton then
   begin
@@ -431,12 +430,10 @@ begin
       TImagePosition.Top: begin
         var xStart := offSet + (w-imgSize)/2;
         _imageBounds := RectF(xStart, 0, xStart + imgSize, imgSize);
-        hLeft := hLeft - _imageBounds.Height;
       end;
       TImagePosition.Bottom: begin
         var xStart := offSet + (w-imgSize)/2;
         _imageBounds := RectF(xStart, _innerBounds.Bottom - imgSize, xStart + imgSize, _innerBounds.Bottom);
-        hLeft := hLeft - _imageBounds.Height;
       end;
       TImagePosition.Center: begin
 //        if Self.Align in [TAlignLayout.Client, TAlignLayout.Top, TAlignLayout.MostTop, TAlignLayout.Bottom, TAlignLayout.MostBottom] then
@@ -508,12 +505,15 @@ begin
   begin
     _hover := not _hover;
     Result := True;
-  end;
+  end else
+    Result := False;
 
   if not HasSideButton or (not mouseOnTag and not _hoverSide) then
     Exit;
 
-  var localPoint := ParentPoint.Subtract(BoundsRect.TopLeft);
+  var localPoint := ParentPoint;
+  localPoint.Offset(BoundsRect.TopLeft);
+
   if _hoverSide <> _sideBounds.Contains(localPoint) then
   begin
     _hoverSide := not _hoverSide;
@@ -846,7 +846,7 @@ begin
     inherited;
 
     var innerPadding := GetSidePadding;
-    if _calculateOwnWidth then
+    if _autoWidth then
       Self.Width := _innerBounds.Width + 2*innerPadding;
 
     var horzAlign := get_ContentHorzAlign;
@@ -859,7 +859,8 @@ begin
       TTextAlign.Trailing: SetLeftPadding(Width - InnerBounds.Width - innerPadding);
     end;
 
-    SetTopPadding(System.Math.Max(0, (Height - InnerBounds.Height)/2));
+    var heightAvailable := Height - Margins.Top - Margins.Bottom;
+    SetTopPadding(System.Math.Max(0, (heightAvailable - InnerBounds.Height)/2));
   end;
 end;
 
@@ -900,20 +901,21 @@ procedure TFastButton.DoPaint;
 begin
   _waitForRepaint := False;
 
+  var outerRect := RectF(Margins.Left, Margins.Top, Width - Margins.Left - Margins.Right, Height - Margins.Top - Margins.Bottom);
   if _buttonType = TButtonType.Emphasized then
   begin
     Canvas.Fill.Color := TAlphaColor($3399ACCF);
-    Canvas.FillRect(RectF(0,0, Width, Height), 3, 3, AllCorners, GetPaintOpacity);
+    Canvas.FillRect(outerRect, 3, 3, AllCorners, GetPaintOpacity);
   end
   else if _buttonType = TButtonType.Positive then
   begin
     Canvas.Fill.Color := TAlphaColor($FF37539E);
-    Canvas.FillRect(RectF(0,0, Width, Height), 3, 3, AllCorners, GetPaintOpacity);
+    Canvas.FillRect(outerRect, 3, 3, AllCorners, GetPaintOpacity);
   end
   else if _buttonType = TButtonType.Negative then
   begin
     Canvas.Fill.Color := TAlphaColor($FFFDFDFE);
-    Canvas.FillRect(RectF(0,0, Width, Height), 3, 3, AllCorners, GetPaintOpacity);
+    Canvas.FillRect(outerRect, 3, 3, AllCorners, GetPaintOpacity);
   end;
 
   if not _showHoverEffect then
@@ -925,7 +927,7 @@ begin
   if _hover and (get_TagType = TTagType.NoBounds) then
   begin
     Canvas.Fill.Color := TAlphaColor($FFC3CBE6);
-    Canvas.FillRect(RectF(0,0, Width, Height), get_Radius, get_Radius, AllCorners, 0.6 * IfThen(MouseIsDown, 0.5, 1));
+    Canvas.FillRect(outerRect, get_Radius, get_Radius, AllCorners, 0.6 * IfThen(MouseIsDown, 0.5, 1));
   end;
 
   inherited;
@@ -939,7 +941,7 @@ begin
   else if _buttonType = TButtonType.Negative then
   begin
     Canvas.Stroke.Color := TAlphaColor($FF99ACCF);
-    Canvas.DrawRect(RectF(0,0, Width, Height), 3, 3, AllCorners, GetPaintOpacity);
+    Canvas.DrawRect(outerRect, 3, 3, AllCorners, GetPaintOpacity);
   end;
 
 //  Canvas.Fill.Color := TAlphaColors.Blue;
@@ -1113,11 +1115,11 @@ begin
   end;
 end;
 
-procedure TFastButton.set_CalculateOwnWidth(const Value: Boolean);
+procedure TFastButton.set_AutoWidth(const Value: Boolean);
 begin
-  if _calculateOwnWidth <> Value then
+  if _autoWidth <> Value then
   begin
-    _calculateOwnWidth := Value;
+    _autoWidth := Value;
     RecalcNeeded;
   end;
 end;
