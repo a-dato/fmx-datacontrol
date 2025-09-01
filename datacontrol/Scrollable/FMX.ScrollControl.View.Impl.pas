@@ -55,7 +55,7 @@ type
     function  get_OriginalData: IList;
 
     procedure DataModelViewChanged(Sender: TObject; e: EventArgs);
-    procedure OnViewChangedArgs(const Sender: TObject; const e: EventArgs);
+//    procedure OnViewChangedArgs(const Sender: TObject; const e: EventArgs);
     procedure OnViewChanged;
 
     function  GetNewActiveRow: IDCRow;
@@ -177,8 +177,8 @@ begin
       else
       begin
         var data: IList<CObject> := CList<CObject>.Create(DataList.Count);
-        //var item: CObject;
-        for var item in DataList do
+        var item: CObject;
+        for item in DataList do
           data.Add(item);
 
         _comparer := CComparableList<CObject>.Create(data, CComparableList<CObject>.CreateReusableComparer);
@@ -254,11 +254,11 @@ begin
     _onViewChanged(nil, nil);
 end;
 
-procedure TDataViewList.OnViewChangedArgs(const Sender: TObject; const e: EventArgs);
-begin
-  if Assigned(_onViewChanged) then
-    _onViewChanged(Sender, e);
-end;
+//procedure TDataViewList.OnViewChangedArgs(const Sender: TObject; const e: EventArgs);
+//begin
+//  if Assigned(_onViewChanged) then
+//    _onViewChanged(Sender, e);
+//end;
 
 function TDataViewList.FastPerformanceDataIndexIsActive(const DataIndex: Integer): Boolean;
 begin
@@ -398,8 +398,8 @@ begin
   Assert(HasCustomDataList and (_comparer <> nil));
 
   _comparer.Data.Clear;
-  //var item: CObject;
-  for var item in Context do
+  var item: CObject;
+  for item in Context do
     _comparer.Data.Add(item);
 
   _comparer.Comparer.ResetSortedRows(False);

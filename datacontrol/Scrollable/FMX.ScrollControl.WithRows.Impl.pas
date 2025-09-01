@@ -9,11 +9,17 @@ uses
   System.Classes,
   FMX.Objects,
   System.ComponentModel,
+  System.UITypes,
+  System.Types,
+  FMX.Graphics,
   {$ELSE}
   Wasm.FMX.Controls,
   Wasm.System.SysUtils,
+  Wasm.System.Classes,
   Wasm.FMX.Objects,
   Wasm.System.ComponentModel,
+  Wasm.System.UITypes,
+  Wasm.System.Types,
   {$ENDIF}
   System_,
   FMX.ScrollControl.WithRows.Intf,
@@ -22,8 +28,8 @@ uses
   FMX.ScrollControl.Intf,
   FMX.ScrollControl.Impl, ADato.Data.DataModel.intf,
   ADato.ObjectModel.List.intf, ADato.ObjectModel.intf,
-  FMX.ScrollControl.View.Intf, FMX.ScrollControl.Events, System.UITypes,
-  System.Types, System.Diagnostics, FMX.Graphics;
+  FMX.ScrollControl.View.Intf, FMX.ScrollControl.Events,
+  System.Diagnostics;
 
 type
   TScrollControlWithRows = class(TScrollControl, IRowsControl)
@@ -154,6 +160,7 @@ type
     procedure ExecuteAfterRealignOnly(DoBeginUpdate: Boolean);
 
   protected
+    {$IFDEF DEBUG}
     procedure S0;
     procedure S1;
     procedure S2;
@@ -162,6 +169,7 @@ type
     procedure E1(Pause: Boolean = False);
     procedure E2(Pause: Boolean = False);
     procedure E3(Pause: Boolean = False);
+    {$ENDIF}
 
     procedure RealignFromSelectionChange;
     procedure AfterRowHeightsChanged(const TopVirtualYPosition: Single; SelectedRowIsAtBottom: Boolean = False);
@@ -498,14 +506,23 @@ uses
   FMX.Types,
   FMX.StdCtrls,
   System.Generics.Collections,
+  System.Math, 
+  FMX.Platform, 
+  System.Rtti, 
+  FMX.Forms,
+  FMX.ActnList,
   {$ELSE}
   Wasm.FMX.Types,
   Wasm.FMX.StdCtrls,
   Wasm.System.UITypes,
+  Wasm.System.Math,
+  Wasm.FMX.Platform,
+  Wasm.FMX.Forms,
+  Wasm.FMX.Graphics,
+  Wasm.FMX.ActnList,
   {$ENDIF}
-  FMX.ScrollControl.ControlClasses
-  , System.Math, FMX.Platform, System.Rtti, FMX.Forms,
-  FMX.ScrollControl.View.Impl, FMX.ControlCalculations, FMX.ActnList,
+  FMX.ScrollControl.ControlClasses,
+  FMX.ScrollControl.View.Impl, FMX.ControlCalculations,
   ADato.TraceEvents.intf;
 
 
@@ -529,7 +546,6 @@ begin
   begin
     var topRow := _view.ActiveViewRows[0];
 
-    Result := 0;
     var count := _view.ActiveViewRows.Count;
 
     if ScrollDown then
@@ -566,11 +582,14 @@ destructor TScrollControlWithRows.Destroy;
 begin
 //  AtomicIncrement(_viewChangedIndex);
 
-  _view := nil;
-
   // remove events
   if _model <> nil then
-    set_Model(nil);
+    set_Model(nil)
+  else if _dataModelView <> nil then
+    set_DataModelView(nil)
+  else
+    set_DataList(nil);
+
 
   inherited;
 end;
@@ -746,9 +765,11 @@ begin
   begin
     inc(_logIx);
 
+    {$IFDEF DEBUG}
     _stopwatch1.Reset;
     _stopwatch2.Reset;
     _stopwatch3.Reset;
+    {$ENDIF}
 
     Log('START OF ' + _logIx.ToString);
   end;
@@ -760,9 +781,11 @@ begin
     StopMasterSynchronizer(goMaster);
   end;
 
+  {$IFDEF DEBUG}
   E1;
   E2;
   E3;
+  {$ENDIF}
 
   if (_rowHeightSynchronizer <> nil) and ControlEffectiveVisible(_rowHeightSynchronizer) then
     _rowHeightSynchronizer.RestartWaitForRealignTimer;
@@ -1561,8 +1584,8 @@ begin
   var arr: TDataIndexArray;
   SetLength(arr, 0);
 
-  //var item: CObject;
-  for var item in Value do
+  var item: CObject;
+  for item in Value do
   begin
     var ix := _view.GetDataIndex(item);
     if ix <> -1 then
@@ -1748,9 +1771,9 @@ begin
 end;
 
 procedure TScrollControlWithRows.BeforeRealignContent;
-var
-  sortChanged: Boolean;
-  filterChanged: Boolean;
+//var
+//  sortChanged: Boolean;
+//  filterChanged: Boolean;
 
 begin
   if IsMasterSynchronizer then
@@ -1964,8 +1987,6 @@ begin
       Key := 0;
       Exit;
     end;
-
-    var viewListindex: Integer;
 
     if Key = vkPrior then
     begin
@@ -2428,8 +2449,8 @@ begin
         _selectionInfo.UpdateSingleSelection(dataIndex, viewListIndex, SelectedItems[0]);
     end else
     begin
-      //var item: CObject;
-      for var item in SelectedItems do
+      var item: CObject;
+      for item in SelectedItems do
       begin
         var viewListIndex := _view.GetViewListIndex(item);
         var dataIndex := _view.GetDataIndex(viewListIndex);
@@ -2694,7 +2715,9 @@ end;
 
 procedure TScrollControlWithRows.RealignContentStart;
 begin
+  {$IFDEF DEBUG}
   S0;
+  {$ENDIF}
   var isRealStart := _realignState in [TRealignState.Waiting, TRealignState.RealignDone];
 
   inherited;
@@ -2727,10 +2750,12 @@ begin
   if IsMasterSynchronizer then
     _rowHeightSynchronizer.RealignFinished;
 
+  {$IFDEF DEBUG}
   E0;
   E1;
   E2;
   E3;
+  {$ENDIF}
 end;
 
 procedure TScrollControlWithRows.RefreshControl(const DataChanged: Boolean = False);
@@ -3075,13 +3100,18 @@ end;
 
 procedure TScrollControlWithRows.AddFilterDescription(const Filter: IListFilterDescription; const ClearOtherFlters: Boolean);
 begin
-  var filters: List<IListFilterDescription>;
-  if ClearOtherFlters or (_view = nil) or (_view.GetFilterDescriptions = nil) then
-    filters := CList<IListFilterDescription>.Create else
-    filters := _view.GetFilterDescriptions;
+  var filters: List<IListFilterDescription> := CList<IListFilterDescription>.Create;
 
   if Filter <> nil then
     filters.Add(Filter);
+
+  if (_view <> nil) and (_view.GetFilterDescriptions <> nil) then
+  begin
+    var filterDescription: IListFilterDescription;
+    for filterDescription in _view.GetFilterDescriptions do
+      if not ClearOtherFlters or not Interfaces.Supports<ITreeFilterDescription>(filterDescription) {external sort} then
+        filters.Add(filterDescription);
+  end;
 
   GetInitializedWaitForRefreshInfo.FilterDescriptions := filters;
 
@@ -3092,13 +3122,17 @@ end;
 
 procedure TScrollControlWithRows.AddSortDescription(const Sort: IListSortDescription; const ClearOtherSort: Boolean);
 begin
-  var sorts: List<IListSortDescription>;
-  if ClearOtherSort or (_view = nil) or (_view.GetSortDescriptions = nil) then
-    sorts := CList<IListSortDescription>.Create else
-    sorts := _view.GetSortDescriptions;
-
+  var sorts: List<IListSortDescription> := CList<IListSortDescription>.Create;
   if Sort <> nil then
-    sorts.Insert(0, Sort);  // make it the most important sort
+    sorts.Add(Sort);
+
+  if (_view <> nil) and (_view.GetSortDescriptions <> nil) then
+  begin
+    var sortDescription: IListSortDescription;
+    for sortDescription in _view.GetSortDescriptions do
+      if not ClearOtherSort or not Interfaces.Supports<ITreeSortDescription>(sortDescription) {external sort} then
+        sorts.Add(sortDescription);
+  end;
 
   GetInitializedWaitForRefreshInfo.SortDescriptions := sorts;
 
@@ -3124,7 +3158,7 @@ end;
 
 procedure TDCRow.UpdateControlVisibility;
 begin
-  if (_control <> nil) then
+  if (_control <> nil) and not (csDestroying in _control.ComponentState) then
     _control.Visible := get_IsHeaderRow or (_virtualYPosition <> -1);
 end;
 
@@ -3179,7 +3213,8 @@ end;
 
 destructor TDCRow.Destroy;
 begin
-//  try
+  ClearRowForReassignment;
+
   if (_control <> nil) and not (csDestroying in _control.ComponentState) then
   begin
     FreeAndNil(_selectionRect);
@@ -3187,9 +3222,6 @@ begin
   end;
 
   inherited;
-//  except
-//    inherited;
-//  end;
 end;
 
 function TDCRow.get_Control: TControl;
@@ -3736,13 +3768,15 @@ end;
 function TScrollControlWithRows.ListHoldsOrdinalType: Boolean;
 begin
   {$IFDEF WEBASSEMBLY}
-  Result := not ((tc = TypeCode.Object) or GetItemType.IsInterface or GetItemType.IsArray);
   Result := not (&Type.GetTypeCode(GetItemType) in [TypeCode.&Object, TypeCode.&Interface, TypeCode.&Array]);
   {$ELSE}
   var tc := &Type.GetTypeCode(GetItemType);
+  Result := not ((tc = TypeCode.Object) or GetItemType.IsInterfaceType or GetItemType.IsArray);
   {$ENDIF}
 end;
 
+
+{$IFDEF DEBUG}
 procedure TScrollControlWithRows.S0;
 begin
   if (_logs = nil) and ((_rowHeightSynchronizer = nil) or (_rowHeightSynchronizer._logs = nil)) then
@@ -3823,5 +3857,6 @@ begin
   if not Pause and (_stopwatch3.ElapsedMilliseconds > 0) then
     Log('Stopwatch 3: ' + _stopwatch3.ElapsedMilliseconds.ToString);
 end;
+{$ENDIF}
 
 end.

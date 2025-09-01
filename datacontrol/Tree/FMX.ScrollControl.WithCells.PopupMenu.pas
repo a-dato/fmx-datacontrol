@@ -3,18 +3,11 @@
 interface
 
 uses
+  {$IFNDEF WEBASSEMBLY}
   System.SysUtils,
   System.Types,
   System.UITypes,
   System.Classes,
-  System.Variants,
-  System.ImageList,
-  System.Math,
-  System.Collections.Generic,
-  System_,
-  System.Collections,
-  System.Generics.Defaults,
-  System.ComponentModel,
 
   FMX.Types,
   FMX.Controls,
@@ -29,6 +22,34 @@ uses
   FMX.Edit,
   FMX.StdCtrls,
   FMX.Objects,
+  {$ELSE}
+  Wasm.System.SysUtils,
+  Wasm.System.Types,
+  Wasm.System.UITypes,
+  Wasm.System.Classes,
+
+  Wasm.FMX.Types,
+  Wasm.FMX.Controls,
+  Wasm.FMX.Forms,
+  Wasm.FMX.Graphics,
+  Wasm.FMX.Dialogs,
+  Wasm.FMX.ListBox,
+  Wasm.FMX.Layouts,
+  Wasm.FMX.Effects,
+  Wasm.FMX.ImgList,
+  Wasm.FMX.Controls.Presentation,
+  Wasm.FMX.Edit,
+  Wasm.FMX.StdCtrls,
+  Wasm.FMX.Objects,
+  {$ENDIF}
+  System.Variants,
+  System.ImageList,
+  System.Math,
+  System.Collections.Generic,
+  System_,
+  System.Collections,
+  System.Generics.Defaults,
+  System.ComponentModel,
 
   FMX.ScrollControl.WithCells.Intf,
   FMX.ScrollControl.Impl,
@@ -80,7 +101,11 @@ type
 
   private
     const TREE_COLUMN_NAME_TEXT = 'Text';
+  {$IFNDEF WEBASSEMBLY}
   strict private
+  {$ELSE}
+  private
+  {$ENDIF}
 
 //    _FilterBorder: TLayout;
     _data: List<CObject>;
@@ -195,7 +220,8 @@ procedure TfrmFMXPopupMenuDataControl.ShowPopupMenu(const ScreenPos: TPointF; Sh
     var lbHeight: Double := 6;
     var filterListHeight := 0;
 
-    for var i := 0 to PopupListBox.Count - 1 do
+    var i: Integer;
+    for i := 0 to PopupListBox.Count - 1 do
     begin
       item := PopupListBox.ListItems[i];
       if item.Visible then
@@ -293,7 +319,8 @@ procedure TfrmFMXPopupMenuDataControl.LoadFilterItems(const Data: Dictionary<COb
 //  kv: KeyValuePair<CObject, CString>;
 begin
   _data := CList<CObject>.Create(Data.Count);
-  for var pair in Data do
+  var pair: KeyValuePair<CObject, CString>;
+  for pair in Data do
     _data.Add(pair.Key);
 
   _data.Sort(

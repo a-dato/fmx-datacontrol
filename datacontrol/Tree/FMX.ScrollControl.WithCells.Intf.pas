@@ -317,7 +317,7 @@ type
     function  ColumnList: IDCTreeColumnList;
     function  GetItemType: &Type;
 
-
+    {$IFDEF DEBUG}
     procedure S0;
     procedure S1;
     procedure S2;
@@ -326,6 +326,7 @@ type
     procedure E1(Pause: Boolean = False);
     procedure E2(Pause: Boolean = False);
     procedure E3(Pause: Boolean = False);
+    {$ENDIF}
 
     function  RadioInsteadOfCheck: Boolean;
 
@@ -338,21 +339,6 @@ type
     property AutoExtraColumnSizeMax: Single read get_AutoExtraColumnSizeMax write set_AutoExtraColumnSizeMax;
     property CellTopBottomPadding: Single read get_CellTopBottomPadding write set_CellTopBottomPadding;
     property CellLeftRightPadding: Single read get_CellLeftRightPadding write set_CellLeftRightPadding;
-  end;
-
-  ITreeSortDescription = interface
-    ['{DABA6714-B9EB-43B8-B2D5-8B8E081D8F43}']
-  end;
-
-  ITreeFilterDescription = interface(IListFilterDescription)
-    ['{D676B9AB-6BAE-45F1-A27E-D046E6C004AA}']
-    function  get_filterText: CString;
-    procedure set_filterText(const Value: CString);
-    function  get_filterValues: List<CObject>;
-    procedure set_filterValues(const Value: List<CObject>);
-
-    property FilterText: CString read get_filterText write set_filterText;
-    property FilterValues: List<CObject> read get_filterValues write set_filterValues;
   end;
 
   TColumnContainsData = (Unknown, No, Yes);

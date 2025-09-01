@@ -216,10 +216,13 @@ type
 
 implementation
 
-{$IFNDEF WEBASSEMBLY}
 uses
-  System.Math, FMX.ControlCalculations;
-{$ENDIF}
+  {$IFNDEF WEBASSEMBLY}
+  System.Math, 
+  {$ELSE}
+  Wasm.System.Math,
+  {$ENDIF}
+  FMX.ControlCalculations;
 
 { TScrollControl }
 
@@ -970,7 +973,7 @@ begin
     _mouseWheelCycle := 0;
   end;
 
-  var scrollDown := _mouseWheelDistanceToGo + YChange < 0;
+//  var scrollDown := _mouseWheelDistanceToGo + YChange < 0;
   var oneRowHeight := IfThen(YChange < 0, -YChange, YChange);
 
   var tryGoImmediate: Boolean;
@@ -1064,12 +1067,14 @@ begin
   Result := Key = 0;
 end;
 
+{$IFDEF DEBUG}
 procedure TScrollControl.TurnWheel;
 begin
   var Handled: Boolean := False;
 
   MouseWheel([], -120, Handled);
 end;
+{$ENDIF}
 
 procedure TScrollControl.RequestRealignContent;
 begin

@@ -1,4 +1,7 @@
-﻿{$I Adato.inc}
+﻿{$IFNDEF WEBASSEMBLY}
+{$I Adato.inc}
+{$ENDIF}
+
 unit ADato.ObjectModel.List.Tracking.impl;
 
 interface
