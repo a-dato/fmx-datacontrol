@@ -2925,10 +2925,10 @@ function TScrollControlWithCells.CellHasData(const Cell: IDCTreeCell): Boolean;
       Exit(False);
 
     case CtrlClass of
-      Text: Exit((Cell.InfoControl as ICaption).Text <> '');
-      CheckBox: Exit((Cell.InfoControl as IIsChecked).IsChecked);
-      Button: Exit((Ctrl as TFastButton).ImageIndex <> -1);
-      Glyph: Exit((Ctrl as TGlyph).ImageIndex <> -1);
+      TInfoControlClass.Text: Exit((Cell.InfoControl as ICaption).Text <> '');
+      TInfoControlClass.CheckBox: Exit((Cell.InfoControl as IIsChecked).IsChecked);
+      TInfoControlClass.Button: Exit((Ctrl as TFastButton).ImageIndex <> -1);
+      TInfoControlClass.Glyph: Exit((Ctrl as TGlyph).ImageIndex <> -1);
     end;
 
     Result := True;

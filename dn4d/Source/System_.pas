@@ -1690,6 +1690,11 @@ type
 
   IBaseInterface = interface(IDisposable)
     ['{C17D64DB-975D-4AB2-96C2-71E35E9F692D}']
+
+    {$IFDEF APP_PLATFORM}
+    function AsType(const Value: &Type) : CObject;
+    {$ENDIF}
+
     function getRefCount: Integer;
     function GetHashCode: Integer;
     function GetObject: TObject;
@@ -1831,6 +1836,7 @@ type
   )
   {$IFDEF APP_PLATFORM}
   protected
+    function AsType(const Value: &Type) : CObject; virtual;
     function QueryInterface(const IID: TGUID; out Obj): HResult; virtual; stdcall;
     function _AddRef: Integer; virtual; stdcall;
     function _Release: Integer; virtual; stdcall;
@@ -4808,6 +4814,20 @@ end;
 {$ENDIF}
 
 {$IFDEF APP_PLATFORM}
+function TBaseInterfacedObject.AsType(const Value: &Type) : CObject;
+begin
+  var ii: IInterface;
+  if Value.IsInterfaceType and (QueryInterface(Value.Guid, ii) = S_OK) then
+  begin
+    var v: TValue;
+    TValue.Make(@ii, Value.GetTypeInfo, v);
+    Result.FValue := v;
+    Exit;
+  end;
+
+  raise InvalidCastException.Create('cast to: ''' +  Value.Name + ''' failed');
+end;
+
 function TBaseInterfacedObject.QueryInterface(const IID: TGUID; out Obj): HResult;
 begin
   Result := inherited QueryInterface(IID, Obj);

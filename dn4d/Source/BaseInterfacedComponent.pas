@@ -11,6 +11,10 @@ type
     TComponent,
     IBaseInterface)
   protected
+    {$IFDEF APP_PLATFORM}
+    function AsType(const Value: &Type) : CObject;
+    {$ENDIF}
+
     // Dummy implementation for IBaseInterface methods
     function  getRefCount: Integer;
     procedure DefineProperties(Filer: TFiler); override;
@@ -29,7 +33,14 @@ implementation
 uses System.Runtime.Serialization;
 
 { TBaseInterfacedComponent }
-function  TBaseInterfacedComponent.getRefCount: Integer;
+{$IFDEF APP_PLATFORM}
+function TBaseInterfacedComponent.AsType(const Value: &Type) : CObject;
+begin
+
+end;
+{$ENDIF}
+
+function TBaseInterfacedComponent.getRefCount: Integer;
 begin
   Result := -1;
 end;
