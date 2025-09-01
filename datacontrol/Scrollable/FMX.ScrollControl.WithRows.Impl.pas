@@ -582,11 +582,14 @@ destructor TScrollControlWithRows.Destroy;
 begin
 //  AtomicIncrement(_viewChangedIndex);
 
-  _view := nil;
-
   // remove events
   if _model <> nil then
-    set_Model(nil);
+    set_Model(nil)
+  else if _dataModelView <> nil then
+    set_DataModelView(nil)
+  else
+    set_DataList(nil);
+
 
   inherited;
 end;
@@ -3097,13 +3100,18 @@ end;
 
 procedure TScrollControlWithRows.AddFilterDescription(const Filter: IListFilterDescription; const ClearOtherFlters: Boolean);
 begin
-  var filters: List<IListFilterDescription>;
-  if ClearOtherFlters or (_view = nil) or (_view.GetFilterDescriptions = nil) then
-    filters := CList<IListFilterDescription>.Create else
-    filters := _view.GetFilterDescriptions;
+  var filters: List<IListFilterDescription> := CList<IListFilterDescription>.Create;
 
   if Filter <> nil then
     filters.Add(Filter);
+
+  if (_view <> nil) and (_view.GetFilterDescriptions <> nil) then
+  begin
+    var filterDescription: IListFilterDescription;
+    for filterDescription in _view.GetFilterDescriptions do
+      if not ClearOtherFlters or not Interfaces.Supports<ITreeFilterDescription>(filterDescription) {external sort} then
+        filters.Add(filterDescription);
+  end;
 
   GetInitializedWaitForRefreshInfo.FilterDescriptions := filters;
 
@@ -3114,13 +3122,17 @@ end;
 
 procedure TScrollControlWithRows.AddSortDescription(const Sort: IListSortDescription; const ClearOtherSort: Boolean);
 begin
-  var sorts: List<IListSortDescription>;
-  if ClearOtherSort or (_view = nil) or (_view.GetSortDescriptions = nil) then
-    sorts := CList<IListSortDescription>.Create else
-    sorts := _view.GetSortDescriptions;
-
+  var sorts: List<IListSortDescription> := CList<IListSortDescription>.Create;
   if Sort <> nil then
-    sorts.Insert(0, Sort);  // make it the most important sort
+    sorts.Add(Sort);
+
+  if (_view <> nil) and (_view.GetSortDescriptions <> nil) then
+  begin
+    var sortDescription: IListSortDescription;
+    for sortDescription in _view.GetSortDescriptions do
+      if not ClearOtherSort or not Interfaces.Supports<ITreeSortDescription>(sortDescription) {external sort} then
+        sorts.Add(sortDescription);
+  end;
 
   GetInitializedWaitForRefreshInfo.SortDescriptions := sorts;
 

@@ -12,6 +12,7 @@ uses
   System.ComponentModel,
   System.Collections.Generic,
   FMX.ScrollControl.View.Intf,
+  FMX.ScrollControl.WithRows.Intf,
   FMX.ScrollControl.WithCells.Intf,
   FMX.ScrollControl.WithCells.Impl;
 

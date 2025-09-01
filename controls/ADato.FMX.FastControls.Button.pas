@@ -14,7 +14,9 @@ uses
   FMX.ActnList,
   FMX.Types,
   FMX.Layouts,
-  FMX.TabControl, FMX.Graphics;
+  FMX.TabControl,
+  FMX.Graphics,
+  System.ImageList;
 
 type
   TButtonType = (None, Positive, Negative, Emphasized);
@@ -199,12 +201,14 @@ type
     _showUnderline: Boolean;
     _translatable: Boolean;
     _underlineType: TUnderlineType;
-    _images: TCustomImageList;
+//    _images: TCustomImageList;
     _recalcNeeded: Boolean;
     _waitForRepaint: Boolean;
     _mouseIsDown: Boolean;
     _autoWidth: Boolean;
     _contentHorzAlign: TTextAlign;
+
+    _imagesLink: TImageLink;
 
     procedure set_ButtonType(const Value: TButtonType);
     procedure set_EmphasizePicture(const Value: Boolean);
@@ -221,6 +225,7 @@ type
     procedure set_AutoWidth(const Value: Boolean);
     function  get_ContentHorzAlign: TTextAlign;
     procedure set_ContentHorzAlign(const Value: TTextAlign);
+    procedure set_Images(const Value: TCustomImageList);
 
   protected
     function  get_Images: TCustomImageList; override;
@@ -255,6 +260,7 @@ type
 
   public
     constructor Create(AOwner: TComponent); override;
+    destructor Destroy; override;
 
     procedure PrepareForPaint; override;
     function  CalcWidth: Single;
@@ -262,7 +268,7 @@ type
     property IsChecked: Boolean read GetIsChecked write SetIsChecked;
 
   published
-    property Images: TCustomImageList read get_Images write _images;
+    property Images: TCustomImageList read get_Images write set_Images;
     property ImagePosition: TImagePosition read get_ImagePosition write set_ImagePosition default Center;
     property ImagePositionMargin: Integer read get_imagePositionMargin write set_ImagePositionMargin default -1;
     property ImageIndex: Integer read get_imageIndex write set_ImageIndex;
@@ -711,12 +717,15 @@ begin
     Exit;
 
   var bitmap := GetBitmap(get_Images, bitmapSize, _imageIndex);
-
-  if bitmap <> nil then
-  begin
-    var bitmapRect := TRectF.Create(0, 0, Bitmap.Width, Bitmap.Height);
-    var imgRect := TRectF.Create(CenteredRect(_imageBounds.Round, TRectF.Create(0, 0, Bitmap.Width / ScreenScale, Bitmap.Height/ ScreenScale).Round));
-    Canvas.DrawBitmap(Bitmap, BitmapRect, imgRect, IfThen(Enabled, 1, 0.6), False);
+  try
+    if bitmap <> nil then
+    begin
+      var bitmapRect := TRectF.Create(0, 0, Bitmap.Width, Bitmap.Height);
+      var imgRect := TRectF.Create(CenteredRect(_imageBounds.Round, TRectF.Create(0, 0, Bitmap.Width / ScreenScale, Bitmap.Height/ ScreenScale).Round));
+      Canvas.DrawBitmap(Bitmap, BitmapRect, imgRect, IfThen(Enabled, 1, 0.6), False);
+    end;
+  finally
+    bitmap.Free;
   end;
 end;
 
@@ -895,6 +904,8 @@ begin
   _contentHorzAlign := TTextAlign.Leading;
 
   ImagePositionMargin := 3;
+
+  _imagesLink := TImageLink.Create;
 end;
 
 procedure TFastButton.DoPaint;
@@ -991,7 +1002,7 @@ end;
 
 function TFastButton.get_Images: TCustomImageList;
 begin
-  Result := _images;
+  Result := TCustomImageList(_imagesLink.Images);
 end;
 
 function TFastButton.get_Radius: Single;
@@ -1098,6 +1109,12 @@ begin
   RepaintNeeded;
 end;
 
+destructor TFastButton.Destroy;
+begin
+  FreeAndNil(_imagesLink);
+  inherited;
+end;
+
 procedure TFastButton.DoMouseLeave;
 begin
   inherited;
@@ -1144,8 +1161,8 @@ end;
 
 procedure TFastButton.set_ImageIndex(const Value: Integer);
 begin
-  if (Length(get_ImageName) = 0) and (_images <> nil) then
-    set_ImageName(_images.Source.Items[Value].Name);
+  if (Length(get_ImageName) = 0) and (_imagesLink.Images <> nil) then
+    set_ImageName(get_Images.Source.Items[Value].Name);
 end;
 
 procedure TFastButton.set_ImagePosition(const Value: TImagePosition);
@@ -1156,6 +1173,11 @@ end;
 procedure TFastButton.set_ImagePositionMargin(const Value: Integer);
 begin
   _config.ImagePositionMargin := Value;
+end;
+
+procedure TFastButton.set_Images(const Value: TCustomImageList);
+begin
+  _imagesLink.Images := Value;
 end;
 
 procedure TFastButton.set_ShowUnderline(const Value: Boolean);

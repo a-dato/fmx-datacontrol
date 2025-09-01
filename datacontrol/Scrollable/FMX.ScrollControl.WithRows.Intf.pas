@@ -191,6 +191,21 @@ type
     class function CreateFrom(const Index: Integer; const OneRowOnly, RecalcSortedRows: Boolean; const Existing: TResetViewRec): TResetViewRec; static;
   end;
 
+  ITreeSortDescription = interface
+    ['{DABA6714-B9EB-43B8-B2D5-8B8E081D8F43}']
+  end;
+
+  ITreeFilterDescription = interface(IListFilterDescription)
+    ['{D676B9AB-6BAE-45F1-A27E-D046E6C004AA}']
+    function  get_filterText: CString;
+    procedure set_filterText(const Value: CString);
+    function  get_filterValues: List<CObject>;
+    procedure set_filterValues(const Value: List<CObject>);
+
+    property FilterText: CString read get_filterText write set_filterText;
+    property FilterValues: List<CObject> read get_filterValues write set_filterValues;
+  end;
+
   IWaitForRepaintInfo = interface
     ['{BA3C974D-09FF-42BD-887F-0D4523D8BDF1}']
     function  get_RowStateFlags: TTreeRowStateFlags;
