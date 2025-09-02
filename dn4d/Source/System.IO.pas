@@ -883,8 +883,6 @@ begin
   if (not self._checkPreamble) then
     self.byteLen := 0;
   repeat
-    Assert(False);
-
     if (self._checkPreamble) then
     begin
       num := self.stream.Read(self.byteBuffer, self.bytePos, (Length(self.byteBuffer) - self.bytePos));
@@ -943,12 +941,6 @@ begin
     Result := builder.ToString;
     exit
   end
-
-
-//  SetLength(bytes, stream.Size);
-//  _stream.Read(Pointer(bytes)^, 0, stream.Size);
-//
-//  Result := CString.Create(bytes, 0, stream.Size div SizeOf(Char));
 end;
 
 function UnmanagedMemoryStream.get_PositionPointer: PByte;
