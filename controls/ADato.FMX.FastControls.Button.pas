@@ -42,7 +42,6 @@ type
     _reselectable: Boolean;
     _tagItem: CObject;
     _rowNumber: Integer;
-//    _fitsInParent: Boolean;
 
     _hoverSide, _hover: Boolean;
     _tagIndex: Integer;
@@ -62,6 +61,8 @@ type
     procedure set_TagType(const Value: TTagType);
     function  get_SubText: string;
     procedure set_SubText(const Value: string);
+    function  get_SwabTextSubText: Boolean;
+    procedure set_SwabTextSubText(const Value: Boolean);
     function  get_ImageName: string;
     procedure set_ImageName(const Value: string);
 
@@ -71,7 +72,6 @@ type
 
     function  get_Radius: Single; virtual;
     function  get_Images: TCustomImageList; virtual; abstract;
-
 
     procedure SetPadding(const Left, Top: Single);
 
@@ -89,7 +89,7 @@ type
 
     procedure DoPaint; override;
 
-    function  CheckHoveredChanged(const ParentPoint: TPointF): Boolean;
+    function  CheckHoveredChanged(const ParentPoint: TPointF): Boolean; virtual;
     function  CheckClicked(const ParentPoint: TPointF): Boolean; virtual;
     function  GetPaintOpacity: Single;
 
@@ -119,6 +119,7 @@ type
   public
     property Text: string read GetText write SetText;
     property SubText: string read get_SubText write set_SubText;
+    property SwabTextSubText: Boolean read get_SwabTextSubText write set_SwabTextSubText default False;
     property TagType: TTagType read get_TagType;
     property ImageName: string read get_ImageName write set_ImageName;
     property Config: TFastButtonConfig read _config;
@@ -134,6 +135,7 @@ type
     _id: string;
     _text: string;
     _subText: string;
+    _swabTextSubText: Boolean;
     _imagename: string;
     _imageSizeInt: Single;
     _imagePosition: TImagePosition;
@@ -164,9 +166,11 @@ type
     procedure set_FontColor(const Value: TAlphaColor);
     procedure set_FontSize(const Value: Single);
     procedure set_FontStyles(const Value: TFontStyles);
+    procedure set_SwabTextSubText(const Value: Boolean);
 
   protected
     procedure AskForRecalc(ChangeType: TChangeType);
+
   public
     constructor Create(Collection: TCollection); override;
     destructor Destroy; override;
@@ -182,12 +186,14 @@ type
     property ID: string read _id write _id;
     property Text: string read _text write SetText;
     property SubText: string read get_SubText write set_SubText;
-    property Imagename: string read _imagename write set_Imagename;
-    property ImagePosition: TImagePosition read _imagePosition write set_ImagePosition;
-    property ImagePositionMargin: Integer read _imagePositionMargin write set_ImagePositionMargin;
+    property SwabTextSubText: Boolean read _swabTextSubText write set_SwabTextSubText default False;
 
-    property TagType: TTagType read _tagType write set_TagType;
-    property DrawLineLeft: Boolean read _drawLineLeft write set_DrawLineLeft;
+    property Imagename: string read _imagename write set_Imagename;
+    property ImagePosition: TImagePosition read _imagePosition write set_ImagePosition default TImagePosition.Left;
+    property ImagePositionMargin: Integer read _imagePositionMargin write set_ImagePositionMargin default 3;
+
+    property TagType: TTagType read _tagType write set_TagType default TTagType.NoBounds;
+    property DrawLineLeft: Boolean read _drawLineLeft write set_DrawLineLeft default False;
 
     property TabItem: TTabItem read _tabItem write _tabItem;
     property Innertagscontrol: TCustomADatoTagRunTimeControl read _innertagscontrol write set_Innertagscontrol;
@@ -251,6 +257,7 @@ type
     procedure RepaintNeeded;
     procedure OnConfigRequestRecalc(const ADatoClickLayout: TADatoClickLayout; const ChangeType: TChangeType);
 
+    procedure PaddingChanged; override;
     function  GetSidePadding: Single;
 
     // IIsChecked
@@ -285,6 +292,7 @@ type
     property Action;
     property Text;
     property SubText;
+    property SwabTextSubText;
     property ImageName;
   end;
 
@@ -369,6 +377,7 @@ begin
 //    NoBounds: offSet := 0;
   end;
 
+  var yOffSet := 0.0;
   if HasImage then
   begin
     var imgSize := _config.ImageSizeInt;
@@ -380,6 +389,7 @@ begin
         w := w + _config.ImagePositionMargin;
     end
     else begin
+      h := h + Padding.Top + Padding.Bottom;
       h := h + imgSize + IfThen(HasText, _config.ImagePositionMargin, 0);
       w := System.Math.Min(System.Math.Max(w, imgSize), Self.Width);
     end;
@@ -435,16 +445,13 @@ begin
       end;
       TImagePosition.Top: begin
         var xStart := offSet + (w-imgSize)/2;
-        _imageBounds := RectF(xStart, 0, xStart + imgSize, imgSize);
+        _imageBounds := RectF(xStart, Padding.Top, xStart + imgSize, Padding.Top + imgSize);
       end;
       TImagePosition.Bottom: begin
         var xStart := offSet + (w-imgSize)/2;
-        _imageBounds := RectF(xStart, _innerBounds.Bottom - imgSize, xStart + imgSize, _innerBounds.Bottom);
+        _imageBounds := RectF(xStart, _innerBounds.Bottom - imgSize - Padding.Bottom, xStart + imgSize, _innerBounds.Bottom - Padding.Bottom);
       end;
       TImagePosition.Center: begin
-//        if Self.Align in [TAlignLayout.Client, TAlignLayout.Top, TAlignLayout.MostTop, TAlignLayout.Bottom, TAlignLayout.MostBottom] then
-//          w := Self.Width;
-
         var xStart := offSet + (w-imgSize)/2;
         var yStart := System.Math.Max(0, (h-imgSize) / 2);
         _imageBounds := RectF(xStart, yStart, xStart + imgSize, yStart + imgSize);
@@ -479,13 +486,19 @@ begin
     else if _config.ImagePosition = TImagePosition.Top then
       _textBounds := RectF(offSet, _imageBounds.Bottom + _config.ImagePositionMargin, offSet + wLeft, _imageBounds.Bottom + _config.ImagePositionMargin + textHeight)
     else // bottom
-      _textBounds := RectF(offSet, 0, offSet + wLeft, textHeight);
+      _textBounds := RectF(offSet, Padding.Top, offSet + wLeft, Padding.Top + textHeight);
   end else
     _textBounds := TRectF.Empty;
 
   if HasSubText then
     _subTextBounds := RectF(_textBounds.Left, _textBounds.Bottom - 3, _textBounds.Right, _textBounds.Bottom - 3 + subTextHeight) else
     _subTextBounds := TRectF.Empty;
+
+  if _config.SwabTextSubText and HasText and HasSubText then
+  begin
+    _subTextBounds.Offset(0, _textBounds.Top - _subTextBounds.Top);
+    _textBounds.Offset(0, _subTextBounds.Bottom - 3);
+  end;
 end;
 
 function TADatoClickLayout.CheckClicked(const ParentPoint: TPointF): Boolean;
@@ -507,7 +520,7 @@ begin
 
   var mouseOnTag := BoundsRect.Contains(ParentPoint);
 
-  if (_hover <> mouseOnTag) and (_isAddTag or HasButtonEvent) then
+  if (_hover <> (mouseOnTag and Enabled)) and (_isAddTag or HasButtonEvent) then
   begin
     _hover := not _hover;
     Result := True;
@@ -569,6 +582,11 @@ begin
   Result := _config.SubText;
 end;
 
+function TADatoClickLayout.get_SwabTextSubText: Boolean;
+begin
+  Result := _config.SwabTextSubText;
+end;
+
 function TADatoClickLayout.get_TagType: TTagType;
 begin
   Result := _config.TagType;
@@ -613,6 +631,11 @@ end;
 procedure TADatoClickLayout.set_SubText(const Value: string);
 begin
   _config.SubText := Value;
+end;
+
+procedure TADatoClickLayout.set_SwabTextSubText(const Value: Boolean);
+begin
+  _config.SwabTextSubText := Value;
 end;
 
 procedure TADatoClickLayout.SetText(const Value: string);
@@ -721,7 +744,7 @@ begin
     if bitmap <> nil then
     begin
       var bitmapRect := TRectF.Create(0, 0, Bitmap.Width, Bitmap.Height);
-      var imgRect := TRectF.Create(CenteredRect(_imageBounds.Round, TRectF.Create(0, 0, Bitmap.Width / ScreenScale, Bitmap.Height/ ScreenScale).Round));
+      var imgRect := _imageBounds.Round; //TRectF.Create(CenteredRect(_imageBounds.Round, TRectF.Create(0, 0, Bitmap.Width / ScreenScale, Bitmap.Height/ ScreenScale).Round));
       Canvas.DrawBitmap(Bitmap, BitmapRect, imgRect, IfThen(Enabled, 1, 0.6), False);
     end;
   finally
@@ -912,11 +935,11 @@ procedure TFastButton.DoPaint;
 begin
   _waitForRepaint := False;
 
-  var outerRect := RectF(Margins.Left, Margins.Top, Width - Margins.Left - Margins.Right, Height - Margins.Top - Margins.Bottom);
+  var outerRect := RectF(0, 0, Width, Height);
   if _buttonType = TButtonType.Emphasized then
   begin
-    Canvas.Fill.Color := TAlphaColor($3399ACCF);
-    Canvas.FillRect(outerRect, 3, 3, AllCorners, GetPaintOpacity);
+    Canvas.Fill.Color := TAlphaColor($FF4E6CA3);
+    Canvas.FillRect(outerRect, 3, 3, AllCorners, GetPaintOpacity * 0.4);
   end
   else if _buttonType = TButtonType.Positive then
   begin
@@ -951,7 +974,7 @@ begin
   end
   else if _buttonType = TButtonType.Negative then
   begin
-    Canvas.Stroke.Color := TAlphaColor($FF99ACCF);
+    Canvas.Stroke.Color := TAlphaColor($FF37539E) ;//99ACCF);
     Canvas.DrawRect(outerRect, 3, 3, AllCorners, GetPaintOpacity);
   end;
 
@@ -1060,6 +1083,12 @@ begin
     ControlAdded: ;
     ControlRemoved: ;
   end;
+end;
+
+procedure TFastButton.PaddingChanged;
+begin
+  inherited;
+  RecalcNeeded;
 end;
 
 procedure TFastButton.Painting;
@@ -1333,6 +1362,15 @@ begin
     _subText := Value;
     AskForRecalc(TChangeType.DoRecalc);
   end;
+end;
+
+procedure TFastButtonConfig.set_SwabTextSubText(const Value: Boolean);
+begin
+  if _swabTextSubText <> Value then
+  begin
+    _swabTextSubText := Value;
+    AskForRecalc(TChangeType.DoRecalc);
+  end
 end;
 
 procedure TFastButtonConfig.set_TagType(const Value: TTagType);

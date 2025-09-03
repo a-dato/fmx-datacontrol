@@ -42,7 +42,6 @@ contains
   ADato.FMX.ComboMultiBox in '..\..\Controls\ADato.FMX.ComboMultiBox.pas',
   ADato.FMX.ComboMultiBox.PopupMenu in '..\..\Controls\ADato.FMX.ComboMultiBox.PopupMenu.pas',
   FMX.ControlCalculations in '..\..\Controls\FMX.ControlCalculations.pas',
-
   FMX.ScrollControl.Intf in '..\Scrollable\FMX.ScrollControl.Intf.pas',
   FMX.ScrollControl.Impl in '..\Scrollable\FMX.ScrollControl.Impl.pas',
   FMX.ScrollControl.View.Intf in '..\Scrollable\FMX.ScrollControl.View.Intf.pas',
@@ -51,7 +50,6 @@ contains
   FMX.ScrollControl.WithRows.Impl in '..\Scrollable\FMX.ScrollControl.WithRows.Impl.pas',
   FMX.ScrollControl.Events in '..\Scrollable\FMX.ScrollControl.Events.pas',
   FMX.ScrollControl.ControlClasses in '..\Scrollable\FMX.ScrollControl.ControlClasses.pas',
-
   FMX.ScrollControl.SortAndFilter in '..\Tree\FMX.ScrollControl.SortAndFilter.pas',
   FMX.ScrollControl.WithCells.Intf in '..\Tree\FMX.ScrollControl.WithCells.Intf.pas',
   FMX.ScrollControl.WithCells.Impl in '..\Tree\FMX.ScrollControl.WithCells.Impl.pas',

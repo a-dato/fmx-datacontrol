@@ -3155,7 +3155,7 @@ begin
     var cellHeight: Single;
     if not isSingleLine or (_singleLineHeight = -1) then
     begin
-      cellHeight := TextControlHeight(txt, txt.TextSettings, TextForSizeCalc(txt.Text), -1, -1, maxWidth);
+      cellHeight := txt.TextHeight; // TextControlHeight(txt, txt.TextSettings, TextForSizeCalc(txt.Text), -1, -1, maxWidth);
       if isSingleLine then
         _singleLineHeight := cellHeight;
     end
@@ -4303,7 +4303,7 @@ begin
       spaceUsed := indentPerLevel * (cell.Row.ParentCount {can be 0});
   end;
 
-  var textCtrlHeight: SIngle;
+  var textCtrlHeight: Single;
   if Cell.IsHeaderCell then
     textCtrlHeight := Cell.Row.Control.Height
   else begin
@@ -4322,10 +4322,24 @@ begin
   if validSub then
   begin
     var validMain := (Cell.InfoControl <> nil) and Cell.InfoControl.Visible;
-    if validMain then
-      textCtrlHeight := textCtrlHeight / 2;
 
-    Cell.SubInfoControl.Height := textCtrlHeight;
+    var subHeight: single;
+    if validMain then
+    begin
+      textCtrlHeight := textCtrlHeight / 2;
+      subHeight := textCtrlHeight;
+      if Cell.SubInfoControl is TFastText then
+      begin
+        var h := (Cell.SubInfoControl as TFastText).TextHeight;
+        if h < textCtrlHeight then
+        begin
+          subHeight := h;
+          textCtrlHeight := textCtrlHeight + (textCtrlHeight - h);
+        end;
+      end;
+    end;
+
+    Cell.SubInfoControl.Height := subHeight;
 
     if Cell.CustomSubInfoControlBounds.IsEmpty then
     begin
@@ -4380,11 +4394,14 @@ begin
 
     TInfoControlClass.Text: begin
       var txt := DataControlClassFactory.CreateText(Cell.Control);
-      var settings: ITextSettings := txt as ITextSettings;
-      settings.TextSettings.HorzAlign := TTextAlign.Leading;
-      settings.TextSettings.VertAlign := TTextAlign.Center;
-      settings.TextSettings.WordWrap := False;
+      txt.MaxWidth := Cell.Column.WidthMax - (Cell.Column.TreeControl.CellLeftRightPadding * 2); // can be 0
+      if (Cell.Column.WidthType <> TDCColumnWidthType.AlignToContent) or (Cell.Column.WidthMax > 0) then
+        txt.Trimming := TTextTrimming.Character else
+        txt.Trimming := TTextTrimming.None;
 
+      txt.HorzTextAlign := TTextAlign.Leading;
+      txt.VertTextAlign := TTextAlign.Center;
+      txt.WordWrap := False;
       txt.HitTest := False;
       txt.Align := TAlignLayout.None;
 
@@ -4925,7 +4942,7 @@ begin
     end;
 
   var widthLeft := _columnsControl.Content.Width - minimumTotalWidth;
-  Assert(widthLeft >= 0);
+  Assert(Ceil(widthLeft) >= 0);
 
   var potentialCount := 0;
   var lyClmn: IDCTreeLayoutColumn;

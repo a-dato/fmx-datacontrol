@@ -661,16 +661,22 @@ procedure TDataModelObjectListModel.ResetContextFromChangedItems;
               _dataModel.Remove(dr);
 
             // re-index
-            if rowInfo.Position <> InsertPosition.None {_dataModel.FindByKey(rowInfo.Location) <> nil} then
+            if (rowInfo.Position <> InsertPosition.None) then
             begin
-              _dataModel.Add(obj, rowInfo.Location {can be nil}, rowInfo.Position);
+              if (_dataModel.FindByKey(rowInfo.Location) <> nil) then
+                _dataModel.Add(obj, rowInfo.Location {can be nil}, rowInfo.Position) else
+                _dataModel.Add(obj, nil, rowInfo.Position);
+
               foundItems.Add(obj);
             end;
           end;
           TObjectListChangeType.Removed:
-            if rowInfo.Position <> InsertPosition.None {_dataModel.FindByKey(rowInfo.Location) <> nil} then
+            if (rowInfo.Position <> InsertPosition.None) then
             begin
-              _dataModel.Add(obj, rowInfo.Location {can be nil}, rowInfo.Position);
+              if (_dataModel.FindByKey(rowInfo.Location) <> nil) then
+                _dataModel.Add(obj, rowInfo.Location {can be nil}, rowInfo.Position) else
+                _dataModel.Add(obj, nil, rowInfo.Position);
+
               foundItems.Add(obj);
             end;
         end;

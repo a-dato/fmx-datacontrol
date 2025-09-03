@@ -858,7 +858,7 @@ begin
 
       (newCell.InfoControl as IIsChecked).IsChecked := not (newCell.InfoControl as IIsChecked).IsChecked;
     end
-    else if (ssDouble in Shift) and not _editingInfo.CellIsEditing then
+    else if ((ssDouble in Shift) or (crrntCell = newCell)) and not _editingInfo.CellIsEditing then
       StartEditCell(newCell);
   end;
 end;

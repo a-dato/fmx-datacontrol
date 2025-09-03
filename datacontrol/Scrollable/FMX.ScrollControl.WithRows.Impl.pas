@@ -1090,6 +1090,8 @@ end;
 function TScrollControlWithRows.SelectionCount: Integer;
 begin
   Result := _selectionInfo.SelectedRowCount;
+  if (Result = 0) and (_selectionInfo.DataItem <> nil) then
+    Result := 1;
 end;
 
 procedure TScrollControlWithRows.SelectItem(const DataItem: CObject; ClearOtherSelections: Boolean = False);

@@ -200,6 +200,7 @@ end;
 function TDataControlClassFactory.CreateText(const Owner: TComponent): TFastText;
 begin
   Result := TFastText.Create(Owner);
+  Result.VertTextAlign := TTextAlign.Center;
 end;
 
 procedure TDataControlClassFactory.HandleRowBackground(const RowRect: TRectangle; Alternate: Boolean);

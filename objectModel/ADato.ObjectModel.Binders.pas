@@ -52,8 +52,7 @@ uses
   System.Collections.Generic
   {$IFDEF APP_PLATFORM}
   , App.PropertyDescriptor.intf
-  {$ENDIF}
-  ;
+  {$ENDIF};
 
 type
   IControlBinding = interface(IBaseInterface)
