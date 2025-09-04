@@ -118,7 +118,7 @@ type
 
     procedure UpdateVirtualYPositions(const TopVirtualYPosition: Single; const ToViewIndex: Integer = -1);
 
-    procedure DoViewLoadingStart(const startY, StopY: Single);
+    procedure DoViewLoadingStart(const startY, StopY: Single; preferedReferenceIndex: Integer = -1);
     procedure DoViewLoadingFinished;
     procedure CreateAndSynchronizeSynchronizerRow(const Row: IDCRow);
     procedure UpdateRowHeightSynchronizerScrollbar;
@@ -1788,6 +1788,26 @@ begin
 
   inherited;
 
+  // check if selection in current scrollbar value range!!
+  if _mustShowSelectionInRealign then
+  begin
+    var dummyItem: CObject;
+    var virtualYPos: Single;
+    _view.GetSlowPerformanceRowInfo(_selectionInfo.ViewListIndex, dummyItem, virtualYPos);
+
+    if (virtualYPos < _vertScrollBar.Value) or (virtualYPos + _view.GetRowHeight(_selectionInfo.ViewListIndex) >= _vertScrollBar.Value + _vertScrollBar.ViewportSize) then
+    begin
+      inc(_scrollUpdateCount);
+      try
+        if (virtualYPos < _vertScrollBar.Value) then
+          _vertScrollBar.Value := virtualYPos else
+          _vertScrollBar.Value := virtualYPos + _view.GetRowHeight(_selectionInfo.ViewListIndex) - _vertScrollBar.ViewportSize;
+      finally
+        dec(_scrollUpdateCount);
+      end;
+    end;
+  end;
+
   // if not in edit mode, the view will be reset
   // otherwise nothing is done till the endedit is called
   if _resetViewRec.DoResetView then
@@ -2321,7 +2341,6 @@ begin
   // must be below bestDefault/bestFixed
   _view.Prepare(get_rowHeightDefault);
 
-
   if _waitForRepaintInfo = nil then
     Exit;
 
@@ -2554,12 +2573,12 @@ begin
   Result := _selectionInfo.IsSelected(_view.GetDataIndex(ix));
 end;
 
-procedure TScrollControlWithRows.DoViewLoadingStart(const startY, StopY: Single);
+procedure TScrollControlWithRows.DoViewLoadingStart(const startY, StopY: Single; preferedReferenceIndex: Integer = -1);
 begin
   _scrollbarMaxChangeSinceViewLoading := 0;
   _scrollbarRefToTopHeightChangeSinceViewLoading := 0;
 
-  _view.ViewLoadingStart(startY, StopY);
+  _view.ViewLoadingStart(startY, StopY, preferedReferenceIndex);
   if IsMasterSynchronizer then
   begin
     _rowHeightSynchronizer._realignState := TRealignState.Realigning;
@@ -2661,7 +2680,7 @@ begin
     var goMaster := TryStartMasterSynchronizer;
     try
 
-      DoViewLoadingStart(startY, StopY);
+      DoViewLoadingStart(startY, StopY, preferedReferenceIndex);
       try
         var topVirtualYPosition: Single := -1;
         var selectedRowIsAtBottom: Boolean := False;
@@ -2780,6 +2799,16 @@ begin
      Exit;
   end;
 
+  if ViewIsDataModelView then
+  begin
+    inc(_internalSelectCount);
+    try
+      GetDataModelView.CurrencyManager.Current := -1;
+    finally
+      dec(_internalSelectCount);
+    end;
+  end;
+
   _view.ResetView(FromViewListIndex, ClearOneRowOnly);
   if (_rowHeightSynchronizer <> nil) and not SyncIsMasterSynchronizer and (_rowHeightSynchronizer.View <> nil) then
       _rowHeightSynchronizer.View.ResetView(FromViewListIndex, ClearOneRowOnly);
@@ -2875,7 +2904,7 @@ begin
           _vertScrollBar.Value := CMath.Max(virtualYPos, 0)
         else if virtualYPos+h > _vertScrollBar.Value + _vertScrollBar.ViewportSize then
           _vertScrollBar.Value := CMath.Max(virtualYPos+h - _vertScrollBar.ViewportSize, 0);
-                                                                                     
+
         UpdateRowHeightSynchronizerScrollbar;
         RealignFromSelectionChange;
       finally

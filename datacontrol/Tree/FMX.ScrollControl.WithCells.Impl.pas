@@ -165,6 +165,8 @@ type
   protected
     _totalColumnWidth: Single;
     _singleLineHeight: SIngle;
+    _fullHeaderClick: Boolean;
+
 //    _fullRepositionCellsNeeded: Boolean;
 
     procedure FastColumnAlignAfterColumnChange;
@@ -189,6 +191,7 @@ type
     function  TrySelectItem(const RequestedSelectionInfo: IRowSelectionInfo; Shift: TShiftState): Boolean; override;
 
     procedure UserClicked(Button: TMouseButton; Shift: TShiftState; const X, Y: Single); override;
+    procedure OnHeaderClick(Sender: TObject);
     procedure OnHeaderMouseUp(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Single);
     procedure DataModelViewRowPropertiesChanged(Sender: TObject; Args: RowPropertiesChangedEventArgs); override;
 
@@ -1530,9 +1533,19 @@ begin
   _headerColumnResizeControl.StartResizing(HeaderCell);
 end;
 
+procedure TScrollControlWithCells.OnHeaderClick(Sender: TObject);
+begin
+  _fullHeaderClick := True;
+end;
+
 procedure TScrollControlWithCells.OnHeaderMouseUp(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Single);
 begin
-  if _headerRow = nil then
+  if not _fullHeaderClick then
+    Exit;
+
+  _fullHeaderClick := False;
+
+  if (_headerRow = nil) then
     Exit;
 
   var flatColumn := GetFlatColumnByMouseX(X);
@@ -2406,7 +2419,7 @@ begin
       if args.OverrideRowHeight <> -1 {> ManualRowHeight} then
         OverrideRowHeight := args.OverrideRowHeight;
 
-      if args.RealignTreeAfterScrolling then
+      if args.CalculateCellAfterScrolling then
         _view.NotifyRowControlsNeedReload(Cell.Row, True {force reload after scrolling is done});
 
       {var} PerformanceModeWhileScrolling := args.PerformanceModeWhileScrolling;
@@ -2433,7 +2446,7 @@ begin
       if args.OverrideRowHeight <> -1 {> ManualRowHeight} then
         OverrideRowHeight := args.OverrideRowHeight;
 
-      if args.RealignTreeAfterScrolling then
+      if args.CalculateCellAfterScrolling then
         _view.NotifyRowControlsNeedReload(Cell.Row, True {force reload after scrolling is done});
 
       {var} PerformanceModeWhileScrolling := args.PerformanceModeWhileScrolling;
@@ -2828,8 +2841,10 @@ begin
       _headerRow.DataIndex := -1;
       _headerRow.CreateHeaderControls(Self);
       {$IFNDEF WEBASSEMBLY}
+      _headerRow.ContentControl.OnClick := OnHeaderClick;
       _headerRow.ContentControl.OnMouseUp := OnHeaderMouseUp;
       {$ELSE}
+      _headerRow.ContentControl.OnClick := @OnHeaderClick;
       _headerRow.ContentControl.OnMouseUp := @OnHeaderMouseUp;
       {$ENDIF}
 

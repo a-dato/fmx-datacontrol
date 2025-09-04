@@ -62,7 +62,7 @@ type
   private
     _showVertGrid: Boolean;
     _IsFastScrolling: Boolean;
-    _realignAfterScrolling: Boolean;
+    _calculateRowCellAfterScrolling: Boolean;
     _performanceModeWhileScrolling: Boolean;
 
   public
@@ -72,7 +72,7 @@ type
     function AssignCellCustomInfoControl(const Control: TControl): TControl;
 
     property IsFastScrolling: Boolean read _IsFastScrolling;
-    property RealignTreeAfterScrolling: Boolean read _realignAfterScrolling write _realignAfterScrolling;
+    property CalculateCellAfterScrolling: Boolean read _calculateRowCellAfterScrolling write _calculateRowCellAfterScrolling;
     property PerformanceModeWhileScrolling: Boolean read _performanceModeWhileScrolling write _performanceModeWhileScrolling;
   end;
 
@@ -145,14 +145,14 @@ type
     _row: IDCRow;
 
     _IsFastScrolling: Boolean;
-    _realignAfterScrolling: Boolean;
+    _calculateRowCellAfterScrolling: Boolean;
 
   public
     constructor Create(const ARow: IDCRow; AIsFastScrolling: Boolean); reintroduce;
     property Row: IDCRow read _row;
 
     property IsFastScrolling: Boolean read _IsFastScrolling;
-    property RealignAfterScrolling: Boolean read _realignAfterScrolling write _realignAfterScrolling;
+    property RealignAfterScrolling: Boolean read _calculateRowCellAfterScrolling write _calculateRowCellAfterScrolling;
   end;
 
   DCRowEditEventArgs = class(DCRowEventArgs)
@@ -437,7 +437,7 @@ begin
   _row := ARow;
 
   _IsFastScrolling := AIsFastScrolling;
-  _realignAfterScrolling := False;
+  _calculateRowCellAfterScrolling := False;
 end;
 
 { DCCellLoadEventArgs }
@@ -462,7 +462,7 @@ begin
   inherited Create(ACell);
   _showVertGrid := ShowVertGrid;
 
-  _realignAfterScrolling := False;
+  _calculateRowCellAfterScrolling := False;
   _IsFastScrolling := AIsFastScrolling;
   _performanceModeWhileScrolling := APerformanceModeWhileScrolling;
 end;

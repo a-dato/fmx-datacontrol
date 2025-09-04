@@ -90,7 +90,6 @@ type
     procedure DoPaint; override;
 
     function  CheckHoveredChanged(const ParentPoint: TPointF): Boolean; virtual;
-    function  CheckClicked(const ParentPoint: TPointF): Boolean; virtual;
     function  GetPaintOpacity: Single;
 
     function  GetBitmap(const Images: TCustomImageList; const BitmapSize: TSize; const BitmapIndex: Integer): TBitmap; virtual;
@@ -237,6 +236,8 @@ type
     function  get_Images: TCustomImageList; override;
     function  get_Radius: Single; override;
     function  MouseIsDown: Boolean; override;
+
+    function  CheckClicked(const ParentPoint: TPointF): Boolean;
 
     procedure Calculate; override;
     procedure DoPaint; override;
@@ -501,18 +502,6 @@ begin
   end;
 end;
 
-function TADatoClickLayout.CheckClicked(const ParentPoint: TPointF): Boolean;
-begin
-  if not Self.Visible then
-    Exit(False);
-
-  Result := BoundsRect.Contains(ParentPoint);
-  if not Result then Exit;
-
-  if Assigned(OnClick) then
-    OnClick(Self);
-end;
-
 function TADatoClickLayout.CheckHoveredChanged(const ParentPoint: TPointF): Boolean;
 begin
   if not Self.Visible then
@@ -531,7 +520,7 @@ begin
     Exit;
 
   var localPoint := ParentPoint;
-  localPoint.Offset(BoundsRect.TopLeft);
+  localPoint.Offset(-BoundsRect.TopLeft);
 
   if _hoverSide <> _sideBounds.Contains(localPoint) then
   begin
@@ -808,6 +797,7 @@ begin
   if HasSideButton then
   begin
     var marg := 3;
+    cvs.Stroke.Color := TAlphaColors.Black;
     cvs.DrawLine(PointF(_sideBounds.Left+marg, _sideBounds.Top+marg), PointF(_sideBounds.Right-marg, _sideBounds.Bottom-marg), GetPaintOpacity);
     cvs.DrawLine(PointF(_sideBounds.Left+marg, _sideBounds.Bottom-marg), PointF(_sideBounds.Right-marg, _sideBounds.Top+marg), GetPaintOpacity);
   end;
@@ -1111,6 +1101,21 @@ begin
   RepaintNeeded;
 end;
 
+function TFastButton.CheckClicked(const ParentPoint: TPointF): Boolean;
+begin
+  if not Self.Visible then
+    Exit(False);
+
+//  if HasSideButton and _sideBounds.Contains(ParentPoint) then
+//      OnSideClick
+//  else
+
+  if Assigned(OnClick) then
+    OnClick(Self)
+  else if (Action <> nil) then
+    Action.Execute;
+end;
+
 function TFastButton.MouseIsDown: Boolean;
 begin
   Result := _mouseIsDown;
@@ -1129,12 +1134,12 @@ end;
 
 procedure TFastButton.MouseUp(Button: TMouseButton; Shift: TShiftState; X, Y: Single);
 begin
-  if not Assigned(OnClick) and (Action <> nil) then
-    Action.Execute;
-
   inherited;
 
   _mouseIsDown := False;
+
+  CheckClicked(PointF(X, Y));
+
   RepaintNeeded;
 end;
 
