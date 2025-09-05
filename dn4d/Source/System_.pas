@@ -10209,7 +10209,13 @@ end;
 
 class operator CObject.Implicit(const AValue: TValue): CObject;
 begin
+  {$IFDEF APP_PLATFORM}
+  if AValue.TypeInfo = TypeInfo(CObject) then
+    Result := CObject(AValue.GetReferenceToRawData^) else
+    Result.FValue := AValue;
+  {$ELSE}
   Result.FValue := AValue;
+  {$ENDIF}
 end;
 
 class operator CObject.Implicit(const AValue: TGuid): CObject;
