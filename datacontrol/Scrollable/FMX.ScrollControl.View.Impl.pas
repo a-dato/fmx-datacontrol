@@ -89,7 +89,7 @@ type
     function  ItemIsFilteredOut(const DataItem: CObject): Boolean;
 
     procedure Prepare(const DefaultRowHeight: Single);
-    procedure ViewLoadingStart(const VirtualYPositionStart, VirtualYPositionStop: Single); overload;
+    procedure ViewLoadingStart(const VirtualYPositionStart, VirtualYPositionStop: Single; preferedReferenceIndex: Integer = -1); overload;
     procedure ViewLoadingStart(const SynchronizeFromView: IDataViewList); overload;
 
     procedure ViewLoadingFinished;
@@ -113,6 +113,7 @@ type
     procedure GetFastPerformanceRowInfo(const ViewListIndex: Integer; out DataItem: CObject; out VirtualYPosition: Single);
     procedure GetSlowPerformanceRowInfo(const ViewListIndex: Integer; out DataItem: CObject; out VirtualYPosition: Single);
     function  GetRowHeight(const ViewListIndex: Integer): Single;
+
     function  GetActiveRowIfExists(const ViewListIndex: Integer): IDCRow;
 
     function  HasCustomDataList: Boolean;
@@ -866,8 +867,14 @@ begin
   _defaultRowHeight := DefaultRowHeight;
 end;
 
-procedure TDataViewList.ViewLoadingStart(const VirtualYPositionStart, VirtualYPositionStop: Single);
+procedure TDataViewList.ViewLoadingStart(const VirtualYPositionStart, VirtualYPositionStop: Single; preferedReferenceIndex: Integer = -1);
 begin
+  // this method is required when using a datamodel, and expanding / collapsing made the viewlistindexes of above rows stay, which led to a gap between that row and thisrow
+  var cleanAll :=
+    (preferedReferenceIndex <> -1) and
+    (GetActiveRowIfExists(preferedReferenceIndex) = nil) and
+    not ((_performanceVar_activeStartViewListIndex <= preferedReferenceIndex + 1) and (_performanceVar_activeStopViewListIndex >= preferedReferenceIndex - 1));
+
   var ix: Integer;
   for ix := _activeRows.Count - 1 downto 0 do
   begin
@@ -876,7 +883,7 @@ begin
     if row.ViewPortIndex = -1 then
       row := _activeRows[ix];
 
-    if (row.VirtualYPosition + row.Control.Height <= VirtualYPositionStart) or (row.VirtualYPosition >= VirtualYPositionStop) then
+    if cleanAll or (row.VirtualYPosition + row.Control.Height <= VirtualYPositionStart) or (row.VirtualYPosition >= VirtualYPositionStop) then
       RemoveRowFromActiveView(row);
   end;
 

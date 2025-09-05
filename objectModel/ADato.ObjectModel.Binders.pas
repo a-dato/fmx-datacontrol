@@ -1195,7 +1195,7 @@ begin
       var isPhoneOrTablet := {$IF Defined(ANDROID) or Defined(IOS)}True{$ELSE}False{$ENDIF};
       if (not isPhoneOrTablet) or (textCtrl is TEdit) or (textCtrl is TMemo) then
       begin
-        textCtrl.SelectAll;
+//        textCtrl.SelectAll;
         textCtrl.GoToTextEnd;
       end;
     end;
