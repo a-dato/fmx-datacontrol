@@ -237,8 +237,6 @@ type
     function  get_Radius: Single; override;
     function  MouseIsDown: Boolean; override;
 
-    function  CheckClicked(const ParentPoint: TPointF): Boolean;
-
     procedure Calculate; override;
     procedure DoPaint; override;
     procedure Painting; override;
@@ -272,6 +270,8 @@ type
 
     procedure PrepareForPaint; override;
     function  CalcWidth: Single;
+
+    function  DoClick: Boolean;
 
     property IsChecked: Boolean read GetIsChecked write SetIsChecked;
 
@@ -533,6 +533,8 @@ constructor TADatoClickLayout.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
   _imageIndex := -1;
+
+  CanFocus := True;
 end;
 
 function TADatoClickLayout.CreateConfig: TFastButtonConfig;
@@ -1101,14 +1103,10 @@ begin
   RepaintNeeded;
 end;
 
-function TFastButton.CheckClicked(const ParentPoint: TPointF): Boolean;
+function TFastButton.DoClick: Boolean;
 begin
   if not Self.Visible then
     Exit(False);
-
-//  if HasSideButton and _sideBounds.Contains(ParentPoint) then
-//      OnSideClick
-//  else
 
   if Assigned(OnClick) then
     OnClick(Self)
@@ -1138,7 +1136,7 @@ begin
 
   _mouseIsDown := False;
 
-  CheckClicked(PointF(X, Y));
+  DoClick;
 
   RepaintNeeded;
 end;

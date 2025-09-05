@@ -1988,7 +1988,7 @@ begin
   end;
 
   var row := GetRowByLocalY(MousePos.Y);
-  _hoverRect.Visible := (row <> nil) and (_selectionType <> TSelectionType.HideSelection) and _selectionInfo.CanSelect(row.DataIndex);
+  _hoverRect.Visible := (row <> nil) and {(_selectionType <> TSelectionType.HideSelection) and} _selectionInfo.CanSelect(row.DataIndex);
   if not _hoverRect.Visible then
     Exit;
 
@@ -2013,7 +2013,10 @@ begin
     if Key = vkPrior then
     begin
       if Current = 0 then
+      begin
+        Key := 0;
         Exit;
+      end;
 
       var rowZero := _view.ActiveViewRows[0];
 
@@ -2052,7 +2055,10 @@ begin
     else if Key = vkNext then
     begin
       if Current = _view.ViewCount - 1 then
+      begin
+        Key := 0;
         Exit;
+      end;
 
       var rowBottom := _view.ActiveViewRows[_view.ActiveViewRows.Count - 1];
 

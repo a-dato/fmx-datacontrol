@@ -1798,7 +1798,7 @@ const
   MIN_RUN = 32;
 begin
   N := ArrRight+1;
-  if N <= 2 then Exit;
+  if N <= 1 then Exit;
 
   // Stap 1: splits array in "runs" en sorteer met insertion sort
   Left := ArrLeft;
