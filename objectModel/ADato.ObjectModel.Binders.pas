@@ -159,7 +159,7 @@ type
     procedure OnContextChanged(const Sender: IObjectModelContext; const Item: CObject);
     procedure OnFreeNotificationDestroy;
 
-    procedure UpdateControlEditability(IsEditable: Boolean);
+    procedure UpdateControlEditability(IsEditable: Boolean); virtual;
     procedure UpdateControlVisibility(IsVisible: Boolean);
 
     procedure ExecuteFromLink(const Obj: CObject);
@@ -202,6 +202,8 @@ type
   protected
     function  GetValue: CObject; override;
     procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject); override;
+
+    procedure UpdateControlEditability(IsEditable: Boolean); override;
   end;
 
   TTextControlSmartLinkBinding = class(TTextControlBinding)
@@ -1144,6 +1146,14 @@ begin
   if Value <> nil then
     _Control.Text := CStringToString(Value.ToString) else
     _Control.Text := '';
+end;
+
+procedure TTextControlBinding.UpdateControlEditability(IsEditable: Boolean);
+begin
+  // textControls can't be edited, therefor always should be true so that they can be copied!!
+
+//  inherited;
+  _control.Enabled := True;
 end;
 
 { TTextControlSmartLinkBinding }

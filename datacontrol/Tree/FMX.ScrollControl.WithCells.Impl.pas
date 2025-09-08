@@ -1456,12 +1456,12 @@ begin
     vkEnd:    Result := TRightLeftScroll.FullRight;
     vkLeft:   Result := TRightLeftScroll.Left;
     vkRight:  Result := TRightLeftScroll.Right;
-    vkTab:
-    begin
-      if ssShift in Shift then
-        Result := TRightLeftScroll.Left else
-        Result := TRightLeftScroll.Right;
-    end
+//    vkTab, vkReturn:
+//    begin
+//      if ssShift in Shift then
+//        Result := TRightLeftScroll.Left else
+//        Result := TRightLeftScroll.Right;
+//    end
   else
     Result := TRightLeftScroll.None;
   end;
@@ -5305,12 +5305,12 @@ begin
     _performanceLayout.Visible := False;
 
   if (_infoControl <> nil) then
-//    _infoControl.Opacity := IfThen(not Activate, 1, 0);
-    _infoControl.Visible := not Activate;
+    _infoControl.Opacity := IfThen(not Activate, 1, 0);
+//    _infoControl.Visible := not Activate;
 
   if (_subInfoControl <> nil) then
-//    _subInfoControl.Opacity := IfThen(not Activate, 1, 0);
-    _subInfoControl.Visible := not Activate;
+    _subInfoControl.Opacity := IfThen(not Activate, 1, 0);
+//    _subInfoControl.Visible := not Activate;
 
   // METHOD 2
 //  if _performanceMode = Activate then

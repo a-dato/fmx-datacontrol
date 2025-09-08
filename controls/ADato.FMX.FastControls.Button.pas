@@ -82,6 +82,7 @@ type
     function  HasButtonEvent: Boolean; virtual;
     function  HasSideButton: Boolean; virtual;
     function  MouseIsDown: Boolean; virtual; abstract;
+//    procedure Click; override;
 
     function  CreateConfig: TFastButtonConfig; virtual;
 
@@ -271,7 +272,7 @@ type
     procedure PrepareForPaint; override;
     function  CalcWidth: Single;
 
-    function  DoClick: Boolean;
+    procedure DoExternalClick;
 
     property IsChecked: Boolean read GetIsChecked write SetIsChecked;
 
@@ -529,10 +530,19 @@ begin
   end;
 end;
 
+//procedure TADatoClickLayout.Click;
+//begin
+//  inherited;
+//
+//  if not Assigned(OnClick) and (Action <> nil) then
+//    Action.Execute;
+//end;
+
 constructor TADatoClickLayout.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
   _imageIndex := -1;
+  EnableExecuteAction := True;
 
   CanFocus := True;
 end;
@@ -883,7 +893,7 @@ begin
       TTextAlign.Trailing: SetLeftPadding(Width - InnerBounds.Width - innerPadding);
     end;
 
-    var heightAvailable := Height - Margins.Top - Margins.Bottom;
+    var heightAvailable := Height - Padding.Top - Padding.Bottom;
     SetTopPadding(System.Math.Max(0, (heightAvailable - InnerBounds.Height)/2));
   end;
 end;
@@ -1103,17 +1113,6 @@ begin
   RepaintNeeded;
 end;
 
-function TFastButton.DoClick: Boolean;
-begin
-  if not Self.Visible then
-    Exit(False);
-
-  if Assigned(OnClick) then
-    OnClick(Self)
-  else if (Action <> nil) then
-    Action.Execute;
-end;
-
 function TFastButton.MouseIsDown: Boolean;
 begin
   Result := _mouseIsDown;
@@ -1136,7 +1135,7 @@ begin
 
   _mouseIsDown := False;
 
-  DoClick;
+//  CheckActionClick;
 
   RepaintNeeded;
 end;
@@ -1145,6 +1144,11 @@ destructor TFastButton.Destroy;
 begin
   FreeAndNil(_imagesLink);
   inherited;
+end;
+
+procedure TFastButton.DoExternalClick;
+begin
+  Click;
 end;
 
 procedure TFastButton.DoMouseLeave;

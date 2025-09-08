@@ -45,6 +45,7 @@ type
   TFastText = class(TLayout, ICaption, ITextSettings)
   protected
     _text: string;
+    _subText: string;
     _layout: TTextLayout;
     _settings: TTextSettings;
     _style: TStyledSettings;
@@ -57,6 +58,7 @@ type
     _ignoreDefaultPaint: Boolean;
 
     _textBounds: TRectF;
+    _subTextBounds: TRectF;
     _onChange: TNotifyEvent;
     _maxWidth: Single;
 
@@ -84,6 +86,7 @@ type
     procedure set_CalcAsAutoWidth(const Value: Boolean);
     function  get_Trimming: TTextTrimming;
     function  get_WordWrap: Boolean;
+    procedure set_SubText(const Value: string);
 
   protected
     procedure DoPaint; override;
@@ -93,7 +96,8 @@ type
     procedure Calculate; virtual;
     procedure RecalcNeeded;
 
-//    procedure PaddingChanged; override;
+    procedure CalculateText;
+    procedure CalculateSubText;
 
   public
     constructor Create(AOwner: TComponent); override;
@@ -113,6 +117,8 @@ type
     property StyledSettings: TStyledSettings read GetStyledSettings write SetStyledSettings;
 
     property CalcAsAutoWidth: Boolean read _calcAsAutoWidth write set_CalcAsAutoWidth default False;
+
+    property SubText: string read _subText write set_SubText;
 
   published
     property Text: string read GetText write SetText;
@@ -135,6 +141,8 @@ type
   protected
     function  GetValue: CObject; override;
     procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject); override;
+
+    procedure UpdateControlEditability(IsEditable: Boolean); override;
   end;
 
   TFastTextControlSmartLinkBinding = class(TFastTextControlBinding)
@@ -168,6 +176,76 @@ end;
 { TFastText }
 
 
+procedure TFastText.CalculateSubText;
+begin
+  if Length(_subText) = 0 then
+  begin
+    _subTextBounds := TRectF.Empty;
+    Exit;
+  end;
+
+  var cv := Self.Canvas;
+  if cv = nil then
+    cv := TCanvasManager.MeasureCanvas;
+
+  cv.Font.Size := _settings.Font.Size;
+
+  var maxWidth := IfThen(_autoWidth or _calcAsAutoWidth, 9999, IfThen(_maxWidth > 0, _maxWidth, Self.Width));
+  var maxHeight := IfThen(get_WordWrap, 9999, Self.Height - _textBounds.Height);
+
+  cv.Font.Size := 10;
+  var txt := _subText;
+
+  _layout.BeginUpdate;
+  try
+    _layout.Text := _subText;
+    _layout.LayoutCanvas.Font.Size := 10;
+    _layout.TopLeft := PointF(0,_textBounds.Height);
+  finally
+    _layout.EndUpdate;
+  end;
+
+  _subTextBounds :=  _layout.TextRect;
+end;
+
+procedure TFastText.CalculateText;
+begin
+  var cv := Self.Canvas;
+  if cv = nil then
+  begin
+    cv := TCanvasManager.MeasureCanvas;
+    _recalcNeededWithOwnCanvas := True;
+  end else
+    _recalcNeededWithOwnCanvas := False;
+
+  cv.Font.Size := _settings.Font.Size;
+
+  var maxWidth := IfThen(_autoWidth or _calcAsAutoWidth, 9999, IfThen(_maxWidth > 0, _maxWidth, Self.Width));
+  var maxHeight := IfThen(get_WordWrap, 9999, Self.Height);
+  var txt := GetText;
+  if Length(txt) = 0 then
+    txt := 'Gg';
+
+  _layout.BeginUpdate;
+  try
+    _layout.Text := txt;
+    _layout.LayoutCanvas := cv;
+    _layout.TopLeft := PointF(0,0);
+    _layout.MaxSize := PointF(maxWidth, maxHeight);
+    _layout.HorizontalAlign := _settings.HorzAlign;
+    _layout.VerticalAlign := _settings.VertAlign;
+    _layout.WordWrap := get_WordWrap;
+    _layout.Trimming := get_Trimming;
+
+    _layout.Font := _settings.Font;
+    _layout.Color := _settings.FontColor;
+  finally
+    _layout.EndUpdate;
+  end;
+
+  _textBounds :=  _layout.TextRect;
+end;
+
 constructor TFastText.Create(AOwner: TComponent);
 begin
   inherited;
@@ -177,6 +255,8 @@ begin
 
   _settings.VertAlign := TTextAlign.Leading;
   _settings.HorzAlign := TTextAlign.Leading;
+
+  _subText := '';
 end;
 
 destructor TFastText.Destroy;
@@ -191,15 +271,46 @@ procedure TFastText.DoPaint;
 begin
   _waitingForRepaint := False;
 
-//  Self.Canvas.Fill.Color := TALphaCOlors.Purple;
+//  Self.Canvas.Fill.Color := TALphaColors.Purple;
 //  Self.Canvas.FillRect(RectF(0,0,Width,Height), 0.2);
 
   inherited;
 
   if not _ignoreDefaultPaint then
   begin
-    _layout.Opacity := AbsoluteOpacity;
+
+    var subTextHeightSubstraction := IfThen(_subTextBounds.IsEmpty, 0, _subTextBounds.Height - 3);
+
+    _layout.BeginUpdate;
+    try
+      _layout.Opacity := AbsoluteOpacity;
+      _layout.Text := GetText;
+      _layout.TopLeft := PointF(Self.Padding.Left, Self.Padding.Top);
+      _layout.MaxSize := PointF(Self.Width - Self.Padding.Left - Self.Padding.Right, Self.Height - Self.Padding.Top - Self.Padding.Bottom - subTextHeightSubstraction);
+      _layout.Font := _settings.Font;
+      _layout.Color := _settings.FontColor;
+    finally
+      _layout.EndUpdate;
+    end;
+
     _layout.RenderLayout(Canvas);
+
+    if Length(_subText) > 0 then
+    begin
+      _layout.BeginUpdate;
+      try
+        _layout.Text := _subText;
+        _layout.TopLeft := PointF(Self.Padding.Left, Self.Padding.Top + subTextHeightSubstraction);
+        _layout.MaxSize := PointF(Self.Width - Self.Padding.Left - Self.Padding.Right, Self.Height - Self.Padding.Top - Self.Padding.Bottom - subTextHeightSubstraction);
+        _layout.Font.Size := 10;
+        _layout.Font.Style := [];
+        _layout.Color := TAlphaColors.Lightslategray;
+      finally
+        _layout.EndUpdate;
+      end;
+
+      _layout.RenderLayout(Canvas);
+    end;
   end;
 end;
 
@@ -306,6 +417,9 @@ begin
 
   _recalcNeeded := False;
 
+  CalculateText;
+  CalculateSubText;
+
   var cv := Self.Canvas;
   if cv = nil then
   begin
@@ -334,7 +448,6 @@ begin
     _layout.Trimming := get_Trimming;
 
     _layout.Font := _settings.Font;
-    _layout.Color := _settings.FontColor;
   finally
     _layout.EndUpdate;
   end;
@@ -345,7 +458,6 @@ begin
 
   _layout.BeginUpdate;
   try
-    _layout.Text := _text;
     _layout.TopLeft := PointF(Self.Padding.Left, Self.Padding.Top);
     _layout.MaxSize := PointF(Self.Width - Self.Padding.Left - Self.Padding.Right, Self.Height - Self.Padding.Top - Self.Padding.Bottom);
   finally
@@ -409,6 +521,15 @@ begin
   if _settings.Font.Style <> Value then
   begin
     _settings.Font.Style := Value;
+    RecalcNeeded;
+  end;
+end;
+
+procedure TFastText.set_SubText(const Value: string);
+begin
+  if _subText <> Value then
+  begin
+    _subText := Value;
     RecalcNeeded;
   end;
 end;
@@ -489,6 +610,14 @@ begin
   if Value <> nil then
     _Control.Text := CStringToString(Value.ToString) else
     _Control.Text := '';
+end;
+
+procedure TFastTextControlBinding.UpdateControlEditability(IsEditable: Boolean);
+begin
+  // textControls can't be edited, therefor always should be true so that they can be copied!!
+
+//  inherited;
+  _control.Enabled := True;
 end;
 
 { TFastTextControlSmartLinkBinding }
