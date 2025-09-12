@@ -39,12 +39,9 @@ type
     _polygon: TPolygon;
     _innerBounds: TRectF;
     _imageIndex: Integer;
-    _reselectable: Boolean;
-    _tagItem: CObject;
     _rowNumber: Integer;
 
     _hoverSide, _hover: Boolean;
-    _tagIndex: Integer;
 
     _sideBounds: TRectF;
     _imageBounds: TRectF;
@@ -112,10 +109,6 @@ type
 
     procedure PaintBitmap;
 
-    property Reselectable: Boolean read _reselectable write _reselectable;
-    property TagItem: CObject read _tagItem write _tagItem;
-    property TagIndex: Integer read _tagIndex write _tagIndex;
-
   public
     property Text: string read GetText write SetText;
     property SubText: string read get_SubText write set_SubText;
@@ -153,7 +146,7 @@ type
 
     procedure set_Innertagscontrol(const Value: TCustomADatoTagRunTimeControl);
 
-  private
+  protected
     procedure set_Imagename(const Value: string);
     procedure set_TagType(const Value: TTagType);
     procedure SetText(const Value: string);
@@ -164,7 +157,7 @@ type
     function  get_SubText: string;
     procedure set_DrawLineLeft(const Value: Boolean);
     procedure set_FontColor(const Value: TAlphaColor);
-    procedure set_FontSize(const Value: Single);
+    procedure set_FontSize(const Value: Single); virtual;
     procedure set_FontStyles(const Value: TFontStyles);
     procedure set_SwabTextSubText(const Value: Boolean);
 
@@ -941,7 +934,7 @@ begin
   if _buttonType = TButtonType.Emphasized then
   begin
     Canvas.Fill.Color := TAlphaColor($FF4E6CA3);
-    Canvas.FillRect(outerRect, 3, 3, AllCorners, GetPaintOpacity * 0.4);
+    Canvas.FillRect(outerRect, 3, 3, AllCorners, GetPaintOpacity * 0.2);
   end
   else if _buttonType = TButtonType.Positive then
   begin
@@ -1122,9 +1115,9 @@ procedure TFastButton.MouseMove(Shift: TShiftState; X, Y: Single);
 begin
   inherited;
 
-  if not _hover then
+  if not _hover and Self.Enabled then
   begin
-    _hover := Self.Enabled;
+    _hover := True;
     RepaintNeeded;
   end;
 end;

@@ -181,6 +181,7 @@ type
     function  ScrollControlIsFastScrolling: Boolean;
 
     function  DoCreateNewRow: IDCRow; virtual;
+    function  CreateRowRect: TRectangle; virtual;
     procedure InnerInitRow(const Row: IDCRow; RowHeightNeedsRecalc: Boolean = False); virtual;
     procedure PerformanceRoutineLoadedRow(const Row: IDCRow); virtual;
     procedure InitRow(const Row: IDCRow; const IsAboveRefRow: Boolean = False);
@@ -188,6 +189,8 @@ type
     procedure MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Single); override;
     procedure MouseMove(Shift: TShiftState; X, Y: Single); override;
     procedure DoMouseLeave; override;
+
+    function  HasViewRows: Boolean;
     
     procedure OnSelectionInfoChanged; virtual;
     function  CreateSelectioninfoInstance: IRowSelectionInfo; virtual;
@@ -679,6 +682,11 @@ begin
   Result := (_updateCount > 0) or ((_rowHeightSynchronizer <> nil) and (_rowHeightSynchronizer._updateCount > 0));
 end;
 
+function TScrollControlWithRows.HasViewRows: Boolean;
+begin
+  Result := (_view <> nil) and (_view.ViewCount > 0);
+end;
+
 procedure TScrollControlWithRows.DoEnter;
 begin
   inherited;                                      
@@ -1076,6 +1084,9 @@ begin
   if TDCTreeOption.HideHScrollBar in _options then
     _horzScrollBar.Visible := False;
 
+  if (TDCTreeOption.MultiSelect in OldFlags) and not (TDCTreeOption.MultiSelect in NewFlags) then
+    ClearSelections;
+
   if ((TDCTreeOption.AlternatingRowBackground in OldFlags) <> (TDCTreeOption.AlternatingRowBackground in NewFlags)) then
   begin
     if _view <> nil then
@@ -1229,7 +1240,11 @@ end;
 
 procedure TScrollControlWithRows.CheckVertScrollbarVisibility;
 begin
-  var makeVisible := (_view <> nil) and (not (TDCTreeOption.HideVScrollBar in _options)) and (_vertScrollBar.ViewPortSize + IfThen(_horzScrollBar.Visible, _horzScrollBar.Height, 0) < _vertScrollBar.Max);
+  var makeVisible :=
+    (_view <> nil) and
+    not (TDCTreeOption.HideVScrollBar in _options) and
+    (_vertScrollBar.ViewPortSize + IfThen(_horzScrollBar.Visible, _horzScrollBar.Height, 0) < _vertScrollBar.Max);
+
   if _vertScrollBar.Visible = makeVisible then
     Exit;
 
@@ -1386,6 +1401,11 @@ begin
   Result.DataItem := FromSelectionInfo.DataItem;
   Result.DataIndex := FromSelectionInfo.DataIndex;
   Result.ViewListIndex := FromSelectionInfo.ViewListIndex;
+end;
+
+function TScrollControlWithRows.CreateRowRect: TRectangle;
+begin
+  Result := DataControlClassFactory.CreateRowRect(_content);
 end;
 
 function TScrollControlWithRows.get_DataList: IList;
@@ -1915,7 +1935,7 @@ begin
   begin
     if Row.Control = nil then
     begin
-      var rect := DataControlClassFactory.CreateRowRect(_content);
+      var rect := CreateRowRect;
       rect.ClipChildren := True;
       rect.HitTest := False;
       rect.Align := TAlignLayout.None;
@@ -2239,8 +2259,17 @@ begin
         _model.MultiSelect.Context := nil;
 
       var convertedDataItem := ConvertToDataItem(Self.DataItem);
+
+      // trigger a ContextChanged event for multiselect change event
       if _model.ObjectContext = convertedDataItem then
-        _model.ObjectContext := nil; // trigger a ContextChanged event for multiselect change event
+      begin
+        (_model.ObjectModelContext as IUpdatableObject).BeginUpdate;
+        try
+          _model.ObjectContext := nil;
+        finally
+          (_model.ObjectModelContext as IUpdatableObject).EndUpdate;
+        end;
+      end;
 
       _model.ObjectContext := convertedDataItem;
     end
@@ -2683,7 +2712,7 @@ begin
 
     inherited;
 
-    var goMaster := TryStartMasterSynchronizer;
+    var goMaster := TryStartMasterSynchronizer(True);
     try
 
       DoViewLoadingStart(startY, StopY, preferedReferenceIndex);
@@ -2978,8 +3007,10 @@ begin
     if _view <> nil then
     begin
       var row: IDCRow;
-      for row in _view.ActiveViewRows do
-        _selectionInfo.AddToSelection(row.DataIndex, row.ViewListIndex, row.DataItem);
+      var list := _view.GetViewList;
+      var viewIndex: Integer;
+      for viewIndex := 0 to list.Count - 1 do
+        _selectionInfo.AddToSelection(_view.GetDataIndex(viewIndex), viewIndex, list[viewIndex]);
     end;
 
     // keep current selected item
@@ -3028,7 +3059,12 @@ end;
 procedure TScrollControlWithRows.SetSingleSelectionIfNotExists;
 begin
   if _allowNoneSelected or (_view.ViewCount = 0) then
+  begin
+    if _selectionInfo.HasSelection then
+      _selectionInfo.Deselect(_selectionInfo.DataIndex);
+
     Exit;
+  end;
 
 //  {$IFDEF DEBUG}
 //  Exit;
@@ -3538,7 +3574,7 @@ end;
 
 function TRowSelectionInfo.get_IsMultiSelection: Boolean;
 begin
-  Result := _multiSelection.Count > 0;
+  Result := _multiSelection.Count > 1;
 end;
 
 function TRowSelectionInfo.get_NotSelectableDataIndexes: TDataIndexArray;
@@ -3601,10 +3637,11 @@ procedure TRowSelectionInfo.Deselect(const DataIndex: Integer);
 begin
   if (_multiSelection.Count <= 1) or not _multiSelection.ContainsKey(DataIndex) then
   begin
-    if (_rowsControl <> nil {not a clone}) and _rowsControl.AllowNoneSelected then
+    if (_rowsControl <> nil {not a clone}) and (_rowsControl.AllowNoneSelected or not _rowsControl.HasViewRows) then
     begin
       if _multiSelection.ContainsKey(DataIndex) then
         _multiSelection.Remove(DataIndex);
+
       UpdateLastSelection(-1, -1, nil);
     end;
 

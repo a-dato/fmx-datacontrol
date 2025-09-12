@@ -164,8 +164,8 @@ type
 
   protected
     _totalColumnWidth: Single;
-    _singleLineHeight: SIngle;
     _fullHeaderClick: Boolean;
+    _autoMultiSelectColumn: IDCTreeCheckboxColumn;
 
 //    _fullRepositionCellsNeeded: Boolean;
 
@@ -228,11 +228,14 @@ type
     function  GetFlatColumnByKey(const Key: Word; Shift: TShiftState; FromColumnIndex: Integer): IDCTreeLayoutColumn;
 
     procedure HandleTreeOptionsChange(const OldFlags, NewFlags: TDCTreeOptions); override;
+    procedure HandleMultiSelectOptionChanged;
 
     function  CreateDummyRowForChanging(const FromSelectionInfo: IRowSelectionInfo): IDCRow; override;
 
     function  GetActiveCell: IDCTreeCell;
     function  GetCellByControl(const Control: TControl): IDCTreeCell;
+
+    procedure ClearCalculatedColumnWidths;
 
     procedure DoContentResized(WidthChanged, HeightChanged: Boolean); override;
 
@@ -241,7 +244,7 @@ type
     procedure ColumnWidthChanged(const Column: IDCTreeColumn);
     function  Control: TControl;
     function  Content: TControl;
-    function  ColumnList: IDCTreeColumnList;
+    function  FullColumnList: IList<IDCTreeColumn>;
 
   protected
     procedure PositionTree;
@@ -256,6 +259,7 @@ type
 
     function  OnGetCellDataForSorting(const Cell: IDCTreeCell): CObject;
     function  IsSortingOrFiltering: Boolean;
+    function  IsSpecifiedColumnReload: Boolean;
 
     procedure RefreshColumn(const Column: IDCTreeColumn);
     procedure ColumnsChangedFromExternal;
@@ -407,6 +411,7 @@ type
     _allowHide: Boolean;
     _hideWhenEmpty: Boolean;
     _hideGrid: Boolean;
+    _ignoreHeightByRowCalculation: Boolean;
     _format: CString;
 
     function  get_Visible: Boolean;
@@ -425,6 +430,8 @@ type
     procedure set_HideWhenEmpty(const Value: Boolean);
     function  get_HideGrid: Boolean;
     procedure set_HideGrid(const Value: Boolean);
+    function  get_IgnoreHeightByRowCalculation: Boolean;
+    procedure set_IgnoreHeightByRowCalculation(const Value: Boolean);
     function  get_Format: CString;
     procedure set_Format(const Value: CString);
 
@@ -443,6 +450,7 @@ type
     property AllowHide: Boolean read get_AllowHide write set_AllowHide;
     property HideWhenEmpty: Boolean read get_HideWhenEmpty write set_HideWhenEmpty;
     property HideGrid: Boolean read get_HideGrid write set_HideGrid;
+    property IgnoreHeightByRowCalculation: Boolean read get_IgnoreHeightByRowCalculation write set_IgnoreHeightByRowCalculation;
     property Format: CString read get_Format write set_Format;
 
   end;
@@ -913,6 +921,9 @@ type
     procedure StartResizing(const HeaderCell: IHeaderCell);
   end;
 
+const
+  AUTO_SELECT_COLUMN_TAG = 'autoselect';
+
 
 implementation
 
@@ -1012,11 +1023,23 @@ begin
     Exit;
 
   var clmn := FlatColumnByColumn(Column);
+  if clmn = nil then
+    Exit; // full realign still needs to happen..
+
   _reloadForSpecificColumn := clmn;
   try
     var row: IDCRow;
     for row in _view.ActiveViewRows do
+    begin
+      var treeRow := row as IDCTreeRow;
       InnerInitRow(row);
+
+      if treeRow.ContentCellSizes.ContainsKey(clmn.Index) then
+        treeRow.ContentCellSizes.Remove(clmn.Index);
+
+      if clmn.Column.WidthType = TDCColumnWidthType.AlignToContent then
+        clmn.Width := clmn.Column.WidthMin;
+    end;
   finally
     _reloadForSpecificColumn := nil;
   end;
@@ -1931,6 +1954,14 @@ begin
     end;
   end;
 
+  if (_autoMultiSelectColumn <> nil) and (_autoMultiSelectColumn.Visualisation.Visible <> _selectionInfo.IsMultiSelection) then
+  begin
+    _autoMultiSelectColumn.Visualisation.Visible := not _autoMultiSelectColumn.Visualisation.Visible;
+    (GetInitializedWaitForRefreshInfo as IDataControlWaitForRepaintInfo).ColumnsChanged;
+
+    ColumnVisibilityChanged(_autoMultiSelectColumn, False);
+  end;
+
   DoCellSelected(GetActiveCell, _selectionInfo.LastSelectionEventTrigger);
 end;
 
@@ -2059,8 +2090,6 @@ begin
   inherited;
 
   BeginDefaultTextLayout;
-
-  _singleLineHeight := -1; // reset to recalculate
 end;
 
 procedure TScrollControlWithCells.ColumnsChanged(Sender: TObject; e: NotifyCollectionChangedEventArgs);
@@ -2075,6 +2104,8 @@ begin
     column := e.NewItems[0].AsType<IDCTreeColumn>
   else if (e.OldItems <> nil) then
     column := e.OldItems[0].AsType<IDCTreeColumn>;
+
+  ClearCalculatedColumnWidths;
 
   if column <> nil then
     DoColumnsChanged(column);
@@ -2099,6 +2130,21 @@ begin
 //  end;
 end;
 
+procedure TScrollControlWithCells.ClearCalculatedColumnWidths;
+begin
+  if (_treeLayout = nil) or (_realignState <> TRealignState.Waiting) then
+    Exit;
+
+  for var flatClmn in _treeLayout.FlatColumns do
+    if flatClmn.Column.WidthType = TDCColumnWidthType.AlignToContent then
+    begin
+      if flatClmn.Width > 10 then
+        flatClmn.Width := CMath.Max(10, flatClmn.Column.WidthMin);
+    end;
+
+  RefreshControl;
+end;
+
 procedure TScrollControlWithCells.ColumnVisibilityChanged(const Column: IDCTreeColumn; IsUserChange: Boolean);
 begin
   if _treeLayout = nil then
@@ -2110,9 +2156,11 @@ begin
     DoColumnsChanged(Column);
   end;
 
+  ClearCalculatedColumnWidths;
+
   // selectedcolumn is not valid anymore, select another one
   var flatColumn := FlatColumnByColumn(Column);
-  if (flatColumn <> nil) and flatColumn.HideColumnInView then
+  if (flatColumn <> nil) and (flatColumn.HideColumnInView or not flatColumn.Column.Visible) then
     if (_selectionInfo as ITreeSelectionInfo).SelectedLayoutColumn = flatColumn.Index then
       SetColumnSelectionIfNoneExists;
 end;
@@ -2135,9 +2183,16 @@ begin
   Result := Self;
 end;
 
-function TScrollControlWithCells.ColumnList: IDCTreeColumnList;
+function TScrollControlWithCells.FullColumnList: IList<IDCTreeColumn>;
 begin
-  Result := _columns;
+  if _autoMultiSelectColumn = nil then
+    Exit(_columns);
+
+  var list: List<IDCTreeColumn> := CList<IDCTreeColumn>.Create(_columns.Count + 1);
+  list.Add(_autoMultiSelectColumn);
+  list.AddRange(_columns);
+
+  Result :=  list;
 end;
 
 constructor TScrollControlWithCells.Create(AOwner: TComponent);
@@ -2237,6 +2292,30 @@ begin
   Result := _treeLayout.LayoutColumns[(_selectionInfo as ITreeSelectionInfo).SelectedLayoutColumn];
 end;
 
+procedure TScrollControlWithCells.HandleMultiSelectOptionChanged;
+begin
+  if not (TDCTreeOption.MultiSelect in _options) then
+  begin
+    _autoMultiSelectColumn := nil;
+    Exit;
+  end
+
+  else if _autoMultiSelectColumn = nil then
+  begin
+    for var clmn in _columns do
+      if clmn.IsSelectionColumn then
+        Exit;
+
+    _autoMultiSelectColumn := TDCTreeCheckboxColumn.Create;
+    _autoMultiSelectColumn.TreeControl := Self;
+    _autoMultiSelectColumn.WidthSettings.WidthType := TDCColumnWidthType.Pixel;
+    _autoMultiSelectColumn.WidthSettings.Width := 30;
+    _autoMultiSelectColumn.Visualisation.Frozen := True;
+    _autoMultiSelectColumn.Visualisation.Visible := _selectionInfo.IsMultiSelection;
+    _autoMultiSelectColumn.Tag := AUTO_SELECT_COLUMN_TAG;
+  end;
+end;
+
 procedure TScrollControlWithCells.HandleTreeOptionsChange(const OldFlags, NewFlags: TDCTreeOptions);
 begin
   inherited;
@@ -2245,6 +2324,19 @@ begin
   begin
     _horzScrollBar.Visible := False;
     SetBasicVertScrollBarValues;
+  end;
+
+  var multiSelectChange := ((TDCTreeOption.MultiSelect in OldFlags) <> (TDCTreeOption.MultiSelect in NewFlags));
+  if multiSelectChange then
+  begin
+    HandleMultiSelectOptionChanged;
+
+    if (_selectionInfo as ITreeSelectionInfo).SelectedLayoutColumn = 0 then
+    begin
+      var selTreeInfo := (_selectionInfo as ITreeSelectionInfo);
+      selTreeInfo.SelectedLayoutColumn := -1;
+      CheckCorrectColumnSelection(selTreeInfo);
+    end;
   end;
 
   var headerChange := ((TDCTreeOption.ShowHeaders in OldFlags) <> (TDCTreeOption.ShowHeaders in NewFlags));
@@ -2822,6 +2914,11 @@ begin
   Result := _isSortingOrFiltering > 0;
 end;
 
+function TScrollControlWithCells.IsSpecifiedColumnReload: Boolean;
+begin
+  Result := _reloadForSpecificColumn <> nil;
+end;
+
 procedure TScrollControlWithCells.InitHeader;
 begin
   // make sure that the content does not execute a Resized
@@ -3104,23 +3201,23 @@ begin
   begin
     var txt := Cell.InfoControl as TFastText;
 
-    var customMargins := 6.0;
+    var customMargins := 0.0;
     if (txt.Margins.Left > 0) or (txt.Margins.Right > 0) then
       customMargins := txt.Margins.Left + txt.Margins.Right;
 
-    Result := TextControlWidth(txt, txt.TextSettings, TextForSizeCalc(txt.Text)) + (2*_cellLeftRightPadding) + customMargins;
+    Result := txt.TextWidthWithPadding + (2*_cellLeftRightPadding) + customMargins;
   end;
 
   if not Cell.IsHeaderCell and (Cell.Column.SubInfoControlClass = TInfoControlClass.Text) then
   begin
     var subTxt := Cell.SubInfoControl as TFastText;
 
-    var customMargins := 6.0;
+    var customMargins := 0.0;
     if (subTxt.Margins.Left > 0) or (subTxt.Margins.Right > 0) then
       customMargins := subTxt.Margins.Left + subTxt.Margins.Right;
 
 //    var subWidth := subTxt.TextWidth + (2*_cellTopBottomPadding) + customMargins;
-    var subWidth := TextControlWidth(subTxt, subTxt.TextSettings, TextForSizeCalc(subTxt.Text)) + (2*_cellLeftRightPadding) + customMargins;
+    var subWidth := subTxt.TextWidthWithPadding + (2*_cellLeftRightPadding) + customMargins;
 
     Result := CMath.Max(Result, subWidth);
   end;
@@ -3152,7 +3249,7 @@ begin
     infoCtrlClass := Cell.Column.SubInfoControlClass;
   end;
 
-  if (ctrl = nil) or not ctrl.Visible then
+  if Cell.Column.Visualisation.IgnoreHeightByRowCalculation or (ctrl = nil) or not ctrl.Visible then
     Exit(0);
 
   if infoCtrlClass = TInfoControlClass.Text then
@@ -3161,25 +3258,18 @@ begin
     if Length(txt.Text) = 0 then
       Exit(0);
 
-    var maxWidth := IfThen(cell.Column.WidthMax > 0, cell.Column.WidthMax, -1);
-    if cell.Column.CustomWidth > 0 then
-      maxWidth := cell.Column.CustomWidth;
+//    var maxWidth := IfThen(cell.Column.WidthMax > 0, cell.Column.WidthMax, -1);
+//    if cell.Column.CustomWidth > 0 then
+//      maxWidth := cell.Column.CustomWidth;
+//
+//    var isSingleLine := not txt.WordWrap or ((cell.Column.WidthType = TDCColumnWidthType.AlignToContent) and (maxWidth = -1));
+//
+//    var cellHeight :=
+//    if not isSingleLine then
+//      cellHeight := txt.TextHeight; // TextControlHeight(txt, txt.TextSettings, TextForSizeCalc(txt.Text), -1, -1, maxWidth);
 
-    var isSingleLine := not txt.WordWrap or ((cell.Column.WidthType = TDCColumnWidthType.AlignToContent) and (maxWidth = -1));
-
-    var cellHeight: Single;
-    if not isSingleLine or (_singleLineHeight = -1) then
-    begin
-      cellHeight := txt.TextHeight; // TextControlHeight(txt, txt.TextSettings, TextForSizeCalc(txt.Text), -1, -1, maxWidth);
-      if isSingleLine then
-        _singleLineHeight := cellHeight;
-    end
-    else
-      cellHeight := _singleLineHeight;
-
-    Result := cellHeight;
-  end
-  else
+    Result := txt.TextHeight;
+  end else
     Result := ctrl.Height;
 end;
 
@@ -3200,10 +3290,11 @@ begin
   Result := 0.0;
   var cell: IDCTreeCell;
   for cell in Row.Cells.Values do
-  begin
-    var h := CalculateCellControlHeight(Cell, False) + CalculateCellControlHeight(Cell, True);
-    Result := CMath.Max(Result, h);
-  end;
+    if not cell.Column.Visualisation.IgnoreHeightByRowCalculation then
+    begin
+      var h := CalculateCellControlHeight(Cell, False) + CalculateCellControlHeight(Cell, True);
+      Result := CMath.Max(Result, h);
+    end;
 
   Result := Ceil(Result + 2*_cellTopBottomPadding);
 
@@ -4329,75 +4420,73 @@ begin
       textCtrlHeight := (rowsControl.RowHeightDefault - 2*_treeControl.CellTopBottomPadding)
   end;
 
+  var validMain := (Cell.InfoControl <> nil) and Cell.InfoControl.Visible;
+  if validMain and (Cell.Column.InfoControlClass = TInfoControlClass.Text) then
+  begin
+    validMain := (Cell.InfoControl as ICaption).Text <> string.Empty;
+    Cell.InfoControl.Visible := validMain; // not neccessary, but for performance...
+  end;
+
   var validSub := (Cell.SubInfoControl <> nil) and Cell.SubInfoControl.Visible;
   if validSub and (Cell.Column.SubInfoControlClass = TInfoControlClass.Text) then
+  begin
     validSub := (Cell.SubInfoControl as ICaption).Text <> string.Empty;
+    Cell.SubInfoControl.Visible := validSub; // not neccessary, but for performance...
+  end;
 
-  var ctrlHeight := cell.Control.Height;
+  var heightSet := True;
   if validSub then
   begin
-    var validMain := (Cell.InfoControl <> nil) and Cell.InfoControl.Visible;
-
-    var subHeight: single;
-    if validMain then
-    begin
-      textCtrlHeight := textCtrlHeight / 2;
-      subHeight := textCtrlHeight;
-      if Cell.SubInfoControl is TFastText then
-      begin
-        var h := (Cell.SubInfoControl as TFastText).TextHeight;
-        if h < textCtrlHeight then
-        begin
-          subHeight := h;
-          textCtrlHeight := textCtrlHeight + (textCtrlHeight - h);
-        end;
-      end;
-    end;
-
-    Cell.SubInfoControl.Height := subHeight;
-
     if Cell.CustomSubInfoControlBounds.IsEmpty then
     begin
       Cell.SubInfoControl.Width := get_Width - spaceUsed - (2*_treeControl.CellLeftRightPadding);
       Cell.SubInfoControl.Position.X := spaceUsed + _treeControl.CellLeftRightPadding + Cell.SubInfoControl.Margins.Left;
+
+      heightSet := False;
     end else
       Cell.SubInfoControl.BoundsRect := Cell.CustomSubInfoControlBounds;
-
-    if validMain then
-      Cell.SubInfoControl.Position.Y := _treeControl.CellTopBottomPadding+textCtrlHeight+ Cell.SubInfoControl.Margins.Top else
-      Cell.SubInfoControl.Position.Y := CMath.Max(0, (ctrlHeight-Cell.SubInfoControl.Height)/2);
   end;
 
-  if Cell.InfoControl <> nil then
+  if validMain then
   begin
-    if Cell.IsHeaderCell or (Cell.Column.InfoControlClass = TInfoControlClass.Text) then
-      Cell.InfoControl.Height := textCtrlHeight;
-
-    if validSub then
-      ctrlHeight := _treeControl.CellTopBottomPadding + textCtrlHeight;
-
     if Cell.CustomInfoControlBounds.IsEmpty then
     begin
       Cell.InfoControl.Width := get_Width - spaceUsed - (2*_treeControl.CellLeftRightPadding);
-
-//      if Cell.IsHeaderCell or (Cell.Column.InfoControlClass = TInfoControlClass.Text) then
-//      begin
-//        Cell.InfoControl.Position.Y := IfThen(Cell.IsHeaderCell, 0, _treeControl.CellTopBottomPadding) + Cell.InfoControl.Margins.Top;
-//      end else // height already set.. Just set the Y-position
-//        Cell.InfoControl.Position.Y := (ctrlHeight-Cell.InfoControl.Height)/2;
-
       Cell.InfoControl.Position.X := spaceUsed + _treeControl.CellLeftRightPadding + Cell.InfoControl.Margins.Left;
+
+      heightSet := False;
     end else
-    begin
-      // make it in the middle of the row
-//      var yPos := CMath.Max((ctrlHeight-Cell.CustomInfoControlBounds.Height)/2, 0);
-//      Cell.InfoControl.BoundsRect := RectF(Cell.CustomInfoControlBounds.Left, yPos, Cell.CustomInfoControlBounds.Right, yPos+Cell.CustomInfoControlBounds.Height);
-
       Cell.InfoControl.BoundsRect := Cell.CustomInfoControlBounds;
-    end;
-
-    Cell.InfoControl.Position.Y := CMath.Max((ctrlHeight-Cell.InfoControl.Height)/2, 0);
   end;
+
+  if heightSet then
+    Exit;
+
+  var ctrlHeight := cell.Control.Height;
+
+  if not validSub or not validMain then
+  begin
+    var ctrl := Cell.InfoControl;
+    if not validMain then
+      ctrl := Cell.SubInfoControl;
+
+    ctrl.Height := ctrlHeight - (2*_treeControl.CellTopBottomPadding);
+    ctrl.Position.Y := _treeControl.CellTopBottomPadding;
+    Exit;
+  end;
+
+  // if 2 controls are visible in 1 cell
+  if (cell.Column.InfoControlClass = TInfoControlClass.Text) then
+    cell.InfoControl.Height := TFastText(cell.InfoControl).TextHeight;
+
+  if (cell.Column.SubInfoControlClass = TInfoControlClass.Text) then
+    cell.SubInfoControl.Height := TFastText(cell.SubInfoControl).TextHeight;
+
+  var extraHeightPerCtrl := (ctrlHeight - cell.InfoControl.Height - cell.SubInfoControl.Height) / 2;
+
+  // align in vert center
+  cell.InfoControl.Position.Y := extraHeightPerCtrl;
+  cell.SubInfoControl.Position.Y := extraHeightPerCtrl + cell.InfoControl.Height;
 end;
 
 function TTreeLayoutColumn.CreateInfoControl(const Cell: IDCTreeCell; const ControlClassType: TInfoControlClass): TControl;
@@ -4675,7 +4764,7 @@ begin
   _columnsControl := ColumnControl;
   _layoutColumns := CList<IDCTreeLayoutColumn>.Create;
   var clmn: IDCTreeColumn;
-  for clmn in ColumnControl.ColumnList do
+  for clmn in ColumnControl.FullColumnList do
   begin
     var lyColumn: IDCTreeLayoutColumn := TTreeLayoutColumn.Create(clmn, ColumnControl);
     _layoutColumns.Add(lyColumn);
@@ -5855,6 +5944,7 @@ begin
     _allowResize := _src.AllowResize;
     _hideWhenEmpty := _src.HideWhenEmpty;
     _hideGrid := _src.HideGrid;
+    _ignoreHeightByRowCalculation := _src.IgnoreHeightByRowCalculation;
     _format := _src.Format;
   end;
 end;
@@ -5892,6 +5982,11 @@ end;
 function TDCColumnVisualisation.get_HideWhenEmpty: Boolean;
 begin
   Result := _hideWhenEmpty;
+end;
+
+function TDCColumnVisualisation.get_IgnoreHeightByRowCalculation: Boolean;
+begin
+  Result := _ignoreHeightByRowCalculation;
 end;
 
 function TDCColumnVisualisation.get_ReadOnly: Boolean;
@@ -5937,6 +6032,11 @@ end;
 procedure TDCColumnVisualisation.set_HideWhenEmpty(const Value: Boolean);
 begin
   _hideWhenEmpty := Value;
+end;
+
+procedure TDCColumnVisualisation.set_IgnoreHeightByRowCalculation(const Value: Boolean);
+begin
+  _ignoreHeightByRowCalculation := Value;
 end;
 
 procedure TDCColumnVisualisation.set_ReadOnly(const Value: Boolean);
