@@ -100,12 +100,8 @@ type
     _LayoutComplete : Boolean;
     _Index          : Integer;
     _Indent         : Integer;
-    {$IFDEF DEBUG}
     // 14/01/2022 Remove weak references ==> they cause havoc when application closes (see System.pas 39071)
     [unsafe]_Row    : ITreeRow;
-    {$ELSE}
-    [weak]_Row      : ITreeRow;
-    {$ENDIF}
     _Style          : IStyle;
 
     function  get_Content: ICellContentList;
@@ -3942,13 +3938,6 @@ begin
 
   selectors.Add(selector);
 
-//  {$IFDEF DEBUG}
-//  if (Css.CssClass <> nil) and Css.CssClass.Contains('link') then
-//  begin
-//    Css.CssClass := Css.CssClass;
-//  end;
-//  {$ENDIF}
-
   tr_selector := TStyleSelector.Create( 'tr',
                                         Css.CssClass,
                                         nil,
@@ -4506,10 +4495,7 @@ begin
     if cell <> nil then
     begin
       cellRect := GetCellRectangle(cell);
-      // {$IFDEF DEBUG}
-      // KV 19/2/2016 Code enabled
       cellRect := cell.Style.AdjustRectangleWithPadding(cellRect, False);
-      // {$ENDIF}
       content := cell.GetContentAt(X - cellRect.X, Y - cellRect.Y);
     end;
   end;
@@ -5438,11 +5424,7 @@ begin
 
       DoCellLoaded(treeCell, LoadAsTemplateRow);
 
-      {$IFDEF DEBUG}
       contentSize := MeasureCell(treeCell);
-      {$ELSE}
-      contentSize := MeasureCell(treeCell);
-      {$ENDIF}
 
       if layoutColumn.Column.UserDefinedWidth < 0 then
         _Layout.UpdateColumnWidth(  columnIndex,
@@ -5901,11 +5883,9 @@ end;
 {$IFDEF DELPHI}
 destructor TCustomTreeControl.Destroy;
 begin
-//  {$IFNDEF DEBUG}
   CancelEdit;
 
   _editor := nil; // Release control
-//  {$ENDIF}
 
   UninstallDataPropertyEvent;
   _dragCursorImage.Free;
@@ -8463,7 +8443,7 @@ begin
           // column := _Layout.FlatColumns[_Layout.ColumnToFlatIndex(columnIndex)];
           column := _Layout.Columns[columnIndex];
 
-          if column.Column.Sort <> SortType.None then
+          if (column.Column.Sort <> SortType.None) and column.Column.ShowSortMenu then
             UpdateSort(column, ModifierKeys and Keys.Control = Keys.Control);
         end;
       end;
@@ -11799,23 +11779,16 @@ var
 begin
   for filter in _filterDescriptions do
   begin
-    if (filter.LayoutColumn = nil) then
+    if filter.Comparer <> nil then
     begin
-      if filter.Comparer <> nil then
-        e.Accepted :=   // e.Accepted = True when all parent rows are expanded
-                        // or when row is stand alone.
-                        // e.Accepted = False when on a child row and parent is collapsed
-                      (filter.Comparer.Compare(e.Item.Data, e.Accepted) = 0);
-
-//      else if Assigned(filter.Function) then
-//        e.Accepted := (filter.Comparer.Compare(e.Item.Data, e.Accepted) = 0)
+      e.Accepted :=   // e.Accepted = True when all parent rows are expanded
+                      // or when row is stand alone.
+                      // e.Accepted = False when on a child row and parent is collapsed
+                    (filter.Comparer.Compare(e.Item.Data, e.Accepted) = 0);
 
       if not e.Accepted then Exit;
-
       continue;
     end;
-
-    if not e.Accepted then Exit;
 
     col := filter.LayoutColumn.Column;
     propName := col.PropertyName;
@@ -12106,10 +12079,7 @@ begin
 
   for dataRow in rows do
   begin
-    cellData := _dataModelView.DataModel.GetPropertyValue(propName, dataRow);
-    if cellData = nil then
-      cellData := GetFormattedData(cell, contentItem, dataRow, nil, True {Return cell data}, formatApplied);
-
+    cellData := GetFormattedData(cell, contentItem, dataRow, _dataModelView.DataModel.GetPropertyValue(propName, dataRow), True {Return cell data}, formatApplied);
     if cellData = nil then
       continue;
 
@@ -12748,11 +12718,6 @@ begin
   begin
     cellContent := _Content[i];
 
-    {$IFDEF DEBUG}
-    //if Interfaces.Supports(cellContent, ICellImage, img) and (img.Style.ImageURL <> nil) and img.Style.ImageURL.Contains('editgraph') then
-    //  cellContent := _Content[i];
-    {$ENDIF}
-
     style := cellContent.Style;
     if (i > 0) then
     begin
@@ -12826,11 +12791,6 @@ var
   udw: Integer;
 
 begin
-  {$IFDEF DEBUG}
-//  if (Row <> nil) and (Row.Owner <> nil) and (Row.Owner.TreeControl <> nil) and (TTreeControl(Row.Owner.TreeControl).Name = 'NotesGrid') then
-//    Size := CSize.Empty;
-  {$ENDIF}
-
   Size := CSize.Empty;
 
   maxWidth := -1;
@@ -13525,7 +13485,10 @@ begin
       srtType := descriptorArr[i].SortType;
       case SortTypeFlag(srtType) of
 
-        SortType.RowSorter:
+        // KV: 10/09/2025
+        // Added SortType.Comparer so that a filter with comparer is taken into account
+        // This was required to implement filtering on resources/skills from My Activities
+        SortType.RowSorter, SortType.Comparer:
         begin
           if (filtersArr[i] <> nil) and (filtersArr[i].Comparer <> nil) and not TreeRowList.IsNew(source[n]) then
             match := filtersArr[i].Comparer.Compare(source[n], nil) = 0 else
@@ -13536,7 +13499,8 @@ begin
             key := ConvertToKey(source[n]);
         end;
 
-        SortType.DisplayText, SortType.CellData, SortType.Comparer:
+        // KV: 10/09/2025 Removed SortType.Comparer -> See above
+        SortType.DisplayText, SortType.CellData {, SortType.Comparer}:
         begin
           if srtType = SortType.CellData then
             data := GetCellDataFromTemplateRow(n, descriptorArr[i].LayoutColumn.Index) else

@@ -15,7 +15,7 @@ uses
   ADato.Control.Tree.HighLightLabel,
   ADato.Controls.Tree.Intf,
   VCL.AppEvnts,
-  Generics.Defaults;
+  Generics.Defaults, Vcl.ComCtrls;
 
 type
   {$M+}
@@ -54,14 +54,16 @@ type
     UpdateColumnsButton: TImage;
     HideColumnButton: TImage;
     pnlTreeControl: TPanel;
-    Panel2: TPanel;
+    pnlSearchText: TPanel;
     SearchEditor: TButtonedEdit;
     ApplicationEvents1: TApplicationEvents;
     ClearAllButton: TImage;
     ClearFilterButton: TImage;
-
+    btnUseFilter: TButton;
     procedure ApplicationEvents1Deactivate(Sender: TObject);
+    procedure ApplicationEvents1Idle(Sender: TObject; var Done: Boolean);
     procedure btnOKClick(Sender: TObject);
+    procedure btnUseFilterClick(Sender: TObject);
     procedure Button2Click(Sender: TObject);
     procedure FormDeactivate(Sender: TObject);
     procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
@@ -98,6 +100,8 @@ type
     _closing: Boolean;
     _Items: List<IFilterItem>;
     _Result: Integer;
+    _searchUpdated: Integer;
+    _selectionChanged: Boolean;
     _ShowFilterOptions: Boolean;
     _ShowSortOptions: Boolean;
     _TreeControl: TObject; // TTreeControl;
@@ -120,6 +124,8 @@ type
     procedure RealignMenuItems;
 
     function Scaled(i: Integer) : Integer;
+
+    procedure LoadItems(const Items: List<IFilterItem>);
 
   public
     constructor Create(AOwner: TComponent); override;
@@ -205,7 +211,7 @@ uses
   ADato_DotNetControl,
   ADato.Controls.CssControl,
   ADato.Controls.Tree.Impl,
-  Scaling;
+  Scaling, System.SysUtils;
 
 constructor TfrmPopupMenu.Create(AOwner: TComponent);
 
@@ -339,12 +345,29 @@ begin
   Close;
 end;
 
+procedure TfrmPopupMenu.ApplicationEvents1Idle(Sender: TObject; var Done: Boolean);
+begin
+  Done := True;
+
+  btnUseFilter.Enabled := SearchEditor.Text <> '';
+  btnOK.Enabled := _selectionChanged;
+
+  if (_SearchUpdated <> 0) and ((Environment.TickCount - _SearchUpdated) > 200) then
+  begin
+    _SearchUpdated := 0;
+    LoadItems(_Items);
+  end;
+end;
+
 procedure TfrmPopupMenu.btnOKClick(Sender: TObject);
 begin
-  if SearchEditor.Text <> '' then
-    _Result := FilterFullText else
-    _Result := Filtered;
+  _Result := Filtered;
+  Close;
+end;
 
+procedure TfrmPopupMenu.btnUseFilterClick(Sender: TObject);
+begin
+  _Result := FilterFullText;
   Close;
 end;
 
@@ -407,6 +430,8 @@ var
 begin
   _Items := CList<IFilterItem>.Create(Data.Count);
 
+  _selectionChanged := False;
+
   for kv in Data do
   begin
     if SelectEmptyValue and CString.Equals(kv.Value, NO_VALUE) then
@@ -428,7 +453,28 @@ begin
           Result := CString.Compare(x.Caption, y.Caption);
       end);
 
-  (_TreeControl as TTreeControl).DataList := _Items as IList;
+  LoadItems(_Items);
+end;
+
+procedure TfrmPopupMenu.LoadItems(const Items: List<IFilterItem>);
+begin
+  var filtered: List<IFilterItem>;
+
+  if SearchEditor.Text = '' then
+    filtered := Items
+
+  else
+  begin
+    filtered := CList<IFilterItem>.Create();
+    var search: CString := string(SearchEditor.Text).ToLower;
+    for var item in Items do
+    begin
+      if item.Checked or item.Caption.ToLower.Contains(search) then
+        filtered.Add(item);
+    end;
+  end;
+
+  (_TreeControl as TTreeControl).DataList := filtered as IList;
 end;
 
 function TfrmPopupMenu.get_FilterText: CString;
@@ -479,8 +525,8 @@ begin
     _ShowSortOptions := Value;
     lblSortAscending.Visible := Value;
     lblSortDescending.Visible := Value;
-    lblClearColumnFilter.Visible := Value;
-    lblClearAllFilters.Visible := Value;
+    lblClearColumnFilter.Visible := Value or _ShowFilterOptions;
+    lblClearAllFilters.Visible := Value or _ShowFilterOptions;
 
     RealignMenuItems;
   end;
@@ -546,28 +592,14 @@ begin
 end;
 
 procedure TfrmPopupMenu.SearchEditorChange(Sender: TObject);
-var
-  item: IFilterItem;
-
 begin
-  if _UpdateCount > 0 then
-    Exit;
-
-  if _Items <> nil then
-  begin
-    for item in _Items do
-      item.Checked := False;
-
-    (_TreeControl as TTreeControl).RefreshControl([TreeState.DataChanged]);
-  end;
-
-  btnOK.Enabled := SearchEditor.Text <> '';
+  if _UpdateCount > 0 then Exit;
+  _searchUpdated := Environment.TickCount;
 end;
 
 procedure TfrmPopupMenu.TreeControlCellImageClicked(const Sender: TObject; e: CellImageClickedEventArgs);
 begin
-  SearchEditor.Text := '';
-  btnOK.Enabled := True;
+  _selectionChanged := True;
 end;
 
 { TFilterItem }
