@@ -119,6 +119,8 @@ type
     procedure set_HideWhenEmpty(const Value: Boolean);
     function  get_HideGrid: Boolean;
     procedure set_HideGrid(const Value: Boolean);
+    function  get_IgnoreHeightByRowCalculation: Boolean;
+    procedure set_IgnoreHeightByRowCalculation(const Value: Boolean);
     function  get_Format: CString;
     procedure set_Format(const Value: CString);
 
@@ -132,6 +134,7 @@ type
     property AllowHide: Boolean read get_AllowHide write set_AllowHide;
     property HideWhenEmpty: Boolean read get_HideWhenEmpty write set_HideWhenEmpty;
     property HideGrid: Boolean read get_HideGrid write set_HideGrid;
+    property IgnoreHeightByRowCalculation: Boolean read get_IgnoreHeightByRowCalculation write set_IgnoreHeightByRowCalculation;
     property Format: CString read get_Format write set_Format;
   end;
 
@@ -314,7 +317,7 @@ type
 
     function  Control: TControl;
     function  Content: TControl;
-    function  ColumnList: IDCTreeColumnList;
+    function  FullColumnList: IList<IDCTreeColumn>;
     function  GetItemType: &Type;
 
     {$IFDEF DEBUG}
@@ -388,10 +391,6 @@ type
   IDCTreeLayout = interface(IBaseInterface)
     ['{50EEFD9A-570F-4E2B-87B7-887EFFF9CCAB}']
     function  get_LayoutColumns: List<IDCTreeLayoutColumn>;
-//    function  get_FirstColumn: Integer;
-//    procedure set_FirstColumn(Value: Integer);
-//    function  get_FrozenColumns: Integer;
-//    procedure set_FrozenColumns(Value: Integer);
     function  get_FlatColumns: List<IDCTreeLayoutColumn>;
 //    function  get_TotalWidth: Single;
 
