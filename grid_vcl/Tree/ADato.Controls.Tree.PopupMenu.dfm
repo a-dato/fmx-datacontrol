@@ -2,9 +2,10 @@ object frmPopupMenu: TfrmPopupMenu
   Left = 0
   Top = 0
   AlphaBlendValue = 100
+  BorderIcons = []
   BorderStyle = bsNone
-  ClientHeight = 277
-  ClientWidth = 214
+  ClientHeight = 355
+  ClientWidth = 223
   Color = clWhite
   TransparentColorValue = clGreen
   Font.Charset = DEFAULT_CHARSET
@@ -13,6 +14,7 @@ object frmPopupMenu: TfrmPopupMenu
   Font.Name = 'Tahoma'
   Font.Style = []
   KeyPreview = True
+  ShowHint = True
   OnDeactivate = FormDeactivate
   OnKeyDown = FormKeyDown
   OnShow = FormShow
@@ -20,36 +22,39 @@ object frmPopupMenu: TfrmPopupMenu
   object OuterPanel: TPanel
     Left = 25
     Top = 0
-    Width = 189
-    Height = 277
+    Width = 198
+    Height = 355
     Align = alClient
     BevelEdges = [beTop, beRight, beBottom]
     BevelKind = bkFlat
     BevelOuter = bvNone
     ParentColor = True
     TabOrder = 0
+    ExplicitHeight = 346
     object pnlFilterOptions: TPanel
       Left = 0
       Top = 78
-      Width = 187
-      Height = 195
+      Width = 196
+      Height = 273
       Margins.Left = 6
       Align = alClient
       BevelOuter = bvNone
       BorderWidth = 2
       ParentColor = True
       TabOrder = 0
+      ExplicitHeight = 264
       object pnlButtons: TPanel
         Left = 2
-        Top = 166
-        Width = 183
-        Height = 27
+        Top = 246
+        Width = 192
+        Height = 25
         Margins.Top = 30
         Align = alBottom
         BevelEdges = [beBottom]
         BevelOuter = bvNone
         ParentColor = True
         TabOrder = 0
+        ExplicitTop = 245
         object btnOK: TButton
           Left = 15
           Top = 3
@@ -57,6 +62,7 @@ object frmPopupMenu: TfrmPopupMenu
           Height = 21
           Caption = 'OK'
           Default = True
+          Enabled = False
           TabOrder = 0
           OnClick = btnOKClick
         end
@@ -72,25 +78,26 @@ object frmPopupMenu: TfrmPopupMenu
       end
       object pnlTreeControl: TPanel
         Left = 2
-        Top = 2
-        Width = 183
-        Height = 137
+        Top = 28
+        Width = 192
+        Height = 218
         Align = alClient
         BevelOuter = bvNone
         Caption = 'pnlTreeControl'
         ParentColor = True
         ShowCaption = False
         TabOrder = 1
+        ExplicitHeight = 207
       end
-      object Panel2: TPanel
+      object pnlSearchText: TPanel
         AlignWithMargins = True
-        Left = 2
-        Top = 142
-        Width = 183
-        Height = 21
-        Margins.Left = 0
+        Left = 3
+        Top = 5
+        Width = 191
+        Height = 20
+        Margins.Left = 1
         Margins.Right = 0
-        Align = alBottom
+        Align = alTop
         BevelEdges = [beBottom]
         BevelOuter = bvNone
         ParentColor = True
@@ -98,9 +105,10 @@ object frmPopupMenu: TfrmPopupMenu
         object SearchEditor: TButtonedEdit
           Left = 0
           Top = 0
-          Width = 183
-          Height = 21
+          Width = 127
+          Height = 20
           Margins.Top = 0
+          Margins.Right = 0
           Margins.Bottom = 0
           Align = alClient
           LeftButton.DisabledImageIndex = 21
@@ -108,15 +116,27 @@ object frmPopupMenu: TfrmPopupMenu
           ParentColor = True
           RightButton.Hint = 'Search options'
           TabOrder = 0
-          TextHint = 'column filter text'
+          TextHint = 'Filter text'
           OnChange = SearchEditorChange
+          ExplicitHeight = 21
+        end
+        object btnUseFilter: TButton
+          Left = 127
+          Top = 0
+          Width = 64
+          Height = 20
+          Hint = 'Use filter text to filter data inside this column'
+          Align = alRight
+          Caption = 'Use filter'
+          TabOrder = 1
+          OnClick = btnUseFilterClick
         end
       end
     end
     object pnlMenuItems: TPanel
       Left = 0
       Top = 0
-      Width = 187
+      Width = 196
       Height = 78
       Margins.Top = 30
       Align = alTop
@@ -132,7 +152,7 @@ object frmPopupMenu: TfrmPopupMenu
     Left = 0
     Top = 0
     Width = 25
-    Height = 277
+    Height = 355
     Margins.Top = 30
     Align = alLeft
     BevelEdges = [beLeft, beTop, beBottom]
@@ -140,6 +160,7 @@ object frmPopupMenu: TfrmPopupMenu
     Color = 14803425
     ParentBackground = False
     TabOrder = 1
+    ExplicitHeight = 346
     object SortA_to_ZButton: TImage
       AlignWithMargins = True
       Left = 6
@@ -439,7 +460,8 @@ object frmPopupMenu: TfrmPopupMenu
   end
   object ApplicationEvents1: TApplicationEvents
     OnDeactivate = ApplicationEvents1Deactivate
-    Left = 96
-    Top = 104
+    OnIdle = ApplicationEvents1Idle
+    Left = 120
+    Top = 144
   end
 end
