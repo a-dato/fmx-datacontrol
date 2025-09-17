@@ -78,6 +78,7 @@ type
     function  ListHoldsObjectType: Boolean; virtual;
     function  HasMultiSelection: Boolean;
     function  ContextCanChange: Boolean;
+    procedure RemoveNewItems;
 
     // IObjectListModel
     function  get_Context: IList; virtual;
@@ -300,8 +301,26 @@ begin
     Remove(drv.Row.Data);
 end;
 
+procedure TDataModelObjectListModel.RemoveNewItems;
+begin
+  var newItems: List<CObject> := CList<CObject>.Create;
+  var key: CObject;
+  for key in _changedItems.Keys do
+    if _changedItems[key] = TObjectListChangeType.Added then
+      newItems.Add(key);
+
+  for key in newItems do
+    _changedItems.Remove(key);
+end;
+
 procedure TDataModelObjectListModel.Remove(const Item: CObject);
 begin
+  // in case of IsNew, cancel already removes
+  if get_IsNew then
+    CancelEdit;
+
+  RemoveNewItems;
+
   var row := _dataModel.FindByKey(Item);
   if row <> nil then
   begin
@@ -412,19 +431,23 @@ begin
   // if IsNew item then insert it into the _changedItems this way
   // it will be removed properly in NotifyRemoved
   var wasNew := get_IsNew;
+  var canceledObj := Context.Context;
 
-  var row := _dataModel.FindByKey(Context.Context);
+  var row := _dataModel.FindByKey(canceledObj);
   _dataModel.CancelEdit(row);
 
-  var dr := _dataModel.FindByKey(Context.Context);
-  if dr <> nil then
-    dr.Data := OriginalObject;
+  if not wasNew then
+  begin
+    var dr := _dataModel.FindByKey(canceledObj);
+    if dr <> nil then
+      dr.Data := OriginalObject;
+  end;
 
   var n: IListItemChanged;
   for n in get_OnItemChanged do
-    n.CancelEdit(Context.Context);
+    n.CancelEdit(canceledObj);
 
-  if wasNew and (dr = nil) then // it has been removed by _dataModel
+  if wasNew and CObject.Equals(Context.Context, canceledObj) then // it has been removed by _dataModel
     set_ObjectContext(nil);
 end;
 
