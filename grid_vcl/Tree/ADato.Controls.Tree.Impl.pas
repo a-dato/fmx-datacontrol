@@ -12089,16 +12089,14 @@ begin
       for var o in l do
         AddItem(o, o.ToString);
     end
-    else begin
+    else if cellData.IsString then
+      AddItem(cellData, cellData.ToString)
+    else
+    begin
       // maybe there is only text in the cell, no data!
       formattedData := GetFormattedData(cell, contentItem, dataRow, cellData, False {Return formatted}, formatApplied);
       if formattedData = nil then
         continue;
-
-      // Turned off by JvA 12/10/21
-      // CUstomers did not find it logical to show filter options that are not formatted in Tree itself
-      //formattedData := cellData;
-
       AddItem(cellData, formattedData.ToString);
     end;
   end;
