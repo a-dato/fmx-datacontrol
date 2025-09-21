@@ -352,15 +352,18 @@ begin
   else // datamodel
   begin
     var drv: IDataRowView;
-    if not DataItem.TryAsType<IDataRowView>(drv) then
-    begin
-      var dr := _dataModelView.DataModel.FindByKey(DataItem);
-      if dr <> nil then
-        drv := _dataModelView.FindRow(dr);
-    end
-    else
-      // make sure item still exists in the datamodel, even if we still have the DataRowView
-      drv := _dataModelView.FindRow(drv.Row);
+    var di: CObject;
+
+    // make sure item still exists in the datamodel, even if we still have the DataRowView
+    // can be removed, or datamodel can be refreshed with new rows where object exists in another row..
+    if DataItem.TryAsType<IDataRowView>(drv) then
+      di := drv.Row.Data else
+      di := DataItem;
+
+    var dr := _dataModelView.DataModel.FindByKey(di);
+    if dr <> nil then
+      drv := _dataModelView.FindRow(dr) else
+      drv := nil;
 
     if drv = nil then Exit(-1);
     Result := drv.ViewIndex;

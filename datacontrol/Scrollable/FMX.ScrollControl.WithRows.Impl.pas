@@ -96,6 +96,7 @@ type
     function  get_RowHeightSynchronizer: TScrollControlWithRows;
     procedure set_RowHeightSynchronizer(const Value: TScrollControlWithRows);
 
+    function  CalculateRowControlWidth(const ForceRealContentWidth: Boolean): Single; virtual;
     procedure DoViewPortPositionChanged; override;
                
     function  IsMasterSynchronizer: Boolean;
@@ -1732,14 +1733,13 @@ begin
     var row: IDCRow;
     for row in _view.ActiveViewRows do
       VisualizeRowSelection(row);
-  end
-  else
+  end else
     set_Current(Args.NewIndex);
 end;
 
 procedure TScrollControlWithRows.ModelContextChanged(const Sender: IObjectModelContext; const Context: CObject);
 begin
-  if HasInternalSelectCount then
+  if HasInternalSelectCount or (_previousHardAssignedDataModelView <> nil) then
     Exit;
 
   var dItem := get_DataItem;
@@ -1786,7 +1786,7 @@ procedure TScrollControlWithRows.BeforePainting;
 begin
   // if DoRealignContent should be called, but the paint event is earlier at it's "_rowHeightSynchronizer" control..
   // make sure the calculations are done first
-  if not _realignContentRequested and (_rowHeightSynchronizer <> nil) and _rowHeightSynchronizer._realignContentRequested then
+  if not _realignContentRequested and (_rowHeightSynchronizer <> nil) and _rowHeightSynchronizer._realignContentRequested and ControlEffectiveVisible(_rowHeightSynchronizer) then
     _rowHeightSynchronizer.BeforePainting;
 
   inherited;
@@ -1963,7 +1963,7 @@ begin
 
   PerformanceRoutineLoadedRow(Row);
 
-  Row.Control.Width := _content.Width;
+  Row.Control.Width := CalculateRowControlWidth(False);
   CreateAndSynchronizeSynchronizerRow(Row);
 
   if rowNeedsReload then
@@ -2242,14 +2242,9 @@ end;
 
 procedure TScrollControlWithRows.OnSelectionInfoChanged;
 begin
-  if (_realignState in [TRealignState.Waiting, TRealignState.BeforeRealign]) then
-    Exit;
-
-  ScrollSelectedIntoView(_selectionInfo);
-
   if SyncIsMasterSynchronizer then
     Exit;
-    
+
   AtomicIncrement(_internalSelectCount);
   try
     if (_model <> nil) then
@@ -2278,6 +2273,11 @@ begin
   finally
     AtomicDecrement(_internalSelectCount);
   end;
+
+  if (_realignState in [TRealignState.Waiting, TRealignState.BeforeRealign]) then
+    Exit;
+
+  ScrollSelectedIntoView(_selectionInfo);
 
   var row: IDCRow;
   for row in _view.ActiveViewRows do
@@ -2881,10 +2881,11 @@ begin
   end;
 
   if (_selectionInfo <> nil) and (_selectionInfo.DataItem <> nil) then
-    Self.set_DataItem(_selectionInfo.DataItem);
+    GetInitializedWaitForRefreshInfo.DataItem := _selectionInfo.DataItem;
 
-  // make sure scrollbars are up-to-date
-  DoRealignContent;
+//  // make sure scrollbars are up-to-date
+//  DoRealignContent;
+  RefreshControl;
 end;
 
 function TScrollControlWithRows.RowIsExpanded(const ViewListIndex: Integer): Boolean;
@@ -2898,6 +2899,13 @@ begin
     Exit;
 
   Result := drv.DataView.IsExpanded[drv.Row];
+end;
+
+function TScrollControlWithRows.CalculateRowControlWidth(const ForceRealContentWidth: Boolean): Single;
+begin
+  // _content.WIdth => since we are in painting, scrollbar can be turned off/on..
+  // This will not be taken into account in width when Control.IsUpdating
+  Result := Self.Width - IfThen(_vertScrollBar.Visible, _vertScrollBar.Width, 0);
 end;
 
 function TScrollControlWithRows.VisibleRows: List<IDCRow>;
@@ -3058,10 +3066,11 @@ end;
 
 procedure TScrollControlWithRows.SetSingleSelectionIfNotExists;
 begin
-  if _allowNoneSelected or (_view.ViewCount = 0) then
+  if _allowNoneSelected or (_view = nil) or (_view.ViewCount = 0) then
   begin
-    if _selectionInfo.HasSelection then
-      _selectionInfo.Deselect(_selectionInfo.DataIndex);
+    // WHY IS THIS HERE??
+//    if _selectionInfo.HasSelection then
+//      _selectionInfo.Deselect(_selectionInfo.DataIndex);
 
     Exit;
   end;
@@ -3113,11 +3122,14 @@ end;
 procedure TScrollControlWithRows.set_AllowNoneSelected(const Value: Boolean);
 begin
   _allowNoneSelected := Value;
+
+  if not _allowNoneSelected and (_selectionInfo.ViewListIndex = -1) then
+    RefreshControl(True);
 end;
 
 procedure TScrollControlWithRows.set_Current(const Value: Integer);
 begin
-  if (_selectionInfo = nil) or (get_Current <> Value) then
+  if (_selectionInfo = nil) or (_selectionInfo.ViewListIndex <> Value) then
     GetInitializedWaitForRefreshInfo.Current := Value;
 end;
 

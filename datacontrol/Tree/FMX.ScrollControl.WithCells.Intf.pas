@@ -314,6 +314,7 @@ type
 
     procedure ColumnVisibilityChanged(const Column: IDCTreeColumn; IsUserChange: Boolean);
     procedure ColumnWidthChanged(const Column: IDCTreeColumn);
+    function  CalculateRowControlWidth(const ForceRealContentWidth: Boolean): Single;
 
     function  Control: TControl;
     function  Content: TControl;

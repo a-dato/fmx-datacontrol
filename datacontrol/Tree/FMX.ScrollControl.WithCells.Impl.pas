@@ -172,9 +172,11 @@ type
     procedure FastColumnAlignAfterColumnChange;
 
     function  DoCreateNewRow: IDCRow; override;
+
     procedure BeforeRealignContent; override;
     procedure AfterRealignContent; override;
 
+    procedure PrepareColumns;
     procedure InnerInitRow(const Row: IDCRow; RowHeightNeedsRecalc: Boolean = False); override;
     procedure PerformanceRoutineLoadedRow(const Row: IDCRow); override;
     procedure DoRowLoaded(const ARow: IDCRow); override;
@@ -183,7 +185,7 @@ type
     procedure OnSelectionInfoChanged; override;
     procedure SetSingleSelectionIfNotExists; override;
     procedure VisualizeRowSelection(const Row: IDCRow); override;
-    procedure CheckCorrectColumnSelection( const SelectionInfo: ITreeSelectionInfo);
+    procedure CheckCorrectColumnSelection( const SelectionInfo: ITreeSelectionInfo; const Row: IDCTreeRow);
 
     function  GetInitializedWaitForRefreshInfo: IWaitForRepaintInfo; override;
 
@@ -210,6 +212,7 @@ type
 
     function  TextForSizeCalc(const Text: string): string;
 
+    function  CalculateRowControlWidth(const ForceRealContentWidth: Boolean): Single; override;
     function  CalculateRowHeight(const Row: IDCTreeRow): Single;
     function  CalculateCellWidth(const LayoutColumn: IDCTreeLayoutColumn; const Cell: IDCTreeCell): Single;
     function  CalculateCellControlHeight(const Cell: IDCTreeCell; GoSub: Boolean): Single;
@@ -1217,12 +1220,7 @@ begin
   var frozenColumnWidth := _treeLayout.FrozenColumnWidth;
   var hasFrozenColumns := frozenColumnWidth > 0;
 
-  var rowWidth := 0.0;
-  if _treeLayout.FlatColumns.Count > 0 then
-  begin
-    var lastFlatColumn := _treeLayout.FlatColumns[_treeLayout.FlatColumns.Count - 1];
-    rowWidth := CMath.Min(_content.Width, lastFlatColumn.Left + lastFlatColumn.Width);
-  end;
+  var rowWidth := CalculateRowControlWidth(False);
 
   var showHeaderGrid := TDCTreeOption.ShowHeaderGrid in _options;
   var showVertGrid := TDCTreeOption.ShowVertGrid in _options;
@@ -1364,7 +1362,7 @@ begin
 
   var treeSelection := _selectionInfo as ITreeSelectionInfo;
 
-  CheckCorrectColumnSelection(treeSelection);
+  CheckCorrectColumnSelection(treeSelection, row);
   Result := row.Cells[treeSelection.SelectedLayoutColumn];
 end;
 
@@ -1600,7 +1598,7 @@ begin
   begin
     if _realignContentRequested and CanRealignContent then
     begin
-      DoRealignContent;
+      PrepareColumns;
       flatColumn := Self.FlatColumnByColumn(Column);
     end;
 
@@ -1637,7 +1635,6 @@ begin
       {$ENDIF}
     end;
       
-
     FlatColumn.ActiveSort := sortDesc;
   end;
 
@@ -1954,7 +1951,8 @@ begin
     end;
   end;
 
-  if (_autoMultiSelectColumn <> nil) and (_autoMultiSelectColumn.Visualisation.Visible <> _selectionInfo.IsMultiSelection) then
+  var makeVisible := _allowNoneSelected {always visible} or _selectionInfo.IsMultiSelection {only visible by 2 or more selected};
+  if (_autoMultiSelectColumn <> nil) and (_autoMultiSelectColumn.Visualisation.Visible <> makeVisible) then
   begin
     _autoMultiSelectColumn.Visualisation.Visible := not _autoMultiSelectColumn.Visualisation.Visible;
     (GetInitializedWaitForRefreshInfo as IDataControlWaitForRepaintInfo).ColumnsChanged;
@@ -2026,10 +2024,11 @@ begin
 
     // when AlignToContent column is a frozen column, and this type of width can change, the HScrollBar Min value must be set back
     var setHorzBackToMinValue := SameValue(_horzScrollBar.Min, _horzScrollBar.Value);
+    var rowCtrlWidth := CalculateRowControlWidth(False);
 
     _horzScrollBar.Min := frozenColumnWidth;
-    _horzScrollBar.Max := _content.Width + _treeLayout.ContentOverFlow;
-    _horzScrollBar.ViewportSize := _content.Width - frozenColumnWidth;
+    _horzScrollBar.Max := rowCtrlWidth + _treeLayout.ContentOverFlow;
+    _horzScrollBar.ViewportSize := rowCtrlWidth - frozenColumnWidth;
 
     if setHorzBackToMinValue then
       _horzScrollBar.Value := _horzScrollBar.Min;
@@ -2067,14 +2066,10 @@ begin
   end;
 end;
 
-procedure TScrollControlWithCells.BeforeRealignContent;
+procedure TScrollControlWithCells.PrepareColumns;
 begin
-  // sorting / set data item / set current etc..
   var repaintInfo := (_waitForRepaintInfo as IDataControlWaitForRepaintInfo);
   var columnsChanged := ((repaintInfo <> nil) and (TTreeViewState.ColumnsChanged in repaintInfo.ViewStateFlags));
-
-  if columnsChanged and (_view <> nil) then
-    _view.ResetView; // clear all controls
 
   if (_treeLayout = nil) or (_columns.Count = 0) or columnsChanged then
     InitLayout;
@@ -2086,6 +2081,18 @@ begin
     _treeLayout.RecalcColumnWidthsBasic;
     InitHeader;
   end;
+end;
+
+procedure TScrollControlWithCells.BeforeRealignContent;
+begin
+  // sorting / set data item / set current etc..
+  var repaintInfo := (_waitForRepaintInfo as IDataControlWaitForRepaintInfo);
+  var columnsChanged := ((repaintInfo <> nil) and (TTreeViewState.ColumnsChanged in repaintInfo.ViewStateFlags));
+
+  if columnsChanged and (_view <> nil) then
+    _view.ResetView; // clear all controls
+
+  PrepareColumns;
 
   inherited;
 
@@ -2335,7 +2342,7 @@ begin
     begin
       var selTreeInfo := (_selectionInfo as ITreeSelectionInfo);
       selTreeInfo.SelectedLayoutColumn := -1;
-      CheckCorrectColumnSelection(selTreeInfo);
+      CheckCorrectColumnSelection(selTreeInfo, GetActiveRow as IDCTreeRow);
     end;
   end;
 
@@ -2711,9 +2718,9 @@ begin
 //  end;
 end;
 
-procedure TScrollControlWithCells.CheckCorrectColumnSelection(const SelectionInfo: ITreeSelectionInfo);
+procedure TScrollControlWithCells.CheckCorrectColumnSelection(const SelectionInfo: ITreeSelectionInfo; const Row: IDCTreeRow);
 begin
-  if SelectionInfo.SelectedLayoutColumn = -1 then
+  if (SelectionInfo.SelectedLayoutColumn = -1) or ((Row <> nil) and not Row.Cells.ContainsKey(SelectionInfo.SelectedLayoutColumn)) then
   begin
     SelectionInfo.BeginUpdate;
     try
@@ -2738,38 +2745,41 @@ begin
   var clmnChange := currentSelection.SelectedLayoutColumn <> requestedSelection.SelectedLayoutColumn;
   var clmnAlreadySelected := not clmnChange or currentSelection.SelectedLayoutColumns.Contains(requestedSelection.SelectedLayoutColumn);
 
-  // not changed for example when sorting/filtering activated
-  if (ssShift in Shift) and rowAlreadySelected and clmnAlreadySelected then
+  if not currentSelection.IsMultiSelection then
   begin
-    // nothing special to do
-    ScrollSelectedIntoView(RequestedSelectionInfo);
-    DoCellSelected(GetActiveCell, _selectionInfo.LastSelectionEventTrigger);
-    Exit;
-  end
-  else if (SelectionType <> TSelectionType.CellSelection) and not rowChange then
-  begin
-    // nothing special to do
-    ScrollSelectedIntoView(RequestedSelectionInfo);
+    // not changed for example when sorting/filtering activated
+    if (ssShift in Shift) and rowAlreadySelected and clmnAlreadySelected then
+    begin
+      // nothing special to do
+      ScrollSelectedIntoView(RequestedSelectionInfo);
+      DoCellSelected(GetActiveCell, _selectionInfo.LastSelectionEventTrigger);
+      Exit;
+    end
+    else if (SelectionType <> TSelectionType.CellSelection) and not rowChange then
+    begin
+      // nothing special to do
+      ScrollSelectedIntoView(RequestedSelectionInfo);
 
-    // ignore change event, for no row change took place
-    currentSelection.BeginUpdate;
-    try
-      currentSelection.SelectedLayoutColumn := requestedSelection.SelectedLayoutColumn;
-    finally
-      currentSelection.EndUpdate(True);
+      // ignore change event, for no row change took place
+      currentSelection.BeginUpdate;
+      try
+        currentSelection.SelectedLayoutColumn := requestedSelection.SelectedLayoutColumn;
+      finally
+        currentSelection.EndUpdate(True);
+      end;
+
+      DoCellSelected(GetActiveCell, _selectionInfo.LastSelectionEventTrigger);
+      Exit(True);
+    end
+    else if not rowChange and not clmnChange then
+    begin
+      // nothing special to do
+      ScrollSelectedIntoView(RequestedSelectionInfo);
+
+      // nothing special to do
+      DoCellSelected(GetActiveCell, _selectionInfo.LastSelectionEventTrigger);
+      Exit(True);
     end;
-
-    DoCellSelected(GetActiveCell, _selectionInfo.LastSelectionEventTrigger);
-    Exit(True);
-  end
-  else if not rowChange and not clmnChange then
-  begin
-    // nothing special to do
-    ScrollSelectedIntoView(RequestedSelectionInfo);
-
-    // nothing special to do
-    DoCellSelected(GetActiveCell, _selectionInfo.LastSelectionEventTrigger);
-    Exit(True);
   end;
 
   // Okay, we now know for sure that we have a changed cell..
@@ -2777,9 +2787,8 @@ begin
 
   var customShift := Shift;
 
-
   // old activecell
-  CheckCorrectColumnSelection(currentSelection);
+  CheckCorrectColumnSelection(currentSelection, GetActiveRow as IDCTreeRow);
 
   var dummyOldRow := CreateDummyRowForChanging(currentSelection) as IDCTreeRow;
   var oldCell := dummyOldRow.Cells[currentSelection.SelectedLayoutColumn];
@@ -3271,6 +3280,19 @@ begin
     Result := txt.TextHeight;
   end else
     Result := ctrl.Height;
+end;
+
+function TScrollControlWithCells.CalculateRowControlWidth(const ForceRealContentWidth: Boolean): Single;
+begin
+  if ForceRealContentWidth then
+    Exit(inherited);
+
+  Result := 0.0;
+  if (_treeLayout <> nil) and (_treeLayout.FlatColumns.Count > 0) then
+  begin
+    var lastFlatColumn := _treeLayout.FlatColumns[_treeLayout.FlatColumns.Count - 1];
+    Result := CMath.Min(inherited, lastFlatColumn.Left + lastFlatColumn.Width);
+  end;
 end;
 
 function TScrollControlWithCells.CalculateRowHeight(const Row: IDCTreeRow): Single;
@@ -4905,7 +4927,7 @@ begin
     if not _isScrolling or SameValue(layoutClmn.Width, 0) then
       columnsToCalculate.Add(layoutClmn.Index);
 
-  var totalWidth := _columnsControl.Content.Width;
+  var totalWidth := _columnsControl.CalculateRowControlWidth(True);
   var widthLeft := totalWidth;
 
   var round: Integer;
@@ -4994,6 +5016,8 @@ begin
   // step 1: hide all columns that do not fit on the right
   var minimumTotalWidth := 0.0;
 
+  var rowControlWidth := _columnsControl.CalculateRowControlWidth(True);
+
   var ix: Integer;
   for ix := 0 to 1 do
     for layoutClmn in get_FlatColumns do
@@ -5025,7 +5049,7 @@ begin
             Continue;
 
 
-          var available := _columnsControl.Content.Width - minimumTotalWidth;
+          var available := rowControlWidth - minimumTotalWidth;
           if (available < layoutClmn.Width) and (available >= layoutClmn.Column.WidthMin) and (layoutClmn.Column.WidthMin > 0) then
             layoutClmn.Width := available;
 
@@ -5035,7 +5059,7 @@ begin
 
       if not SameValue(minColumnWidth, -1) then
       begin
-        if minimumTotalWidth + minColumnWidth - 0.01 > _columnsControl.Content.Width then
+        if minimumTotalWidth + minColumnWidth - 0.01 > rowControlWidth then
         begin
           layoutClmn.HideColumnInView := True;
           Continue;
@@ -5045,7 +5069,7 @@ begin
       end;
     end;
 
-  var widthLeft := _columnsControl.Content.Width - minimumTotalWidth;
+  var widthLeft := rowControlWidth - minimumTotalWidth;
   Assert(Ceil(widthLeft) >= 0);
 
   var potentialCount := 0;
