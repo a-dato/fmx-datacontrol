@@ -52,6 +52,7 @@ type
     _style: TStyledSettings;
     _autoWidth: Boolean;
     _calcAsAutoWidth: Boolean;
+    _underlineOnHover: Boolean;
 
     _recalcNeeded: Boolean;
     _recalcNeededWithOwnCanvas: Boolean;
@@ -146,6 +147,7 @@ type
     property AutoWidth: Boolean read _autoWidth write set_AutoWidth default False;
     property CalcAsAutoWidth: Boolean read _calcAsAutoWidth write set_CalcAsAutoWidth default False;
     property MaxWidth: Single write _maxWidth;
+    property UnderlineOnHover: Boolean read _underlineOnHover write _underlineOnHover default False;
 
     property HitTest default False;
 
@@ -165,6 +167,9 @@ type
   protected
     procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject); override;
   end;
+
+const
+  SUBTEXT_NEGATIVE_MARGIN = -2;
 
 var
   APPLICATION_FONT_FAMILY: string = 'Segoe UI';
@@ -305,6 +310,14 @@ begin
       _subTextlayout.Opacity := AbsoluteOpacity;
       _subTextlayout.RenderLayout(Canvas);
     end;
+  end;
+
+  if _hover and _underlineOnHover and not _mouseIsDown then
+  begin
+    Canvas.Stroke.Color := _layout.Color;
+
+    var rect := _layout.TextRect;
+    Canvas.DrawLine(PointF(rect.Left, rect.Bottom), PointF(rect.Right, rect.Bottom), AbsoluteOpacity);
   end;
 end;
 
@@ -463,7 +476,7 @@ begin
   if _autoWidth then
     Self.Width := TextWidthWithPadding;
 
-  var subTextHeightSubstraction := CMath.Max(_subTextBounds.Height - 3, 0);
+  var subTextHeightSubstraction := CMath.Max(_subTextBounds.Height + SUBTEXT_NEGATIVE_MARGIN, 0);
 
   _layout.BeginUpdate;
   try
@@ -602,7 +615,7 @@ end;
 function TFastText.TextHeight: Single;
 begin
   Calculate;
-  Result := _textBounds.Height + CMath.Max(_subTextBounds.Height - 3, 0);
+  Result := _textBounds.Height + CMath.Max(_subTextBounds.Height + SUBTEXT_NEGATIVE_MARGIN, 0);
 end;
 
 function TFastText.TextHeightWithPadding: Single;

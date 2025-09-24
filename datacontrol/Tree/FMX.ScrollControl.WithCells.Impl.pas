@@ -166,6 +166,7 @@ type
     _totalColumnWidth: Single;
     _fullHeaderClick: Boolean;
     _autoMultiSelectColumn: IDCTreeCheckboxColumn;
+    _localCheckSetInDefaultData: Boolean;
 
 //    _fullRepositionCellsNeeded: Boolean;
 
@@ -666,7 +667,7 @@ type
     procedure CreateCellStyleControl(const StyleLookUp: CString; const ShowVertGrid: Boolean; const Cell: IDCTreeCell);
 
     procedure UpdateCellControlsByRow(const Cell: IDCTreeCell);
-    procedure UpdateCellControlsPositions(const Cell: IDCTreeCell);
+    procedure UpdateCellControlsPositions(const Cell: IDCTreeCell; ForceIsValid: Boolean = False);
   end;
 
   TExpandButton = class(TLayout)
@@ -2998,14 +2999,6 @@ end;
 
 procedure TScrollControlWithCells.LoadDefaultDataIntoControl(const Cell: IDCTreeCell; const FlatColumn: IDCTreeLayoutColumn; const IsSubProp: Boolean);
 begin
-  // checkbox selection
-  if Cell.Column.IsSelectionColumn then
-  begin
-    Cell.InfoControl.Visible := _selectionInfo.CanSelect(Cell.Row.DataIndex);
-    FlatColumn.ContainsData := TColumnContainsData.Yes;
-    Exit;
-  end;
-
   var ctrl: TControl;
   var propName: CString;
   var infoClass: TInfoControlClass;
@@ -3025,6 +3018,7 @@ begin
 
   var formattedValue: CObject := nil;
 
+  _localCheckSetInDefaultData := False;
   if ctrl <> nil then
   begin
     var formatApplied: Boolean;
@@ -3058,7 +3052,10 @@ begin
         (ctrl as ICaption).Text := s;
       end
       else if infoClass = TInfoControlClass.CheckBox then
+      begin
         (ctrl as IIsChecked).IsChecked := formattedValue.AsType<Boolean>;
+        _localCheckSetInDefaultData := True;
+      end;
     end;
   end;
 
@@ -3137,7 +3134,7 @@ begin
   var flatColumn: IDCTreeLayoutColumn;
   for flatColumn in l do
   begin
-    var performanceModeWhileScrolling := (flatColumn.Column.InfoControlClass <> TInfoControlClass.Text);
+    var performanceModeWhileScrolling := (flatColumn.Column.InfoControlClass <> TInfoControlClass.Text) and not flatColumn.Column.IsSelectionColumn;
 
     if not treeRow.Cells.TryGetValue(flatColumn.Index, cell) then
     begin
@@ -3162,7 +3159,13 @@ begin
       {$ENDIF}
     end;
 
-    if loadDefaultData and (not ScrollControlIsFastScrolling or not performanceModeWhileScrolling) then
+    // checkbox selection
+    if Cell.Column.IsSelectionColumn then
+    begin
+      Cell.InfoControl.Visible := _selectionInfo.CanSelect(Cell.Row.DataIndex);
+      FlatColumn.ContainsData := TColumnContainsData.Yes;
+    end
+    else if loadDefaultData and (not ScrollControlIsFastScrolling or not performanceModeWhileScrolling) then
     begin
       LoadDefaultDataIntoControl(cell, flatColumn, False);
 
@@ -4383,7 +4386,7 @@ begin
   end;
 end;
 
-procedure TTreeLayoutColumn.UpdateCellControlsPositions(const Cell: IDCTreeCell);
+procedure TTreeLayoutColumn.UpdateCellControlsPositions(const Cell: IDCTreeCell; ForceIsValid: Boolean = False);
 begin
   Assert(not _HideColumnInView);
 
@@ -4442,17 +4445,17 @@ begin
       textCtrlHeight := (rowsControl.RowHeightDefault - 2*_treeControl.CellTopBottomPadding)
   end;
 
-  var validMain := (Cell.InfoControl <> nil) and Cell.InfoControl.Visible;
+  var validMain := (Cell.InfoControl <> nil) and (Cell.InfoControl.Visible or ForceIsValid);
   if validMain and (Cell.Column.InfoControlClass = TInfoControlClass.Text) then
   begin
-    validMain := (Cell.InfoControl as ICaption).Text <> string.Empty;
+    validMain := ForceIsValid or (Length((Cell.InfoControl as ICaption).Text) > 0);
     Cell.InfoControl.Visible := validMain; // not neccessary, but for performance...
   end;
 
-  var validSub := (Cell.SubInfoControl <> nil) and Cell.SubInfoControl.Visible;
+  var validSub := (Cell.SubInfoControl <> nil) and (Cell.SubInfoControl.Visible or ForceIsValid);
   if validSub and (Cell.Column.SubInfoControlClass = TInfoControlClass.Text) then
   begin
-    validSub := (Cell.SubInfoControl as ICaption).Text <> string.Empty;
+    validSub := ForceIsValid or (Length((Cell.SubInfoControl as ICaption).Text) > 0);
     Cell.SubInfoControl.Visible := validSub; // not neccessary, but for performance...
   end;
 

@@ -1051,7 +1051,7 @@ begin
   if ViewIsDataModelView and (GetDataModelView.CurrencyManager.Current <> -1) and (_view.ActiveViewRows.Count > 0) then
     InternalSetCurrent(GetDataModelView.CurrencyManager.Current, TSelectionEventTrigger.External, []);
 
-  RefreshControl;
+  RefreshControl(True);
 end;
 
 function TScrollControlWithRows.GetActiveRow: IDCRow;

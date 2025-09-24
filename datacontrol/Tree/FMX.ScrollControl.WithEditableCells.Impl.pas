@@ -591,7 +591,7 @@ begin
       var ctrl := Cell.InfoControl;
       var chkCtrl := (ctrl as IISChecked);
 
-      if Cell.Column.HasPropertyAttached then
+      if _localCheckSetInDefaultData {Cell.Column.HasPropertyAttached} then
         UpdateColumnCheck(cell.Row.DataIndex, Cell.Column, chkCtrl.IsChecked);
 
       ctrl.Tag := Cell.Row.ViewListIndex;
@@ -807,7 +807,14 @@ end;
 procedure TScrollControlWithEditableCells.UserClicked(Button: TMouseButton; Shift: TShiftState; const X, Y: Single);
 begin
   var clickedRow := GetRowByLocalY(Y);
-  if clickedRow = nil then Exit;
+  if clickedRow = nil then
+  begin
+    // end edit if needed
+    if _editingInfo.CellIsEditing then
+      CheckCanChangeRow;
+
+    Exit;
+  end;
 
   var crrntCell := GetActiveCell;
   if IsEditOrNew and not CObject.Equals(_editingInfo.EditItem, clickedRow.DataItem) then
@@ -1458,7 +1465,7 @@ begin
   var activeCell := GetActiveCell;
   if activeCell = nil then Exit; // cell scrolled out of view
 
-  activeCell.InfoControl.Visible := True;
+  activeCell.LayoutColumn.UpdateCellControlsPositions(activeCell);
 end;
 
 procedure TScrollControlWithEditableCells.InternalSetCurrent(const Index: Integer; const EventTrigger: TSelectionEventTrigger; Shift: TShiftState; SortOrFilterChanged: Boolean);
@@ -1908,6 +1915,10 @@ end;
 
 procedure TDCCellEditor.BeginEdit(const EditValue: CObject);
 begin
+  // ctrl is invisible when no data is set..
+  if not _cell.InfoControl.Visible then
+    _cell.LayoutColumn.UpdateCellControlsPositions(_cell, True {FORCE});
+
   _editor.Position.X := _cell.InfoControl.Position.X - ROW_CONTENT_MARGIN;
   _editor.Position.Y := _cell.InfoControl.Position.Y - ROW_CONTENT_MARGIN;
   _editor.Width := _cell.InfoControl.Width + (2*ROW_CONTENT_MARGIN);
@@ -2174,10 +2185,11 @@ begin
   var ce := TComboEdit(_editor);
   var index := ce.ItemIndex;
   if index <> -1 then
-    _Value := _PickList[index];
+    _Value := _PickList[index] else
+    _Value := nil;
 
-  if _Value <> nil then
-    Result := _Value;
+//  if _Value <> nil then
+  Result := _Value;
 end;
 
 procedure TDCCellDropDownEditor.OnDropdownEditorChange(Sender: TObject);

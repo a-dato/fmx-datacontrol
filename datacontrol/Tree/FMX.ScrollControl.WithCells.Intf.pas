@@ -375,7 +375,7 @@ type
     procedure CreateCellStyleControl(const StyleLookUp: CString; const ShowVertGrid: Boolean; const Cell: IDCTreeCell);
 
     procedure UpdateCellControlsByRow(const Cell: IDCTreeCell);
-    procedure UpdateCellControlsPositions(const Cell: IDCTreeCell);
+    procedure UpdateCellControlsPositions(const Cell: IDCTreeCell; ForceIsValid: Boolean = False);
 
     property Column: IDCTreeColumn read get_Column;
     property Index: Integer read get_Index write set_Index;

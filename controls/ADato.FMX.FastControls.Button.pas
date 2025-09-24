@@ -772,7 +772,7 @@ begin
     TTagType.SignPost: Canvas.FillPolygon(_polygon, GetPaintOpacity * IfThen(_isAddTag, 0.6, 1));
   end;
 
-  if _hover or _hoverSide then
+  if (_hover or _hoverSide) and HitTest then
   begin
     Canvas.Fill.Color := TAlphaColor($FFC3CBE6);
 
@@ -979,15 +979,11 @@ begin
   inherited;
 
   Canvas.Stroke.Thickness := 1;
-  if _buttonType = TButtonType.Emphasized then
+  if _buttonType = TButtonType.Negative then
   begin
-//    Canvas.Stroke.Color := TAlphaColor($8899ACCF);
-//    Canvas.DrawRect(RectF(0,0, Width, Height), 3, 3, AllCorners, 1);
-  end
-  else if _buttonType = TButtonType.Negative then
-  begin
+    var rect := RectF(outerRect.Left+1, outerRect.Top+1, outerRect.Right-1, outerRect.Bottom-1);
     Canvas.Stroke.Color := TAlphaColor($FF37539E) ;//99ACCF);
-    Canvas.DrawRect(outerRect, 3, 3, AllCorners, GetPaintOpacity);
+    Canvas.DrawRect(rect, 3, 3, AllCorners, GetPaintOpacity);
   end;
 
 //  Canvas.Fill.Color := TAlphaColors.Blue;
