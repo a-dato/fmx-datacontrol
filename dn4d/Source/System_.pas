@@ -9232,7 +9232,7 @@ begin
     TypeCode.Int32:
       Result := FValue.AsInteger;
     TypeCode.Int64:
-      Result := FValue.AsInt64;
+      Result := THashBobJenkins.GetHashValue(FValue.GetReferenceToRawData^, SizeOf(Int64), 0);
     TypeCode.Interface:
     begin
       Assert(Interfaces.Supports(Self, IBaseInterface));
