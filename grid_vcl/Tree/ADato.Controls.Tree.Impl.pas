@@ -12255,7 +12255,11 @@ end;
 
 function TTreeDataModelViewRowList.HasChildren(const ARow: ITreeRow): Boolean;
 begin
+  {$IFDEF GROUP_BY}
+  Result := _dataModelView.HasChildren(ARow.DataItem.AsType<IDataRowView>);
+  {$ELSE}
   Result := _dataModelView.DataModel.HasChildren((Interfaces.ToInterface(ARow.DataItem) as IDataRowView).Row);
+  {$ENDIF}
 end;
 
 function TTreeDataModelViewRowList.IndexOf(const ARow: ITreeRow): Integer;
@@ -12506,19 +12510,19 @@ procedure TTreeDataModelViewRowList.set_IsExpanded(
   const ARow: ITreeRow;
   Value: Boolean);
 var
-  DataRow: IDataRow;
+  dataRow: IDataRow;
   props : IRowProperties;
-  NewFlags : RowFLags;
+  newFlags : RowFLags;
 
 begin
-  DataRow := (Interfaces.ToInterface(ARow.DataItem) as IDataRowView).Row;
+  dataRow := ARow.DataItem.AsType<IDataRowView>.Row;
   props :=  _dataModelView.RowProperties[DataRow];
 
   if Value then
-    NewFlags := props.Flags + [RowFlag.Expanded] else
-    NewFlags := props.Flags - [RowFlag.Expanded];
+    newFlags := props.Flags + [RowFlag.Expanded] else
+    newFlags := props.Flags - [RowFlag.Expanded];
 
-  _dataModelView.RowProperties[DataRow] := TRowProperties.Create(NewFlags);
+  _dataModelView.RowProperties[DataRow] := TRowProperties.Create(newFlags);
 end;
 
 procedure TTreeDataModelViewRowList.set_IsSelected(
