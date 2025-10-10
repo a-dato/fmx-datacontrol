@@ -4147,7 +4147,7 @@ end;
 
 function TInterfacedPropInfo.IsIndexedProperty: Boolean;
 begin
-  Result := _propInfo^.Index <> Low(_propInfo^.Index);  //  From System.TypInfo -> TPropSet<T>.GetProc
+  Result := (_propInfo <> nil) and (_propInfo^.Index <> Low(_propInfo^.Index));  //  From System.TypInfo -> TPropSet<T>.GetProc
 end;
 
 function TInterfacedPropInfo.GetHashCode: Integer;
