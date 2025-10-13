@@ -9684,8 +9684,15 @@ begin
           end;
           tkRecord:
           begin
+            // string -> CString
+            if ATypeInfo = TypeInfo(CString) then
+            begin
+              var cs: CString := CString.Create(FValue.ToString);
+              TValue.Make(@cs, ATypeInfo, value_t);
+              Result := value_t.TryCast(ATypeInfo, Value);
+            end
             // CString -> CObject
-            if ATypeInfo = TypeInfo(CObject) then
+            else if ATypeInfo = TypeInfo(CObject) then
             begin
               o := CObject.Create(CString(FValue.GetReferenceToRawData^));
               TValue.Make(@o, ATypeInfo, value_t);
@@ -9715,17 +9722,6 @@ begin
               Result := value_t.TryCast(ATypeInfo, Value);
             end;
           end;
-          // KV 31-01-2025 Cannot convert CString to anything else....
-          // Code below is invalid, with this code
-          //
-          //    CObject('abc').IsOfType<IList> returns True (which is wrong)
-          //
-          //          else
-          //          if CString(FValue.GetReferenceToRawData^)._intf = nil then
-          //          begin
-          //            Value := TValue.Empty;
-          //            Result := True;
-          //          end;
         end;
 
       TypeCode.DateTime:
