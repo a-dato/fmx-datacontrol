@@ -52,6 +52,7 @@ type
     _style: TStyledSettings;
     _autoWidth: Boolean;
     _calcAsAutoWidth: Boolean;
+    _underlineOnHover: Boolean;
 
     _recalcNeeded: Boolean;
     _recalcNeededWithOwnCanvas: Boolean;
@@ -101,7 +102,7 @@ type
 
   protected
     procedure DoPaint; override;
-    procedure Painting; override;
+//    procedure Painting; override;
     procedure DoResized; override;
 
     procedure Calculate; virtual;
@@ -120,7 +121,8 @@ type
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
 
-    procedure PrepareForPaint; override;
+    procedure Paint; override;
+//    procedure PrepareForPaint; override;
     procedure RecalcOpacity; override;
 
     function TextWidth: Single;
@@ -145,6 +147,7 @@ type
     property AutoWidth: Boolean read _autoWidth write set_AutoWidth default False;
     property CalcAsAutoWidth: Boolean read _calcAsAutoWidth write set_CalcAsAutoWidth default False;
     property MaxWidth: Single write _maxWidth;
+    property UnderlineOnHover: Boolean read _underlineOnHover write _underlineOnHover default False;
 
     property HitTest default False;
 
@@ -164,6 +167,12 @@ type
   protected
     procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject); override;
   end;
+
+const
+  SUBTEXT_NEGATIVE_MARGIN = -2;
+
+var
+  APPLICATION_FONT_FAMILY: string = 'Segoe UI';
 
 implementation
 
@@ -262,6 +271,7 @@ begin
   inherited;
 
   _layout := TTextLayoutManager.DefaultTextLayout.Create;
+  _layout.Font.Family := APPLICATION_FONT_FAMILY;
 
   _settings := TTextSettings.Create(Self);
   _settings.VertAlign := TTextAlign.Leading;
@@ -301,6 +311,14 @@ begin
       _subTextlayout.RenderLayout(Canvas);
     end;
   end;
+
+  if _hover and _underlineOnHover and not _mouseIsDown then
+  begin
+    Canvas.Stroke.Color := _layout.Color;
+
+    var rect := _layout.TextRect;
+    Canvas.DrawLine(PointF(rect.Left, rect.Bottom), PointF(rect.Right, rect.Bottom), AbsoluteOpacity);
+  end;
 end;
 
 procedure TFastText.DoResized;
@@ -309,17 +327,25 @@ begin
   RecalcNeeded;
 end;
 
-procedure TFastText.Painting;
+procedure TFastText.Paint;
 begin
   Calculate;
   inherited;
 end;
 
-procedure TFastText.PrepareForPaint;
-begin
-  Calculate;
-  inherited;
-end;
+//procedure TFastText.Painting;
+//begin
+////  Calculate;
+//
+//  inherited;
+//end;
+
+//procedure TFastText.PrepareForPaint;
+//begin
+////  Calculate;
+//
+//  inherited;
+//end;
 
 function TFastText.GetDefaultTextSettings: TTextSettings;
 begin
@@ -448,15 +474,9 @@ begin
   CalculateText(maxWidth, maxHeight);
 
   if _autoWidth then
-  begin
-    var txtWidth := CMath.Max(_layout.TextWidth, _subTextBounds.Width);
-    Self.Width := txtWidth + Self.Padding.Left + Self.Padding.Right + _internalLeftPadding + _internalRightPadding;
+    Self.Width := TextWidthWithPadding;
 
-    if (Self.Canvas <> nil) then
-      Canvas.SetMatrix(AbsoluteMatrix);
-  end;
-
-  var subTextHeightSubstraction := CMath.Max(_subTextBounds.Height - 3, 0);
+  var subTextHeightSubstraction := CMath.Max(_subTextBounds.Height + SUBTEXT_NEGATIVE_MARGIN, 0);
 
   _layout.BeginUpdate;
   try
@@ -491,8 +511,11 @@ begin
   if _text <> Value then
   begin
     _text := Value;
+
     RecalcNeeded;
-    Calculate; // do immideate
+
+    if _autoWidth then
+      Calculate; // do immideate outside paint
 
     if Assigned(_onChange) then
       _onChange(Self);
@@ -553,7 +576,9 @@ begin
       _subTextlayout := TTextLayoutManager.DefaultTextLayout.Create;
 
     RecalcNeeded;
-    Calculate; // do immideate
+
+    if _autoWidth then
+      Calculate; // do immideate outside paint
   end;
 end;
 
@@ -590,7 +615,7 @@ end;
 function TFastText.TextHeight: Single;
 begin
   Calculate;
-  Result := _textBounds.Height + CMath.Max(_subTextBounds.Height - 3, 0);
+  Result := _textBounds.Height + CMath.Max(_subTextBounds.Height + SUBTEXT_NEGATIVE_MARGIN, 0);
 end;
 
 function TFastText.TextHeightWithPadding: Single;
@@ -611,7 +636,7 @@ end;
 
 function TFastText.TextWidthWithPadding: Single;
 begin
-  Result := TextWidth + Padding.Left + Padding.Right;
+  Result := TextWidth + Padding.Left + Padding.Right + _internalLeftPadding + _internalRightPadding;
 end;
 
 

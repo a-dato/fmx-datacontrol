@@ -314,6 +314,7 @@ type
 
     procedure ColumnVisibilityChanged(const Column: IDCTreeColumn; IsUserChange: Boolean);
     procedure ColumnWidthChanged(const Column: IDCTreeColumn);
+    function  CalculateRowControlWidth(const ForceRealContentWidth: Boolean): Single;
 
     function  Control: TControl;
     function  Content: TControl;
@@ -374,7 +375,7 @@ type
     procedure CreateCellStyleControl(const StyleLookUp: CString; const ShowVertGrid: Boolean; const Cell: IDCTreeCell);
 
     procedure UpdateCellControlsByRow(const Cell: IDCTreeCell);
-    procedure UpdateCellControlsPositions(const Cell: IDCTreeCell);
+    procedure UpdateCellControlsPositions(const Cell: IDCTreeCell; ForceIsValid: Boolean = False);
 
     property Column: IDCTreeColumn read get_Column;
     property Index: Integer read get_Index write set_Index;

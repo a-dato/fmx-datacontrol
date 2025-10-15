@@ -388,6 +388,7 @@ type
 
     function  &Equals(const Other: IDataRowView): Boolean;
     procedure AddChildRow(const DataRow: IDataRow);
+    function  HasChildren: Boolean;
 
     property ChildIndex: Integer
       read  get_ChildIndex

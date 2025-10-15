@@ -124,22 +124,7 @@ begin
         Result := _Control.SelectedItems
       else // Radio buttons
       begin
-//        var selected: CObject := ;
-
         _currentItem := ConvertToDataItem(_Control.DataItem);
-
-//        if selected = nil then
-//          Exit(nil);
-
-//        if (_currentItem = nil) and (checked.Count = 0) then
-//        begin
-//          Exit(nil);
-////          _currentItem := ConvertToDataItem(data[0]);
-//        end;
-//
-//        if checked.Count = 0 then
-//          _Control.SelectItem(_currentItem) else
-
         Exit(_currentItem);
       end;
     end;

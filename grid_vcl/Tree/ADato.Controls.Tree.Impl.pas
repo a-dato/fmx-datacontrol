@@ -12089,16 +12089,14 @@ begin
       for var o in l do
         AddItem(o, o.ToString);
     end
-    else begin
+    else if cellData.IsString then
+      AddItem(cellData, cellData.ToString)
+    else
+    begin
       // maybe there is only text in the cell, no data!
       formattedData := GetFormattedData(cell, contentItem, dataRow, cellData, False {Return formatted}, formatApplied);
       if formattedData = nil then
         continue;
-
-      // Turned off by JvA 12/10/21
-      // CUstomers did not find it logical to show filter options that are not formatted in Tree itself
-      //formattedData := cellData;
-
       AddItem(cellData, formattedData.ToString);
     end;
   end;
@@ -12257,7 +12255,11 @@ end;
 
 function TTreeDataModelViewRowList.HasChildren(const ARow: ITreeRow): Boolean;
 begin
+  {$IFDEF GROUP_BY}
+  Result := _dataModelView.HasChildren(ARow.DataItem.AsType<IDataRowView>);
+  {$ELSE}
   Result := _dataModelView.DataModel.HasChildren((Interfaces.ToInterface(ARow.DataItem) as IDataRowView).Row);
+  {$ENDIF}
 end;
 
 function TTreeDataModelViewRowList.IndexOf(const ARow: ITreeRow): Integer;
@@ -12508,19 +12510,19 @@ procedure TTreeDataModelViewRowList.set_IsExpanded(
   const ARow: ITreeRow;
   Value: Boolean);
 var
-  DataRow: IDataRow;
+  dataRow: IDataRow;
   props : IRowProperties;
-  NewFlags : RowFLags;
+  newFlags : RowFLags;
 
 begin
-  DataRow := (Interfaces.ToInterface(ARow.DataItem) as IDataRowView).Row;
+  dataRow := ARow.DataItem.AsType<IDataRowView>.Row;
   props :=  _dataModelView.RowProperties[DataRow];
 
   if Value then
-    NewFlags := props.Flags + [RowFlag.Expanded] else
-    NewFlags := props.Flags - [RowFlag.Expanded];
+    newFlags := props.Flags + [RowFlag.Expanded] else
+    newFlags := props.Flags - [RowFlag.Expanded];
 
-  _dataModelView.RowProperties[DataRow] := TRowProperties.Create(NewFlags);
+  _dataModelView.RowProperties[DataRow] := TRowProperties.Create(newFlags);
 end;
 
 procedure TTreeDataModelViewRowList.set_IsSelected(
