@@ -1085,8 +1085,8 @@ begin
   if TDCTreeOption.HideHScrollBar in _options then
     _horzScrollBar.Visible := False;
 
-  if (TDCTreeOption.MultiSelect in OldFlags) and not (TDCTreeOption.MultiSelect in NewFlags) then
-    ClearSelections;
+  if (TDCTreeOption.MultiSelect in OldFlags) and not (TDCTreeOption.MultiSelect in NewFlags) and (_selectionInfo <> nil) then
+    _selectionInfo.ClearMultiSelections;
 
   if ((TDCTreeOption.AlternatingRowBackground in OldFlags) <> (TDCTreeOption.AlternatingRowBackground in NewFlags)) then
   begin

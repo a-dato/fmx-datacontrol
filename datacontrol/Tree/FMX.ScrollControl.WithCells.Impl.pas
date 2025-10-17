@@ -2304,6 +2304,9 @@ procedure TScrollControlWithCells.HandleMultiSelectOptionChanged;
 begin
   if not (TDCTreeOption.MultiSelect in _options) then
   begin
+    if _autoMultiSelectColumn <> nil then
+      (GetInitializedWaitForRefreshInfo as IDataControlWaitForRepaintInfo).ColumnsChanged;
+
     _autoMultiSelectColumn := nil;
     Exit;
   end
@@ -3131,10 +3134,14 @@ begin
   end else
     l := _treeLayout.FlatColumns;
 
+  var moreThan3Columns := l.Count > 3;
+
   var flatColumn: IDCTreeLayoutColumn;
   for flatColumn in l do
   begin
-    var performanceModeWhileScrolling := (flatColumn.Column.InfoControlClass <> TInfoControlClass.Text) and not flatColumn.Column.IsSelectionColumn;
+    // by default performance mode is activated by columns that contain something else than text..
+    // it can be manually turned on/off in CellLoading / CellLoaded for any type of columns
+    var performanceModeWhileScrolling := moreThan3Columns and (flatColumn.Column.InfoControlClass <> TInfoControlClass.Text) and not flatColumn.Column.IsSelectionColumn;
 
     if not treeRow.Cells.TryGetValue(flatColumn.Index, cell) then
     begin
@@ -3347,6 +3354,15 @@ procedure TScrollControlWithCells.InitLayout;
 begin
   if (_view <> nil) and (_columns.Count = 0) then
     CreateDefaultColumns;
+
+  // if during reading the component the "OptionsChanged" came before the "loading of columns"
+  if (_autoMultiSelectColumn <> nil) then
+    for var clmn in _columns do
+      if clmn.IsSelectionColumn then
+      begin
+        _autoMultiSelectColumn := nil;
+        Break;
+      end;
 
   _treeLayout := TDCTreeLayout.Create(Self);
 end;
