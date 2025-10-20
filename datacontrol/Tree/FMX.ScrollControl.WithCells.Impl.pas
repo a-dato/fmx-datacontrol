@@ -1562,7 +1562,7 @@ end;
 
 procedure TScrollControlWithCells.OnHeaderMouseUp(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Single);
 begin
-  if not _fullHeaderClick then
+  if (Button = TMouseButton.mbLeft) and not _fullHeaderClick then
     Exit;
 
   _fullHeaderClick := False;
@@ -2121,21 +2121,13 @@ end;
 
 procedure TScrollControlWithCells.ColumnsChangedFromExternal;
 begin
-//  if (_treeLayout = nil) or (_treeLayout.FlatColumns = nil) or (_treeLayout.FlatColumns.Count = 0) then
-//    Exit;
-//
-//  _treeLayout.ForceRecalc;
-//
-//  var ix := (_selectionInfo as ITreeSelectionInfo).SelectedLayoutColumn;
-//  if (ix >= 0) and (ix <= _treeLayout.LayoutColumns.Count - 1) and _treeLayout.FlatColumns.Contains(_treeLayout.LayoutColumns[ix]) then
-//    Exit;
+  if (_treeLayout = nil) or (_treeLayout.FlatColumns = nil) or (_treeLayout.FlatColumns.Count = 0) then
+    Exit;
 
-//  _selectionInfo.BeginUpdate;
-//  try
-//    (_selectionInfo as ITreeSelectionInfo).SelectedLayoutColumn := _treeLayout.FlatColumns[0].Index;
-//  finally
-//    _selectionInfo.EndUpdate(False);
-//  end;
+  InitHeader;
+  InitLayout;
+
+  RefreshControl(True);
 end;
 
 procedure TScrollControlWithCells.ClearCalculatedColumnWidths;
@@ -3002,68 +2994,72 @@ end;
 
 procedure TScrollControlWithCells.LoadDefaultDataIntoControl(const Cell: IDCTreeCell; const FlatColumn: IDCTreeLayoutColumn; const IsSubProp: Boolean);
 begin
-  var ctrl: TControl;
-  var propName: CString;
-  var infoClass: TInfoControlClass;
+  try
+    var ctrl: TControl;
+    var propName: CString;
+    var infoClass: TInfoControlClass;
 
-  if not IsSubProp then
-  begin
-    ctrl := cell.InfoControl;
-    propName := cell.Column.PropertyName;
-    infoClass := cell.Column.InfoControlClass;
-  end
-  else
-  begin
-    ctrl := Cell.SubInfoControl;
-    propName := cell.Column.SubPropertyName;
-    infoClass := cell.Column.SubInfoControlClass;
-  end;
-
-  var formattedValue: CObject := nil;
-
-  _localCheckSetInDefaultData := False;
-  if ctrl <> nil then
-  begin
-    var formatApplied: Boolean;
-    var cellValue := ProvideCellData(cell, propName, IsSubProp);
-    DoCellFormatting(cell, False, {var} cellValue, {out} formatApplied);
-
-    {$IFDEF APP_PLATFORM}
-    if not CString.IsNullOrEmpty(propName) and not formatApplied and (cellValue <> nil) and (_app <> nil) and (cell.Column.InfoControlClass = TInfoControlClass.Text) then
+    if not IsSubProp then
     begin
-      var item_type := GetItemType;
-      if item_type <> nil then
+      ctrl := cell.InfoControl;
+      propName := cell.Column.PropertyName;
+      infoClass := cell.Column.InfoControlClass;
+    end
+    else
+    begin
+      ctrl := Cell.SubInfoControl;
+      propName := cell.Column.SubPropertyName;
+      infoClass := cell.Column.SubInfoControlClass;
+    end;
+
+    var formattedValue: CObject := nil;
+
+    _localCheckSetInDefaultData := False;
+    if ctrl <> nil then
+    begin
+      var formatApplied: Boolean;
+      var cellValue := ProvideCellData(cell, propName, IsSubProp);
+      DoCellFormatting(cell, False, {var} cellValue, {out} formatApplied);
+
+      {$IFDEF APP_PLATFORM}
+      if not CString.IsNullOrEmpty(propName) and not formatApplied and (cellValue <> nil) and (_app <> nil) and (cell.Column.InfoControlClass = TInfoControlClass.Text) then
       begin
-        var prop := item_type.PropertyByName(propName);
-        var descr: IPropertyDescriptor;
-        if Interfaces.Supports<IPropertyDescriptor>(prop, descr) and (descr.Formatter <> nil) then
+        var item_type := GetItemType;
+        if item_type <> nil then
         begin
-          (ctrl as ICaption).Text := CStringToString(descr.Formatter.Format(nil {Context}, cellValue, nil));
-          Exit;
+          var prop := item_type.PropertyByName(propName);
+          var descr: IPropertyDescriptor;
+          if Interfaces.Supports<IPropertyDescriptor>(prop, descr) and (descr.Formatter <> nil) then
+          begin
+            (ctrl as ICaption).Text := CStringToString(descr.Formatter.Format(nil {Context}, cellValue, nil));
+            Exit;
+          end;
+        end;
+      end;
+      {$ENDIF}
+
+      formattedValue := FlatColumn.Column.GetDefaultCellData(cell, cellValue, formatApplied);
+
+      if ctrl <> nil then
+      begin
+        if infoClass = TInfoControlClass.Text then
+        begin
+          var s := CStringToString(formattedValue.ToString(True));
+          (ctrl as ICaption).Text := s;
+        end
+        else if infoClass = TInfoControlClass.CheckBox then
+        begin
+          (ctrl as IIsChecked).IsChecked := formattedValue.AsType<Boolean>;
+          _localCheckSetInDefaultData := True;
         end;
       end;
     end;
-    {$ENDIF}
 
-    formattedValue := FlatColumn.Column.GetDefaultCellData(cell, cellValue, formatApplied);
-
-    if ctrl <> nil then
-    begin
-      if infoClass = TInfoControlClass.Text then
-      begin
-        var s := CStringToString(formattedValue.ToString(True));
-        (ctrl as ICaption).Text := s;
-      end
-      else if infoClass = TInfoControlClass.CheckBox then
-      begin
-        (ctrl as IIsChecked).IsChecked := formattedValue.AsType<Boolean>;
-        _localCheckSetInDefaultData := True;
-      end;
-    end;
+    if formattedValue <> nil then
+      FlatColumn.ContainsData := TColumnContainsData.Yes;
+  except
+    LoadDefaultDataIntoControl(Cell, FlatColumn, IsSubProp);
   end;
-
-  if formattedValue <> nil then
-    FlatColumn.ContainsData := TColumnContainsData.Yes;
 end;
 
 procedure TScrollControlWithCells.MouseMove(Shift: TShiftState; X, Y: Single);
@@ -5240,9 +5236,9 @@ begin
   if not _performanceModeWhileScrolling then
     Exit
   else if GoPerformanceMode = ((_performanceLayout <> nil) and _performanceLayout.Visible) then
+    Exit
+  else if (_infoControl = nil) and (_subInfoControl = nil) then
     Exit;
-//  else if (_infoControl = nil) and (_subInfoControl = nil) then
-//    Exit;
 
   TogglePerformanceMode(GoPerformanceMode);
 end;

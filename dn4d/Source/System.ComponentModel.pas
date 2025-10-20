@@ -198,7 +198,7 @@ type
     function  get_ShowEmptyValues: Boolean;
     procedure set_ShowEmptyValues(const Value: Boolean);
 
-    function IsMatch(const Value: CObject): Boolean;
+    function IsMatch(const Value: CObject; AObject: CObject): Boolean;
     function GetFilterableValue(const AObject: CObject): CObject;
 
     function EqualToSort(const Sort: IListSortDescription): Boolean;
@@ -217,7 +217,7 @@ type
     constructor Create;
 
     function GetFilterableValue(const AObject: CObject): CObject; virtual;
-    function IsMatch(const Value: CObject): Boolean; virtual; abstract;
+    function IsMatch(const Value: CObject; AObject: CObject): Boolean; virtual; abstract;
 
     function EqualToSort(const Sort: IListSortDescription): Boolean; virtual;
     function ToSortDescription: IListSortDescription; virtual;
@@ -238,7 +238,7 @@ type
   public
     constructor Create(const Comparer: IComparer<CObject>);
 
-    function IsMatch(const Value: CObject): Boolean; override;
+    function IsMatch(const Value: CObject; AObject: CObject): Boolean; override;
     function ToSortDescription: IListSortDescription; override;
 
     property Comparer: IComparer<CObject> read get_Comparer;
@@ -267,7 +267,7 @@ type
     constructor Create(const FilterText, PropertyName: CString {; const Comparer: IComparer<CObject> = nil} ); reintroduce; overload;
 
     function GetFilterableValue(const AObject: CObject): CObject; override;
-    function IsMatch(const Value: CObject): Boolean; override;
+    function IsMatch(const Value: CObject; AObject: CObject): Boolean; override;
     function ToSortDescription: IListSortDescription; override;
 
     property FilterText: CString read get_FilterText;
@@ -1014,7 +1014,7 @@ begin
   Result := _Comparer;
 end;
 
-function CListFilterDescriptionWithComparer.IsMatch(const Value: CObject): Boolean;
+function CListFilterDescriptionWithComparer.IsMatch(const Value: CObject; AObject: CObject): Boolean;
 begin
   Result := (_Comparer = nil) or (_Comparer.Compare(Value, nil) = 0);
 end;
@@ -1055,7 +1055,7 @@ begin
   Result := _PropertyName;
 end;
 
-function CListFilterDescriptionForText.IsMatch(const Value: CObject): Boolean;
+function CListFilterDescriptionForText.IsMatch(const Value: CObject; AObject: CObject): Boolean;
 var
   prop: _PropertyInfo;
   data: CObject;
@@ -1083,7 +1083,7 @@ begin
     begin
       Result := False;
       for searchObj in datalist do
-        if inherited IsMatch(searchObj) and MatchText(searchObj.ToString) then
+        if inherited IsMatch(searchObj, searchObj) and MatchText(searchObj.ToString) then
           Exit(True);
     end else
       Result := MatchText(searchObj.ToString);

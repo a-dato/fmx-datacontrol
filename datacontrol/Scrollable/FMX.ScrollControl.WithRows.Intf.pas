@@ -59,6 +59,8 @@ type
     procedure set_RowHeightFixed(const Value: Single);
 
     procedure OnSelectionInfoChanged;
+    function  SelectionCount: Integer;
+    function  IsSelected(const DataItem: CObject): Boolean;
 
     function  ViewIsDataModelView: Boolean;
     function  GetDataModelView: IDataModelView;

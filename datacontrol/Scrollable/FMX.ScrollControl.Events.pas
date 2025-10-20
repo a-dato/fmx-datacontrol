@@ -444,9 +444,22 @@ end;
 
 function DCCellLoadEventArgs.AssignCellCustomInfoControl(const Control: TControl): TControl;
 begin
+  if Control = nil then
+  begin
+    if _cell.InfoControl <> nil then
+      _cell.InfoControl.Visible := False;
+
+    Exit(nil);
+  end;
+
   _cell.LayoutColumn.CreateCellBase(_showVertGrid, _cell);
   _cell.Control.AddObject(Control);
   _cell.InfoControl := Control;
+  _cell.InfoControl.Visible := True;
+
+  var h := _cell.InfoControl.Height + 2*_cell.Column.TreeControl.CellTopBottomPadding;
+  if _cell.Control.Height < h then
+    _cell.Control.Height := h;
 
   Result := _cell.InfoControl;
 end;

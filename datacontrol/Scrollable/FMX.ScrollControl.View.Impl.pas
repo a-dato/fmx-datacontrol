@@ -605,7 +605,7 @@ begin
 
   var filter: IListFilterDescription;
   for filter in GetFilterDescriptions do
-    if not filter.IsMatch(DataItem) then
+    if not filter.IsMatch(DataItem, DataItem) then
       Exit(True);
 
   Result := False;

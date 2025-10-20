@@ -68,7 +68,7 @@ type
     constructor Create(const Column: IDCTreeLayoutColumn; OnGetSortCellData: TOnGetSortCellData); reintroduce;
     destructor Destroy; override;
 
-    function IsMatch(const Value: CObject): Boolean; override;
+    function IsMatch(const Value: CObject; AObject: CObject): Boolean; override;
     function ToSortDescription: IListSortDescription; override;
     function GetFilterableValue(const AObject: CObject): CObject; override;
 
@@ -196,7 +196,7 @@ begin
   Result := _FilterValues;
 end;
 
-function TTreeFilterDescription.IsMatch(const Value: CObject): Boolean;
+function TTreeFilterDescription.IsMatch(const Value: CObject; AObject: CObject): Boolean;
 
   function MatchText(const TextData: CString): Boolean;
   begin
@@ -221,6 +221,9 @@ begin
     Result := False;
   end else
     Result := MatchText(Value.ToString(True)) and ((_FilterValues = nil) or (_FilterValues.BinarySearch(Value) >= 0));
+
+  if not Result and (_flatColumn.Column.TreeControl.SelectionCount > 0) then
+    Result := _flatColumn.Column.TreeControl.IsSelected(AObject);
 end;
 
 procedure TTreeFilterDescription.set_filterText(const Value: CString);
@@ -265,6 +268,13 @@ end;
 function TTreeSortDescriptionWithComparer.Compare(const Left, Right: CObject): Integer;
 begin
   Result := _comparer.Compare(Left, Right);
+
+  if (Result = -1) and (_flatColumn.ActiveFilter <> nil) and (_flatColumn.Column.TreeControl.SelectionCount > 0) then
+  begin
+    var bool1 := _flatColumn.Column.TreeControl.IsSelected(Left);
+    var bool2 := _flatColumn.Column.TreeControl.IsSelected(Left);
+    Result := CBoolean(bool1).CompareTo(bool2);
+  end;
 end;
 
 function TTreeSortDescriptionWithComparer.get_Comparer: IComparer<CObject>;

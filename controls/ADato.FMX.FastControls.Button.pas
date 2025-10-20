@@ -85,6 +85,7 @@ type
     procedure Calculate; virtual;
 
     procedure DoPaint; override;
+    function  GetDefaultSize: TSizeF; override;
 
     function  CheckHoveredChanged(const ParentPoint: TPointF): Boolean; virtual;
     function  GetPaintOpacity: Single;
@@ -590,6 +591,11 @@ end;
 function TADatoClickLayout.GetBitmap(const Images: TCustomImageList; const BitmapSize: TSize; const BitmapIndex: Integer): TBitmap;
 begin
   Result := Images.Bitmap(BitmapSize, BitmapIndex);
+end;
+
+function TADatoClickLayout.GetDefaultSize: TSizeF;
+begin
+  Result := TSizeF.Create(50, 24);
 end;
 
 function TADatoClickLayout.GetPaintOpacity: Single;
