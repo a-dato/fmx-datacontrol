@@ -139,6 +139,7 @@ type
   end;
 
   IDCTreeColumn = interface;
+  IDCTreeLayoutColumn = interface;
   IColumnsControl = interface;
 
   IDCTreeColumn = interface(IBaseInterface)
@@ -315,6 +316,7 @@ type
     procedure ColumnVisibilityChanged(const Column: IDCTreeColumn; IsUserChange: Boolean);
     procedure ColumnWidthChanged(const Column: IDCTreeColumn);
     function  CalculateRowControlWidth(const ForceRealContentWidth: Boolean): Single;
+    function  FlatColumnByColumn(const Column: IDCTreeColumn): IDCTreeLayoutColumn;
 
     function  Control: TControl;
     function  Content: TControl;
@@ -414,6 +416,7 @@ type
     function  FrozenColumnWidth: Single;
     function  RecalcRequired: Boolean;
 
+    procedure UpdateLayoutColumnList;
     procedure ForceRecalc;
     procedure SetTreeIsScrolling(const IsScrolling: Boolean);
 //

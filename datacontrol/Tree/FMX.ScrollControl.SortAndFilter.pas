@@ -34,6 +34,20 @@ type
     function  GetSortableValue(const AObject: CObject): CObject; override;
   end;
 
+  TTreeMultiSelectSortDescription = class(CListSortDescription, ITreeSortDescription)
+  private
+    _rowsControl: IRowsControl;
+    _selected: List<CObject>;
+
+  public
+    constructor Create(const RowsControl: IRowsControl); reintroduce;
+
+    procedure SortBegin; override;
+    procedure SortCompleted; override;
+
+    function  Compare(const Left, Right: CObject): Integer; override;
+  end;
+
   TTreeSortDescriptionWithComparer = class(TTreeSortDescription, IListSortDescriptionWithComparer, ITreeSortDescription)
   private
     _comparer: IComparer<CObject>;
@@ -68,7 +82,7 @@ type
     constructor Create(const Column: IDCTreeLayoutColumn; OnGetSortCellData: TOnGetSortCellData); reintroduce;
     destructor Destroy; override;
 
-    function IsMatch(const Value: CObject; AObject: CObject): Boolean; override;
+    function IsMatch(const Value: CObject; DataIndex: Integer = -1): Boolean; override;
     function ToSortDescription: IListSortDescription; override;
     function GetFilterableValue(const AObject: CObject): CObject; override;
 
@@ -196,7 +210,7 @@ begin
   Result := _FilterValues;
 end;
 
-function TTreeFilterDescription.IsMatch(const Value: CObject; AObject: CObject): Boolean;
+function TTreeFilterDescription.IsMatch(const Value: CObject; DataIndex: Integer = -1): Boolean;
 
   function MatchText(const TextData: CString): Boolean;
   begin
@@ -222,8 +236,8 @@ begin
   end else
     Result := MatchText(Value.ToString(True)) and ((_FilterValues = nil) or (_FilterValues.BinarySearch(Value) >= 0));
 
-  if not Result and (_flatColumn.Column.TreeControl.SelectionCount > 0) then
-    Result := _flatColumn.Column.TreeControl.IsSelected(AObject);
+  if not Result and (DataIndex <> -1) and (_flatColumn.Column.TreeControl.SelectionCount > 0) then
+    Result := _flatColumn.Column.TreeControl.IsSelected(DataIndex);
 end;
 
 procedure TTreeFilterDescription.set_filterText(const Value: CString);
@@ -269,12 +283,12 @@ function TTreeSortDescriptionWithComparer.Compare(const Left, Right: CObject): I
 begin
   Result := _comparer.Compare(Left, Right);
 
-  if (Result = -1) and (_flatColumn.ActiveFilter <> nil) and (_flatColumn.Column.TreeControl.SelectionCount > 0) then
-  begin
-    var bool1 := _flatColumn.Column.TreeControl.IsSelected(Left);
-    var bool2 := _flatColumn.Column.TreeControl.IsSelected(Left);
-    Result := CBoolean(bool1).CompareTo(bool2);
-  end;
+//  if (Result = -1) and (_flatColumn.ActiveFilter <> nil) and (_flatColumn.Column.TreeControl.SelectionCount > 0) then
+//  begin
+//    var bool1 := _flatColumn.Column.TreeControl.IsSelected(Left);
+//    var bool2 := _flatColumn.Column.TreeControl.IsSelected(Left);
+//    Result := CBoolean(bool1).CompareTo(bool2);
+//  end;
 end;
 
 function TTreeSortDescriptionWithComparer.get_Comparer: IComparer<CObject>;
@@ -287,4 +301,43 @@ begin
   _comparer := Value;
 end;
 
+{ TTreeMultiSelectSortDescription }
+
+constructor TTreeMultiSelectSortDescription.Create(const RowsControl: IRowsControl);
+begin
+  inherited Create(ListSortDirection.Ascending);
+  _rowsControl := RowsControl;
+end;
+
+procedure TTreeMultiSelectSortDescription.SortBegin;
+begin
+  inherited;
+
+  _selected := _rowsControl.SelectedItems;
+  if (_selected <> nil) and (_selected.Count <= 1) then
+    _selected := nil;
+end;
+
+procedure TTreeMultiSelectSortDescription.SortCompleted;
+begin
+  inherited;
+  _selected := nil;
+end;
+
+function TTreeMultiSelectSortDescription.Compare(const Left, Right: CObject): Integer;
+begin
+  Result := 0;
+  if _selected <> nil then
+  begin
+    var bool1 := _selected.IndexOf(Left) <> -1;
+    var bool2 := _selected.IndexOf(Right) <> -1;
+    Result := CBoolean(bool1).CompareTo(bool2);
+  end;
+
+  if Result = 0 then
+    Result := inherited;
+end;
+
 end.
+
+

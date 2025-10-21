@@ -62,6 +62,7 @@ type
 
     function  get_Layout: IDCTreeLayout;
     function  get_SelectedColumn: IDCTreeLayoutColumn;
+    procedure set_AllowNoneSelected(const Value: Boolean); override;
 
     procedure ColumnsChanged(Sender: TObject; e: NotifyCollectionChangedEventArgs);
     procedure OnHeaderCellResizeClicked(const HeaderCell: IHeaderCell);
@@ -187,6 +188,7 @@ type
     procedure SetSingleSelectionIfNotExists; override;
     procedure VisualizeRowSelection(const Row: IDCRow); override;
     procedure CheckCorrectColumnSelection( const SelectionInfo: ITreeSelectionInfo; const Row: IDCTreeRow);
+    procedure UpdateMultiSelectColumnVisibility;
 
     function  GetInitializedWaitForRefreshInfo: IWaitForRepaintInfo; override;
 
@@ -711,6 +713,7 @@ type
     procedure RecalcColumnWidthsAutoFit;
 
     procedure ResetColumnDataAvailability(OnlyForInsertedRows: Boolean);
+    procedure UpdateLayoutColumnList;
 
     procedure ForceRecalc;
 
@@ -1513,11 +1516,13 @@ begin
     if checkBox.IsChecked then
     begin
       _selectionInfo.Deselect(treeRow.DataIndex);
+      DoCellChanged(nil, treeCell);
       Exit;
     end
     else if (TreeOption_MultiSelect in _options) then
     begin
       _selectionInfo.AddToSelection(treeRow.DataIndex, treeRow.ViewListIndex, treeRow.DataItem);
+      DoCellChanged(nil, treeCell);
       Exit;
     end;
   end;
@@ -1935,6 +1940,21 @@ begin
   end;
 end;
 
+procedure TScrollControlWithCells.UpdateMultiSelectColumnVisibility;
+begin
+  if (_autoMultiSelectColumn = nil) then
+    Exit;
+
+  var makeVisible := _allowNoneSelected {always visible} or _selectionInfo.IsMultiSelection {only visible by 2 or more selected};
+  if (_autoMultiSelectColumn <> nil) and (_autoMultiSelectColumn.Visualisation.Visible <> makeVisible) then
+  begin
+    _autoMultiSelectColumn.Visualisation.Visible := not _autoMultiSelectColumn.Visualisation.Visible;
+    (GetInitializedWaitForRefreshInfo as IDataControlWaitForRepaintInfo).ColumnsChanged;
+
+    ColumnVisibilityChanged(_autoMultiSelectColumn, False);
+  end;
+end;
+
 procedure TScrollControlWithCells.OnSelectionInfoChanged;
 begin
   inherited;
@@ -1952,15 +1972,7 @@ begin
     end;
   end;
 
-  var makeVisible := _allowNoneSelected {always visible} or _selectionInfo.IsMultiSelection {only visible by 2 or more selected};
-  if (_autoMultiSelectColumn <> nil) and (_autoMultiSelectColumn.Visualisation.Visible <> makeVisible) then
-  begin
-    _autoMultiSelectColumn.Visualisation.Visible := not _autoMultiSelectColumn.Visualisation.Visible;
-    (GetInitializedWaitForRefreshInfo as IDataControlWaitForRepaintInfo).ColumnsChanged;
-
-    ColumnVisibilityChanged(_autoMultiSelectColumn, False);
-  end;
-
+  UpdateMultiSelectColumnVisibility;
   DoCellSelected(GetActiveCell, _selectionInfo.LastSelectionEventTrigger);
 end;
 
@@ -2292,6 +2304,12 @@ begin
   Result := _treeLayout.LayoutColumns[(_selectionInfo as ITreeSelectionInfo).SelectedLayoutColumn];
 end;
 
+procedure TScrollControlWithCells.set_AllowNoneSelected(const Value: Boolean);
+begin
+  inherited;
+  UpdateMultiSelectColumnVisibility;
+end;
+
 procedure TScrollControlWithCells.HandleMultiSelectOptionChanged;
 begin
   if not (TDCTreeOption.MultiSelect in _options) then
@@ -2314,8 +2332,9 @@ begin
     _autoMultiSelectColumn.WidthSettings.WidthType := TDCColumnWidthType.Pixel;
     _autoMultiSelectColumn.WidthSettings.Width := 30;
     _autoMultiSelectColumn.Visualisation.Frozen := True;
-    _autoMultiSelectColumn.Visualisation.Visible := _selectionInfo.IsMultiSelection;
     _autoMultiSelectColumn.Tag := AUTO_SELECT_COLUMN_TAG;
+
+    UpdateMultiSelectColumnVisibility;
   end;
 end;
 
@@ -3360,7 +3379,9 @@ begin
         Break;
       end;
 
-  _treeLayout := TDCTreeLayout.Create(Self);
+  if _treeLayout = nil then
+    _treeLayout := TDCTreeLayout.Create(Self) else
+    _treeLayout.UpdateLayoutColumnList;
 end;
 
 procedure TScrollControlWithCells.CreateDefaultColumns; //(const AList: ITreeColumnList);
@@ -4800,14 +4821,8 @@ begin
 
   _columnsControl := ColumnControl;
   _layoutColumns := CList<IDCTreeLayoutColumn>.Create;
-  var clmn: IDCTreeColumn;
-  for clmn in ColumnControl.FullColumnList do
-  begin
-    var lyColumn: IDCTreeLayoutColumn := TTreeLayoutColumn.Create(clmn, ColumnControl);
-    _layoutColumns.Add(lyColumn);
-  end;
 
-  _recalcRequired := True;
+  UpdateLayoutColumnList;
 end;
 
 destructor TDCTreeLayout.Destroy;
@@ -5181,6 +5196,30 @@ end;
 
 procedure TDCTreeLayout.ForceRecalc;
 begin
+  _recalcRequired := True;
+end;
+
+procedure TDCTreeLayout.UpdateLayoutColumnList;
+begin
+  var fullClmnList := _columnsControl.FullColumnList;
+  if _layoutColumns.Count > 0 then
+    for var lyClmnIx := _layoutColumns.Count - 1 downto 0 do
+      if not fullClmnList.Contains(_layoutColumns[lyClmnIx].Column) then
+        _layoutColumns.RemoveAt(lyClmnIx);
+
+  var updatedLayoutClmns: List<IDCTreeLayoutColumn> := CList<IDCTreeLayoutColumn>.Create;
+  for var clmnIx := 0 to fullClmnList.Count - 1 do
+  begin
+    var clmn := fullClmnList[clmnIx];
+
+    var lyColumn := _columnsControl.FlatColumnByColumn(clmn);
+    if lyColumn = nil then
+      lyColumn := TTreeLayoutColumn.Create(clmn, _columnsControl);
+
+    updatedLayoutClmns.Add(lyColumn);
+  end;
+
+  _layoutColumns := updatedLayoutClmns;
   _recalcRequired := True;
 end;
 

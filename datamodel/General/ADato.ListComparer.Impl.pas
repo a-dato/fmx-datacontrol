@@ -359,7 +359,7 @@ begin
           value := o else
           value := f.Sort.GetSortableValue(o);
 
-        isMatch := f.Filter.IsMatch(value, o);
+        isMatch := f.Filter.IsMatch(value, n);
         if isMatch then
         begin
           if f.IndexInSortDescriptions <> -1 then

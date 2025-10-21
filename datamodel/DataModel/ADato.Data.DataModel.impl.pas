@@ -3554,7 +3554,7 @@ begin
     for internalFilter in _internalfilterDescriptions do
     begin
       var filterableData := internalFilter.GetFilterableValue(dataRow);
-      if not internalFilter.IsMatch(filterableData, dataRow.Data) then
+      if not internalFilter.IsMatch(filterableData, dataRow.get_Index) then
         Result := True;
     end;    
   end;
