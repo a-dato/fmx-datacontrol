@@ -168,7 +168,6 @@ type
     property Context: IList read get_Context write set_Context;
     property ObjectContext: CObject read get_ObjectContext write set_ObjectContext;
     property ObjectModelContext: IObjectModelContext read get_ObjectModelContext; // write set_ObjectModelContext;
-//    property ObjectModelContextSupport: IObjectModelContextSupport read get_ObjectModelContextSupport;
 
     {$IFDEF DELPHI}
     property OnContextCanChange: ListContextCanChangeEventHandler read get_OnContextCanChange;

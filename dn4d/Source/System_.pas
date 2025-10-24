@@ -1918,7 +1918,7 @@ type
 
   PMethod = ^TMethod;
 
-  IDelegate = interface
+  IDelegate = interface(IBaseInterface)
     function GetInvocationList: TList;
   end;
 

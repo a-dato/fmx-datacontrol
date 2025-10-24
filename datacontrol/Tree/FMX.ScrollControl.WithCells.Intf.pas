@@ -14,6 +14,8 @@ uses
   FMX.ImgList, 
   FMX.Layouts,
   System.ComponentModel,
+  FMX.ActnList,
+  FMX.Objects,
   {$ELSE}
   Wasm.System.UITypes,
   Wasm.System.Types,
@@ -28,7 +30,7 @@ uses
   System.Collections.Generic,
   System.Collections,
   System.Collections.Specialized,
-  FMX.ScrollControl.WithRows.Intf, FMX.ActnList, FMX.Objects;
+  FMX.ScrollControl.WithRows.Intf;
 
 type
   TSortType = (None, Displaytext, CellData, PropertyValue, ColumnCellComparer, RowComparer);
@@ -324,6 +326,7 @@ type
     function  GetItemType: &Type;
 
     {$IFDEF DEBUG}
+    {$IFNDEF WEBASSEMBLY}
     procedure S0;
     procedure S1;
     procedure S2;
@@ -332,6 +335,7 @@ type
     procedure E1(Pause: Boolean = False);
     procedure E2(Pause: Boolean = False);
     procedure E3(Pause: Boolean = False);
+    {$ENDIF}
     {$ENDIF}
 
     function  RadioInsteadOfCheck: Boolean;

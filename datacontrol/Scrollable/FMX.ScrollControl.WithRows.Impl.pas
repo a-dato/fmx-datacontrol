@@ -166,6 +166,7 @@ type
 
   protected
     {$IFDEF DEBUG}
+    {$IFNDEF WEBASSEMBLY}
     procedure S0;
     procedure S1;
     procedure S2;
@@ -174,6 +175,7 @@ type
     procedure E1(Pause: Boolean = False);
     procedure E2(Pause: Boolean = False);
     procedure E3(Pause: Boolean = False);
+    {$ENDIF}
     {$ENDIF}
 
     procedure RealignFromSelectionChange;
@@ -797,9 +799,11 @@ begin
   end;
 
   {$IFDEF DEBUG}
+  {$IFNDEF WEBASSEMBLY}
   E1;
   E2;
   E3;
+  {$ENDIF}
   {$ENDIF}
 
   if (_rowHeightSynchronizer <> nil) and ControlEffectiveVisible(_rowHeightSynchronizer) then
@@ -2766,13 +2770,17 @@ begin
 
           topVirtualYPosition := referenceRow.VirtualYPosition;
           if referenceRow.ViewPortIndex > 0 then
-            for var ix2 := referenceRow.ViewPortIndex - 1 downto 0 do
+          begin
+            var ix2: Integer;
+            for ix2 := referenceRow.ViewPortIndex - 1 downto 0 do
               begin
                 var viewListIndex := _view.ActiveViewRows[ix2].ViewListIndex;
                 var info := _view.RowLoadedInfo(viewListIndex);
                 if info.RowIsInActiveView then
                   topVirtualYPosition := topVirtualYPosition - info.GetCalculatedHeight;
               end;
+            
+          end;
 
           selectedRowIsAtBottom := (preferedReferenceIndex <> -1) and (referenceRow.VirtualYPosition - _vertScrollBar.Value > _vertScrollBar.ViewportSize / 2);
         end;
@@ -2799,7 +2807,9 @@ end;
 procedure TScrollControlWithRows.RealignContentStart;
 begin
   {$IFDEF DEBUG}
+  {$IFNDEF WEBASSEMBLY}
   S0;
+  {$ENDIF}
   {$ENDIF}
   var isRealStart := _realignState in [TRealignState.Waiting, TRealignState.RealignDone];
 
@@ -2834,10 +2844,12 @@ begin
     _rowHeightSynchronizer.RealignFinished;
 
   {$IFDEF DEBUG}
+  {$IFNDEF WEBASSEMBLY}
   E0;
   E1;
   E2;
   E3;
+  {$ENDIF}
   {$ENDIF}
 end;
 
@@ -3893,16 +3905,13 @@ end;
 
 function TScrollControlWithRows.ListHoldsOrdinalType: Boolean;
 begin
-  {$IFDEF WEBASSEMBLY}
-  Result := not (&Type.GetTypeCode(GetItemType) in [TypeCode.&Object, TypeCode.&Interface, TypeCode.&Array]);
-  {$ELSE}
   var tc := &Type.GetTypeCode(GetItemType);
   Result := not ((tc = TypeCode.Object) or GetItemType.IsInterfaceType or GetItemType.IsArray);
-  {$ENDIF}
 end;
 
 
 {$IFDEF DEBUG}
+{$IFNDEF WEBASSEMBLY}
 procedure TScrollControlWithRows.S0;
 begin
   if (_logs = nil) and ((_rowHeightSynchronizer = nil) or (_rowHeightSynchronizer._logs = nil)) then
@@ -3983,6 +3992,7 @@ begin
   if not Pause and (_stopwatch3.ElapsedMilliseconds > 0) then
     Log('Stopwatch 3: ' + _stopwatch3.ElapsedMilliseconds.ToString);
 end;
+{$ENDIF}
 {$ENDIF}
 
 end.

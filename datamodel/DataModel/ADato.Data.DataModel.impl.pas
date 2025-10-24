@@ -192,8 +192,8 @@ type
   TColumnMap = class(
     TBaseInterfacedObject,
     IColumnMap,
-    ICloneable,
-    {$IFDEF DELPHI}ISerializable{$ENDIF})
+    ICloneable
+    {$IFDEF DELPHI}, ISerializable{$ENDIF})
   protected
     _PropertyName: CString;
     _Expression: CString;
@@ -223,8 +223,8 @@ type
   DataModelColumn = class(
     TObservableObject,
     IDataModelColumn,
-    ICloneable, 
-    {$IFDEF DELPHI}ISerializable{$ENDIF})
+    ICloneable
+    {$IFDEF DELPHI}, ISerializable{$ENDIF})
   protected
     {$IFNDEF WEBASSEMBLY}[unsafe]{$ENDIF}_DataModel: IDataModel;
     _DataType: &Type;

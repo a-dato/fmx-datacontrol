@@ -17,6 +17,8 @@ uses
   FMX.ActnList,
   FMX.ImgList,
   FMX.Types,
+  FMX.Layouts,
+  FMX.TextLayout,
   {$ELSE}
   Wasm.FMX.Controls,
   Wasm.FMX.StdCtrls,
@@ -31,10 +33,10 @@ uses
   Wasm.FMX.ActnList,
   Wasm.FMX.ImgList,
   Wasm.FMX.Types,
+  Wasm.FMX.Layouts,
+  Wasm.FMX.TextLayout,
   {$ENDIF}
   System_,
-  FMX.Layouts,
-  FMX.TextLayout,
   ADato.FMX.FastControls.Text,
   ADato.FMX.FastControls.Button;
 
@@ -67,6 +69,9 @@ type
     _isCustomFactory: Boolean;
   public
     constructor Create; reintroduce;
+    {$IFDEF WEBASSEMBLY}
+    class constructor Create;
+    {$ENDIF}
 
     function CreateHeaderRect(const Owner: TComponent): TRectangle; virtual;
     function CreateRowRect(const Owner: TComponent): TRectangle; virtual;
@@ -108,11 +113,13 @@ implementation
 
 uses
   {$IFNDEF WEBASSEMBLY}
-  System.SysUtils
+  System.SysUtils,
+  System.Types
   {$ELSE}
-  Wasm.System.SysUtils
+  Wasm.System.SysUtils,
+  Wasm.System.Types
   {$ENDIF}
-  , System.Types;
+  ;
 
 { TDataControlClassFactory }
 
@@ -121,7 +128,11 @@ begin
   Result := TRectangle.Create(Owner);
 
   Result.HitTest := True;
+  {$IF Defined(DEBUG) and Defined(WEBASSEMBLY)}
+  Result.Fill.Color := TAlphaColors.Red;
+  {$ELSE}
   Result.Fill.Color := DEFAULT_HEADER_BACKGROUND;
+  {$ENDIF}
   Result.Stroke.Color := TAlphaColors.Null;
   Result.Sides := [];
 end;
@@ -132,6 +143,22 @@ begin
 
   _isCustomFactory := Self.ClassType <> TDataControlClassFactory;
 end;
+
+{$IFDEF WEBASSEMBLY}
+class constructor TDataControlClassFactory.Create;
+begin
+  DEFAULT_GREY_COLOR := TAlphaColor($FFF1F2F7);
+  DEFAULT_WHITE_COLOR := TAlphaColors.Null;
+
+  DEFAULT_ROW_SELECTION_ACTIVE_COLOR := TAlphaColor($886A5ACD);
+  DEFAULT_ROW_SELECTION_INACTIVE_COLOR := TAlphaColor($88778899);
+  DEFAULT_ROW_HOVER_COLOR := TAlphaColor($335B8BCD);
+
+  DEFAULT_HEADER_BACKGROUND := TAlphaColors.Null;
+  DEFAULT_HEADER_STROKE := TAlphaColors.Grey;
+  DEFAULT_CELL_STROKE := TAlphaColors.Lightgray;    
+end;
+{$ENDIF}
 
 function TDataControlClassFactory.CreateMemo(const Owner: TComponent): TMemo;
 begin
@@ -173,9 +200,15 @@ begin
   Result := TRectangle.Create(Owner);
 
 //  Result.Fill.Kind := TBrushKind.None;
+  {$IF Defined(DEBUG) and Defined(WEBASSEMBLY)}
+  Result.Fill.Color := TAlphaColors.Yellow;
+  Result.Stroke.Color := TAlphaColors.Yellow;
+  Result.Sides := [TSide.Bottom];
+  {$ELSE}
   Result.Fill.Color := TAlphaColors.Null;
   Result.Stroke.Color := DEFAULT_HEADER_STROKE;
   Result.Sides := [TSide.Bottom];
+  {$ENDIF}
 end;
 
 function TDataControlClassFactory.CreateRadioButton(const Owner: TComponent): TRadioButton;
@@ -186,15 +219,26 @@ end;
 function TDataControlClassFactory.CreateRowCellRect(const Owner: TComponent): TRectangle;
 begin
   Result := TRectangle.Create(Owner);
+  {$IF Defined(DEBUG) and Defined(WEBASSEMBLY)}
+  Result.Fill.Kind := TBrushKind.Solid;
+  Result.Fill.Color := TAlphaColors.Green;
+  Result.Stroke.Color := TAlphaColors.Green;
+  {$ELSE}
   Result.Fill.Kind := TBrushKind.None;
   Result.Stroke.Color := DEFAULT_CELL_STROKE;
+  {$ENDIF}
 end;
 
 function TDataControlClassFactory.CreateRowRect(const Owner: TComponent): TRectangle;
 begin
   Result := TRectangle.Create(Owner);
+  {$IF Defined(DEBUG) and Defined(WEBASSEMBLY)}
+  Result.Fill.Color := TAlphaColors.Darkslategray;
+  Result.Stroke.Color := TAlphaColors.Darkslategray;
+  {$ELSE}
   Result.Fill.Color := DEFAULT_WHITE_COLOR;
   Result.Stroke.Color := DEFAULT_CELL_STROKE;
+  {$ENDIF}
 end;
 
 function TDataControlClassFactory.CreateText(const Owner: TComponent): TFastText;
@@ -207,9 +251,15 @@ end;
 procedure TDataControlClassFactory.HandleRowBackground(const RowRect: TRectangle; Alternate: Boolean);
 begin
 //  RowRect.Fill.Kind := TBrushKind.Solid;
+  {$IF Defined(DEBUG) and Defined(WEBASSEMBLY)}
+  if Alternate then
+    RowRect.Fill.Color := TAlphaColors.Cyan else
+    RowRect.Fill.Color := TAlphaColors.Cyan;
+  {$ELSE}
   if Alternate then
     RowRect.Fill.Color := DEFAULT_GREY_COLOR else
     RowRect.Fill.Color := DEFAULT_WHITE_COLOR;
+  {$ENDIF}
 end;
 
 function TDataControlClassFactory.IsCustomFactory: Boolean;

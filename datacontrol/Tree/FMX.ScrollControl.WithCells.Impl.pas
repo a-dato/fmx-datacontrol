@@ -17,6 +17,8 @@ uses
   FMX.Forms,
   System.Generics.Defaults,
   FMX.Types,
+  FMX.ActnList,
+  FMX.Text,
   {$ELSE}
   Wasm.FMX.Controls,
   Wasm.FMX.StdCtrls,
@@ -30,6 +32,8 @@ uses
   Wasm.System.ComponentModel,
   Wasm.FMX.Forms,
   Wasm.FMX.Types,
+  Wasm.FMX.ActnList, 
+  Wasm.FMX.Text,
   {$ENDIF}
   System_,
   System.ComponentModel,
@@ -41,8 +45,7 @@ uses
 
   ADato.Collections.Specialized, System.Collections.Specialized,
   FMX.ScrollControl.WithRows.Intf,
-  FMX.ScrollControl.Events, ADato.Data.DataModel.intf,
-  FMX.ActnList, FMX.Text;
+  FMX.ScrollControl.Events, ADato.Data.DataModel.intf;
 
 type
   TRightLeftScroll = (None, FullLeft, Left, Right, FullRight);
@@ -748,7 +751,7 @@ type
     _performanceModeWhileScrolling: Boolean;
     _performanceLayout: TFastLayout;
 
-    [unsafe] _layoutColumn   : IDCTreeLayoutColumn;
+    {$IFNDEF WEBASSEMBLY}[unsafe]{$ENDIF} _layoutColumn   : IDCTreeLayoutColumn;
 
     function  get_Column: IDCTreeColumn;
     function  get_LayoutColumn: IDCTreeLayoutColumn;
@@ -941,6 +944,8 @@ uses
   System.ClassHelpers,
   FMX.Ani,
   FMX.ScrollControl.WithCells.PopupMenu,
+  System.Rtti, 
+  System.TypInfo,
   {$ELSE}
   Wasm.FMX.ActnList,
   Wasm.FMX.Types,
@@ -956,7 +961,7 @@ uses
   , app.intf
   , app.PropertyDescriptor.intf
   {$ENDIF}
-  , System.Rtti, System.TypInfo, ADato.FMX.FastControls.Button,
+  , ADato.FMX.FastControls.Button,
   ADato.FMX.FastControls.Text;
 
 
@@ -1084,7 +1089,7 @@ end;
 {$IFDEF WEBASSEMBLY}
 function  TScrollControlWithCells.GetItemType: &Type; 
 begin
-  inherited;
+  Result := inherited;
 end;
 {$ENDIF}
 
@@ -2147,7 +2152,8 @@ begin
   if (_treeLayout = nil) or (_realignState <> TRealignState.Waiting) then
     Exit;
 
-  for var flatClmn in _treeLayout.FlatColumns do
+  var flatClmn: IDCTreeLayoutColumn;
+  for flatClmn in _treeLayout.FlatColumns do
     if flatClmn.Column.WidthType = TDCColumnWidthType.AlignToContent then
     begin
       if flatClmn.Width > 10 then
@@ -2244,7 +2250,11 @@ begin
   _headerColumnResizeControl := THeaderColumnResizeControl.Create(Self);
 
   _columns := TDCTreeColumnList.Create(Self);
+  {$IFNDEF WEBASSEMBLY}
   (_columns as INotifyCollectionChanged).CollectionChanged.Add(ColumnsChanged);
+  {$ELSE}
+  (_columns as INotifyCollectionChanged).CollectionChanged += @ColumnsChanged;
+  {$ENDIF}
 end;
 
 function TScrollControlWithCells.CreateSelectioninfoInstance: IRowSelectionInfo;
@@ -2323,7 +2333,8 @@ begin
 
   else if _autoMultiSelectColumn = nil then
   begin
-    for var clmn in _columns do
+    var clmn: IDCTreeColumn;
+    for clmn in _columns do
       if clmn.IsSelectionColumn then
         Exit;
 
@@ -2953,6 +2964,12 @@ begin
     if _headerRow <> nil then
     begin
       _headerRow.Control.Visible := False;
+      {$IFDEF WEBASSEMBLY}
+      // In Delphi object is destroyed but in .NET the object just becomes unreferenced, so we call DisposeOf
+      //var parent := _headerRow.Control.Parent;
+      //if parent <> nil then
+      Self.DoRemoveObject(_headerRow.Control.Parent);
+      {$ENDIF}
       _headerRow := nil;
     end;
 
@@ -4651,7 +4668,11 @@ begin
 
       Cell.Control := rect;
     end else
+      {$IFDEF WEBASSEMBLY}
+      Cell.Control := DataControlClassFactory.CreateRowCellRect(Cell.Row.Control);
+      {$ELSE}
       Cell.Control := TLayout.Create(Cell.Row.Control);
+      {$ENDIF}
 
     Cell.Control.HitTest := False;
   end;

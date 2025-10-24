@@ -17,6 +17,9 @@ uses
   FMX.ActnList,
   FMX.ImgList,
   FMX.Types,
+  FMX.Layouts,
+  FMX.TextLayout, 
+  System.Types,
   {$ELSE}
   Wasm.FMX.Controls,
   Wasm.FMX.StdCtrls,
@@ -31,10 +34,12 @@ uses
   Wasm.FMX.ActnList,
   Wasm.FMX.ImgList,
   Wasm.FMX.Types,
+  Wasm.FMX.Layouts,
+  Wasm.FMX.TextLayout, 
+  Wasm.System.Types,
   {$ENDIF}
   System_,
-  FMX.Layouts,
-  FMX.TextLayout, System.Types, ADato.ObjectModel.Binders;
+  ADato.ObjectModel.Binders;
 
 type
   TDateTimeEditOnKeyDownOverride = class(TDateEdit)
@@ -154,7 +159,7 @@ type
     property MaxWidth: Single write _maxWidth;
     property UnderlineOnHover: Boolean read _underlineOnHover write _underlineOnHover default False;
 
-    property HitTest default False;
+    property HitTest {$IFNDEF WEBASSEMBLY}default False{$ENDIF};
 
     property OnChange: TNotifyEvent read _onChange write _onChange;
   end;
@@ -183,11 +188,13 @@ implementation
 
 uses
   {$IFNDEF WEBASSEMBLY}
-  System.SysUtils
+  System.SysUtils,
+  System.Math
   {$ELSE}
-  Wasm.System.SysUtils
+  Wasm.System.SysUtils,
+  Wasm.System.Math
   {$ENDIF}
-  , System.Math, ADato.ObjectModel.intf;
+  , ADato.ObjectModel.intf;
 
 { TDateTimeEditOnKeyDownOverride }
 
@@ -275,7 +282,11 @@ constructor TFastText.Create(AOwner: TComponent);
 begin
   inherited;
 
+  {$IFNDEF WEBASSEMBLY}
   _layout := TTextLayoutManager.DefaultTextLayout.Create;
+  {$ELSE}
+  _layout := TTextLayoutManager.DefaultTextLayout.Create(Self.Canvas);
+  {$ENDIF}
   _layout.Font.Family := APPLICATION_FONT_FAMILY;
 
   _settings := TTextSettings.Create(Self);
@@ -299,6 +310,11 @@ end;
 procedure TFastText.DoPaint;
 begin
   _waitingForRepaint := False;
+
+  {$IFDEF WEBASSEMBLY}
+  if Self.Parent.IsOfType<TControl> then
+    _layout.TopLeft := (Self.Parent as TControl).LocalToAbsolute({TPointF.Create(0, 0}TPointF.Create(0, 15));
+  {$ENDIF}
 
 //  Self.Canvas.Fill.Color := TALphaColors.Purple;
 //  Self.Canvas.FillRect(RectF(0,0,Width,Height), 0.2);
@@ -597,7 +613,11 @@ begin
     _subText := Value;
 
     if _subTextlayout = nil then
+      {$IFNDEF WEBASSEMBLY}
       _subTextlayout := TTextLayoutManager.DefaultTextLayout.Create;
+      {$ELSE}
+      _subTextlayout := TTextLayoutManager.DefaultTextLayout.Create(nil);
+      {$ENDIF}
 
     RecalcNeeded;
 

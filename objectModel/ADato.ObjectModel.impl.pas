@@ -878,12 +878,12 @@ function TObjectModelPropertyWrapper.GetAttributes: TArray<TCustomAttribute>;
 begin
   Result := FContainedProperty.GetAttributes;
 end;
-{$ENDIF}
 
 function TObjectModelPropertyWrapper.IsIndexedProperty: Boolean;
 begin
   Result := FContainedProperty.IsIndexedProperty;
 end;
+{$ENDIF}
 
 function TObjectModelPropertyWrapper.GetType: &Type;
 begin
