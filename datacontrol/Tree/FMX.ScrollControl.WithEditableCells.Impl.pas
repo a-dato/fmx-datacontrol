@@ -380,6 +380,8 @@ uses
   System.Character,
   FMX.Platform,
   System.SysUtils,
+  System.TypInfo,
+  ADato.FMX.ComboMultiBox,
   {$ELSE}
   Wasm.FMX.Edit,
   Wasm.FMX.DateTimeCtrls,
@@ -397,8 +399,7 @@ uses
   FMX.ScrollControl.ControlClasses,
   FMX.ControlCalculations,
   ADato.Collections.Specialized,
-  System.Reflection,
-  System.TypInfo, ADato.FMX.ComboMultiBox;
+  System.Reflection;
 
 { TScrollControlWithEditableCells }
 
@@ -2533,6 +2534,7 @@ end;
 
 procedure TDCCellMultiSelectDropDownEditor.BeginEdit(const EditValue: CObject);
 begin
+  {$IFNDEF WEBASSEMBLY}
   _editor := TComboMultiBox.Create(nil);
   TComboMultiBox(_editor).Items := _PickList;
   TComboMultiBox(_editor).SelectedItems := EditValue.AsType<IList>;
@@ -2541,11 +2543,14 @@ begin
   inherited;
 
   Dropdown;
+  {$ENDIF}
 end;
 
 procedure TDCCellMultiSelectDropDownEditor.Dropdown;
 begin
+  {$IFNDEF WEBASSEMBLY}
   TComboMultiBox(_editor).DropDown;
+  {$ENDIF}
 end;
 
 function TDCCellMultiSelectDropDownEditor.get_PickList: IList;
@@ -2555,7 +2560,9 @@ end;
 
 function TDCCellMultiSelectDropDownEditor.get_Value: CObject;
 begin
+  {$IFNDEF WEBASSEMBLY}
   Result := TComboMultiBox(_editor).SelectedItems;
+  {$ENDIF}
 end;
 
 procedure TDCCellMultiSelectDropDownEditor.set_PickList(const Value: IList);
@@ -2565,7 +2572,9 @@ end;
 
 procedure TDCCellMultiSelectDropDownEditor.set_Value(const Value: CObject);
 begin
+  {$IFNDEF WEBASSEMBLY}
   TComboMultiBox(_editor).SelectedItems := Value.AsType<IList>;
+  {$ENDIF}
 end;
 
 end.

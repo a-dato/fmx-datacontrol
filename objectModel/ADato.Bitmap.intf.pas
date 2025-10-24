@@ -1,4 +1,6 @@
-﻿{$I ..\Source\Adato.inc}
+﻿{$IFNDEF WEBASSEMBLY}
+{$I ..\Source\Adato.inc}
+{$ENDIF}
 
 unit ADato.Bitmap.intf;
 

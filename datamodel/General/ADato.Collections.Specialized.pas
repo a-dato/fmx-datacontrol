@@ -1,4 +1,6 @@
-﻿{$I ..\Source\Adato.inc}
+﻿{$IFNDEF WEBASSEMBLY}
+{$I ..\Source\Adato.inc}
+{$ENDIF}
 
 unit ADato.Collections.Specialized;
 
@@ -138,10 +140,10 @@ type
     procedure CollectionItem_PropertyChanged( Sender: TObject;
                                               Args: PropertyChangedEventArgs);
 
-    procedure ClearItems; {$IFDEF DELPHI}override;{$ENDIF}
-    procedure InsertItem(index: Integer; const item: T); {$IFDEF DELPHI}override;{$ENDIF}
-    procedure RemoveItem(index: Integer); {$IFDEF DELPHI}override;{$ENDIF}
-    procedure SetItem(index: Integer; const item: T); {$IFDEF DELPHI}override;{$ENDIF}
+    procedure ClearItems; override;
+    procedure InsertItem(index: Integer; const item: T); override;
+    procedure RemoveItem(index: Integer); override;
+    procedure SetItem(index: Integer; const item: T); override;
 
     procedure AddEventHandler(const item: T);
     procedure RemoveEventHandler(const item: T);

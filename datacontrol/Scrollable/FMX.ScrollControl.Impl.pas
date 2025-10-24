@@ -882,8 +882,10 @@ end;
 
 procedure TScrollControl.RealignContentStart;
 begin
+  {$IFNDEF WEBASSEMBLY}
   if not _realignStopwatch.IsRunning then
     _realignStopwatch := TStopwatch.StartNew;
+  {$ENDIF}
 
   _paintTime := -1;
 
@@ -898,8 +900,10 @@ begin
 
   TryStartWaitForRealignTimer;
 
+  {$IFNDEF WEBASSEMBLY}
   _realignStopwatch.Stop;
   _realignContentTime := _realignStopwatch.ElapsedMilliseconds;
+  {$ENDIF}
 
   if _scrollingType <> TScrollingType.None then
     _prevRealignTime := Environment.TickCount;
@@ -916,12 +920,13 @@ end;
 procedure TScrollControl.SaveLog;
 begin
   {$IFDEF DEBUG}
+  {$IFNDEF WEBASSEMBLY}
   if _logs <> nil then
   begin
     _logs.SaveToFile('d:\temp\treeinfo_' + _logIx.ToString + '.txt');
     FreeAndNil(_logs);
   end;
-
+  {$ENDIF}
   {$ENDIF}
 end;
 
