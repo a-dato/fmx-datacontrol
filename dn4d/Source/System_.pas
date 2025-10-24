@@ -1918,7 +1918,7 @@ type
 
   PMethod = ^TMethod;
 
-  IDelegate = interface
+  IDelegate = interface(IBaseInterface)
     function GetInvocationList: TList;
   end;
 
@@ -4147,7 +4147,7 @@ end;
 
 function TInterfacedPropInfo.IsIndexedProperty: Boolean;
 begin
-  Result := _propInfo^.Index <> Low(_propInfo^.Index);  //  From System.TypInfo -> TPropSet<T>.GetProc
+  Result := (_propInfo <> nil) and (_propInfo^.Index <> Low(_propInfo^.Index));  //  From System.TypInfo -> TPropSet<T>.GetProc
 end;
 
 function TInterfacedPropInfo.GetHashCode: Integer;
@@ -9125,8 +9125,17 @@ begin
         Result := string.Equals(string(FValue.GetReferenceToRawData^), string(AValue.FValue.GetReferenceToRawData^));
 
     TypeCode.Int32: Result := FValue.AsInteger = AValue.FValue.AsInteger;
-    TypeCode.Interface: Result := FValue.AsType<IBaseInterface>.Equals(AValue);
-    TypeCode.Int64: Result := FValue.AsInteger = AValue.FValue.AsInteger;
+    TypeCode.Interface:
+    {$IFDEF APP_PLATFORM}
+    begin
+      var bi: IBaseInterface;
+      Result := Interfaces.Supports<IBaseInterface>(FValue.AsInterface, bi) and bi.Equals(AValue);
+    end;
+    {$ELSE}
+      Result := FValue.AsType<IBaseInterface>.Equals(AValue);
+    {$ENDIF}
+
+    TypeCode.Int64: Result := FValue.AsInt64 = AValue.FValue.AsInt64;
     TypeCode.DateTime: Result := CDateTime(FValue.GetReferenceToRawData^).Equals(CDateTime(AValue.FValue.GetReferenceToRawData^));
     TypeCode.Double: Result := FValue.AsType<Double> = AValue.FValue.AsType<Double>;
     //TTypes.System_TimeSpan: Result := CTimeSpan(FValue.GetReferenceToRawData^).Equals(CTimeSpan(AValue.FValue.GetReferenceToRawData^));
@@ -9232,7 +9241,7 @@ begin
     TypeCode.Int32:
       Result := FValue.AsInteger;
     TypeCode.Int64:
-      Result := FValue.AsInt64;
+      Result := THashBobJenkins.GetHashValue(FValue.GetReferenceToRawData^, SizeOf(Int64), 0);
     TypeCode.Interface:
     begin
       Assert(Interfaces.Supports(Self, IBaseInterface));
@@ -9507,11 +9516,19 @@ begin
         // Cast from Interface to Interface
         case ATypeInfo.Kind of
           tkInterface:
+            {$IFDEF APP_PLATFORM}
+            if Interfaces.Supports(FValue.AsInterface, TGUID(ATypeInfo.TypeData.IntfGuid), ii) then
+            begin
+              TValue.Make(@ii, ATypeInfo, value_t);
+              Result := value_t.TryCast(ATypeInfo, Value);
+            end;
+            {$ELSE}
             if Interfaces.Supports(FValue.AsType<IBaseInterface>, TGUID(ATypeInfo.TypeData.IntfGuid), ii) then
             begin
               TValue.Make(@ii, ATypeInfo, value_t);
               Result := value_t.TryCast(ATypeInfo, Value);
             end;
+            {$ENDIF}
           tkClass:
           begin
             if FValue.TryAsType<IAutoObject>(a) then
@@ -9667,8 +9684,15 @@ begin
           end;
           tkRecord:
           begin
+            // string -> CString
+            if ATypeInfo = TypeInfo(CString) then
+            begin
+              var cs: CString := CString.Create(FValue.ToString);
+              TValue.Make(@cs, ATypeInfo, value_t);
+              Result := value_t.TryCast(ATypeInfo, Value);
+            end
             // CString -> CObject
-            if ATypeInfo = TypeInfo(CObject) then
+            else if ATypeInfo = TypeInfo(CObject) then
             begin
               o := CObject.Create(CString(FValue.GetReferenceToRawData^));
               TValue.Make(@o, ATypeInfo, value_t);
@@ -9698,17 +9722,6 @@ begin
               Result := value_t.TryCast(ATypeInfo, Value);
             end;
           end;
-          // KV 31-01-2025 Cannot convert CString to anything else....
-          // Code below is invalid, with this code
-          //
-          //    CObject('abc').IsOfType<IList> returns True (which is wrong)
-          //
-          //          else
-          //          if CString(FValue.GetReferenceToRawData^)._intf = nil then
-          //          begin
-          //            Value := TValue.Empty;
-          //            Result := True;
-          //          end;
         end;
 
       TypeCode.DateTime:
@@ -10033,8 +10046,26 @@ end;
 
 function CObject.GetType(StrictTyping: Boolean = False): &Type;
 begin
+  {$IFDEF APP_PLATFORM}
   CheckNullReference(Self);
-
+  if &Type.GetTypeCode(FValue.TypeInfo) = TypeCode.Interface then
+  begin
+    var ib: IBaseInterface;
+    if Interfaces.Supports<IBaseInterface>(FValue.AsInterface, ib) then
+      Result := ib.GetType
+    else if not StrictTyping then
+    begin
+      // Comply with C# way of operation, calling GetType on an interface will return
+      // the type of the object implementing the interface
+      var o := TObject(FValue.AsInterface);
+      Result := &Type.Create(o.ClassInfo);
+    end
+    else
+      Result := &Type.Create(FValue.TypeInfo);
+  end else
+    Result := &Type.Create(FValue.TypeInfo);
+  {$ELSE}
+  CheckNullReference(Self);
   if not StrictTyping and (&Type.GetTypeCode(FValue.TypeInfo) = TypeCode.Interface) then
   begin
     // Comply with C# way of operation, calling GetType on an interface will return
@@ -10043,6 +10074,7 @@ begin
     Result := &Type.Create(o.ClassInfo);
   end else
     Result := &Type.Create(FValue.TypeInfo);
+  {$ENDIF}
 end;
 
 function CObject.IsNull : Boolean;

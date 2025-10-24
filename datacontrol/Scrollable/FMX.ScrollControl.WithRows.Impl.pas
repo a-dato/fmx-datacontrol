@@ -87,7 +87,7 @@ type
     {$IFNDEF WEBASSEMBLY}
     function  get_AllowNoneSelected: Boolean;
     {$ENDIF}
-    procedure set_AllowNoneSelected(const Value: Boolean);
+    procedure set_AllowNoneSelected(const Value: Boolean); virtual;
     function  get_NotSelectableItems: IList;
     procedure set_NotSelectableItems(const Value: IList);
     procedure set_RowHeightMax(const Value: Single);
@@ -144,6 +144,8 @@ type
 
     _tryFindNewSelectionInDataModel: Boolean;
     _mustShowSelectionInRealign: Boolean;
+
+    _multiSelectSorter: ITreeSortDescription;
 
     function  HasUpdateCount: Boolean;
     function  HasInternalSelectCount: Boolean;
@@ -298,10 +300,12 @@ type
     procedure ToggleDataItemSelection; overload;
     procedure ToggleDataItemSelection(const Item: CObject); overload;
 
-    function  IsSelected(const DataItem: CObject): Boolean;
+    function  IsSelected(const DataIndex: Integer): Boolean;
+    function  SlowItemIsSelected(const DataItem: CObject): Boolean;
     function  SelectedRowIfInView: IDCRow;
     function  SelectionCount: Integer;
-    function  SelectedItems: List<CObject>;
+    function  SelectedItems: List<CObject>; overload;
+    function  SelectedItems<T>: List<T>; overload;
     function  DraggedItems: List<CObject>;
 
     procedure AssignSelection(const SelectedItems: IList);
@@ -529,7 +533,7 @@ uses
   {$ENDIF}
   FMX.ScrollControl.ControlClasses,
   FMX.ScrollControl.View.Impl, FMX.ControlCalculations,
-  ADato.TraceEvents.intf;
+  ADato.TraceEvents.intf, FMX.ScrollControl.SortAndFilter;
 
 
 { TScrollControlWithRows }
@@ -1089,8 +1093,16 @@ begin
   if TDCTreeOption.HideHScrollBar in _options then
     _horzScrollBar.Visible := False;
 
-  if (TDCTreeOption.MultiSelect in OldFlags) and not (TDCTreeOption.MultiSelect in NewFlags) then
-    ClearSelections;
+  if (TDCTreeOption.MultiSelect in OldFlags) <> (TDCTreeOption.MultiSelect in NewFlags) then
+  begin
+    if (TDCTreeOption.MultiSelect in NewFlags) then
+      _multiSelectSorter := TTreeMultiSelectSortDescription.Create(Self)
+    else begin
+      _multiSelectSorter := nil;
+      if (_selectionInfo <> nil) then
+        _selectionInfo.ClearMultiSelections;
+    end;
+  end;
 
   if ((TDCTreeOption.AlternatingRowBackground in OldFlags) <> (TDCTreeOption.AlternatingRowBackground in NewFlags)) then
   begin
@@ -1314,6 +1326,12 @@ end;
 procedure TScrollControlWithRows.ExpandCurrentRow;
 begin
   DoCollapseOrExpandRow(get_Current, True);
+end;
+
+function TScrollControlWithRows.SlowItemIsSelected(const DataItem: CObject): Boolean;
+begin
+  var ix := _view.GetDataIndex(DataItem);
+  Result := IsSelected(ix);
 end;
 
 function TScrollControlWithRows.SortActive: Boolean;
@@ -2603,13 +2621,12 @@ begin
   Result := _masterSynchronizerIndex > 0;
 end;
 
-function TScrollControlWithRows.IsSelected(const DataItem: CObject): Boolean;
+function TScrollControlWithRows.IsSelected(const DataIndex: Integer): Boolean;
 begin
   Result := False;
   if _view = nil then Exit;
 
-  var ix := _view.GetViewListIndex(DataItem);
-  Result := _selectionInfo.IsSelected(_view.GetDataIndex(ix));
+  Result := _selectionInfo.IsSelected(DataIndex);
 end;
 
 procedure TScrollControlWithRows.DoViewLoadingStart(const startY, StopY: Single; preferedReferenceIndex: Integer = -1);
@@ -3043,13 +3060,18 @@ end;
 
 function TScrollControlWithRows.SelectedItems: List<CObject>;
 begin
+  Result := SelectedItems<CObject>;
+end;
+
+function TScrollControlWithRows.SelectedItems<T>: List<T>;
+begin
   if _view = nil then
     Exit(nil);
 
-  Result := CList<CObject>.Create;
-
   var dataIndexes := _selectionInfo.SelectedDataIndexes;
   dataIndexes.Sort;
+
+  Result := CList<T>.Create(dataIndexes.Count);
 
   var ix: Integer;
   for ix in dataIndexes do
@@ -3058,8 +3080,8 @@ begin
 
     var dr: IDataRow;
     if ViewIsDataModelView and item.TryAsType<IDataRow>(dr) then
-      Result.Add(dr.Data) else
-      Result.Add(item);
+      Result.Add(dr.Data.AsType<T>) else
+      Result.Add(item.AsType<T>);
   end;
 end;
 
@@ -3215,6 +3237,21 @@ begin
   // scroll to current dataitem after scrolling
   if GetInitializedWaitForRefreshInfo.DataItem = nil then
     GetInitializedWaitForRefreshInfo.DataItem := get_DataItem;
+
+  if (_multiSelectSorter <> nil) then
+  begin
+    var ix := -1;
+    if (_view <> nil) and (_view.GetSortDescriptions <> nil) then
+      ix := _view.GetSortDescriptions.IndexOf(_multiSelectSorter);
+
+    if ix <> 0 then
+    begin
+      if ix > 0 then
+        _view.GetSortDescriptions.RemoveAt(ix);
+
+      AddSortDescription(_multiSelectSorter, False);
+    end;
+  end;
 end;
 
 procedure TScrollControlWithRows.AddSortDescription(const Sort: IListSortDescription; const ClearOtherSort: Boolean);

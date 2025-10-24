@@ -821,10 +821,11 @@ begin
   if IsEditOrNew and not CObject.Equals(_editingInfo.EditItem, clickedRow.DataItem) then
   begin
     var clickedRowDataIndex := clickedRow.DataIndex;
+    var editItem := _editingInfo.EditItem; // can be set to nil in next line
     if not CheckCanChangeRow then
       Exit;
 
-    var filteredOut := _view.ItemIsFilteredOut(_editingInfo.EditItem);
+    var filteredOut := _view.ItemIsFilteredOut(editItem);
     var sortCouldBeChanged := ((_view.GetSortDescriptions <> nil) and (_view.GetSortDescriptions.Count > 0));
 
     if filteredOut or sortCouldBeChanged then
@@ -1245,6 +1246,9 @@ end;
 
 function TScrollControlWithEditableCells.ProvideCellData(const Cell: IDCTreeCell; const PropName: CString; const IsSubProp: Boolean): CObject;
 begin
+  if (Cell.Column.InfoControlClass = TInfoControlClass.CheckBox) and not Cell.Column.IsSelectionColumn and not Cell.Column.HasPropertyAttached then
+    Exit(_checkedItems.ContainsKey(Cell.Column) and _checkedItems[Cell.Column].Contains(Cell.Row.DataIndex));
+
   Result := inherited;
 
   if (Result = nil) and IsNew and (_cellEditor <> nil) and (_cellEditor.Cell = Cell) then

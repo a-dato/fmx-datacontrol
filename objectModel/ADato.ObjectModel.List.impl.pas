@@ -93,11 +93,8 @@ uses
 { TObjectListModel<T> }
 constructor TObjectListModel<T>.Create(const AType: &Type);
 begin
-
   _ObjectType := AType;
-
   Initialize;
-
 end;
 
 constructor TObjectListModel<T>.Create;

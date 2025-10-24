@@ -714,6 +714,7 @@ type
     _childRows: List<IDataRow>;
 
     procedure AddChildRow(const DataRow: IDataRow);
+    function  HasChildren: Boolean;
 
     // IDataRowView interface implementation
     function  get_ChildIndex: Integer;
@@ -867,7 +868,8 @@ type
     function  GroupHeaderExists(const DataRow: IDataRow) : Boolean;
     function  GetGroupHeader( const DataRow: IDataRow;
                               const ViewIndex: Integer;
-                              const ChildIndex: Integer): IDataRowView;
+                              const ChildIndex: Integer;
+                              out Created: Boolean): IDataRowView;
 
     function  IsFiltered: Boolean;
     function  MakeRowVisible(const Row: IDataRow) : Boolean;
@@ -936,6 +938,7 @@ type
   DataRowViewComparer = class(TBaseInterfacedObject, IComparer<IDataRowView>)
   protected
     _DataModel          : IDataModel;
+    _IsGroupByComparer  : Boolean;
     _SortDescriptor     : List<IListSortDescription>;
     _Multipliers        : array of Integer;
     _Comparers          : array of IComparer<CObject>;
@@ -945,7 +948,7 @@ type
     function Compare(const x, y: IDataRowView): Integer;
 
   public
-    constructor Create(const ADataModel: IDataModel; const ASortDescriptor: List<IListSortDescription>);
+    constructor Create(const ADataModel: IDataModel; const ASortDescriptor: List<IListSortDescription>; IsGroupByComparer: Boolean);
     destructor Destroy; override;
 
     function LoadKey(const dataRowView: IDataRowView): CObject;
@@ -3402,7 +3405,7 @@ end;
 function TDataModelView.HasChildren(const ViewRow: IDataRowView) : Boolean;
 begin
   if GroupedView then
-    Result := ViewRow.ChildRows.Count > 0 else
+    Result := ViewRow.HasChildren else
     Result := DataModel.HasChildren(ViewRow.Row);
 end;
 
@@ -3551,7 +3554,7 @@ begin
     for internalFilter in _internalfilterDescriptions do
     begin
       var filterableData := internalFilter.GetFilterableValue(dataRow);
-      if not internalFilter.IsMatch(filterableData) then
+      if not internalFilter.IsMatch(filterableData, dataRow.get_Index) then
         Result := True;
     end;    
   end;
@@ -3622,7 +3625,8 @@ end;
 function TDataModelView.GetGroupHeader(
   const DataRow: IDataRow;
   const ViewIndex: Integer;
-  const ChildIndex: Integer) : IDataRowView;
+  const ChildIndex: Integer;
+  out Created: Boolean) : IDataRowView;
 var
   i: Integer;
   modelViewRow: IDataRowView;
@@ -3637,25 +3641,26 @@ begin
   if _groupHeaders = nil then
   begin
     _groupHeaders := CList<IDataRowView>.Create;
-    _groupHeadersComparer := DataRowViewComparer.Create(DataModel, _groupByDescriptions);
+    _groupHeadersComparer := DataRowViewComparer.Create(DataModel, _groupByDescriptions, True);
   end;
 
-  modelViewRow := TDataRowView.Create(  Self,
-                                        DataRow,
-                                        ViewIndex,
-                                        ChildIndex);
+  modelViewRow := TDataRowView.Create(Self, DataRow, ViewIndex, ChildIndex);
 
   i := _groupHeaders.BinarySearch(modelViewRow, _groupHeadersComparer);
 
   if i >= 0 then
+  begin
+    Created := False;
     Result := _groupHeaders[i]
+  end
 
   else
   begin
+    Created := True;
     Result := modelViewRow;
     _groupHeaders.Insert(not i, modelViewRow);
-    _rows.Add(modelViewRow);
-    _viewRowDictionary[DataRow] := modelViewRow;
+//    _rows.Add(modelViewRow);
+//    _viewRowDictionary[DataRow] := modelViewRow;
   end;
 end;
 
@@ -3820,10 +3825,21 @@ var
     else // if rowLevel = prevRowLevel then
       UpdateChildIndex(rowLevel, childIndexes[rowLevel] + 1);
 
-    modelViewRow := GetGroupHeader(dataModelRow, resultRows.Count, childIndexes[rowLevel]);
+    var groupHeaderCreated: Boolean;
+    modelViewRow := GetGroupHeader(dataModelRow, resultRows.Count, childIndexes[rowLevel], {out} groupHeaderCreated);
 
+    // Groupen view?
     if (modelViewRow <> nil) then
-      modelViewRow.AddChildRow(dataModelRow)
+    begin
+      if groupHeaderCreated then
+      begin
+        resultRows.Add(modelViewRow);
+        _viewRowDictionary[dataModelRow] := modelViewRow;
+      end;
+
+      modelViewRow.AddChildRow(dataModelRow);
+
+    end
 
     else
     begin
@@ -4060,39 +4076,74 @@ begin
 end;
 
 procedure TDataModelView.ExpandRowInView(const Row: IDataRow);
-var
-  c: Integer;
-  drv: IDataRowView;
-  i: Integer;
-  l: List<IDataRowView>;
-  viewIndex: Integer;
-
 begin
+  {$IFDEF GROUP_BY}
   if _rows = nil then
     Exit;
 
-  drv := FindRow(Row);
+  var drv := FindRow(Row);
 
   // Row showing?
   if drv <> nil then
   begin
-    c := _datamodel.ChildCount(Row);
+    if GroupedView then
+    begin
+      var children := drv.ChildRows;
+
+      if children <> nil then
+      begin
+        var view_rows: List<IDataRowView> := CList<IDataRowView>.Create(children.Count);
+        for var i := 0 to children.Count - 1 do
+          view_rows.Add(TDataRowView.Create(Self, children[i], drv.ViewIndex + 1 + i, i));
+        Rows.InsertRange(drv.ViewIndex + 1, view_rows);
+      end;
+    end
+    else
+    begin
+      var c := _datamodel.ChildCount(Row);
+
+      if c > 0 then
+      begin
+        var i := _datamodel.RowIndex(Row) + 1;
+        {$IFDEF DELPHI}
+        var l := FillRangeWithFunc(i, c, get_RowProperties);
+        {$ELSE}
+        var l := FillRangeWithFunc(i, c, @get_RowProperties);
+        {$ENDIF}
+
+        Rows.InsertRange(drv.ViewIndex + 1, l);
+
+        for var n := drv.ViewIndex + 1 to Rows.Count - 1 do
+          Rows[n].ViewIndex := n;
+      end;
+    end;
+  end;
+  {$ELSE}
+  if _rows = nil then
+    Exit;
+
+  var drv := FindRow(Row);
+
+  // Row showing?
+  if drv <> nil then
+  begin
+    var c := _datamodel.ChildCount(Row);
     if c > 0 then
     begin
-      i := _datamodel.RowIndex(Row) + 1;
+      var i := _datamodel.RowIndex(Row) + 1;
       {$IFDEF DELPHI}
-      l := FillRangeWithFunc(i, c, get_RowProperties);
+      var l := FillRangeWithFunc(i, c, get_RowProperties);
       {$ELSE}
       l := FillRangeWithFunc(i, c, @get_RowProperties);
       {$ENDIF}
 
-      viewIndex := Self.FindRow(Row).ViewIndex;
-      Rows.InsertRange(viewIndex + 1, l);
+      Rows.InsertRange(drv.ViewIndex + 1, l);
 
-      for i := viewIndex + 1 to Rows.Count - 1 do
+      for i := drv.ViewIndex + 1 to Rows.Count - 1 do
         Rows[i].ViewIndex := i;
     end;
   end;
+  {$ENDIF}
 end;
 
 procedure TDataModelView.set_RowProperties(const Row: IDataRow; const Value: IRowProperties);
@@ -4470,7 +4521,7 @@ var
     if children <> nil then
     begin
       if children.Count > 1 then
-        children.Sort(DataRowViewComparer.Create(DataModel, _sortDescriptions) as IComparer<IDataRowView>); // for release interfaces
+        children.Sort(DataRowViewComparer.Create(DataModel, _sortDescriptions, False) as IComparer<IDataRowView>); // for release interfaces
 
       for childIndex := 0 to children.Count - 1 do
       begin
@@ -4501,7 +4552,7 @@ begin
                       Result := cmp1.Row.Level = initialLevel;
                     end);
 
-  cmp := DataRowViewComparer.Create(DataModel, _sortDescriptions);
+  cmp := DataRowViewComparer.Create(DataModel, _sortDescriptions, False);
   masterRows.Sort(cmp);
 
   // If we only have Level-0 rows we can skip nested sorting
@@ -4614,6 +4665,11 @@ begin
     _childRows := CList<IDataRow>.Create;
 
   _childRows.Add(DataRow);
+end;
+
+function TDataRowView.HasChildren: Boolean;
+begin
+  Result := (_childRows <> nil) and (_childRows.Count > 0);
 end;
 
 procedure TDataRowView.BeginEdit;
@@ -4969,15 +5025,15 @@ begin
   end else
     Result := CObject.CompareArray(key_x, key_y, _Multipliers, _Comparers);
 
-  if Result = 0 then
+  if (Result = 0) and not _IsGroupByComparer then
     // We do not use _Multipliers[0] here (maybe we should)
     // When keys are equal we still sort rows by their index (top to bottom)
     // I think this feels more natural to the user
     Result := CInteger.Compare(x.Row.get_Index, y.Row.get_Index);
 end;
 
-constructor DataRowViewComparer.Create(const ADataModel: IDataModel; const ASortDescriptor: List<IListSortDescription>);
-var                 
+constructor DataRowViewComparer.Create(const ADataModel: IDataModel; const ASortDescriptor: List<IListSortDescription>; IsGroupByComparer: Boolean);
+var
   i: Integer;
   cmp: IListSortDescriptionWithComparer;
   pds: IListSortDescriptionWithProperty;
@@ -4986,6 +5042,7 @@ begin
   _DataModel := ADataModel;
   _SortDescriptor := ASortDescriptor;
   _keys := CDictionary<IDataRowView, CObject>.Create(0, DataRowViewEqualityComparer.Create);
+  _IsGroupByComparer := IsGroupByComparer;
 
   SetLength(_dataModelColumns, _SortDescriptor.Count);
   SetLength(_Multipliers, _SortDescriptor.Count);

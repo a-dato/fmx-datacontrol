@@ -201,6 +201,15 @@
 //------------------------------------------------------------------------------
 // VERXXX to COMPILERX, DELPHIX and BCBX mappings
 //------------------------------------------------------------------------------
+
+{$IFDEF VER370} {Delphi 13}
+  {$DEFINE SHORT_FIRST}
+  {$DEFINE COMPILER19}
+  {$DEFINE COMPILER18}
+  {$DEFINE DELPHIXE13}
+  {$DEFINE DELPHI}
+{$ENDIF}
+
 {$IFDEF VER360} {Delphi 12}
   {$DEFINE SHORT_FIRST}
   {$DEFINE COMPILER19}
@@ -481,6 +490,34 @@
 //------------------------------------------------------------------------------
 // DELPHIX_UP from DELPHIX mappings
 //------------------------------------------------------------------------------
+{$IFDEF DELPHIXE13}
+  {$DEFINE DELPHIXE13_UP}
+  {$DEFINE DELPHIXE12_UP}
+  {$DEFINE DELPHIXE11_UP}
+  {$DEFINE DELPHIXE104_UP}
+  {$DEFINE DELPHIXE103_UP}
+  {$DEFINE DELPHIXE101_UP}
+  {$DEFINE DELPHIXE10_UP}
+  {$DEFINE DELPHIXE8_UP}
+  {$DEFINE DELPHIXE7_UP}
+  {$DEFINE DELPHIXE6_UP}
+  {$DEFINE DELPHIXE5_UP}
+  {$DEFINE DELPHIXE4_UP}
+  {$DEFINE DELPHIXE3_UP}
+  {$DEFINE DELPHIXE2_UP}
+  {$DEFINE DELPHI11_UP}
+  {$DEFINE DELPHI10_UP}
+  {$DEFINE DELPHI9_UP}
+  {$DEFINE DELPHI8_UP}
+  {$DEFINE DELPHI7_UP}
+  {$DEFINE DELPHI6_UP}
+  {$DEFINE DELPHI5_UP}
+  {$DEFINE DELPHI4_UP}
+  {$DEFINE DELPHI3_UP}
+  {$DEFINE DELPHI2_UP}
+  {$DEFINE DELPHI1_UP}
+{$ENDIF}
+
 {$IFDEF DELPHIXE12}
   {$DEFINE DELPHIXE12_UP}
   {$DEFINE DELPHIXE11_UP}

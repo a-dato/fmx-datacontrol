@@ -811,7 +811,7 @@ procedure TScrollControl.OnHorzScrollBarChange(Sender: TObject);
 begin
   DoViewPortPositionChanged;
 
-  if _scrollUpdateCount <> 0 then
+  if (_scrollUpdateCount <> 0) or _realignContentRequested then
     Exit;
 
   DoHorzScrollBarChanged;

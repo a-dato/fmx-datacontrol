@@ -57,6 +57,7 @@ type
     _style: TStyledSettings;
     _autoWidth: Boolean;
     _calcAsAutoWidth: Boolean;
+    _calcAsAutoHeight: Boolean;
     _underlineOnHover: Boolean;
 
     _recalcNeeded: Boolean;
@@ -101,6 +102,7 @@ type
     procedure set_VertTextAlign(const Value: TTextAlign);
     procedure set_AutoWidth(const Value: Boolean);
     procedure set_CalcAsAutoWidth(const Value: Boolean);
+    procedure set_CalcAsAutoHeight(const Value: Boolean);
     function  get_Trimming: TTextTrimming;
     function  get_WordWrap: Boolean;
     procedure set_SubText(const Value: string);
@@ -109,6 +111,7 @@ type
     procedure DoPaint; override;
 //    procedure Painting; override;
     procedure DoResized; override;
+    function  GetDefaultSize: TSizeF; override;
 
     procedure Calculate; virtual;
     procedure RecalcNeeded;
@@ -130,6 +133,7 @@ type
 //    procedure PrepareForPaint; override;
     procedure RecalcOpacity; override;
 
+    function HasText: Boolean;
     function TextWidth: Single;
     function TextHeight: Single;
     function TextWidthWithPadding: Single;
@@ -151,6 +155,7 @@ type
 
     property AutoWidth: Boolean read _autoWidth write set_AutoWidth default False;
     property CalcAsAutoWidth: Boolean read _calcAsAutoWidth write set_CalcAsAutoWidth default False;
+    property CalcAsAutoHeight: Boolean read _calcAsAutoHeight write set_CalcAsAutoHeight default False;
     property MaxWidth: Single write _maxWidth;
     property UnderlineOnHover: Boolean read _underlineOnHover write _underlineOnHover default False;
 
@@ -349,6 +354,11 @@ begin
   inherited;
 end;
 
+function TFastText.GetDefaultSize: TSizeF;
+begin
+  Result := TSizeF.Create(50, 16);
+end;
+
 //procedure TFastText.Painting;
 //begin
 ////  Calculate;
@@ -414,6 +424,11 @@ end;
 function TFastText.get_WordWrap: Boolean;
 begin
   Result := _settings.WordWrap;
+end;
+
+function TFastText.HasText: Boolean;
+begin
+  Result := Length(_text) > 0;
 end;
 
 procedure TFastText.DoMouseLeave;
@@ -484,7 +499,7 @@ begin
   _recalcNeeded := False;
 
   var maxWidth := IfThen(_autoWidth or _calcAsAutoWidth, 9999, IfThen(_maxWidth > 0, _maxWidth, Self.Width - Padding.Left - Padding.Right - _internalLeftPadding - _internalRightPadding));
-  var maxHeight := IfThen(get_WordWrap, 9999, Self.Height - Padding.Top - Padding.Bottom);
+  var maxHeight := IfThen(get_WordWrap or _calcAsAutoHeight, 9999, Self.Height - Padding.Top - Padding.Bottom);
 
   CalculateSubText(maxWidth, maxHeight);
   CalculateText(maxWidth, maxHeight);
@@ -551,6 +566,15 @@ begin
     if _autoWidth then
       set_WordWrap(False);
 
+    RecalcNeeded;
+  end;
+end;
+
+procedure TFastText.set_CalcAsAutoHeight(const Value: Boolean);
+begin
+  if _calcAsAutoHeight <> Value then
+  begin
+    _calcAsAutoHeight := Value;
     RecalcNeeded;
   end;
 end;
