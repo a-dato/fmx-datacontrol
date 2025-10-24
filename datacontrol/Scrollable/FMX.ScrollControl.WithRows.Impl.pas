@@ -43,6 +43,8 @@ type
     // It will be released otherwise
     {[unsafe]} _model: IObjectListModel;
 
+    _rowHeightSynchronizer: TScrollControlWithRows;
+
     function  get_DataList: IList;
     procedure set_DataList(const Value: IList);
     function  get_DataModelView: IDataModelView;
@@ -62,7 +64,6 @@ type
 
   // published property variables
 
-  private _rowHeightSynchronizer: TScrollControlWithRows;
 
   protected
     _selectionType: TSelectionType;
@@ -158,6 +159,7 @@ type
     procedure RealignContent; override;
     procedure AfterRealignContent; override;
     procedure RealignFinished; override;
+
     procedure DoRealignContent; override;
 
     procedure ExecuteAfterRealignOnly(DoBeginUpdate: Boolean);
@@ -2210,9 +2212,17 @@ begin
 
   if DoExpand then
   begin
+//    var dr: IDataRow;
+//    var directChildCount := 0;
+//    for dr in drv.DataView.DataModel.Children(drv.Row, True) do
+//      if dr.Level = drv.Row.Level + 1 then
+//        inc(directChildCount);
+//
+//    drv.DataView.ChildCount()
+
     // check if children fit in current view, otherwise scroll parent up...
     var spaceAvailableForChildren := _vertScrollBar.ViewportSize - (virtualYPos - _vertScrollBar.Value);
-    var spaceNeeded := CalculateAverageRowHeight * (drv.DataView.DataModel.ChildCount(drv.Row) + 1 {for parent});
+    var spaceNeeded := CalculateAverageRowHeight * (drv.DataView.ChildCount(drv) + 1 {for parent});
 
     if spaceNeeded > spaceAvailableForChildren then
     begin
@@ -2862,7 +2872,7 @@ begin
   end;
 
   _view.ResetView(FromViewListIndex, ClearOneRowOnly);
-  if (_rowHeightSynchronizer <> nil) and not SyncIsMasterSynchronizer and (_rowHeightSynchronizer.View <> nil) then
+  if (_rowHeightSynchronizer <> nil) {and not SyncIsMasterSynchronizer} and (_rowHeightSynchronizer.View <> nil) then
       _rowHeightSynchronizer.View.ResetView(FromViewListIndex, ClearOneRowOnly);
 
   if _resetViewRec.RecalcSortedRows then
@@ -2975,11 +2985,6 @@ begin
     end;
 
     var selRow := _view.GetActiveRowIfExists(_selectionInfo.ViewListIndex);
-
-    {$IFDEF DEBUG}
-    if selRow = nil then
-      Exit;
-      {$ENDIF}
     var yChange := 0.0;
 
     // if row (partly) above or fully below current view, then make it the top top row
@@ -2987,22 +2992,19 @@ begin
       yChange := _vertScrollBar.Value - selRow.VirtualYPosition
 
     // else scroll row partially into view.. It will be fully visible later. At this point we do not know the exact height
-    else
+    else if (_vertScrollBar.Value + _vertScrollBar.ViewportSize < (selRow.VirtualYPosition + selRow.Height)) and (_vertScrollBar.ViewportSize > selRow.Height) then
     begin
-      if (_vertScrollBar.Value + _vertScrollBar.ViewportSize < (selRow.VirtualYPosition + selRow.Height)) and (_vertScrollBar.ViewportSize > selRow.Height) then
-      begin
-        // KV: 24/01/2025
-        // Code dissabled, when scrolling down from the last line inside current view
-        // the control should move to the next visible line.
-        // The old code would make the tree 'jump' to the last line inside the current view
-        yChange := _vertScrollBar.Value - ((selRow.VirtualYPosition + selRow.Height) - _vertScrollBar.ViewportSize);
+      // KV: 24/01/2025
+      // Code dissabled, when scrolling down from the last line inside current view
+      // the control should move to the next visible line.
+      // The old code would make the tree 'jump' to the last line inside the current view
+      yChange := _vertScrollBar.Value - ((selRow.VirtualYPosition + selRow.Height) - _vertScrollBar.ViewportSize);
 
-        // Old code:
-        //        var selectedIsViewBottom := virtualYPos > (_vertScrollBar.Max - _vertScrollBar.ViewportSize);
-        //        if selectedIsViewBottom then
-        //          yChange := _vertScrollBar.Value - _vertScrollBar.Max else
-        //          yChange := _vertScrollBar.Value - (rowStopY - _vertScrollBar.ViewportSize);
-      end;
+      // Old code:
+      //        var selectedIsViewBottom := virtualYPos > (_vertScrollBar.Max - _vertScrollBar.ViewportSize);
+      //        if selectedIsViewBottom then
+      //          yChange := _vertScrollBar.Value - _vertScrollBar.Max else
+      //          yChange := _vertScrollBar.Value - (rowStopY - _vertScrollBar.ViewportSize);
     end;
 
     if not SameValue(yChange, 0) then
@@ -3713,9 +3715,10 @@ begin
     end;
 
     _multiSelection.Remove(DataIndex);
-    DoSelectionInfoChanged;
+    UpdateLastSelection(-1, -1, nil);
+//    DoSelectionInfoChanged;
   finally
-    EndUpdate;
+    EndUpdate; //(True {do not scroll lastselected into view, because it can be out of view, causing scroll action});
   end;
 end;
 

@@ -174,7 +174,7 @@ type
   end;
 
 const
-  SUBTEXT_NEGATIVE_MARGIN = -2;
+  SUBTEXT_NEGATIVE_MARGIN = 0;
 
 var
   APPLICATION_FONT_FAMILY: string = 'Segoe UI';
