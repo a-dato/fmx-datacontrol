@@ -1126,7 +1126,6 @@ begin
   for flatClmn in _treeLayout.FlatColumns do
     if flatClmn.Column.WidthType = TDCColumnWidthType.AlignToContent then
     begin
-//      var currentClmnWidth := flatClmn.Width;
       var maxCellWidth := flatClmn.Width;
       var row: IDCTreeRow;
       for row in fullRowList do
@@ -1481,19 +1480,12 @@ end;
 
 function TScrollControlWithCells.GetHorzScroll(const Key: Word; Shift: TShiftState): TRightLeftScroll;
 begin
+  Result := TRightLeftScroll.None;
   case Key of
-    vkHome:   Result := TRightLeftScroll.FullLeft;
-    vkEnd:    Result := TRightLeftScroll.FullRight;
+    vkHome:   if not (ssCtrl in Shift) then Result := TRightLeftScroll.FullLeft;
+    vkEnd:    if not (ssCtrl in Shift) then Result := TRightLeftScroll.FullRight;
     vkLeft:   Result := TRightLeftScroll.Left;
     vkRight:  Result := TRightLeftScroll.Right;
-//    vkTab, vkReturn:
-//    begin
-//      if ssShift in Shift then
-//        Result := TRightLeftScroll.Left else
-//        Result := TRightLeftScroll.Right;
-//    end
-  else
-    Result := TRightLeftScroll.None;
   end;
 end;
 
