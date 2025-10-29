@@ -3,11 +3,16 @@
 interface
 
 uses
-  System_,
+  {$IFNDEF WEBASSEMBLY}
   System.Types,
-
   FMX.Controls,
-  FMX.StdCtrls;
+  FMX.StdCtrls,
+  {$ELSE}
+  Wasm.System.Types,
+  Wasm.FMX.Controls,
+  Wasm.FMX.StdCtrls,
+  {$ENDIF}
+  System_;
 
 type
   TScrollingType = (None, WithScrollBar, Other);

@@ -17,6 +17,8 @@ uses
   FMX.Forms,
   System.Generics.Defaults,
   FMX.Types,
+  FMX.ActnList,
+  FMX.Text,
   {$ELSE}
   Wasm.FMX.Controls,
   Wasm.FMX.StdCtrls,
@@ -30,6 +32,8 @@ uses
   Wasm.System.ComponentModel,
   Wasm.FMX.Forms,
   Wasm.FMX.Types,
+  Wasm.FMX.ActnList, 
+  Wasm.FMX.Text,
   {$ENDIF}
   System_,
   System.ComponentModel,
@@ -41,8 +45,7 @@ uses
 
   ADato.Collections.Specialized, System.Collections.Specialized,
   FMX.ScrollControl.WithRows.Intf,
-  FMX.ScrollControl.Events, ADato.Data.DataModel.intf,
-  FMX.ActnList, FMX.Text;
+  FMX.ScrollControl.Events, ADato.Data.DataModel.intf;
 
 type
   TRightLeftScroll = (None, FullLeft, Left, Right, FullRight);
@@ -62,6 +65,7 @@ type
 
     function  get_Layout: IDCTreeLayout;
     function  get_SelectedColumn: IDCTreeLayoutColumn;
+    procedure set_AllowNoneSelected(const Value: Boolean); override;
 
     procedure ColumnsChanged(Sender: TObject; e: NotifyCollectionChangedEventArgs);
     procedure OnHeaderCellResizeClicked(const HeaderCell: IHeaderCell);
@@ -187,6 +191,7 @@ type
     procedure SetSingleSelectionIfNotExists; override;
     procedure VisualizeRowSelection(const Row: IDCRow); override;
     procedure CheckCorrectColumnSelection( const SelectionInfo: ITreeSelectionInfo; const Row: IDCTreeRow);
+    procedure UpdateMultiSelectColumnVisibility;
 
     function  GetInitializedWaitForRefreshInfo: IWaitForRepaintInfo; override;
 
@@ -711,6 +716,7 @@ type
     procedure RecalcColumnWidthsAutoFit;
 
     procedure ResetColumnDataAvailability(OnlyForInsertedRows: Boolean);
+    procedure UpdateLayoutColumnList;
 
     procedure ForceRecalc;
 
@@ -745,7 +751,7 @@ type
     _performanceModeWhileScrolling: Boolean;
     _performanceLayout: TFastLayout;
 
-    [unsafe] _layoutColumn   : IDCTreeLayoutColumn;
+    {$IFNDEF WEBASSEMBLY}[unsafe]{$ENDIF} _layoutColumn   : IDCTreeLayoutColumn;
 
     function  get_Column: IDCTreeColumn;
     function  get_LayoutColumn: IDCTreeLayoutColumn;
@@ -938,6 +944,8 @@ uses
   System.ClassHelpers,
   FMX.Ani,
   FMX.ScrollControl.WithCells.PopupMenu,
+  System.Rtti, 
+  System.TypInfo,
   {$ELSE}
   Wasm.FMX.ActnList,
   Wasm.FMX.Types,
@@ -953,7 +961,7 @@ uses
   , app.intf
   , app.PropertyDescriptor.intf
   {$ENDIF}
-  , System.Rtti, System.TypInfo, ADato.FMX.FastControls.Button,
+  , ADato.FMX.FastControls.Button,
   ADato.FMX.FastControls.Text;
 
 
@@ -1081,7 +1089,7 @@ end;
 {$IFDEF WEBASSEMBLY}
 function  TScrollControlWithCells.GetItemType: &Type; 
 begin
-  inherited;
+  Result := inherited;
 end;
 {$ENDIF}
 
@@ -1513,11 +1521,13 @@ begin
     if checkBox.IsChecked then
     begin
       _selectionInfo.Deselect(treeRow.DataIndex);
+      DoCellChanged(nil, treeCell);
       Exit;
     end
     else if (TreeOption_MultiSelect in _options) then
     begin
       _selectionInfo.AddToSelection(treeRow.DataIndex, treeRow.ViewListIndex, treeRow.DataItem);
+      DoCellChanged(nil, treeCell);
       Exit;
     end;
   end;
@@ -1562,7 +1572,7 @@ end;
 
 procedure TScrollControlWithCells.OnHeaderMouseUp(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Single);
 begin
-  if not _fullHeaderClick then
+  if (Button = TMouseButton.mbLeft) and not _fullHeaderClick then
     Exit;
 
   _fullHeaderClick := False;
@@ -1935,6 +1945,21 @@ begin
   end;
 end;
 
+procedure TScrollControlWithCells.UpdateMultiSelectColumnVisibility;
+begin
+  if (_autoMultiSelectColumn = nil) then
+    Exit;
+
+  var makeVisible := _allowNoneSelected {always visible} or _selectionInfo.IsMultiSelection {only visible by 2 or more selected};
+  if (_autoMultiSelectColumn <> nil) and (_autoMultiSelectColumn.Visualisation.Visible <> makeVisible) then
+  begin
+    _autoMultiSelectColumn.Visualisation.Visible := not _autoMultiSelectColumn.Visualisation.Visible;
+    (GetInitializedWaitForRefreshInfo as IDataControlWaitForRepaintInfo).ColumnsChanged;
+
+    ColumnVisibilityChanged(_autoMultiSelectColumn, False);
+  end;
+end;
+
 procedure TScrollControlWithCells.OnSelectionInfoChanged;
 begin
   inherited;
@@ -1952,15 +1977,7 @@ begin
     end;
   end;
 
-  var makeVisible := _allowNoneSelected {always visible} or _selectionInfo.IsMultiSelection {only visible by 2 or more selected};
-  if (_autoMultiSelectColumn <> nil) and (_autoMultiSelectColumn.Visualisation.Visible <> makeVisible) then
-  begin
-    _autoMultiSelectColumn.Visualisation.Visible := not _autoMultiSelectColumn.Visualisation.Visible;
-    (GetInitializedWaitForRefreshInfo as IDataControlWaitForRepaintInfo).ColumnsChanged;
-
-    ColumnVisibilityChanged(_autoMultiSelectColumn, False);
-  end;
-
+  UpdateMultiSelectColumnVisibility;
   DoCellSelected(GetActiveCell, _selectionInfo.LastSelectionEventTrigger);
 end;
 
@@ -2121,21 +2138,13 @@ end;
 
 procedure TScrollControlWithCells.ColumnsChangedFromExternal;
 begin
-//  if (_treeLayout = nil) or (_treeLayout.FlatColumns = nil) or (_treeLayout.FlatColumns.Count = 0) then
-//    Exit;
-//
-//  _treeLayout.ForceRecalc;
-//
-//  var ix := (_selectionInfo as ITreeSelectionInfo).SelectedLayoutColumn;
-//  if (ix >= 0) and (ix <= _treeLayout.LayoutColumns.Count - 1) and _treeLayout.FlatColumns.Contains(_treeLayout.LayoutColumns[ix]) then
-//    Exit;
+  if (_treeLayout = nil) or (_treeLayout.FlatColumns = nil) or (_treeLayout.FlatColumns.Count = 0) then
+    Exit;
 
-//  _selectionInfo.BeginUpdate;
-//  try
-//    (_selectionInfo as ITreeSelectionInfo).SelectedLayoutColumn := _treeLayout.FlatColumns[0].Index;
-//  finally
-//    _selectionInfo.EndUpdate(False);
-//  end;
+  InitHeader;
+  InitLayout;
+
+  RefreshControl(True);
 end;
 
 procedure TScrollControlWithCells.ClearCalculatedColumnWidths;
@@ -2143,7 +2152,8 @@ begin
   if (_treeLayout = nil) or (_realignState <> TRealignState.Waiting) then
     Exit;
 
-  for var flatClmn in _treeLayout.FlatColumns do
+  var flatClmn: IDCTreeLayoutColumn;
+  for flatClmn in _treeLayout.FlatColumns do
     if flatClmn.Column.WidthType = TDCColumnWidthType.AlignToContent then
     begin
       if flatClmn.Width > 10 then
@@ -2240,7 +2250,11 @@ begin
   _headerColumnResizeControl := THeaderColumnResizeControl.Create(Self);
 
   _columns := TDCTreeColumnList.Create(Self);
+  {$IFNDEF WEBASSEMBLY}
   (_columns as INotifyCollectionChanged).CollectionChanged.Add(ColumnsChanged);
+  {$ELSE}
+  (_columns as INotifyCollectionChanged).CollectionChanged += @ColumnsChanged;
+  {$ENDIF}
 end;
 
 function TScrollControlWithCells.CreateSelectioninfoInstance: IRowSelectionInfo;
@@ -2300,17 +2314,27 @@ begin
   Result := _treeLayout.LayoutColumns[(_selectionInfo as ITreeSelectionInfo).SelectedLayoutColumn];
 end;
 
+procedure TScrollControlWithCells.set_AllowNoneSelected(const Value: Boolean);
+begin
+  inherited;
+  UpdateMultiSelectColumnVisibility;
+end;
+
 procedure TScrollControlWithCells.HandleMultiSelectOptionChanged;
 begin
   if not (TDCTreeOption.MultiSelect in _options) then
   begin
+    if _autoMultiSelectColumn <> nil then
+      (GetInitializedWaitForRefreshInfo as IDataControlWaitForRepaintInfo).ColumnsChanged;
+
     _autoMultiSelectColumn := nil;
     Exit;
   end
 
   else if _autoMultiSelectColumn = nil then
   begin
-    for var clmn in _columns do
+    var clmn: IDCTreeColumn;
+    for clmn in _columns do
       if clmn.IsSelectionColumn then
         Exit;
 
@@ -2319,8 +2343,9 @@ begin
     _autoMultiSelectColumn.WidthSettings.WidthType := TDCColumnWidthType.Pixel;
     _autoMultiSelectColumn.WidthSettings.Width := 30;
     _autoMultiSelectColumn.Visualisation.Frozen := True;
-    _autoMultiSelectColumn.Visualisation.Visible := _selectionInfo.IsMultiSelection;
     _autoMultiSelectColumn.Tag := AUTO_SELECT_COLUMN_TAG;
+
+    UpdateMultiSelectColumnVisibility;
   end;
 end;
 
@@ -2939,6 +2964,12 @@ begin
     if _headerRow <> nil then
     begin
       _headerRow.Control.Visible := False;
+      {$IFDEF WEBASSEMBLY}
+      // In Delphi object is destroyed but in .NET the object just becomes unreferenced, so we call DisposeOf
+      //var parent := _headerRow.Control.Parent;
+      //if parent <> nil then
+      Self.DoRemoveObject(_headerRow.Control.Parent);
+      {$ENDIF}
       _headerRow := nil;
     end;
 
@@ -2999,68 +3030,72 @@ end;
 
 procedure TScrollControlWithCells.LoadDefaultDataIntoControl(const Cell: IDCTreeCell; const FlatColumn: IDCTreeLayoutColumn; const IsSubProp: Boolean);
 begin
-  var ctrl: TControl;
-  var propName: CString;
-  var infoClass: TInfoControlClass;
+  try
+    var ctrl: TControl;
+    var propName: CString;
+    var infoClass: TInfoControlClass;
 
-  if not IsSubProp then
-  begin
-    ctrl := cell.InfoControl;
-    propName := cell.Column.PropertyName;
-    infoClass := cell.Column.InfoControlClass;
-  end
-  else
-  begin
-    ctrl := Cell.SubInfoControl;
-    propName := cell.Column.SubPropertyName;
-    infoClass := cell.Column.SubInfoControlClass;
-  end;
-
-  var formattedValue: CObject := nil;
-
-  _localCheckSetInDefaultData := False;
-  if ctrl <> nil then
-  begin
-    var formatApplied: Boolean;
-    var cellValue := ProvideCellData(cell, propName, IsSubProp);
-    DoCellFormatting(cell, False, {var} cellValue, {out} formatApplied);
-
-    {$IFDEF APP_PLATFORM}
-    if not CString.IsNullOrEmpty(propName) and not formatApplied and (cellValue <> nil) and (_app <> nil) and (cell.Column.InfoControlClass = TInfoControlClass.Text) then
+    if not IsSubProp then
     begin
-      var item_type := GetItemType;
-      if item_type <> nil then
+      ctrl := cell.InfoControl;
+      propName := cell.Column.PropertyName;
+      infoClass := cell.Column.InfoControlClass;
+    end
+    else
+    begin
+      ctrl := Cell.SubInfoControl;
+      propName := cell.Column.SubPropertyName;
+      infoClass := cell.Column.SubInfoControlClass;
+    end;
+
+    var formattedValue: CObject := nil;
+
+    _localCheckSetInDefaultData := False;
+    if ctrl <> nil then
+    begin
+      var formatApplied: Boolean;
+      var cellValue := ProvideCellData(cell, propName, IsSubProp);
+      DoCellFormatting(cell, False, {var} cellValue, {out} formatApplied);
+
+      {$IFDEF APP_PLATFORM}
+      if not CString.IsNullOrEmpty(propName) and not formatApplied and (cellValue <> nil) and (_app <> nil) and (cell.Column.InfoControlClass = TInfoControlClass.Text) then
       begin
-        var prop := item_type.PropertyByName(propName);
-        var descr: IPropertyDescriptor;
-        if Interfaces.Supports<IPropertyDescriptor>(prop, descr) and (descr.Formatter <> nil) then
+        var item_type := GetItemType;
+        if item_type <> nil then
         begin
-          (ctrl as ICaption).Text := CStringToString(descr.Formatter.Format(nil {Context}, cellValue, nil));
-          Exit;
+          var prop := item_type.PropertyByName(propName);
+          var descr: IPropertyDescriptor;
+          if Interfaces.Supports<IPropertyDescriptor>(prop, descr) and (descr.Formatter <> nil) then
+          begin
+            (ctrl as ICaption).Text := CStringToString(descr.Formatter.Format(nil {Context}, cellValue, nil));
+            Exit;
+          end;
+        end;
+      end;
+      {$ENDIF}
+
+      formattedValue := FlatColumn.Column.GetDefaultCellData(cell, cellValue, formatApplied);
+
+      if ctrl <> nil then
+      begin
+        if infoClass = TInfoControlClass.Text then
+        begin
+          var s := CStringToString(formattedValue.ToString(True));
+          (ctrl as ICaption).Text := s;
+        end
+        else if infoClass = TInfoControlClass.CheckBox then
+        begin
+          (ctrl as IIsChecked).IsChecked := formattedValue.AsType<Boolean>;
+          _localCheckSetInDefaultData := True;
         end;
       end;
     end;
-    {$ENDIF}
 
-    formattedValue := FlatColumn.Column.GetDefaultCellData(cell, cellValue, formatApplied);
-
-    if ctrl <> nil then
-    begin
-      if infoClass = TInfoControlClass.Text then
-      begin
-        var s := CStringToString(formattedValue.ToString(True));
-        (ctrl as ICaption).Text := s;
-      end
-      else if infoClass = TInfoControlClass.CheckBox then
-      begin
-        (ctrl as IIsChecked).IsChecked := formattedValue.AsType<Boolean>;
-        _localCheckSetInDefaultData := True;
-      end;
-    end;
+    if formattedValue <> nil then
+      FlatColumn.ContainsData := TColumnContainsData.Yes;
+  except
+    LoadDefaultDataIntoControl(Cell, FlatColumn, IsSubProp);
   end;
-
-  if formattedValue <> nil then
-    FlatColumn.ContainsData := TColumnContainsData.Yes;
 end;
 
 procedure TScrollControlWithCells.MouseMove(Shift: TShiftState; X, Y: Single);
@@ -3131,10 +3166,14 @@ begin
   end else
     l := _treeLayout.FlatColumns;
 
+  var moreThan3Columns := l.Count > 3;
+
   var flatColumn: IDCTreeLayoutColumn;
   for flatColumn in l do
   begin
-    var performanceModeWhileScrolling := (flatColumn.Column.InfoControlClass <> TInfoControlClass.Text) and not flatColumn.Column.IsSelectionColumn;
+    // by default performance mode is activated by columns that contain something else than text..
+    // it can be manually turned on/off in CellLoading / CellLoaded for any type of columns
+    var performanceModeWhileScrolling := moreThan3Columns and (flatColumn.Column.InfoControlClass <> TInfoControlClass.Text) and not flatColumn.Column.IsSelectionColumn;
 
     if not treeRow.Cells.TryGetValue(flatColumn.Index, cell) then
     begin
@@ -3348,7 +3387,18 @@ begin
   if (_view <> nil) and (_columns.Count = 0) then
     CreateDefaultColumns;
 
-  _treeLayout := TDCTreeLayout.Create(Self);
+  // if during reading the component the "OptionsChanged" came before the "loading of columns"
+  if (_autoMultiSelectColumn <> nil) then
+    for var clmn in _columns do
+      if clmn.IsSelectionColumn then
+      begin
+        _autoMultiSelectColumn := nil;
+        Break;
+      end;
+
+  if _treeLayout = nil then
+    _treeLayout := TDCTreeLayout.Create(Self) else
+    _treeLayout.UpdateLayoutColumnList;
 end;
 
 procedure TScrollControlWithCells.CreateDefaultColumns; //(const AList: ITreeColumnList);
@@ -4618,7 +4668,11 @@ begin
 
       Cell.Control := rect;
     end else
+      {$IFDEF WEBASSEMBLY}
+      Cell.Control := DataControlClassFactory.CreateRowCellRect(Cell.Row.Control);
+      {$ELSE}
       Cell.Control := TLayout.Create(Cell.Row.Control);
+      {$ENDIF}
 
     Cell.Control.HitTest := False;
   end;
@@ -4788,14 +4842,8 @@ begin
 
   _columnsControl := ColumnControl;
   _layoutColumns := CList<IDCTreeLayoutColumn>.Create;
-  var clmn: IDCTreeColumn;
-  for clmn in ColumnControl.FullColumnList do
-  begin
-    var lyColumn: IDCTreeLayoutColumn := TTreeLayoutColumn.Create(clmn, ColumnControl);
-    _layoutColumns.Add(lyColumn);
-  end;
 
-  _recalcRequired := True;
+  UpdateLayoutColumnList;
 end;
 
 destructor TDCTreeLayout.Destroy;
@@ -5172,6 +5220,30 @@ begin
   _recalcRequired := True;
 end;
 
+procedure TDCTreeLayout.UpdateLayoutColumnList;
+begin
+  var fullClmnList := _columnsControl.FullColumnList;
+  if _layoutColumns.Count > 0 then
+    for var lyClmnIx := _layoutColumns.Count - 1 downto 0 do
+      if not fullClmnList.Contains(_layoutColumns[lyClmnIx].Column) then
+        _layoutColumns.RemoveAt(lyClmnIx);
+
+  var updatedLayoutClmns: List<IDCTreeLayoutColumn> := CList<IDCTreeLayoutColumn>.Create;
+  for var clmnIx := 0 to fullClmnList.Count - 1 do
+  begin
+    var clmn := fullClmnList[clmnIx];
+
+    var lyColumn := _columnsControl.FlatColumnByColumn(clmn);
+    if lyColumn = nil then
+      lyColumn := TTreeLayoutColumn.Create(clmn, _columnsControl);
+
+    updatedLayoutClmns.Add(lyColumn);
+  end;
+
+  _layoutColumns := updatedLayoutClmns;
+  _recalcRequired := True;
+end;
+
 procedure TDCTreeLayout.ResetColumnDataAvailability(OnlyForInsertedRows: Boolean);
 begin
   var recalcNeeded := False;
@@ -5224,9 +5296,9 @@ begin
   if not _performanceModeWhileScrolling then
     Exit
   else if GoPerformanceMode = ((_performanceLayout <> nil) and _performanceLayout.Visible) then
+    Exit
+  else if (_infoControl = nil) and (_subInfoControl = nil) then
     Exit;
-//  else if (_infoControl = nil) and (_subInfoControl = nil) then
-//    Exit;
 
   TogglePerformanceMode(GoPerformanceMode);
 end;

@@ -59,6 +59,9 @@ type
     procedure set_RowHeightFixed(const Value: Single);
 
     procedure OnSelectionInfoChanged;
+    function  SelectionCount: Integer;
+    function  IsSelected(const DataIndex: Integer): Boolean;
+    function  SelectedItems: List<CObject>;
 
     function  ViewIsDataModelView: Boolean;
     function  GetDataModelView: IDataModelView;
@@ -192,7 +195,7 @@ type
     class function CreateFrom(const Index: Integer; const OneRowOnly, RecalcSortedRows: Boolean; const Existing: TResetViewRec): TResetViewRec; static;
   end;
 
-  ITreeSortDescription = interface
+  ITreeSortDescription = interface(IListSortDescription)
     ['{DABA6714-B9EB-43B8-B2D5-8B8E081D8F43}']
   end;
 

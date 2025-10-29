@@ -171,7 +171,12 @@ begin
   begin
     if not Interfaces.Supports<IComparableList>(DataList, _comparer) then
     begin
-      if ItemType.IsInterfaceType then
+      {$IFDEF APP_PLATFORM}
+      var isInterface := DataList.InnerType.IsInterfaceType;
+      {$ELSE}
+      var isInterface := ItemType.IsInterfaceType;
+      {$ENDIF}
+      if isInterface then
         _comparer := CComparableList<IInterface>.Create(DataList as IList<IInterface>, CComparableList<CObject>.CreateReusableComparer)
 //      else if ItemType.IsObjectType then
 //        Assert(1=2) //_comparer := CComparableList<TObject>.Create(DataList as IList<TObject>, CComparableList<CObject>.CreateReusableComparer)

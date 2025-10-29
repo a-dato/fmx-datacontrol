@@ -17,6 +17,9 @@ uses
   FMX.ActnList,
   FMX.ImgList,
   FMX.Types,
+  FMX.Layouts,
+  FMX.TextLayout, 
+  System.Types,
   {$ELSE}
   Wasm.FMX.Controls,
   Wasm.FMX.StdCtrls,
@@ -31,10 +34,12 @@ uses
   Wasm.FMX.ActnList,
   Wasm.FMX.ImgList,
   Wasm.FMX.Types,
+  Wasm.FMX.Layouts,
+  Wasm.FMX.TextLayout, 
+  Wasm.System.Types,
   {$ENDIF}
   System_,
-  FMX.Layouts,
-  FMX.TextLayout, System.Types, ADato.ObjectModel.Binders;
+  ADato.ObjectModel.Binders;
 
 type
   TDateTimeEditOnKeyDownOverride = class(TDateEdit)
@@ -52,6 +57,7 @@ type
     _style: TStyledSettings;
     _autoWidth: Boolean;
     _calcAsAutoWidth: Boolean;
+    _calcAsAutoHeight: Boolean;
     _underlineOnHover: Boolean;
 
     _recalcNeeded: Boolean;
@@ -96,6 +102,7 @@ type
     procedure set_VertTextAlign(const Value: TTextAlign);
     procedure set_AutoWidth(const Value: Boolean);
     procedure set_CalcAsAutoWidth(const Value: Boolean);
+    procedure set_CalcAsAutoHeight(const Value: Boolean);
     function  get_Trimming: TTextTrimming;
     function  get_WordWrap: Boolean;
     procedure set_SubText(const Value: string);
@@ -104,6 +111,7 @@ type
     procedure DoPaint; override;
 //    procedure Painting; override;
     procedure DoResized; override;
+    function  GetDefaultSize: TSizeF; override;
 
     procedure Calculate; virtual;
     procedure RecalcNeeded;
@@ -125,6 +133,7 @@ type
 //    procedure PrepareForPaint; override;
     procedure RecalcOpacity; override;
 
+    function HasText: Boolean;
     function TextWidth: Single;
     function TextHeight: Single;
     function TextWidthWithPadding: Single;
@@ -146,10 +155,11 @@ type
 
     property AutoWidth: Boolean read _autoWidth write set_AutoWidth default False;
     property CalcAsAutoWidth: Boolean read _calcAsAutoWidth write set_CalcAsAutoWidth default False;
+    property CalcAsAutoHeight: Boolean read _calcAsAutoHeight write set_CalcAsAutoHeight default False;
     property MaxWidth: Single write _maxWidth;
     property UnderlineOnHover: Boolean read _underlineOnHover write _underlineOnHover default False;
 
-    property HitTest default False;
+    property HitTest {$IFNDEF WEBASSEMBLY}default False{$ENDIF};
 
     property OnChange: TNotifyEvent read _onChange write _onChange;
   end;
@@ -169,7 +179,7 @@ type
   end;
 
 const
-  SUBTEXT_NEGATIVE_MARGIN = -2;
+  SUBTEXT_NEGATIVE_MARGIN = 0;
 
 var
   APPLICATION_FONT_FAMILY: string = 'Segoe UI';
@@ -178,11 +188,13 @@ implementation
 
 uses
   {$IFNDEF WEBASSEMBLY}
-  System.SysUtils
+  System.SysUtils,
+  System.Math
   {$ELSE}
-  Wasm.System.SysUtils
+  Wasm.System.SysUtils,
+  Wasm.System.Math
   {$ENDIF}
-  , System.Math, ADato.ObjectModel.intf;
+  , ADato.ObjectModel.intf;
 
 { TDateTimeEditOnKeyDownOverride }
 
@@ -270,7 +282,11 @@ constructor TFastText.Create(AOwner: TComponent);
 begin
   inherited;
 
+  {$IFNDEF WEBASSEMBLY}
   _layout := TTextLayoutManager.DefaultTextLayout.Create;
+  {$ELSE}
+  _layout := TTextLayoutManager.DefaultTextLayout.Create(Self.Canvas);
+  {$ENDIF}
   _layout.Font.Family := APPLICATION_FONT_FAMILY;
 
   _settings := TTextSettings.Create(Self);
@@ -294,6 +310,11 @@ end;
 procedure TFastText.DoPaint;
 begin
   _waitingForRepaint := False;
+
+  {$IFDEF WEBASSEMBLY}
+  if Self.Parent.IsOfType<TControl> then
+    _layout.TopLeft := (Self.Parent as TControl).LocalToAbsolute({TPointF.Create(0, 0}TPointF.Create(0, 15));
+  {$ENDIF}
 
 //  Self.Canvas.Fill.Color := TALphaColors.Purple;
 //  Self.Canvas.FillRect(RectF(0,0,Width,Height), 0.2);
@@ -331,6 +352,11 @@ procedure TFastText.Paint;
 begin
   Calculate;
   inherited;
+end;
+
+function TFastText.GetDefaultSize: TSizeF;
+begin
+  Result := TSizeF.Create(50, 16);
 end;
 
 //procedure TFastText.Painting;
@@ -398,6 +424,11 @@ end;
 function TFastText.get_WordWrap: Boolean;
 begin
   Result := _settings.WordWrap;
+end;
+
+function TFastText.HasText: Boolean;
+begin
+  Result := Length(_text) > 0;
 end;
 
 procedure TFastText.DoMouseLeave;
@@ -468,7 +499,7 @@ begin
   _recalcNeeded := False;
 
   var maxWidth := IfThen(_autoWidth or _calcAsAutoWidth, 9999, IfThen(_maxWidth > 0, _maxWidth, Self.Width - Padding.Left - Padding.Right - _internalLeftPadding - _internalRightPadding));
-  var maxHeight := IfThen(get_WordWrap, 9999, Self.Height - Padding.Top - Padding.Bottom);
+  var maxHeight := IfThen(get_WordWrap or _calcAsAutoHeight, 9999, Self.Height - Padding.Top - Padding.Bottom);
 
   CalculateSubText(maxWidth, maxHeight);
   CalculateText(maxWidth, maxHeight);
@@ -539,6 +570,15 @@ begin
   end;
 end;
 
+procedure TFastText.set_CalcAsAutoHeight(const Value: Boolean);
+begin
+  if _calcAsAutoHeight <> Value then
+  begin
+    _calcAsAutoHeight := Value;
+    RecalcNeeded;
+  end;
+end;
+
 procedure TFastText.set_CalcAsAutoWidth(const Value: Boolean);
 begin
   if _calcAsAutoWidth <> Value then
@@ -573,7 +613,11 @@ begin
     _subText := Value;
 
     if _subTextlayout = nil then
+      {$IFNDEF WEBASSEMBLY}
       _subTextlayout := TTextLayoutManager.DefaultTextLayout.Create;
+      {$ELSE}
+      _subTextlayout := TTextLayoutManager.DefaultTextLayout.Create(nil);
+      {$ENDIF}
 
     RecalcNeeded;
 

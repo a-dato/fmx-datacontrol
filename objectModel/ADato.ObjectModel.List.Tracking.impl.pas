@@ -174,7 +174,8 @@ begin
     var e: IEnumerable;
     if Data.TryAsType<IEnumerable>(e) then
     begin
-      for var item in e do
+      var item: CObject;
+      for item in e do
       begin
         _Context.Add(item);
         inc(Result);

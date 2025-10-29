@@ -1,4 +1,6 @@
-﻿{$I Adato.inc}
+﻿{$IFNDEF WEBASSEMBLY}
+{$I Adato.inc}
+{$ENDIF}
 
 unit ADato.Packages.intf;
 

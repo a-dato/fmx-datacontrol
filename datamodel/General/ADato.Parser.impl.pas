@@ -2183,7 +2183,7 @@ begin
 		{$IFDEF DELPHI}
       R := not CMath.Truncate(CDouble(R))
 		{$ELSE}
-			R := -1;
+			R := -1
 		{$ENDIF}
       //tkADD: ;
     else if oldt = Token.tkSUB then

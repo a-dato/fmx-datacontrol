@@ -49,6 +49,10 @@ type
   {$ELSE}
   public
   {$ENDIF}
+    {$IFDEF APP_PLATFORM}
+    _typeGetPropertiesExternal: TGetPropertiesExternal;
+    {$ENDIF}
+
     _PropertyInfoArray: PropertyInfoArray;
     _UpdateCount: Integer;
 
@@ -605,6 +609,10 @@ constructor TObjectModel.Create(const AObjectType: &Type);
 begin
   inherited Create(AObjectType);
 
+  {$IFDEF APP_PLATFORM}
+  _typeGetPropertiesExternal := _ObjectType.GetPropertiesExternal;
+  {$ENDIF}
+
   {$IFDEF DELPHI}
   _ObjectType.GetPropertiesExternal := GetPropertiesExternal;
   GetType.GetProperties;
@@ -662,6 +670,13 @@ begin
   if _PropertyInfoArray = nil then
   begin
     var props: PropertyInfoArray;
+
+    {$IFDEF APP_PLATFORM}
+    if Assigned(_typeGetPropertiesExternal) then
+      props := _typeGetPropertiesExternal
+    else
+    {$ENDIF}
+
     if GlobalTypeDescriptor <> nil then
       props := GlobalTypeDescriptor.GetProperties(_ObjectType)
     else
@@ -863,12 +878,12 @@ function TObjectModelPropertyWrapper.GetAttributes: TArray<TCustomAttribute>;
 begin
   Result := FContainedProperty.GetAttributes;
 end;
-{$ENDIF}
 
 function TObjectModelPropertyWrapper.IsIndexedProperty: Boolean;
 begin
   Result := FContainedProperty.IsIndexedProperty;
 end;
+{$ENDIF}
 
 function TObjectModelPropertyWrapper.GetType: &Type;
 begin

@@ -3,7 +3,7 @@
 interface
 
 uses
-  System_,
+  {$IFNDEF WEBASSEMBLY}
   System.Math.Vectors,
   System.SysUtils,
   System.Types,
@@ -16,7 +16,23 @@ uses
   FMX.Layouts,
   FMX.TabControl,
   FMX.Graphics,
-  System.ImageList;
+  System.ImageList,
+  {$ELSE}
+  Wasm.System.Math.Vectors,
+  Wasm.System.SysUtils,
+  Wasm.System.Types,
+  Wasm.System.Classes,
+  Wasm.System.UITypes,
+
+  Wasm.FMX.ImgList,
+  Wasm.FMX.ActnList,
+  Wasm.FMX.Types,
+  Wasm.FMX.Layouts,
+  Wasm.FMX.TabControl,
+  Wasm.FMX.Graphics,
+  Wasm.System.ImageList,
+  {$ENDIF}
+  System_;
 
 type
   TButtonType = (None, Positive, Negative, Emphasized);
@@ -85,6 +101,7 @@ type
     procedure Calculate; virtual;
 
     procedure DoPaint; override;
+    function  GetDefaultSize: TSizeF; override;
 
     function  CheckHoveredChanged(const ParentPoint: TPointF): Boolean; virtual;
     function  GetPaintOpacity: Single;
@@ -294,7 +311,16 @@ type
 implementation
 
 uses
-  System.Math, System.Actions, FMX.Controls, ADato.FMX.FastControls.Text;
+  {$IFNDEF WEBASSEMBLY}
+  System.Math,
+  System.Actions, 
+  FMX.Controls, 
+  {$ELSE}
+  Wasm.System.Math,
+  Wasm.System.Actions,
+  Wasm.FMX.Controls, 
+  {$ENDIF}
+  ADato.FMX.FastControls.Text;
 
 { TADatoClickLayout }
 
@@ -589,7 +615,14 @@ end;
 
 function TADatoClickLayout.GetBitmap(const Images: TCustomImageList; const BitmapSize: TSize; const BitmapIndex: Integer): TBitmap;
 begin
+  {$IFNDEF WEBASSEMBLY}
   Result := Images.Bitmap(BitmapSize, BitmapIndex);
+  {$ENDIF}
+end;
+
+function TADatoClickLayout.GetDefaultSize: TSizeF;
+begin
+  Result := TSizeF.Create(50, 24);
 end;
 
 function TADatoClickLayout.GetPaintOpacity: Single;
@@ -697,12 +730,22 @@ end;
 
 procedure TADatoClickLayout.SetPadding(const Left, Top: Single);
 begin
-  for var pointIx := 0 to System.High(_polygon) do
+  var pointIx: Integer;
+  {$IFNDEF WEBASSEMBLY}
+  for pointIx := 0 to System.High(_polygon) do
   begin
     var p := _polygon[pointIx];
     p.Offset(Left, Top);
     _polygon[pointIx] := p;
   end;
+  {$ELSE}
+  for pointIx := 0 to High(_polygon) do
+  begin
+    var p := _polygon[pointIx];
+    p.Offset(Left, Top);
+    _polygon[pointIx] := p;
+  end;
+  {$ENDIF}
 
   _sideBounds.Offset(Left, Top);
   _imageBounds.Offset(Left, Top);
@@ -715,6 +758,7 @@ end;
 
 procedure TADatoClickLayout.PaintBitmap;
 begin
+  {$IFNDEF WEBASSEMBLY}
   var screenScale: Single;
   if Scene <> nil then
     screenScale := Scene.GetSceneScale else
@@ -746,6 +790,7 @@ begin
   finally
     bitmap.Free;
   end;
+  {$ENDIF}
 end;
 
 function TADatoClickLayout.ConvertedBounds(const OrgBounds: TRectF; ConvertLeft, ConvertRight: Boolean; SpaceOver: Single = 0): TRectF;
@@ -925,7 +970,11 @@ begin
 
   _config := CreateConfig;
   _config.TagType := TTagType.NoBounds;
+  {$IFNDEF WEBASSEMBLY}
   _config.OnRequestRecalc := OnConfigRequestRecalc;
+  {$ELSE}
+  _config.OnRequestRecalc := @OnConfigRequestRecalc;
+  {$ENDIF}
   _config.FontColor := TAlphaColor($FF2C2C2C);
   _config.FontSize := 13;
   _config.ImageSizeInt := 16;
@@ -1033,7 +1082,9 @@ end;
 
 function TFastButton.get_Images: TCustomImageList;
 begin
+  {$IFNDEF WEBASSEMBLY}
   Result := TCustomImageList(_imagesLink.Images);
+  {$ENDIF}
 end;
 
 function TFastButton.get_Radius: Single;
@@ -1154,7 +1205,9 @@ end;
 
 procedure TFastButton.DoExternalClick;
 begin
+  {$IFNDEF WEBASSEMBLY}
   Click;
+  {$ENDIF}
 end;
 
 procedure TFastButton.DoMouseLeave;
@@ -1203,8 +1256,10 @@ end;
 
 procedure TFastButton.set_ImageIndex(const Value: Integer);
 begin
+  {$IFNDEF WEBASSEMBLY}
   if (Length(get_ImageName) = 0) and (_imagesLink.Images <> nil) then
     set_ImageName(get_Images.Source.Items[Value].Name);
+  {$ENDIF}
 end;
 
 procedure TFastButton.set_ImagePosition(const Value: TImagePosition);
@@ -1219,7 +1274,9 @@ end;
 
 procedure TFastButton.set_Images(const Value: TCustomImageList);
 begin
+  {$IFNDEF WEBASSEMBLY}
   _imagesLink.Images := Value;
+  {$ENDIF}
 end;
 
 procedure TFastButton.set_ShowUnderline(const Value: Boolean);

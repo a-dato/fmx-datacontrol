@@ -380,6 +380,8 @@ uses
   System.Character,
   FMX.Platform,
   System.SysUtils,
+  System.TypInfo,
+  ADato.FMX.ComboMultiBox,
   {$ELSE}
   Wasm.FMX.Edit,
   Wasm.FMX.DateTimeCtrls,
@@ -397,8 +399,7 @@ uses
   FMX.ScrollControl.ControlClasses,
   FMX.ControlCalculations,
   ADato.Collections.Specialized,
-  System.Reflection,
-  System.TypInfo, ADato.FMX.ComboMultiBox;
+  System.Reflection;
 
 { TScrollControlWithEditableCells }
 
@@ -820,10 +821,11 @@ begin
   if IsEditOrNew and not CObject.Equals(_editingInfo.EditItem, clickedRow.DataItem) then
   begin
     var clickedRowDataIndex := clickedRow.DataIndex;
+    var editItem := _editingInfo.EditItem; // can be set to nil in next line
     if not CheckCanChangeRow then
       Exit;
 
-    var filteredOut := _view.ItemIsFilteredOut(_editingInfo.EditItem);
+    var filteredOut := _view.ItemIsFilteredOut(editItem);
     var sortCouldBeChanged := ((_view.GetSortDescriptions <> nil) and (_view.GetSortDescriptions.Count > 0));
 
     if filteredOut or sortCouldBeChanged then
@@ -1244,6 +1246,9 @@ end;
 
 function TScrollControlWithEditableCells.ProvideCellData(const Cell: IDCTreeCell; const PropName: CString; const IsSubProp: Boolean): CObject;
 begin
+  if (Cell.Column.InfoControlClass = TInfoControlClass.CheckBox) and not Cell.Column.IsSelectionColumn and not Cell.Column.HasPropertyAttached then
+    Exit(_checkedItems.ContainsKey(Cell.Column) and _checkedItems[Cell.Column].Contains(Cell.Row.DataIndex));
+
   Result := inherited;
 
   if (Result = nil) and IsNew and (_cellEditor <> nil) and (_cellEditor.Cell = Cell) then
@@ -2533,6 +2538,7 @@ end;
 
 procedure TDCCellMultiSelectDropDownEditor.BeginEdit(const EditValue: CObject);
 begin
+  {$IFNDEF WEBASSEMBLY}
   _editor := TComboMultiBox.Create(nil);
   TComboMultiBox(_editor).Items := _PickList;
   TComboMultiBox(_editor).SelectedItems := EditValue.AsType<IList>;
@@ -2541,11 +2547,14 @@ begin
   inherited;
 
   Dropdown;
+  {$ENDIF}
 end;
 
 procedure TDCCellMultiSelectDropDownEditor.Dropdown;
 begin
+  {$IFNDEF WEBASSEMBLY}
   TComboMultiBox(_editor).DropDown;
+  {$ENDIF}
 end;
 
 function TDCCellMultiSelectDropDownEditor.get_PickList: IList;
@@ -2555,7 +2564,9 @@ end;
 
 function TDCCellMultiSelectDropDownEditor.get_Value: CObject;
 begin
+  {$IFNDEF WEBASSEMBLY}
   Result := TComboMultiBox(_editor).SelectedItems;
+  {$ENDIF}
 end;
 
 procedure TDCCellMultiSelectDropDownEditor.set_PickList(const Value: IList);
@@ -2565,7 +2576,9 @@ end;
 
 procedure TDCCellMultiSelectDropDownEditor.set_Value(const Value: CObject);
 begin
+  {$IFNDEF WEBASSEMBLY}
   TComboMultiBox(_editor).SelectedItems := Value.AsType<IList>;
+  {$ENDIF}
 end;
 
 end.

@@ -162,10 +162,10 @@ implementation
 
 {$R *.res}
 
+{$IFNDEF WEBASSEMBLY}
 uses
-  {$IFDEF DELPHI}
-  System_.Threading
-  {$ENDIF};
+  System_.Threading;
+{$ENDIF}
 
 Resourcestring
   SAnd = 'and';

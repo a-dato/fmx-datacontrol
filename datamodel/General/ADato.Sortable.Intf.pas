@@ -1,4 +1,6 @@
-﻿{$I ..\..\dn4d\Source\Adato.inc}
+﻿{$IFNDEF WEBASSEMBLY}
+{$I ..\..\dn4d\Source\Adato.inc}
+{$ENDIF}
 
 unit ADato.Sortable.Intf;
 

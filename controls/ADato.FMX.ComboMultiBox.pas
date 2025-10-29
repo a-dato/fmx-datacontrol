@@ -3,14 +3,11 @@ unit ADato.FMX.ComboMultiBox;
 interface
 
 uses
-  System_,
+  {$IFNDEF WEBASSEMBLY}
   System.SysUtils,
   System.Classes,
   System.Generics.Collections,
-  System.Collections,
-  System.Collections.Generic,
   System.UITypes,
-
   FMX.Edit,
   FMX.Controls,
   FMX.ListBox,
@@ -21,17 +18,38 @@ uses
   FMX.Objects,
   FMX.Controls.Presentation,
   FMX.Graphics,
+  ADato.FMX.ComboMultiBox.PopupMenu,
+  {$ELSE}  
+  Wasm.System.SysUtils,
+  Wasm.System.Classes,
+  Wasm.System.UITypes,
+  Wasm.FMX.Edit,
+  Wasm.FMX.Controls,
+  Wasm.FMX.ListBox,
+  Wasm.FMX.StdCtrls,
+  Wasm.FMX.Types,
+  Wasm.FMX.Layouts,
+  Wasm.FMX.Forms,
+  Wasm.FMX.Objects,
+  Wasm.FMX.Controls.Presentation,
+  Wasm.FMX.Graphics,
+  {$ENDIF}
+  System_,
+  System.Collections,
+  System.Collections.Generic,
+
   FMX.ScrollControl.DataControl.Impl,
-  FMX.ScrollControl.Events,
-  ADato.FMX.ComboMultiBox.PopupMenu;
+  FMX.ScrollControl.Events;
 
 type
   TComboMultiBox = class(TRectangle)
   protected
+    {$IFNDEF WEBASSEMBLY}
     _dropDownButton: TDropDownEditButton;
-    _txt: TText;
     _popupMenu: TfrmComboMultiBoxPopup;
-
+    {$ENDIF}
+    _txt: TText;
+    
     procedure DropDownButtonClick(Sender: TObject);
     procedure UpdateDisplayText;
 
@@ -70,10 +88,12 @@ constructor TComboMultiBox.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
 
+  {$IFNDEF WEBASSEMBLY}
   _dropDownButton := TDropDownEditButton.Create(Self);
   _dropDownButton.Align := TAlignLayout.Right;
   _dropDownButton.OnClick := DropDownButtonClick;
   Self.AddObject(_dropDownButton);
+  {$ENDIF}
 
   _txt := TText.Create(Self);
   _txt.Align := TAlignLayout.Client;
@@ -81,15 +101,21 @@ begin
   _txt.TextSettings.Font.Style := [TFontStyle.fsUnderline];
   _txt.Margins.Left := 5;
   _txt.HitTest := True;
+  {$IFNDEF WEBASSEMBLY}
   _txt.OnClick := DropDownButtonClick;
+  {$ELSE}
+  _txt.OnClick := @DropDownButtonClick;
+  {$ENDIF}
   _txt.Cursor := crHandPoint;
   _txt.WordWrap := False;
   _txt.Trimming := TTextTrimming.Character;
   Self.AddObject(_txt);
 
+  {$IFNDEF WEBASSEMBLY}
   _popupMenu := TfrmComboMultiBoxPopup.Create(Self);
   _popupMenu.OnClose := OnClosePopup;
   _popupMenu.OnSelectionChanged := OnSelectionChange;
+  {$ENDIF}
 end;
 
 destructor TComboMultiBox.Destroy;
@@ -146,13 +172,16 @@ begin
   else if selected.Count = _popupMenu.DataControl.DataList.Count then
     s := 'All selected'
   else
-    for var item in get_SelectedItems do
+  begin
+    var item: CObject;
+    for item in get_SelectedItems do
     begin
       if s <> nil then
         s := CString.Concat(s, ', ');
 
       s := CString.Concat(s, item.ToString);
-    end;
+    end;    
+  end;
 
   _txt.Text := CStringToString(s);
 end;

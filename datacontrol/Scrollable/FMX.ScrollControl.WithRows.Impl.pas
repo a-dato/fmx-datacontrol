@@ -43,6 +43,8 @@ type
     // It will be released otherwise
     {[unsafe]} _model: IObjectListModel;
 
+    _rowHeightSynchronizer: TScrollControlWithRows;
+
     function  get_DataList: IList;
     procedure set_DataList(const Value: IList);
     function  get_DataModelView: IDataModelView;
@@ -62,7 +64,6 @@ type
 
   // published property variables
 
-  private _rowHeightSynchronizer: TScrollControlWithRows;
 
   protected
     _selectionType: TSelectionType;
@@ -87,7 +88,7 @@ type
     {$IFNDEF WEBASSEMBLY}
     function  get_AllowNoneSelected: Boolean;
     {$ENDIF}
-    procedure set_AllowNoneSelected(const Value: Boolean);
+    procedure set_AllowNoneSelected(const Value: Boolean); virtual;
     function  get_NotSelectableItems: IList;
     procedure set_NotSelectableItems(const Value: IList);
     procedure set_RowHeightMax(const Value: Single);
@@ -145,6 +146,8 @@ type
     _tryFindNewSelectionInDataModel: Boolean;
     _mustShowSelectionInRealign: Boolean;
 
+    _multiSelectSorter: ITreeSortDescription;
+
     function  HasUpdateCount: Boolean;
     function  HasInternalSelectCount: Boolean;
 
@@ -156,12 +159,14 @@ type
     procedure RealignContent; override;
     procedure AfterRealignContent; override;
     procedure RealignFinished; override;
+
     procedure DoRealignContent; override;
 
     procedure ExecuteAfterRealignOnly(DoBeginUpdate: Boolean);
 
   protected
     {$IFDEF DEBUG}
+    {$IFNDEF WEBASSEMBLY}
     procedure S0;
     procedure S1;
     procedure S2;
@@ -170,6 +175,7 @@ type
     procedure E1(Pause: Boolean = False);
     procedure E2(Pause: Boolean = False);
     procedure E3(Pause: Boolean = False);
+    {$ENDIF}
     {$ENDIF}
 
     procedure RealignFromSelectionChange;
@@ -296,10 +302,12 @@ type
     procedure ToggleDataItemSelection; overload;
     procedure ToggleDataItemSelection(const Item: CObject); overload;
 
-    function  IsSelected(const DataItem: CObject): Boolean;
+    function  IsSelected(const DataIndex: Integer): Boolean;
+    function  SlowItemIsSelected(const DataItem: CObject): Boolean;
     function  SelectedRowIfInView: IDCRow;
     function  SelectionCount: Integer;
-    function  SelectedItems: List<CObject>;
+    function  SelectedItems: List<CObject>; overload;
+    function  SelectedItems<T>: List<T>; overload;
     function  DraggedItems: List<CObject>;
 
     procedure AssignSelection(const SelectedItems: IList);
@@ -527,7 +535,7 @@ uses
   {$ENDIF}
   FMX.ScrollControl.ControlClasses,
   FMX.ScrollControl.View.Impl, FMX.ControlCalculations,
-  ADato.TraceEvents.intf;
+  ADato.TraceEvents.intf, FMX.ScrollControl.SortAndFilter;
 
 
 { TScrollControlWithRows }
@@ -791,9 +799,11 @@ begin
   end;
 
   {$IFDEF DEBUG}
+  {$IFNDEF WEBASSEMBLY}
   E1;
   E2;
   E3;
+  {$ENDIF}
   {$ENDIF}
 
   if (_rowHeightSynchronizer <> nil) and ControlEffectiveVisible(_rowHeightSynchronizer) then
@@ -1085,8 +1095,16 @@ begin
   if TDCTreeOption.HideHScrollBar in _options then
     _horzScrollBar.Visible := False;
 
-  if (TDCTreeOption.MultiSelect in OldFlags) and not (TDCTreeOption.MultiSelect in NewFlags) then
-    ClearSelections;
+  if (TDCTreeOption.MultiSelect in OldFlags) <> (TDCTreeOption.MultiSelect in NewFlags) then
+  begin
+    if (TDCTreeOption.MultiSelect in NewFlags) then
+      _multiSelectSorter := TTreeMultiSelectSortDescription.Create(Self)
+    else begin
+      _multiSelectSorter := nil;
+      if (_selectionInfo <> nil) then
+        _selectionInfo.ClearMultiSelections;
+    end;
+  end;
 
   if ((TDCTreeOption.AlternatingRowBackground in OldFlags) <> (TDCTreeOption.AlternatingRowBackground in NewFlags)) then
   begin
@@ -1310,6 +1328,12 @@ end;
 procedure TScrollControlWithRows.ExpandCurrentRow;
 begin
   DoCollapseOrExpandRow(get_Current, True);
+end;
+
+function TScrollControlWithRows.SlowItemIsSelected(const DataItem: CObject): Boolean;
+begin
+  var ix := _view.GetDataIndex(DataItem);
+  Result := IsSelected(ix);
 end;
 
 function TScrollControlWithRows.SortActive: Boolean;
@@ -2192,9 +2216,17 @@ begin
 
   if DoExpand then
   begin
+//    var dr: IDataRow;
+//    var directChildCount := 0;
+//    for dr in drv.DataView.DataModel.Children(drv.Row, True) do
+//      if dr.Level = drv.Row.Level + 1 then
+//        inc(directChildCount);
+//
+//    drv.DataView.ChildCount()
+
     // check if children fit in current view, otherwise scroll parent up...
     var spaceAvailableForChildren := _vertScrollBar.ViewportSize - (virtualYPos - _vertScrollBar.Value);
-    var spaceNeeded := CalculateAverageRowHeight * (drv.DataView.DataModel.ChildCount(drv.Row) + 1 {for parent});
+    var spaceNeeded := CalculateAverageRowHeight * (drv.DataView.ChildCount(drv) + 1 {for parent});
 
     if spaceNeeded > spaceAvailableForChildren then
     begin
@@ -2599,13 +2631,12 @@ begin
   Result := _masterSynchronizerIndex > 0;
 end;
 
-function TScrollControlWithRows.IsSelected(const DataItem: CObject): Boolean;
+function TScrollControlWithRows.IsSelected(const DataIndex: Integer): Boolean;
 begin
   Result := False;
   if _view = nil then Exit;
 
-  var ix := _view.GetViewListIndex(DataItem);
-  Result := _selectionInfo.IsSelected(_view.GetDataIndex(ix));
+  Result := _selectionInfo.IsSelected(DataIndex);
 end;
 
 procedure TScrollControlWithRows.DoViewLoadingStart(const startY, StopY: Single; preferedReferenceIndex: Integer = -1);
@@ -2739,13 +2770,17 @@ begin
 
           topVirtualYPosition := referenceRow.VirtualYPosition;
           if referenceRow.ViewPortIndex > 0 then
-            for var ix2 := referenceRow.ViewPortIndex - 1 downto 0 do
+          begin
+            var ix2: Integer;
+            for ix2 := referenceRow.ViewPortIndex - 1 downto 0 do
               begin
                 var viewListIndex := _view.ActiveViewRows[ix2].ViewListIndex;
                 var info := _view.RowLoadedInfo(viewListIndex);
                 if info.RowIsInActiveView then
                   topVirtualYPosition := topVirtualYPosition - info.GetCalculatedHeight;
               end;
+            
+          end;
 
           selectedRowIsAtBottom := (preferedReferenceIndex <> -1) and (referenceRow.VirtualYPosition - _vertScrollBar.Value > _vertScrollBar.ViewportSize / 2);
         end;
@@ -2772,7 +2807,9 @@ end;
 procedure TScrollControlWithRows.RealignContentStart;
 begin
   {$IFDEF DEBUG}
+  {$IFNDEF WEBASSEMBLY}
   S0;
+  {$ENDIF}
   {$ENDIF}
   var isRealStart := _realignState in [TRealignState.Waiting, TRealignState.RealignDone];
 
@@ -2807,10 +2844,12 @@ begin
     _rowHeightSynchronizer.RealignFinished;
 
   {$IFDEF DEBUG}
+  {$IFNDEF WEBASSEMBLY}
   E0;
   E1;
   E2;
   E3;
+  {$ENDIF}
   {$ENDIF}
 end;
 
@@ -2845,7 +2884,7 @@ begin
   end;
 
   _view.ResetView(FromViewListIndex, ClearOneRowOnly);
-  if (_rowHeightSynchronizer <> nil) and not SyncIsMasterSynchronizer and (_rowHeightSynchronizer.View <> nil) then
+  if (_rowHeightSynchronizer <> nil) {and not SyncIsMasterSynchronizer} and (_rowHeightSynchronizer.View <> nil) then
       _rowHeightSynchronizer.View.ResetView(FromViewListIndex, ClearOneRowOnly);
 
   if _resetViewRec.RecalcSortedRows then
@@ -2958,11 +2997,6 @@ begin
     end;
 
     var selRow := _view.GetActiveRowIfExists(_selectionInfo.ViewListIndex);
-
-    {$IFDEF DEBUG}
-    if selRow = nil then
-      Exit;
-      {$ENDIF}
     var yChange := 0.0;
 
     // if row (partly) above or fully below current view, then make it the top top row
@@ -2970,22 +3004,19 @@ begin
       yChange := _vertScrollBar.Value - selRow.VirtualYPosition
 
     // else scroll row partially into view.. It will be fully visible later. At this point we do not know the exact height
-    else
+    else if (_vertScrollBar.Value + _vertScrollBar.ViewportSize < (selRow.VirtualYPosition + selRow.Height)) and (_vertScrollBar.ViewportSize > selRow.Height) then
     begin
-      if (_vertScrollBar.Value + _vertScrollBar.ViewportSize < (selRow.VirtualYPosition + selRow.Height)) and (_vertScrollBar.ViewportSize > selRow.Height) then
-      begin
-        // KV: 24/01/2025
-        // Code dissabled, when scrolling down from the last line inside current view
-        // the control should move to the next visible line.
-        // The old code would make the tree 'jump' to the last line inside the current view
-        yChange := _vertScrollBar.Value - ((selRow.VirtualYPosition + selRow.Height) - _vertScrollBar.ViewportSize);
+      // KV: 24/01/2025
+      // Code dissabled, when scrolling down from the last line inside current view
+      // the control should move to the next visible line.
+      // The old code would make the tree 'jump' to the last line inside the current view
+      yChange := _vertScrollBar.Value - ((selRow.VirtualYPosition + selRow.Height) - _vertScrollBar.ViewportSize);
 
-        // Old code:
-        //        var selectedIsViewBottom := virtualYPos > (_vertScrollBar.Max - _vertScrollBar.ViewportSize);
-        //        if selectedIsViewBottom then
-        //          yChange := _vertScrollBar.Value - _vertScrollBar.Max else
-        //          yChange := _vertScrollBar.Value - (rowStopY - _vertScrollBar.ViewportSize);
-      end;
+      // Old code:
+      //        var selectedIsViewBottom := virtualYPos > (_vertScrollBar.Max - _vertScrollBar.ViewportSize);
+      //        if selectedIsViewBottom then
+      //          yChange := _vertScrollBar.Value - _vertScrollBar.Max else
+      //          yChange := _vertScrollBar.Value - (rowStopY - _vertScrollBar.ViewportSize);
     end;
 
     if not SameValue(yChange, 0) then
@@ -3031,13 +3062,18 @@ end;
 
 function TScrollControlWithRows.SelectedItems: List<CObject>;
 begin
+  Result := SelectedItems<CObject>;
+end;
+
+function TScrollControlWithRows.SelectedItems<T>: List<T>;
+begin
   if _view = nil then
     Exit(nil);
 
-  Result := CList<CObject>.Create;
-
   var dataIndexes := _selectionInfo.SelectedDataIndexes;
   dataIndexes.Sort;
+
+  Result := CList<T>.Create(dataIndexes.Count);
 
   var ix: Integer;
   for ix in dataIndexes do
@@ -3046,8 +3082,8 @@ begin
 
     var dr: IDataRow;
     if ViewIsDataModelView and item.TryAsType<IDataRow>(dr) then
-      Result.Add(dr.Data) else
-      Result.Add(item);
+      Result.Add(dr.Data.AsType<T>) else
+      Result.Add(item.AsType<T>);
   end;
 end;
 
@@ -3203,6 +3239,21 @@ begin
   // scroll to current dataitem after scrolling
   if GetInitializedWaitForRefreshInfo.DataItem = nil then
     GetInitializedWaitForRefreshInfo.DataItem := get_DataItem;
+
+  if (_multiSelectSorter <> nil) then
+  begin
+    var ix := -1;
+    if (_view <> nil) and (_view.GetSortDescriptions <> nil) then
+      ix := _view.GetSortDescriptions.IndexOf(_multiSelectSorter);
+
+    if ix <> 0 then
+    begin
+      if ix > 0 then
+        _view.GetSortDescriptions.RemoveAt(ix);
+
+      AddSortDescription(_multiSelectSorter, False);
+    end;
+  end;
 end;
 
 procedure TScrollControlWithRows.AddSortDescription(const Sort: IListSortDescription; const ClearOtherSort: Boolean);
@@ -3676,9 +3727,10 @@ begin
     end;
 
     _multiSelection.Remove(DataIndex);
-    DoSelectionInfoChanged;
+    UpdateLastSelection(-1, -1, nil);
+//    DoSelectionInfoChanged;
   finally
-    EndUpdate;
+    EndUpdate; //(True {do not scroll lastselected into view, because it can be out of view, causing scroll action});
   end;
 end;
 
@@ -3853,16 +3905,13 @@ end;
 
 function TScrollControlWithRows.ListHoldsOrdinalType: Boolean;
 begin
-  {$IFDEF WEBASSEMBLY}
-  Result := not (&Type.GetTypeCode(GetItemType) in [TypeCode.&Object, TypeCode.&Interface, TypeCode.&Array]);
-  {$ELSE}
   var tc := &Type.GetTypeCode(GetItemType);
   Result := not ((tc = TypeCode.Object) or GetItemType.IsInterfaceType or GetItemType.IsArray);
-  {$ENDIF}
 end;
 
 
 {$IFDEF DEBUG}
+{$IFNDEF WEBASSEMBLY}
 procedure TScrollControlWithRows.S0;
 begin
   if (_logs = nil) and ((_rowHeightSynchronizer = nil) or (_rowHeightSynchronizer._logs = nil)) then
@@ -3943,6 +3992,7 @@ begin
   if not Pause and (_stopwatch3.ElapsedMilliseconds > 0) then
     Log('Stopwatch 3: ' + _stopwatch3.ElapsedMilliseconds.ToString);
 end;
+{$ENDIF}
 {$ENDIF}
 
 end.
