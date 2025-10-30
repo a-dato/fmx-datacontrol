@@ -1763,17 +1763,31 @@ end;
 
 procedure TScrollControlWithRows.ModelContextChanged(const Sender: IObjectModelContext; const Context: CObject);
 begin
-  if HasInternalSelectCount or (_previousHardAssignedDataModelView <> nil) then
+  if HasInternalSelectCount then
     Exit;
 
-  var dItem := get_DataItem;
+  var dItem := _selectionInfo.DataItem;
 
   var drv: IDataRowView;
   if dItem.TryAsType<IDataRowView>(drv) then
     dItem := drv.Row.Data;
 
-  if not CObject.Equals(dItem, Context) then
-    set_DataItem(Context);
+  if CObject.Equals(dItem, Context) then
+    Exit;
+
+  if (Context = nil) then
+  begin
+    set_DataItem(nil);
+    Exit;
+  end;
+
+//  if _previousHardAssignedDataModelView <> nil then
+//  begin
+//    var dr := GetDataModel.FindByKey(Context);
+//    GetDataModelView.MakeRowVisible(dr);
+//  end;
+
+  set_DataItem(Context);
 end;
 
 procedure TScrollControlWithRows.ModelContextPropertyChanged(const Sender: IObjectModelContext; const Context: CObject; const AProperty: _PropertyInfo);
@@ -3171,7 +3185,7 @@ end;
 
 procedure TScrollControlWithRows.set_DataItem(const Value: CObject);
 begin
-  var dItem := get_DataItem;
+  var dItem := _selectionInfo.DataItem;
   if ViewIsDataModelView and (dItem <> nil) then
     dItem := dItem.AsType<IDataRowView>.Row.Data;
 
