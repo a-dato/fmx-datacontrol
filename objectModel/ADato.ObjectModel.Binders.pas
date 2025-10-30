@@ -219,6 +219,7 @@ type
     procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject); override;
 
     function  WaitForNotifyModel: Boolean; override;
+    procedure UpdateControlEditability(IsEditable: Boolean); override;
   public
     constructor Create(AControl: TEdit); reintroduce;
 
@@ -296,6 +297,8 @@ type
   protected
     function  GetValue: CObject; override;
     procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject); override;
+
+    procedure UpdateControlEditability(IsEditable: Boolean); override;
   public
     constructor Create(AControl: TComboEdit); reintroduce;
     destructor Destroy; override;
@@ -311,7 +314,9 @@ type
     function  GetValue: CObject; override;
     procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject); override;
 
-    function WaitForNotifyModel: Boolean; override;
+    function  WaitForNotifyModel: Boolean; override;
+    procedure UpdateControlEditability(IsEditable: Boolean); override;
+
   public
     constructor Create(AControl: TMemo);
     destructor Destroy; override;
@@ -553,6 +558,14 @@ begin
   except
   end;
 end;
+
+procedure TEditControlBinding.UpdateControlEditability(IsEditable: Boolean);
+begin
+  // make it possible to copy code..
+  _control.Enabled := True;
+  TEdit(_control).ReadOnly := not IsEditable;
+end;
+
 
 function TEditControlBinding.WaitForNotifyModel: Boolean;
 begin
@@ -962,6 +975,13 @@ begin
   finally
     EndUpdate;
   end;
+end;
+
+procedure TMemoControlBinding.UpdateControlEditability(IsEditable: Boolean);
+begin
+  // make it possible to copy code..
+  _control.Enabled := True;
+  TMemo(_control).ReadOnly := not IsEditable;
 end;
 
 function TMemoControlBinding.WaitForNotifyModel: Boolean;
@@ -1881,6 +1901,13 @@ begin
   finally
     EndUpdate;
   end;
+end;
+
+procedure TComboEditControlBinding.UpdateControlEditability(IsEditable: Boolean);
+begin
+  // make it possible to copy code..
+  _control.Enabled := True;
+  TComboEdit(_control).ReadOnly := not IsEditable;
 end;
 
 { TComboEditControlSmartLinkBinding }
