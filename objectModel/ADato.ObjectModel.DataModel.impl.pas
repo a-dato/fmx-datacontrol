@@ -253,6 +253,20 @@ function TDataModelObjectListModel.AddNew(Index: Integer; Position: InsertPositi
 begin
   Assert(Assigned(_CreatorFunc));
   (get_ObjectModelContext as IEditableListObject).AddNew(CreateInstance, Index, Position);
+
+  if _ObjectModelContext.Context <> nil then
+  begin
+    var dm := get_Context as IDataModel;
+    var dr := dm.FindByKey(_ObjectModelContext.Context);
+    if (dr <> nil) then
+    begin
+      dm.DefaultView.MakeRowVisible(dr);
+      var drv := dm.DefaultView.FindVisibleRow(dr);
+      if drv <> nil then
+        dm.DefaultView.CurrencyManager.Current := drv.ViewIndex;
+    end;
+  end;
+
   Result := True;
 end;
 
