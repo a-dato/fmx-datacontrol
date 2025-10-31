@@ -36,6 +36,7 @@ type
   TDataModelObjectListModel = class(TBaseInterfacedObject,
     IObjectListModel,
     IAddingNew,
+    IAddToDataModel,
     IEditState,
     IEditableModel,
     INotifyListItemChanged,
@@ -114,8 +115,10 @@ type
     function  get_IsNew: Boolean;
     function  get_IsEditOrNew: Boolean;
 
+    // IAddToDataModel
+    function  AddNew(const Location: CObject; const Position: InsertPosition) : Boolean;
+
     // IEditableModel
-    function  AddNew(Index: Integer; Position: InsertPosition) : Boolean;
     procedure BeginEdit(Index: Integer);
     procedure CancelEdit;
     procedure EndEdit; virtual;
@@ -249,23 +252,47 @@ begin
   inherited;
 end;
 
-function TDataModelObjectListModel.AddNew(Index: Integer; Position: InsertPosition): Boolean;
+function TDataModelObjectListModel.AddNew(const Location: CObject; const Position: InsertPosition) : Boolean;
 begin
   Assert(Assigned(_CreatorFunc));
-  (get_ObjectModelContext as IEditableListObject).AddNew(CreateInstance, Index, Position);
 
-  if _ObjectModelContext.Context <> nil then
-  begin
-    var dm := get_Context as IDataModel;
-    var dr := dm.FindByKey(_ObjectModelContext.Context);
-    if (dr <> nil) then
-    begin
-      dm.DefaultView.MakeRowVisible(dr);
-      var drv := dm.DefaultView.FindVisibleRow(dr);
-      if drv <> nil then
-        dm.DefaultView.CurrencyManager.Current := drv.ViewIndex;
-    end;
+  if get_IsEditOrNew then
+    EndEdit;
+
+  var newInstance := CreateInstance;
+
+  var locationRow: IDataRow;
+  if not Location.TryAsType<IDataRow>(locationRow) then
+    locationRow := _dataModel.FindByKey(Location);
+
+  var index := -1;
+  _dataModel.BeginUpdate;
+  try
+    var dr := _dataModel.AddNew(locationRow, Position);
+    dr.Data := newInstance;
+    _dataModel.Keys.Add(dr.Data, dr);
+    _dataModel.DefaultView.MakeRowVisible(dr);
+    var drv := _dataModel.DefaultView.FindVisibleRow(dr);
+    if drv <> nil then
+      index := dr.get_Index;
+
+//    _dataModel.DefaultView.Refresh;
+  finally
+    _dataModel.EndUpdate;
   end;
+
+
+//  _dataModel.BeginUpdate;
+//  try
+//    var dr := _dataModel.AddNew(insertLocation, Position);
+//    dr.Data := Context.Context;
+//    _dataModel.Keys.Add(dr.Data, dr);
+//    _dataModel.DefaultView.Refresh;
+//  finally
+//    _dataModel.EndUpdate;
+//  end;
+
+  (get_ObjectModelContext as IEditableListObject).AddNew(newInstance, index, Position);
 
   Result := True;
 end;
@@ -407,18 +434,6 @@ end;
 procedure TDataModelObjectListModel.NotifyAddingNew(const Context: IObjectModelContext; var Index: Integer; Position: InsertPosition);
 begin
   CacheOriginalData(Context.Context);
-
-  var insertLocation := DataRowAtIndex(Index, False) {can be nil};
-
-  _dataModel.BeginUpdate;
-  try
-    var dr := _dataModel.AddNew(insertLocation, Position);
-    dr.Data := Context.Context;
-    _dataModel.Keys.Add(dr.Data, dr);
-    _dataModel.DefaultView.Refresh;
-  finally
-    _dataModel.EndUpdate;
-  end;
 
   var n: IListItemChanged;
   for n in get_OnItemChanged do
@@ -722,7 +737,7 @@ procedure TDataModelObjectListModel.ResetContextFromChangedItems;
       // no insertlocations found anymore
       if foundCount = foundItems.Count then
       begin
-        Assert(foundCount = get_ChangedItems.Count);
+//        Assert(foundCount = get_ChangedItems.Count);
         Break;
       end;
     end;

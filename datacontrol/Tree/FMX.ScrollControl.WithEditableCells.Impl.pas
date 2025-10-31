@@ -920,7 +920,13 @@ begin
   var em: IEditableModel;
   if (_model <> nil) and interfaces.Supports<IEditableModel>(_model, em) and em.CanAdd then
   begin
-    em.AddNew(Self.Current, InsertPosition.After);
+    var addL: IAddToList;
+    var addDm: IAddToDataModel;
+    if interfaces.Supports<IAddToList>(_model, addL) then
+      addL.AddNew(Self.Current, False)
+    else if interfaces.Supports<IAddToDataModel>(_model, addDm) then
+      addDm.AddNew(GetActiveRow.DataItem, InsertPosition.After);
+
     Exit(True);
   end;
 

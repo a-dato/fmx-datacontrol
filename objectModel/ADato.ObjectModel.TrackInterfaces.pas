@@ -41,9 +41,18 @@ type
     property IsEditOrNew: Boolean read get_IsEditOrNew;
   end;
 
+  IAddToList = interface(IBaseInterface)
+    ['{38255D26-9AB7-4AB6-A948-969BA3E3135D}']
+    function  AddNew(Index: Integer = -1; AddBefore: Boolean = False) : Boolean;
+  end;
+
+  IAddToDataModel = interface(IBaseInterface)
+    ['{68169874-8BA4-4947-A713-09E84D511369}']
+    function  AddNew(const Location: CObject; const Position: InsertPosition) : Boolean;
+  end;
+
   IEditableModel = interface(IBaseInterface)
     ['{23545838-1360-4F0E-BD26-1F07F25B9A37}']
-    function  AddNew(Index: Integer; Position: InsertPosition) : Boolean;
     procedure BeginEdit(ItemIndex: Integer);
     procedure CancelEdit;
     procedure EndEdit;
