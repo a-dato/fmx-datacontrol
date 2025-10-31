@@ -869,6 +869,12 @@ type
 
   TimeSpanParseError = (peArgumentNull=4, peFormat=1, peOverflow=2, peOverflowHoursMinutesSeconds=3);
 
+  {$IFDEF APP_PLATFORM}
+  {$RTTI EXPLICIT
+    FIELDS([vcPrivate, vcProtected, vcPublic, vcPublished])
+    METHODS([vcPrivate, vcProtected, vcPublic, vcPublished])
+    PROPERTIES([vcPrivate, vcProtected, vcPublic, vcPublished])}
+  {$ENDIF}
   CTimeSpan = record
   type
     StringParser = record
