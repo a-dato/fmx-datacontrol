@@ -873,6 +873,10 @@ type
 
   TimeSpanParseError = (peArgumentNull=4, peFormat=1, peOverflow=2, peOverflowHoursMinutesSeconds=3);
 
+  {$RTTI EXPLICIT
+    FIELDS([vcPrivate, vcProtected, vcPublic, vcPublished])
+    METHODS([vcPrivate, vcProtected, vcPublic, vcPublished])
+    PROPERTIES([vcPrivate, vcProtected, vcPublic, vcPublished])}
   CTimeSpan = record
   type
     StringParser = record
@@ -1695,9 +1699,7 @@ type
   IBaseInterface = interface(IDisposable)
     ['{C17D64DB-975D-4AB2-96C2-71E35E9F692D}']
 
-    {$IFDEF APP_PLATFORM}
     function AsType(const Value: &Type) : CObject;
-    {$ENDIF}
 
     function getRefCount: Integer;
     function GetHashCode: Integer;
@@ -1838,14 +1840,12 @@ type
       IDisposable,
       IBaseInterface
   )
-  {$IFDEF APP_PLATFORM}
   protected
     function AsType(const Value: &Type) : CObject; virtual;
     function QueryInterface(const IID: TGUID; out Obj): HResult; virtual; stdcall;
     function _AddRef: Integer; virtual; stdcall;
     function _Release: Integer; virtual; stdcall;
-  {$ENDIF}
-
+  
   protected
     function  getRefCount: Integer;
     function  GetObject: TObject; virtual;
@@ -2367,7 +2367,7 @@ type
     property PropInfo: IPropInfo read get_PropInfo;
   end;
 
-  {$IFDEF APP_PLATFORM}
+//  {$IFDEF APP_PLATFORM}
   CPropertyWrapper = class(TBaseInterfacedObject, _PropertyInfo)
   protected
     _property: _PropertyInfo;
@@ -2390,7 +2390,7 @@ type
     function  ToString: CString; override;
     function  GetType: &Type; override;
   end;
-  {$ENDIF}
+//  {$ENDIF}
 
   TCreatePropertyInfo = reference to function(const AOwner: &Type; const AProperty: &Type; PropInfo: IPropInfo) : _PropertyInfo;
 
@@ -3379,7 +3379,7 @@ begin
   _propInfo.SetValue(obj, Value, index, ExecuteTriggers);
 end;
 
-{$IFDEF APP_PLATFORM}
+//{$IFDEF APP_PLATFORM}
 constructor CPropertyWrapper.Create(const AProperty: _PropertyInfo);
 begin
   _property := AProperty;
@@ -3444,7 +3444,7 @@ procedure CPropertyWrapper.SetValue(const obj: CObject; const Value: CObject; co
 begin
   _property.SetValue(obj, Value, index, ExecuteTriggers);
 end;
-{$ENDIF}
+//{$ENDIF}
 
 { CustomProperty }
 constructor CustomProperty.Create(
@@ -4830,7 +4830,6 @@ begin
 end;
 {$ENDIF}
 
-{$IFDEF APP_PLATFORM}
 function TBaseInterfacedObject.AsType(const Value: &Type) : CObject;
 begin
   var ii: IInterface;
@@ -4859,7 +4858,6 @@ function TBaseInterfacedObject._Release: Integer;
 begin
   Result := inherited _Release;
 end;
-{$ENDIF}
 
 procedure TBaseInterfacedObject.Dispose;
 begin
@@ -9143,14 +9141,14 @@ begin
 
     TypeCode.Int32: Result := FValue.AsInteger = AValue.FValue.AsInteger;
     TypeCode.Interface:
-    {$IFDEF APP_PLATFORM}
+//    {$IFDEF APP_PLATFORM}
     begin
       var bi: IBaseInterface;
       Result := Interfaces.Supports<IBaseInterface>(FValue.AsInterface, bi) and bi.Equals(AValue);
     end;
-    {$ELSE}
-      Result := FValue.AsType<IBaseInterface>.Equals(AValue);
-    {$ENDIF}
+//    {$ELSE}
+//      Result := FValue.AsType<IBaseInterface>.Equals(AValue);
+//    {$ENDIF}
 
     TypeCode.Int64: Result := FValue.AsInt64 = AValue.FValue.AsInt64;
     TypeCode.DateTime: Result := CDateTime(FValue.GetReferenceToRawData^).Equals(CDateTime(AValue.FValue.GetReferenceToRawData^));
@@ -9533,19 +9531,19 @@ begin
         // Cast from Interface to Interface
         case ATypeInfo.Kind of
           tkInterface:
-            {$IFDEF APP_PLATFORM}
+//            {$IFDEF APP_PLATFORM}
             if Interfaces.Supports(FValue.AsInterface, TGUID(ATypeInfo.TypeData.IntfGuid), ii) then
             begin
               TValue.Make(@ii, ATypeInfo, value_t);
               Result := value_t.TryCast(ATypeInfo, Value);
             end;
-            {$ELSE}
-            if Interfaces.Supports(FValue.AsType<IBaseInterface>, TGUID(ATypeInfo.TypeData.IntfGuid), ii) then
-            begin
-              TValue.Make(@ii, ATypeInfo, value_t);
-              Result := value_t.TryCast(ATypeInfo, Value);
-            end;
-            {$ENDIF}
+//            {$ELSE}
+//            if Interfaces.Supports(FValue.AsType<IBaseInterface>, TGUID(ATypeInfo.TypeData.IntfGuid), ii) then
+//            begin
+//              TValue.Make(@ii, ATypeInfo, value_t);
+//              Result := value_t.TryCast(ATypeInfo, Value);
+//            end;
+//            {$ENDIF}
           tkClass:
           begin
             if FValue.TryAsType<IAutoObject>(a) then
@@ -10063,7 +10061,7 @@ end;
 
 function CObject.GetType(StrictTyping: Boolean = False): &Type;
 begin
-  {$IFDEF APP_PLATFORM}
+//  {$IFDEF APP_PLATFORM}
   CheckNullReference(Self);
   if &Type.GetTypeCode(FValue.TypeInfo) = TypeCode.Interface then
   begin
@@ -10081,17 +10079,17 @@ begin
       Result := &Type.Create(FValue.TypeInfo);
   end else
     Result := &Type.Create(FValue.TypeInfo);
-  {$ELSE}
-  CheckNullReference(Self);
-  if not StrictTyping and (&Type.GetTypeCode(FValue.TypeInfo) = TypeCode.Interface) then
-  begin
-    // Comply with C# way of operation, calling GetType on an interface will return
-    // the type of the object implementing the interface
-    var o := TObject(FValue.AsInterface);
-    Result := &Type.Create(o.ClassInfo);
-  end else
-    Result := &Type.Create(FValue.TypeInfo);
-  {$ENDIF}
+//  {$ELSE}
+//  CheckNullReference(Self);
+//  if not StrictTyping and (&Type.GetTypeCode(FValue.TypeInfo) = TypeCode.Interface) then
+//  begin
+//    // Comply with C# way of operation, calling GetType on an interface will return
+//    // the type of the object implementing the interface
+//    var o := TObject(FValue.AsInterface);
+//    Result := &Type.Create(o.ClassInfo);
+//  end else
+//    Result := &Type.Create(FValue.TypeInfo);
+//  {$ENDIF}
 end;
 
 function CObject.IsNull : Boolean;
@@ -10258,13 +10256,13 @@ end;
 
 class operator CObject.Implicit(const AValue: TValue): CObject;
 begin
-  {$IFDEF APP_PLATFORM}
+//  {$IFDEF APP_PLATFORM}
   if AValue.TypeInfo = TypeInfo(CObject) then
     Result := CObject(AValue.GetReferenceToRawData^) else
     Result.FValue := AValue;
-  {$ELSE}
-  Result.FValue := AValue;
-  {$ENDIF}
+//  {$ELSE}
+//  Result.FValue := AValue;
+//  {$ENDIF}
 end;
 
 class operator CObject.Implicit(const AValue: TGuid): CObject;

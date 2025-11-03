@@ -113,6 +113,9 @@ type
     function  get_DataItem: CObject;
     procedure set_DataItem(const Value: CObject);
 
+    function  RequestedOrActualCurrent: Integer;
+    function  RequestedOrActualDataItem: CObject;
+
   // row calculations
   private
     _scrollbarMaxChangeSinceViewLoading: Single;
@@ -1182,19 +1185,11 @@ end;
 
 function TScrollControlWithRows.get_Current: Integer;
 begin
-  // check if a dataitem just has been set, but no realigncontent has been done yet
-  if (_waitForRepaintInfo <> nil) and (TTreeRowState.RowChanged in _waitForRepaintInfo.RowStateFlags) then
-    ForceImmeditiateRealignContent;
-
   Result := _selectionInfo.ViewListIndex;
 end;
 
 function TScrollControlWithRows.get_DataItem: CObject;
 begin
-  // check if a dataitem just has been set, but no realigncontent has been done yet
-  if (_waitForRepaintInfo <> nil) and (TTreeRowState.RowChanged in _waitForRepaintInfo.RowStateFlags) then
-    ForceImmeditiateRealignContent;
-
   Result := _selectionInfo.DataItem;
 end;
 
@@ -1763,17 +1758,31 @@ end;
 
 procedure TScrollControlWithRows.ModelContextChanged(const Sender: IObjectModelContext; const Context: CObject);
 begin
-  if HasInternalSelectCount or (_previousHardAssignedDataModelView <> nil) then
+  if HasInternalSelectCount then
     Exit;
 
-  var dItem := get_DataItem;
+  var dItem := _selectionInfo.DataItem;
 
   var drv: IDataRowView;
   if dItem.TryAsType<IDataRowView>(drv) then
     dItem := drv.Row.Data;
 
-  if not CObject.Equals(dItem, Context) then
-    set_DataItem(Context);
+  if CObject.Equals(dItem, Context) then
+    Exit;
+
+  if (Context = nil) then
+  begin
+    set_DataItem(nil);
+    Exit;
+  end;
+
+//  if _previousHardAssignedDataModelView <> nil then
+//  begin
+//    var dr := GetDataModel.FindByKey(Context);
+//    GetDataModelView.MakeRowVisible(dr);
+//  end;
+
+  set_DataItem(Context);
 end;
 
 procedure TScrollControlWithRows.ModelContextPropertyChanged(const Sender: IObjectModelContext; const Context: CObject; const AProperty: _PropertyInfo);
@@ -2865,6 +2874,20 @@ begin
 end;
 
 
+function TScrollControlWithRows.RequestedOrActualCurrent: Integer;
+begin
+  if (_waitForRepaintInfo <> nil) and (_waitForRepaintInfo.Current <> -1) then
+    Result := _waitForRepaintInfo.Current else
+    Result := _selectioninfo.ViewListIndex;
+end;
+
+function TScrollControlWithRows.RequestedOrActualDataItem: CObject;
+begin
+  if (_waitForRepaintInfo <> nil) and (_waitForRepaintInfo.DataItem <> nil) then
+    Result := _waitForRepaintInfo.DataItem else
+    Result := _selectioninfo.DataItem;
+end;
+
 procedure TScrollControlWithRows.ResetView(const FromViewListIndex: Integer = -1; ClearOneRowOnly: Boolean = False);
 begin
   if _view = nil then
@@ -2919,8 +2942,7 @@ begin
     StopMasterSynchronizer(goMaster);
   end;
 
-  if (_selectionInfo <> nil) and (_selectionInfo.DataItem <> nil) then
-    GetInitializedWaitForRefreshInfo.DataItem := _selectionInfo.DataItem;
+  GetInitializedWaitForRefreshInfo.DataItem := RequestedOrActualDataItem;
 
 //  // make sure scrollbars are up-to-date
 //  DoRealignContent;
@@ -3171,7 +3193,7 @@ end;
 
 procedure TScrollControlWithRows.set_DataItem(const Value: CObject);
 begin
-  var dItem := get_DataItem;
+  var dItem := _selectionInfo.DataItem;
   if ViewIsDataModelView and (dItem <> nil) then
     dItem := dItem.AsType<IDataRowView>.Row.Data;
 

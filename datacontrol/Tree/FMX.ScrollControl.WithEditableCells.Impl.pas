@@ -536,7 +536,11 @@ begin
 
     if Key <> 0 then
     begin
-      if (Key in [vkUp, vkDown, vkPrior, vkEnd, vkTab]) and IsEditOrNew then
+      var isRowChange := (Key in [vkUp, vkDown, vkPrior, vkEnd, vkTab]);
+      if not isRowChange and (ssCtrl in Shift) and (Key in [vkHome, vkEnd]) then
+        isRowChange := True;
+
+      if isRowChange and IsEditOrNew then
       begin
         var pt := _paintTime;
         if not CheckCanChangeRow then
@@ -789,9 +793,9 @@ begin
   begin
     Column.CustomWidth := _tempCachedEditingColumnCustomWidth;
     _tempCachedEditingColumnCustomWidth := -1;
-
-    FastColumnAlignAfterColumnChange;
   end;
+
+  FastColumnAlignAfterColumnChange;
 end;
 
 procedure TScrollControlWithEditableCells.ResetView(const FromViewListIndex: Integer; ClearOneRowOnly: Boolean);
@@ -916,7 +920,13 @@ begin
   var em: IEditableModel;
   if (_model <> nil) and interfaces.Supports<IEditableModel>(_model, em) and em.CanAdd then
   begin
-    em.AddNew(Self.Current, InsertPosition.After);
+    var addL: IAddToList;
+    var addDm: IAddToDataModel;
+    if interfaces.Supports<IAddToList>(_model, addL) then
+      addL.AddNew(Self.Current, False)
+    else if interfaces.Supports<IAddToDataModel>(_model, addDm) then
+      addDm.AddNew(GetActiveRow.DataItem, InsertPosition.After);
+
     Exit(True);
   end;
 
@@ -1461,11 +1471,19 @@ end;
 
 procedure TScrollControlWithEditableCells.HideEditor;
 begin
-  var clmn := _cellEditor.Cell.Column;
+  var cell := _cellEditor.Cell;
 
+  _cellEditor.EndEdit;
   _cellEditor := nil;
 
-  ResetColumnWidthOnHideEditor(clmn);
+  var row := cell.Row as IDCTreeRow;
+  if (cell.Column.WidthType = TDCColumnWidthType.AlignToContent) and row.ContentCellSizes.ContainsKey(cell.Index) then
+  begin
+    row.ContentCellSizes.Remove(cell.Index);
+    cell.LayoutColumn.Width := 0;  // make sure it get's recalced
+  end;
+
+  ResetColumnWidthOnHideEditor(cell.Column);
 
   var activeCell := GetActiveCell;
   if activeCell = nil then Exit; // cell scrolled out of view
@@ -1953,7 +1971,7 @@ end;
 
 procedure TDCCellEditor.EndEdit;
 begin
-// TODO
+  _cell.InfoControl.Visible := True;
 end;
 
 function TDCCellEditor.get_Cell: IDCTreeCell;
