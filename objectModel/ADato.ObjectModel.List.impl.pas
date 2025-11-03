@@ -82,6 +82,24 @@ type
     property ObjectModelContext: IObjectModelContext read get_ObjectModelContext write set_ObjectModelContext;
   end;
 
+  TContextChangedHandler = class(TBaseInterfacedObject, IContextChangedHandler)
+  protected
+    _parentModel: IObjectListModel;
+    _childModel: IObjectListModel;
+    _parentProperty: _PropertyInfo;
+
+    function get_ChildModel: IObjectListModel;
+    function get_ParentModel: IObjectListModel;
+    function get_ParentProperty: _PropertyInfo;
+    function get_OnContextChanged: ContextChangedEventHandlerProc;
+
+  public
+    constructor Create(const ParentModel: IObjectListModel; const ChildModel: IObjectListModel; const AProp: _PropertyInfo);
+    destructor Destroy; override;
+    procedure OnContextChanged(const Sender: IObjectModelContext; const Context: CObject);
+  end;
+
+
 implementation
 
 uses
@@ -270,6 +288,56 @@ end;
 procedure TSingleObjectContextSupport.set_ObjectModelContext(const Value: IObjectModelContext);
 begin
   _objectModelContext := Value;
+end;
+
+{ TContextChangedHandler }
+
+constructor TContextChangedHandler.Create(const ParentModel: IObjectListModel; const ChildModel: IObjectListModel; const AProp: _PropertyInfo);
+begin
+  _parentModel := ParentModel;
+  _childModel := ChildModel;
+  _parentProperty := AProp;
+
+  // Install the handler
+  _parentModel.ObjectModelContext.OnContextChanged.Add(OnContextChanged);
+end;
+
+destructor TContextChangedHandler.Destroy;
+begin
+  inherited;
+
+  // Remove the handler
+  if _parentModel <> nil then
+    _parentModel.ObjectModelContext.OnContextChanged.Remove(OnContextChanged);
+end;
+
+function TContextChangedHandler.get_OnContextChanged: ContextChangedEventHandlerProc;
+begin
+  Result := OnContextChanged;
+end;
+
+function TContextChangedHandler.get_ChildModel: IObjectListModel;
+begin
+  Result := _childModel;
+end;
+
+function TContextChangedHandler.get_ParentModel: IObjectListModel;
+begin
+  Result := _parentModel;
+end;
+
+function TContextChangedHandler.get_ParentProperty: _PropertyInfo;
+begin
+  Result := _parentProperty;
+end;
+
+procedure TContextChangedHandler.OnContextChanged(const Sender: IObjectModelContext; const Context: CObject);
+begin
+  var v := _parentProperty.GetValue(Context, []);
+  var l: IList;
+  if v.TryAsType<IList>(l) then
+    _childModel.Context := l else
+    _childModel.Context := nil;
 end;
 
 end.

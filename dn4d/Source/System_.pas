@@ -256,6 +256,9 @@ type
     class operator NotEqual(const a, b: &Type): Boolean;
     class operator NotEqual(const a: &Type; b: Pointer): Boolean;
 
+    function CreateImplementation(AUserData: Pointer;
+      const ACallback: TMethodImplementationCallback): TMethodImplementation;
+
     function  GetConstructor(const types: array of &Type): ConstructorInfo;
     function  GetProperties: PropertyInfoArray;
     class function GetTypeCode(const T: &Type) : TypeCode; overload; static;
@@ -271,6 +274,7 @@ type
     function  IsRecordType: Boolean;
     function  IsOrdinalType: Boolean;
     function  IsNumber: Boolean;
+    function  IsMethod: Boolean;
     function  IsEnum: Boolean;
     function  IsSet: Boolean;
     function  IsString: Boolean;
@@ -3667,6 +3671,14 @@ begin
   Result := a._TypeInfo <> b;
 end;
 
+function &Type.CreateImplementation(AUserData: Pointer; const ACallback: TMethodImplementationCallback): TMethodImplementation;
+begin
+  var rttiType := &Type.GlobalContext.GetType(_TypeInfo);
+  if rttiType is TRttiMethodType then
+    Result := (rttiType as TRttiMethodType).CreateImplementation(AUserData, ACallBack) else
+    raise Exception.Create('Type is not a method');
+end;
+
 function &Type.GetConstructor(const types: array of &Type): ConstructorInfo;
 var
   PropList: pPropList;
@@ -4435,6 +4447,11 @@ end;
 function &Type.IsNumber: Boolean;
 begin
   Result := GetTypeCode(GetTypeInfo) in TNumberTypes;
+end;
+
+function &Type.IsMethod: Boolean;
+begin
+  Result := GetTypeCode(GetTypeInfo) = TypeCode.Method;
 end;
 
 function &Type.IsEnum: Boolean;
