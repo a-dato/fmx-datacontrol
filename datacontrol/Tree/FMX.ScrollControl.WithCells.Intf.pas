@@ -204,6 +204,9 @@ type
     function  get_FormatProvider: IFormatProvider;
     procedure set_FormatProvider(const Value: IFormatProvider);
 
+    function  get_UserDefinedWidth: Single;
+    procedure set_UserDefinedWidth(const Value: Single);
+
     function  Clone: IDCTreeColumn;
     function  IsSelectionColumn: Boolean;
 
@@ -220,6 +223,7 @@ type
     property Width: Single read get_Width;
     property WidthMin: Single read get_WidthMin;
     property WidthMax: Single read get_WidthMax;
+    property UserDefinedWidth: Single read get_UserDefinedWidth write set_UserDefinedWidth;
 
     // user actions
     property AllowResize: Boolean read get_AllowResize;

@@ -488,6 +488,7 @@ type
 
     _customHidden: Boolean;
     _customWidth: Single;
+    _userDefinedWidth: Single;
     _isCustomColumn: Boolean;
 
     function  get_TreeControl: IColumnsControl;
@@ -532,6 +533,8 @@ type
     function  get_Format: CString;
     function  get_FormatProvider: IFormatProvider;
     procedure set_FormatProvider(const Value: IFormatProvider);
+    function  get_UserDefinedWidth: Single;
+    procedure set_UserDefinedWidth(const Value: Single);
 
     function  get_SortAndFilter: IDCColumnSortAndFilter;
     procedure set_SortAndFilter(const Value: IDCColumnSortAndFilter);
@@ -4294,6 +4297,20 @@ end;
 procedure TDCTreeColumn.set_Hierarchy(const Value: IDCColumnHierarchy);
 begin
   _hierarchy := Value;
+end;
+
+function TDCTreeColumn.get_UserDefinedWidth: Single;
+begin
+  Result := _userDefinedWidth;
+end;
+
+procedure TDCTreeColumn.set_UserDefinedWidth(const Value: Single);
+begin
+  if _userDefinedWidth <> Value then
+  begin
+    _userDefinedWidth := Value;
+//    OnPropertyChanged('UserDefinedWidth');
+  end;
 end;
 
 procedure TDCTreeColumn.set_InfoControlClass(const Value: TInfoControlClass);
