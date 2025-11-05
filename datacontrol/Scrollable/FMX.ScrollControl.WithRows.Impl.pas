@@ -113,7 +113,7 @@ type
     function  get_DataItem: CObject;
     procedure set_DataItem(const Value: CObject);
 
-    function  RequestedOrActualCurrent: Integer;
+//    function  RequestedOrActualCurrent: Integer;
     function  RequestedOrActualDataItem: CObject;
 
   // row calculations
@@ -338,7 +338,8 @@ type
     property NotSelectableItems: IList read get_NotSelectableItems write set_NotSelectableItems;
     property ItemType: &Type read _itemType write _itemType;
 
-  published
+  public
+    // designer properties & events
     property SelectionType: TSelectionType read get_SelectionType write set_SelectionType default RowSelection;
     property Options: TDCTreeOptions read _options write set_Options;
     property AllowNoneSelected: Boolean read _allowNoneSelected write set_AllowNoneSelected default False;
@@ -2873,13 +2874,12 @@ begin
   inherited;
 end;
 
-
-function TScrollControlWithRows.RequestedOrActualCurrent: Integer;
-begin
-  if (_waitForRepaintInfo <> nil) and (_waitForRepaintInfo.Current <> -1) then
-    Result := _waitForRepaintInfo.Current else
-    Result := _selectioninfo.ViewListIndex;
-end;
+//function TScrollControlWithRows.RequestedOrActualCurrent: Integer;
+//begin
+//  if (_waitForRepaintInfo <> nil) and (_waitForRepaintInfo.Current <> -1) then
+//    Result := _waitForRepaintInfo.Current else
+//    Result := _selectioninfo.ViewListIndex;
+//end;
 
 function TScrollControlWithRows.RequestedOrActualDataItem: CObject;
 begin
@@ -3041,7 +3041,7 @@ begin
       //          yChange := _vertScrollBar.Value - (rowStopY - _vertScrollBar.ViewportSize);
     end;
 
-    if not SameValue(yChange, 0) then
+    if not SameValue(yChange, 0, 0.5) then
     begin
       _mustShowSelectionInRealign := True;
       if _selectionInfo.LastSelectionEventTrigger = TSelectionEventTrigger.External then

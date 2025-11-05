@@ -65,7 +65,6 @@ type
 
     function  get_Layout: IDCTreeLayout;
     function  get_SelectedColumn: IDCTreeLayoutColumn;
-    procedure set_AllowNoneSelected(const Value: Boolean); override;
 
     procedure ColumnsChanged(Sender: TObject; e: NotifyCollectionChangedEventArgs);
     procedure OnHeaderCellResizeClicked(const HeaderCell: IHeaderCell);
@@ -90,6 +89,8 @@ type
     procedure DoHorzScrollBarChanged; override;
     procedure GenerateView; override;
     procedure RealignFinished; override;
+
+    procedure set_AllowNoneSelected(const Value: Boolean); override;
 
   // properties
   protected
@@ -117,7 +118,6 @@ type
     function  get_CellLeftRightPadding: Single;
     procedure set_CellLeftRightPadding(const Value: Single);
 
-
     function  IsScrollingHideColumnsFromIndexStored: Boolean;
 
   // events
@@ -142,7 +142,7 @@ type
 
     procedure DoCellLoaded(const Cell: IDCTreeCell; RequestForSort: Boolean; var PerformanceModeWhileScrolling: Boolean; var OverrideRowHeight: Single);
     function  DoCellLoading(const Cell: IDCTreeCell; RequestForSort: Boolean; var PerformanceModeWhileScrolling: Boolean; var OverrideRowHeight: Single): Boolean;
-    procedure DoCellFormatting(const Cell: IDCTreeCell; RequestForSort: Boolean; var Value: CObject; out FormatApplied: Boolean);
+    procedure DoCellFormatting(const Cell: IDCTreeCell; RequestForSort: Boolean; var Value: CObject; out FormatApplied: Boolean); virtual;
     function  DoCellCanChange(const OldCell, NewCell: IDCTreeCell): Boolean; virtual;
     procedure DoCellChanging(const OldCell, NewCell: IDCTreeCell);
     procedure DoCellChanged(const OldCell, NewCell: IDCTreeCell);
@@ -177,6 +177,7 @@ type
     procedure FastColumnAlignAfterColumnChange;
 
     function  DoCreateNewRow: IDCRow; override;
+    function  DoCreateNewCell(const ARow: IDCRow; const LayoutColumn: IDCTreeLayoutColumn): IDCTreeCell; virtual;
 
     procedure BeforeRealignContent; override;
     procedure AfterRealignContent; override;
@@ -283,7 +284,8 @@ type
     property  HeaderRow: IDCHeaderRow read _headerRow;
     property  SelectedColumn: IDCTreeLayoutColumn read get_SelectedColumn;
 
-  published
+  public
+    // designer properties
     property Columns: IDCTreeColumnList read _columns write _columns;  // stored DoStoreColumns;
     property AutoFitColumns: Boolean read _autoFitColumns write set_AutoFitColumns default False;
     property AutoCenterTree: Boolean read _autoCenterTree write set_AutoCenterTree default False;
@@ -294,8 +296,9 @@ type
     property ScrollingHideColumnsFromIndex: integer read _scrollingHideColumnsFromIndex write _scrollingHideColumnsFromIndex {$IFNDEF WEBASSEMBLY}stored IsScrollingHideColumnsFromIndexStored{$ENDIF};
     property CellTopBottomPadding: Single read get_CellTopBottomPadding write set_CellTopBottomPadding;
     property CellLeftRightPadding: Single read get_CellLeftRightPadding write set_CellLeftRightPadding;
+    property PopupMenuClosed: TNotifyEvent read _popupMenuClosed write _popupMenuClosed;
 
-    // events
+    // designer events
     property CellLoading: CellLoadingEvent read _cellLoading write _cellLoading;
     property CellLoaded: CellLoadedEvent read _cellLoaded write _cellLoaded;
     property CellFormatting: CellFormattingEvent read _cellFormatting write _cellFormatting;
@@ -303,14 +306,11 @@ type
     property CellChanging: CellChangingEvent read _cellChanging write _cellChanging;
     property CellChanged: CellChangedEvent read _cellChanged write _cellChanged;
     property CellSelected: CellSelectedEvent read _cellSelected write _cellSelected;
-//    property CellUserAction: CellUserActionEvent read _cellUserActionEvent write _cellUserActionEvent;
     property SortingGetComparer: GetColumnComparerEvent read _sortingGetComparer write _sortingGetComparer;
     property OnCompareRows: TOnCompareRows read _onCompareRows write _onCompareRows;
     property OnCompareColumnCells: TOnCompareColumnCells read _onCompareColumnCells write _onCompareColumnCells;
     property OnColumnsChanged: ColumnChangedByUserEvent read _onColumnsChanged write _onColumnsChanged;
     property OnTreePositioned: TreePositionedEvent read _onTreePositioned write _onTreePositioned;
-
-    property PopupMenuClosed: TNotifyEvent read _popupMenuClosed write _popupMenuClosed;
   end;
 
   TDCColumnSortAndFilter = class(TObservableObject, IDCColumnSortAndFilter)
@@ -477,6 +477,7 @@ type
 
     _cachedType: &Type;
     _cachedProp: _PropertyInfo;
+    _subPropertyName: CString;
     _cachedSubProp: _PropertyInfo;
 
     _widthSettings: IDCColumnWidthSettings;
@@ -798,7 +799,7 @@ type
 
     function  IsHeaderCell: Boolean; virtual;
 
-    procedure ClearCellForReassignment;
+    procedure ClearCellForReassignment; virtual;
     procedure CheckPerformanceRoutine(GoPerformanceMode: Boolean);
 
     property Column: IDCTreeColumn read get_Column;
@@ -839,6 +840,10 @@ type
     _frozenColumnRowControl: TControl;
     _nonFrozenColumnRowControl: TControl;
 
+  protected
+    _innerRowControl: TControl;
+    _placeInnerRowAtBottom: Boolean;
+
     function  get_Cells: Dictionary<Integer, IDCTreeCell>;
     function  get_ContentCellSizes: Dictionary<Integer, Single>;
     function  get_FrozenColumnRowControl: TControl;
@@ -846,12 +851,22 @@ type
     function  get_NonFrozenColumnRowControl: TControl;
     procedure set_NonFrozenColumnRowControl(const Value: TControl);
 
+    function  get_InnerRowControl: TControl;
+    procedure set_InnerRowControl(const Value: TControl);
+    function  get_PlaceInnerRowAtBottom: Boolean;
+    procedure set_PlaceInnerRowAtBottom(const Value: Boolean);
+
+    procedure UpdatePositionAndWidthInnerRowControl; virtual;
+
   public
     destructor Destroy; override;
 
     procedure ClearRowForReassignment; override;
     procedure UpdateSelectionVisibility(const SelectionInfo: IRowSelectionInfo; OwnerIsFocused: Boolean); override;
     procedure ResetCells;
+
+    property InnerRowControl: TControl read get_InnerRowControl write set_InnerRowControl;
+    property PlaceInnerRowAtBottom: Boolean read get_PlaceInnerRowAtBottom write set_PlaceInnerRowAtBottom;
   end;
 
   TDCHeaderRow = class(TDCTreeRow, IDCHeaderRow)
@@ -1240,6 +1255,7 @@ begin
     var treeRow := row as IDCTreeRow;
     treeRow.Control.Width := rowWidth;
     treeRow.Control.Position.X := 0.0;
+    treeRow.UpdatePositionAndWidthInnerRowControl;
 
     if hasFrozenColumns then
     begin
@@ -2686,6 +2702,11 @@ begin
   Result := TDCTreeRow.Create;
 end;
 
+function TScrollControlWithCells.DoCreateNewCell(const ARow: IDCRow; const LayoutColumn: IDCTreeLayoutColumn): IDCTreeCell;
+begin
+  Result := TDCTreeCell.Create(ARow, LayoutColumn);
+end;
+
 procedure TScrollControlWithCells.DoHorzScrollBarChanged;
 begin
   inherited;
@@ -2701,7 +2722,7 @@ begin
 
   if (flatColumnIx <> -1) then
   begin
-    var cell: IDCTreeCell := TDCTreeCell.Create(treeRow, _treeLayout.LayoutColumns[flatColumnIx]);
+    var cell: IDCTreeCell := DoCreateNewCell(treeRow, _treeLayout.LayoutColumns[flatColumnIx]);
     treeRow.Cells.Add(flatColumnIx, cell);
   end;
 
@@ -3014,7 +3035,13 @@ begin
 
     SetBasicVertScrollBarValues;
     if headerWasVisible <> (_headerRow <> nil) then
+    begin
+      if not headerWasVisible then
+        _content.Height := _content.Height - HeaderHeight else
+        _content.Height := Self.Height;
+
       CalculateScrollBarMax;
+    end;
   finally
     Self.EndUpdate;
   end;
@@ -3169,8 +3196,14 @@ begin
 
     if not treeRow.Cells.TryGetValue(flatColumn.Index, cell) then
     begin
-      cell := TDCTreeCell.Create(Row, flatColumn);
+      cell := DoCreateNewCell(Row, flatColumn);
       treeRow.Cells.Add(flatColumn.Index, cell);
+    end else
+    begin
+      if (cell.InfoControl <> nil) then
+        cell.InfoControl.Visible := True;
+      if (cell.SubInfoControl <> nil) then
+        cell.SubInfoControl.Visible := True;
     end;
 
     var loadDefaultData := DoCellLoading(cell, False, {var} performanceModeWhileScrolling, {var} manualHeight);
@@ -4199,8 +4232,16 @@ begin
       _cachedType := aType;
 
       if not IsSubProp then
-        prop := _cachedProp else
+        prop := _cachedProp
+      else begin
+        if not CString.Equals(PropName, _subPropertyName) then
+        begin
+          _subPropertyName := PropName;
+          _cachedSubProp := nil;
+        end;
+
         prop := _cachedSubProp;
+      end;
 
       if resetProp or (prop = nil) then
       begin
@@ -4267,7 +4308,11 @@ end;
 
 procedure TDCTreeColumn.set_PropertyName(const Value: CString);
 begin
-  _propertyName := Value;
+  if not CString.Equals(_propertyName, Value) then
+  begin
+    _propertyName := Value;
+    _cachedProp := nil;
+  end;
 end;
 
 procedure TDCTreeColumn.set_SortAndFilter(const Value: IDCColumnSortAndFilter);
@@ -4476,17 +4521,6 @@ begin
       spaceUsed := indentPerLevel * (cell.Row.ParentCount {can be 0});
   end;
 
-  var textCtrlHeight: Single;
-  if Cell.IsHeaderCell then
-    textCtrlHeight := Cell.Row.Control.Height
-  else begin
-    var rowsControl := Cell.Column.TreeControl as IRowsControl;
-    if (rowsControl.RowHeightFixed > 0) or not Cell.Row.IsScrollingIntoView then
-      textCtrlHeight := (Cell.Row.Control.Height - 2*_treeControl.CellTopBottomPadding)
-    else
-      textCtrlHeight := (rowsControl.RowHeightDefault - 2*_treeControl.CellTopBottomPadding)
-  end;
-
   var validMain := (Cell.InfoControl <> nil) and (Cell.InfoControl.Visible or ForceIsValid);
   if validMain and (Cell.Column.InfoControlClass = TInfoControlClass.Text) then
   begin
@@ -4530,6 +4564,14 @@ begin
     Exit;
 
   var ctrlHeight := cell.Control.Height;
+  var startPosY := 0.0;
+
+  var row := (cell.Row as IDCTReeRow);
+  if (row.InnerRowControl <> nil) and row.InnerRowControl.Visible then
+  begin
+    ctrlHeight := ctrlHeight - row.InnerRowControl.Height;
+    startPosY := startPosY + IfThen(row.PlaceInnerRowAtBottom, 0, row.InnerRowControl.Height);
+  end;
 
   if not validSub or not validMain then
   begin
@@ -4538,7 +4580,7 @@ begin
       ctrl := Cell.SubInfoControl;
 
     ctrl.Height := ctrlHeight - (2*_treeControl.CellTopBottomPadding);
-    ctrl.Position.Y := _treeControl.CellTopBottomPadding;
+    ctrl.Position.Y := startPosY + _treeControl.CellTopBottomPadding;
     Exit;
   end;
 
@@ -4549,11 +4591,11 @@ begin
   if (cell.Column.SubInfoControlClass = TInfoControlClass.Text) then
     cell.SubInfoControl.Height := TFastText(cell.SubInfoControl).TextHeight;
 
-  var extraHeightPerCtrl := (ctrlHeight - cell.InfoControl.Height - cell.SubInfoControl.Height) / 2;
+  var extraHeightPerCtrl := CMath.Max(0, (ctrlHeight - cell.InfoControl.Height - cell.SubInfoControl.Height) / 2);
 
   // align in vert center
-  cell.InfoControl.Position.Y := extraHeightPerCtrl;
-  cell.SubInfoControl.Position.Y := extraHeightPerCtrl + cell.InfoControl.Height;
+  cell.InfoControl.Position.Y := startPosY + extraHeightPerCtrl;
+  cell.SubInfoControl.Position.Y := startPosY + extraHeightPerCtrl + cell.InfoControl.Height;
 end;
 
 function TTreeLayoutColumn.CreateInfoControl(const Cell: IDCTreeCell; const ControlClassType: TInfoControlClass): TControl;
@@ -5580,6 +5622,9 @@ begin
   var cell: IDCTreeCell;
   for cell in _cells.Values do
     cell.ClearCellForReassignment;
+
+  if _innerRowControl <> nil then
+    _innerRowControl.Visible := False;
 end;
 
 destructor TDCTreeRow.Destroy;
@@ -5646,6 +5691,36 @@ begin
   var cell: IDCTreeCell;
   for cell in _cells.Values do
     cell.UpdateSelectionVisibility(rowIsSelected, SelectionInfo as ITreeSelectionInfo, OwnerIsFocused);
+end;
+
+function TDCTreeRow.get_InnerRowControl: TControl;
+begin
+  Result := _innerRowControl;
+end;
+
+procedure TDCTreeRow.set_InnerRowControl(const Value: TControl);
+begin
+  _innerRowControl := Value;
+end;
+
+function TDCTreeRow.get_PlaceInnerRowAtBottom: Boolean;
+begin
+  Result := _placeInnerRowAtBottom;
+end;
+
+procedure TDCTreeRow.set_PlaceInnerRowAtBottom(const Value: Boolean);
+begin
+  _placeInnerRowAtBottom := Value;
+end;
+
+procedure TDCTreeRow.UpdatePositionAndWidthInnerRowControl;
+begin
+  if (_innerRowControl = nil) or not _innerRowControl.Visible then
+    Exit;
+
+  _innerRowControl.Width := Self._control.Width;
+  _innerRowControl.Position.X := 0.0;
+  _innerRowControl.Position.Y := IfThen(_placeInnerRowAtBottom, Self._control.Height - _innerRowControl.Height, 0);
 end;
 
 { THeaderCell }

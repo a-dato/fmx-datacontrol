@@ -140,7 +140,8 @@ type
     property EditingInfo: ITreeEditingInfo read _editingInfo;
     property CellEditor: IDCCellEditor read _cellEditor;
 
-  published
+  public
+    // designer properties & events
     property EditRowStart: RowEditEvent read _editRowStart write _editRowStart;
     property EditRowEnd: RowEditEvent read _editRowEnd write _editRowEnd;
     property EditCellStart: StartEditEvent read _editCellStart write _editCellStart;

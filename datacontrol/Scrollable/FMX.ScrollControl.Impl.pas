@@ -198,11 +198,6 @@ type
     property Content: TControl read get_Content;
     property Control: TControl read get_Control;
 
-  published
-    property OnViewPortPositionChanged: TOnViewportPositionChange read _onViewPortPositionChanged write _onViewPortPositionChanged;
-    property OnCustomToolTipEvent: TCustomToolTipEvent read _onCustomToolTipEvent write _onCustomToolTipEvent;
-    property OnStickyClick: TNotifyEvent read _onStickyClick write _onStickyClick;
-
   {$IFDEF DEBUG}
   protected
     _onLog: TDoLog;
@@ -210,8 +205,13 @@ type
   public
     procedure TurnWheel;
     property OnLog: TDoLog write _onLog;
-
   {$ENDIF}
+
+  public
+    // designer properties & events
+    property OnViewPortPositionChanged: TOnViewportPositionChange read _onViewPortPositionChanged write _onViewPortPositionChanged;
+    property OnCustomToolTipEvent: TCustomToolTipEvent read _onCustomToolTipEvent write _onCustomToolTipEvent;
+    property OnStickyClick: TNotifyEvent read _onStickyClick write _onStickyClick;
   end;
 
 implementation
