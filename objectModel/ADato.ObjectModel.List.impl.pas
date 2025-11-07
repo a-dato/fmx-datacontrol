@@ -67,6 +67,7 @@ type
   public
     constructor Create; overload; virtual;
     constructor Create(const AType: &Type); overload;
+    destructor Destroy; override;
 
     function  SelectedAsList: IList;
   end;
@@ -119,6 +120,11 @@ constructor TObjectListModel<T>.Create;
 begin
   _ObjectType := Global.GetTypeOf<T>;
   Initialize;
+end;
+
+destructor TObjectListModel<T>.Destroy;
+begin
+  inherited;
 end;
 
 procedure TObjectListModel<T>.Initialize;

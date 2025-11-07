@@ -13,8 +13,8 @@ type
   protected
     { IInterface }
     function QueryInterface(const IID: TGUID; out Obj): HResult; override;
-    function _AddRef: Integer; override;
-    function _Release: Integer; override;
+    function _AddRef: Integer; stdcall;
+    function _Release: Integer; stdcall;
 
     procedure Dispose; override;
   public
@@ -29,8 +29,8 @@ type
     { IInterface }
     // function  IInterface.QueryInterface = QueryInterface;
     function QueryInterface(const IID: TGUID; out Obj): HResult; override;
-    function _AddRef: Integer; override;
-    function _Release: Integer; override;
+    function _AddRef: Integer; stdcall;
+    function _Release: Integer; stdcall;
 
     procedure Dispose; override;
   public
