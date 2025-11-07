@@ -2686,7 +2686,7 @@ end;
 
 function TScrollControlWithCells.DoCreateNewRow: IDCRow;
 begin
-  Result := TDCTreeRow.Create;
+  Result := TDCTreeRow.Create(Self);
 end;
 
 procedure TScrollControlWithCells.DoHorzScrollBarChanged;
@@ -2970,7 +2970,7 @@ begin
 
     if (TDCTreeOption.ShowHeaders in _options) then
     begin
-      _headerRow := TDCHeaderRow.Create;
+      _headerRow := TDCHeaderRow.Create(Self);
       _headerRow.DataIndex := -1;
       _headerRow.CreateHeaderControls(Self);
       {$IFNDEF WEBASSEMBLY}
