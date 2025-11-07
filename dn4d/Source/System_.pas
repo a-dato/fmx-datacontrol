@@ -3361,7 +3361,9 @@ end;
 
 function CPropertyInfo.GetHashCode: Integer;
 begin
-  Result := _PropInfo.GetHashCode;
+  if _PropInfo <> nil then
+    Result := _PropInfo.GetHashCode else
+    Result := inherited;
 end;
 
 function CPropertyInfo.ToString: CString;
@@ -3379,7 +3381,6 @@ begin
   _propInfo.SetValue(obj, Value, index, ExecuteTriggers);
 end;
 
-//{$IFDEF APP_PLATFORM}
 constructor CPropertyWrapper.Create(const AProperty: _PropertyInfo);
 begin
   _property := AProperty;
@@ -3444,7 +3445,6 @@ procedure CPropertyWrapper.SetValue(const obj: CObject; const Value: CObject; co
 begin
   _property.SetValue(obj, Value, index, ExecuteTriggers);
 end;
-//{$ENDIF}
 
 { CustomProperty }
 constructor CustomProperty.Create(
