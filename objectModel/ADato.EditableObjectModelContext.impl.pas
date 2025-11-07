@@ -13,7 +13,7 @@ uses
   ADato.ObjectModel.List.intf,
   ADato.Models.VirtualListItemDelegate,
   ADato.ObjectModel.TrackInterfaces,
-  ADato.InsertPosition;
+  ADato.InsertPosition, ADato.ObjectModel.List.Tracking.impl;
 
 type
   TEditableObjectModelContext = class(TObjectModelContext, IEditableListObject, IEditState)
