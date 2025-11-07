@@ -546,12 +546,12 @@ type
     function  get_NonFrozenColumnRowControl: TControl;
     procedure set_NonFrozenColumnRowControl(const Value: TControl);
 
-    function  get_InnerRowControl: TControl;
-    procedure set_InnerRowControl(const Value: TControl);
-    function  get_PlaceInnerRowAtBottom: Boolean;
-    procedure set_PlaceInnerRowAtBottom(const Value: Boolean);
-
-    procedure UpdatePositionAndWidthInnerRowControl;
+//    function  get_InnerRowControl: TControl;
+//    procedure set_InnerRowControl(const Value: TControl);
+//    function  get_PlaceInnerRowAtBottom: Boolean;
+//    procedure set_PlaceInnerRowAtBottom(const Value: Boolean);
+//
+//    procedure UpdatePositionAndWidthInnerRowControl;
 
     procedure ResetCells;
 
@@ -561,8 +561,8 @@ type
     property FrozenColumnRowControl: TControl read get_FrozenColumnRowControl write set_FrozenColumnRowControl;
     property NonFrozenColumnRowControl: TControl read get_NonFrozenColumnRowControl write set_NonFrozenColumnRowControl;
 
-    property InnerRowControl: TControl read get_InnerRowControl write set_InnerRowControl;
-    property PlaceInnerRowAtBottom: Boolean read get_PlaceInnerRowAtBottom write set_PlaceInnerRowAtBottom;
+//    property InnerRowControl: TControl read get_InnerRowControl write set_InnerRowControl;
+//    property PlaceInnerRowAtBottom: Boolean read get_PlaceInnerRowAtBottom write set_PlaceInnerRowAtBottom;
   end;
 
   IDCTreeRow = interface(IDCCellRow<IDCTreeCell>)
