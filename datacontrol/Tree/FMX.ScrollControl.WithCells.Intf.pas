@@ -30,7 +30,7 @@ uses
   System.Collections.Generic,
   System.Collections,
   System.Collections.Specialized,
-  FMX.ScrollControl.WithRows.Intf;
+  FMX.ScrollControl.WithRows.Intf, FMX.Types;
 
 type
   TSortType = (None, Displaytext, CellData, PropertyValue, ColumnCellComparer, RowComparer);
@@ -537,7 +537,7 @@ type
     procedure StartResizing(const HeaderCell: IHeaderCell);
   end;
 
-  IDCTreeRow = interface(IDCRow)
+  IDCCellRow<T: IDCTreeCell> = interface(IDCRow)
     ['{5BFBFD9D-47E2-4502-B9B4-FDC9919FA6E6}']
     function  get_Cells: Dictionary<Integer, IDCTreeCell>;
     function  get_ContentCellSizes: Dictionary<Integer, Single>;
@@ -546,6 +546,13 @@ type
     function  get_NonFrozenColumnRowControl: TControl;
     procedure set_NonFrozenColumnRowControl(const Value: TControl);
 
+//    function  get_InnerRowControl: TControl;
+//    procedure set_InnerRowControl(const Value: TControl);
+//    function  get_PlaceInnerRowAtBottom: Boolean;
+//    procedure set_PlaceInnerRowAtBottom(const Value: Boolean);
+//
+//    procedure UpdatePositionAndWidthInnerRowControl;
+
     procedure ResetCells;
 
     property Cells: Dictionary<Integer {flatColumn.Index}, IDCTreeCell> read get_Cells;
@@ -553,6 +560,13 @@ type
 
     property FrozenColumnRowControl: TControl read get_FrozenColumnRowControl write set_FrozenColumnRowControl;
     property NonFrozenColumnRowControl: TControl read get_NonFrozenColumnRowControl write set_NonFrozenColumnRowControl;
+
+//    property InnerRowControl: TControl read get_InnerRowControl write set_InnerRowControl;
+//    property PlaceInnerRowAtBottom: Boolean read get_PlaceInnerRowAtBottom write set_PlaceInnerRowAtBottom;
+  end;
+
+  IDCTreeRow = interface(IDCCellRow<IDCTreeCell>)
+    ['{1D5492C6-FE87-4B68-A5CD-6780CBFE85AC}']
   end;
 
   IDCHeaderRow = interface(IDCTreeRow)
