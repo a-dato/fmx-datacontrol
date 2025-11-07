@@ -13,7 +13,6 @@ uses
   ADato.Controls.Tree.Intf,
 //  ADato.Controls.FMX.Tree.Intf,
 //  ADato.Controls.FMX.Tree.Impl,
-  FMX.ScrollControl.DataControl.Intf,
   FMX.ScrollControl.DataControl.Impl,
   FMX.ScrollControl.WithCells.Intf,
   FMX.ScrollControl.WithCells.Impl,

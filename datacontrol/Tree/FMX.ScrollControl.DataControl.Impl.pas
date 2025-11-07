@@ -15,7 +15,6 @@ uses
   System_,
   System.Runtime.Serialization,
   FMX.ScrollControl.WithEditableCells.Impl,
-  FMX.ScrollControl.DataControl.Intf,
   FMX.ScrollControl.WithCells.Intf,
   FMX.ScrollControl.WithCells.Impl;
 
@@ -30,8 +29,63 @@ type
     procedure Assign(Source: TPersistent); override;
 
   published
+    // TScrollControl
+    property OnViewPortPositionChanged;
+    property OnCustomToolTipEvent;
+    property OnStickyClick;
+
+    // TScrollControlWithRows
+    property SelectionType;
+    property Options;
+    property AllowNoneSelected;
+    property CanDragDrop;
+    property RowHeightFixed;
+    property RowHeightDefault;
+    property RowHeightMax;
+    property RowHeightSynchronizer;
+    {$IFNDEF WEBASSEMBLY}
+    property RowLoaded;
+    property RowAligned;
+    {$ENDIF}
+
+    // TScrollControlWithCells designer properties
     property Columns;
     property AutoFitColumns;
+    property AutoCenterTree;
+    property HeaderHeight;
+    property HeaderTextTopMargin;
+    property HeaderTextBottomMargin;
+    property AutoExtraColumnSizeMax;
+    property ScrollingHideColumnsFromIndex;
+    property CellTopBottomPadding;
+    property CellLeftRightPadding;
+    property PopupMenuClosed;
+    // TScrollControlWithCells designer events
+    property CellLoading;
+    property CellLoaded;
+    property CellFormatting;
+    property CellCanChange;
+    property CellChanging;
+    property CellChanged;
+    property CellSelected;
+    property SortingGetComparer;
+    property OnCompareRows;
+    property OnCompareColumnCells;
+    property OnColumnsChanged;
+    property OnTreePositioned;
+
+    // TScrollControlWithEditableCells
+    property EditRowStart;
+    property EditRowEnd;
+    property EditCellStart;
+    property EditCellEnd;
+    property CellParsing;
+    property CellCheckChanged;
+    property OnCopyToClipBoard;
+    property OnPasteFromClipBoard;
+    property RowAdding;
+    property RowDeleting;
+    property RowDeleted;
   end;
 
 

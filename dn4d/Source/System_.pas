@@ -1843,9 +1843,9 @@ type
   protected
     function AsType(const Value: &Type) : CObject; virtual;
     function QueryInterface(const IID: TGUID; out Obj): HResult; virtual; stdcall;
-    function _AddRef: Integer; virtual; stdcall;
-    function _Release: Integer; virtual; stdcall;
-  
+    function _AddRef: Integer; stdcall;
+    function _Release: Integer; stdcall;
+
   protected
     function  getRefCount: Integer;
     function  GetObject: TObject; virtual;

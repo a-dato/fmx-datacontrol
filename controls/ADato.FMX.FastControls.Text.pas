@@ -124,6 +124,7 @@ type
     procedure MouseMove(Shift: TShiftState; X, Y: Single); override;
     procedure MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Single); override;
     procedure MouseUp(Button: TMouseButton; Shift: TShiftState; X, Y: Single); override;
+    procedure SetVisible(const Value: Boolean); override;
 
   public
     constructor Create(AOwner: TComponent); override;
@@ -556,6 +557,12 @@ end;
 procedure TFastText.SetTextSettings(const Value: TTextSettings);
 begin
   _settings := Value;
+end;
+
+procedure TFastText.SetVisible(const Value: Boolean);
+begin
+  if Value <> GetVisible then
+    inherited;
 end;
 
 procedure TFastText.set_AutoWidth(const Value: Boolean);

@@ -63,7 +63,7 @@ type
   // checkbox behaviour
   protected
 //    _checkBoxUpdateCount: Integer;
-    procedure LoadDefaultDataIntoControl(const Cell: IDCTreeCell; const FlatColumn: IDCTreeLayoutColumn; const IsSubProp: Boolean); override;
+    procedure LoadDefaultDataIntoControl(const Cell: IDCTreeCell; const IsSubProp: Boolean); override;
     function  ProvideCellData(const Cell: IDCTreeCell; const PropName: CString; const IsSubProp: Boolean): CObject; override;
 
     procedure OnPropertyCheckBoxChange(Sender: TObject);
@@ -140,7 +140,8 @@ type
     property EditingInfo: ITreeEditingInfo read _editingInfo;
     property CellEditor: IDCCellEditor read _cellEditor;
 
-  published
+  public
+    // designer properties & events
     property EditRowStart: RowEditEvent read _editRowStart write _editRowStart;
     property EditRowEnd: RowEditEvent read _editRowEnd write _editRowEnd;
     property EditCellStart: StartEditEvent read _editCellStart write _editCellStart;
@@ -581,7 +582,7 @@ begin
   end;
 end;
 
-procedure TScrollControlWithEditableCells.LoadDefaultDataIntoControl(const Cell: IDCTreeCell; const FlatColumn: IDCTreeLayoutColumn; const IsSubProp: Boolean);
+procedure TScrollControlWithEditableCells.LoadDefaultDataIntoControl(const Cell: IDCTreeCell; const IsSubProp: Boolean);
 begin
   inc(_updateCount);
   try
@@ -1305,7 +1306,7 @@ begin
     begin
       // KV: 24/01/2025
       // Update the actual contents of the cell after the data in the cell has changed
-      LoadDefaultDataIntoControl(cell, cell.LayoutColumn, False);
+      LoadDefaultDataIntoControl(cell, False);
     end;
 
     _editingInfo.CellEditingFinished;

@@ -189,7 +189,6 @@
         <DCCReference Include="..\Tree\FMX.ScrollControl.WithEditableCells.Impl.pas"/>
         <DCCReference Include="..\Tree\FMX.ScrollControl.WithEditableCells.Intf.pas"/>
         <DCCReference Include="..\Tree\FMX.ScrollControl.WithCells.PopupMenu.pas"/>
-        <DCCReference Include="..\Tree\FMX.ScrollControl.DataControl.Intf.pas"/>
         <DCCReference Include="..\Tree\FMX.ScrollControl.DataControl.Impl.pas"/>
         <DCCReference Include="..\Tree\FMX.ScrollControl.DataControl.Binders.pas"/>
         <BuildConfiguration Include="Base">
@@ -1100,7 +1099,6 @@
                 <Platform value="Android64">False</Platform>
                 <Platform value="iOSDevice64">False</Platform>
                 <Platform value="iOSSimARM64">False</Platform>
-                <Platform value="Linux64">False</Platform>
                 <Platform value="OSX64">False</Platform>
                 <Platform value="OSXARM64">False</Platform>
                 <Platform value="Win32">True</Platform>
