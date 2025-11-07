@@ -156,7 +156,7 @@ type
 
     property AutoWidth: Boolean read _autoWidth write set_AutoWidth default False;
     property CalcAsAutoWidth: Boolean read _calcAsAutoWidth write set_CalcAsAutoWidth default False;
-    property CalcAsAutoHeight: Boolean read _calcAsAutoHeight write set_CalcAsAutoHeight default False;
+    property CalcAsAutoHeight: Boolean read _calcAsAutoHeight write set_CalcAsAutoHeight default True;
     property MaxWidth: Single write _maxWidth;
     property UnderlineOnHover: Boolean read _underlineOnHover write _underlineOnHover default False;
 
@@ -297,6 +297,8 @@ begin
   _subText := '';
   _subTextFontSize := 10;
   _subTextFontColor := TAlphaColors.Lightslategray;
+
+  _calcAsAutoHeight := True;
 end;
 
 destructor TFastText.Destroy;

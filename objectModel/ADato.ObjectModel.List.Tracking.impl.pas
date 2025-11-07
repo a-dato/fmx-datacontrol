@@ -363,7 +363,7 @@ begin
   begin
     var n :IListItemChanged;
     for n in _OnItemChanged do
-      n.CancelEdit(Context.Context);
+      n.CancelEdit(OriginalObject);
   end;
 end;
 

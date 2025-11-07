@@ -2452,10 +2452,17 @@ end;
 
 procedure TObjectListModelItemChangedDelegate.CancelEdit(const Item: CObject);
 begin
-  if (_UpdateCount = 0) then
+  var cancelHandled: Boolean := False;
+  if (_UpdateCount = 0) and _owner.IsEditOrNew then
+  begin
     _Owner.CancelEditFromExternal;
+    cancelHandled := True;
+  end;
 
   SetItemInCurrentView(Item);
+
+  if not cancelHandled then
+    _Owner.DoDataItemChangedInternal(Item);
 end;
 
 constructor TObjectListModelItemChangedDelegate.Create(const AOwner: TScrollControlWithEditableCells);

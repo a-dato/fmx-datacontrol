@@ -2704,7 +2704,7 @@ end;
 
 function TScrollControlWithCells.DoCreateNewRow: IDCRow;
 begin
-  Result := TDCTreeRow.Create;
+  Result := TDCTreeRow.Create(Self);
 end;
 
 function TScrollControlWithCells.DoCreateNewCell(const ARow: IDCRow; const LayoutColumn: IDCTreeLayoutColumn): IDCTreeCell;
@@ -2993,7 +2993,7 @@ begin
 
     if (TDCTreeOption.ShowHeaders in _options) then
     begin
-      _headerRow := TDCHeaderRow.Create;
+      _headerRow := TDCHeaderRow.Create(Self);
       _headerRow.DataIndex := -1;
       _headerRow.CreateHeaderControls(Self);
       {$IFNDEF WEBASSEMBLY}
@@ -4567,12 +4567,21 @@ begin
   end;
 
   var heightSet := True;
+  var availableCtrlWidth := get_Width - spaceUsed - (2*_treeControl.CellLeftRightPadding);
+
   if validSub then
   begin
     if Cell.CustomSubInfoControlBounds.IsEmpty then
     begin
-      Cell.SubInfoControl.Width := get_Width - spaceUsed - (2*_treeControl.CellLeftRightPadding);
-      Cell.SubInfoControl.Position.X := spaceUsed + _treeControl.CellLeftRightPadding + Cell.SubInfoControl.Margins.Left;
+      if not Cell.IsHeaderCell and (Cell.Column.SubInfoControlClass = TInfoControlClass.CheckBox) then
+      begin
+        Cell.SubInfoControl.Width := 16;
+        Cell.SubInfoControl.Position.X := spaceUsed + _treeControl.CellLeftRightPadding + ((availableCtrlWidth - Cell.SubInfoControl.Width) / 2);
+      end else
+      begin
+        Cell.SubInfoControl.Width := availableCtrlWidth;
+        Cell.SubInfoControl.Position.X := spaceUsed + _treeControl.CellLeftRightPadding + Cell.SubInfoControl.Margins.Left;
+      end;
 
       heightSet := False;
     end else
@@ -4583,8 +4592,15 @@ begin
   begin
     if Cell.CustomInfoControlBounds.IsEmpty then
     begin
-      Cell.InfoControl.Width := get_Width - spaceUsed - (2*_treeControl.CellLeftRightPadding);
-      Cell.InfoControl.Position.X := spaceUsed + _treeControl.CellLeftRightPadding + Cell.InfoControl.Margins.Left;
+      if not Cell.IsHeaderCell and (Cell.Column.InfoControlClass = TInfoControlClass.CheckBox) then
+      begin
+        Cell.InfoControl.Width := 16;
+        Cell.InfoControl.Position.X := spaceUsed + _treeControl.CellLeftRightPadding + ((availableCtrlWidth - Cell.InfoControl.Width) / 2);
+      end else
+      begin
+        Cell.InfoControl.Width := get_Width - spaceUsed - (2*_treeControl.CellLeftRightPadding);
+        Cell.InfoControl.Position.X := spaceUsed + _treeControl.CellLeftRightPadding + Cell.InfoControl.Margins.Left;
+      end;
 
       heightSet := False;
     end else
@@ -4612,6 +4628,18 @@ begin
 
     ctrl.Height := ctrlHeight - (2*_treeControl.CellTopBottomPadding);
     ctrl.Position.Y := startPosY + _treeControl.CellTopBottomPadding;
+
+    if Cell.IsHeaderCell and validMain then
+    begin
+      var txt := TFastText(Cell.InfoControl);
+      if txt.Height < txt.TextHeight then
+      begin
+        txt.Position.Y := CMath.Max(0, (Cell.Control.Height - txt.TextHeight)/2);
+        txt.Padding.Top := 0;
+        txt.Height := txt.TextHeight;
+      end;
+    end;
+
     Exit;
   end;
 

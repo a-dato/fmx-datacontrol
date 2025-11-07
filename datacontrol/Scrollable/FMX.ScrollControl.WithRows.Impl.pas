@@ -117,6 +117,7 @@ type
     procedure set_TopRow(const Value: Integer);
     function  get_IsPrinting: Boolean;
     procedure set_IsPrinting(const Value: Boolean);
+    function  get_IsScrolling: Boolean;
     function  get_DataItem: CObject;
     procedure set_DataItem(const Value: CObject);
 
@@ -198,7 +199,6 @@ type
     procedure SetBasicVertScrollBarValues; override;
     procedure BeforePainting; override;
 
-    function  ScrollControlIsScrolling: Boolean;
     function  ScrollControlIsFastScrolling: Boolean;
 
     function  DoCreateNewRow: IDCRow; virtual;
@@ -347,6 +347,7 @@ type
     property Current: Integer read get_Current write set_Current;
     property TopRow: Integer read get_TopRow write set_TopRow;
     property IsPrinting: Boolean read get_IsPrinting write set_IsPrinting;
+    property IsScrolling: Boolean read get_IsScrolling;
     property DataItem: CObject read get_DataItem write set_DataItem;
 
     property View: IDataViewList read get_View;
@@ -374,6 +375,7 @@ type
 
   TDCRow = class(TBaseInterfacedObject, IDCRow)
   protected
+    _rowsControl: IRowsControl;
     _dataItem: CObject;
     _convertedDataItem: CObject;
     _dataIndex: Integer;
@@ -384,10 +386,9 @@ type
     _control: TControl;
     _enabled: Boolean;
 
-    _ownerIsScrolling: Boolean;
-
     _customTag: CObject;
 
+    function  get_RowsControl: IRowsControl;
     function  get_DataIndex: Integer;
     procedure set_DataIndex(const Value: Integer);
     function  get_DataItem: CObject;
@@ -404,8 +405,6 @@ type
     function  get_IsHeaderRow: Boolean; virtual;
     function  get_Enabled: Boolean;
     procedure set_Enabled(const Value: Boolean);
-    function  get_OwnerIsScrolling: Boolean;
-    procedure set_OwnerIsScrolling(const Value: Boolean); virtual;
     function  get_CustomTag: CObject;
     procedure set_CustomTag(const Value: CObject);
 
@@ -417,7 +416,8 @@ type
     procedure UpdateSelectionRect(OwnerIsFocused: Boolean);
 
   public
-    constructor Create; reintroduce;
+    constructor Create(const RowsControl: IRowsControl); reintroduce;
+
     destructor Destroy; override;
 
     procedure UpdateSelectionVisibility(const SelectionInfo: IRowSelectionInfo; OwnerIsFocused: Boolean); virtual;
@@ -627,7 +627,7 @@ end;
 
 function TScrollControlWithRows.DoCreateNewRow: IDCRow;
 begin
-  Result := TDCRow.Create;
+  Result := TDCRow.Create(Self);
 end;
 
 procedure TScrollControlWithRows.DoDataItemChanged(const DataItem: CObject; const DataIndex: Integer);
@@ -887,18 +887,11 @@ begin
   {$ENDIF}
 end;
 
-function TScrollControlWithRows.ScrollControlIsScrolling: Boolean;
-begin
-  Result := (_scrollingType <> TScrollingType.None);
-  if not Result and (_rowHeightSynchronizer <> nil) then
-    Result := (_rowHeightSynchronizer._scrollingType <> TScrollingType.None);
-end;
-
 function TScrollControlWithRows.ScrollControlIsFastScrolling: Boolean;
 begin
-  Result := ScrollControlIsScrolling and ScrollingWasActivePreviousRealign;
+  Result := IsScrolling and ScrollingWasActivePreviousRealign;
   if not Result and (_rowHeightSynchronizer <> nil) then
-    Result := _rowHeightSynchronizer.ScrollControlIsScrolling and _rowHeightSynchronizer.ScrollingWasActivePreviousRealign;
+    Result := _rowHeightSynchronizer.IsScrolling and _rowHeightSynchronizer.ScrollingWasActivePreviousRealign;
 end;
 
 procedure TScrollControlWithRows.TriggerFilterOrSortChanged(FilterChanged, SortChanged: Boolean);
@@ -1496,6 +1489,13 @@ begin
   Result := _isPrinting;
 end;
 
+function TScrollControlWithRows.get_IsScrolling: Boolean;
+begin
+  Result := (_scrollingType <> TScrollingType.None);
+  if not Result and (_rowHeightSynchronizer <> nil) then
+    Result := (_rowHeightSynchronizer._scrollingType <> TScrollingType.None);
+end;
+
 function TScrollControlWithRows.get_Model: IObjectListModel;
 begin
   Result := _model;
@@ -2010,7 +2010,7 @@ end;
 procedure TScrollControlWithRows.InitRow(const Row: IDCRow; const IsAboveRefRow: Boolean = False);
 begin
   var rowInfo := _view.RowLoadedInfo(Row.ViewListIndex);
-  var rowNeedsReload := Row.IsScrollingIntoView or not rowInfo.InnerCellsAreApplied or (rowInfo.ControlNeedsResizeSoft and (_scrollingType <> TScrollingType.WithScrollBar));
+  var rowNeedsReload := IsPrinting or Row.IsScrollingIntoView or not rowInfo.InnerCellsAreApplied or (rowInfo.ControlNeedsResizeSoft and (_scrollingType <> TScrollingType.WithScrollBar));
 
   var oldRowHeight: Single := -1;
 
@@ -2024,8 +2024,6 @@ begin
   end
   else if rowNeedsReload then
     oldRowHeight := _view.GetRowHeight(Row.ViewListIndex);
-
-  Row.OwnerIsScrolling := _scrollingType <> TScrollingType.None;
 
   if rowNeedsReload then
   begin
@@ -3458,9 +3456,10 @@ begin
   UpdateControlVisibility;
 end;
 
-constructor TDCRow.Create;
+constructor TDCRow.Create(const RowsControl: IRowsControl);
 begin
   inherited Create;
+  _rowsControl := RowsControl;
   _virtualYPosition := -1;
   _enabled := True;
 end;
@@ -3518,9 +3517,9 @@ begin
   Result := False
 end;
 
-function TDCRow.get_OwnerIsScrolling: Boolean;
+function TDCRow.get_RowsControl: IRowsControl;
 begin
-  Result := _ownerIsScrolling
+  Result := _rowsControl;
 end;
 
 function TDCRow.get_VirtualYPosition: Single;
@@ -3644,11 +3643,6 @@ end;
 procedure TDCRow.set_Enabled(const Value: Boolean);
 begin
   _enabled := Value;
-end;
-
-procedure TDCRow.set_OwnerIsScrolling(const Value: Boolean);
-begin
-  _ownerIsScrolling := Value;
 end;
 
 procedure TDCRow.set_VirtualYPosition(const Value: Single);
