@@ -2704,7 +2704,7 @@ end;
 
 function TScrollControlWithCells.DoCreateNewRow: IDCRow;
 begin
-  Result := TDCTreeRow.Create;
+  Result := TDCTreeRow.Create(Self);
 end;
 
 function TScrollControlWithCells.DoCreateNewCell(const ARow: IDCRow; const LayoutColumn: IDCTreeLayoutColumn): IDCTreeCell;
@@ -2993,7 +2993,7 @@ begin
 
     if (TDCTreeOption.ShowHeaders in _options) then
     begin
-      _headerRow := TDCHeaderRow.Create;
+      _headerRow := TDCHeaderRow.Create(Self);
       _headerRow.DataIndex := -1;
       _headerRow.CreateHeaderControls(Self);
       {$IFNDEF WEBASSEMBLY}
@@ -4259,8 +4259,12 @@ begin
       if resetProp or (prop = nil) then
       begin
         prop := _cachedType.PropertyByName(PropName);
+
+        // KV 06/11: Don't want an error when property does not exist.
+        //        if prop = nil then
+        //          Assert(prop <> nil, 'Please make sure property is published and {M+} is assigned');
         if prop = nil then
-          Assert(prop <> nil, 'Please make sure property is published and {M+} is assigned');
+          Exit;
 
         if not IsSubProp then
           _cachedProp := prop else
