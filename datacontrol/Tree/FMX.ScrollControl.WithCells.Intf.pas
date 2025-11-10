@@ -13,7 +13,6 @@ uses
   FMX.Graphics, 
   FMX.ImgList, 
   FMX.Layouts,
-  System.ComponentModel,
   FMX.ActnList,
   FMX.Objects,
   {$ELSE}
@@ -24,12 +23,12 @@ uses
   Wasm.FMX.StdCtrls,
   Wasm.FMX.Graphics,
   Wasm.FMX.Layouts,
-  Wasm.System.ComponentModel,
   {$ENDIF}
   System_,
   System.Collections.Generic,
   System.Collections,
   System.Collections.Specialized,
+  ADato.ComponentModel,
   FMX.ScrollControl.WithRows.Intf;
 
 type

@@ -7,8 +7,10 @@ unit ADato.ObjectModel.List.Tracking.impl;
 interface
 
 uses
-  {$IFDEF DELPHI}
+  {$IFNDEF WEBASSEMBLY}
   System.SysUtils,
+  {$ELSE}
+  Wasm.System.SysUtils,
   {$ENDIF}
   System_,
   System.Collections,

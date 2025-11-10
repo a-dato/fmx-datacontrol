@@ -7,9 +7,12 @@ unit ADato.TraceEvents.intf;
 interface
 
 uses
-  {$IFDEF DELPHI}
+  {$IFNDEF WEBASSEMBLY}
   System.Classes, 
   System.SysUtils,
+  {$ELSE}
+  Wasm.System.Classes,
+  Wasm.System.SysUtils,
   {$ENDIF}
   System_;
 

@@ -8,7 +8,6 @@ uses
   System.SysUtils,
   System.Classes,
   FMX.Objects,
-  System.ComponentModel,
   System.UITypes,
   System.Types,
   FMX.Graphics,
@@ -17,7 +16,6 @@ uses
   Wasm.System.SysUtils,
   Wasm.System.Classes,
   Wasm.FMX.Objects,
-  Wasm.System.ComponentModel,
   Wasm.System.UITypes,
   Wasm.System.Types,
   {$ENDIF}
@@ -25,6 +23,7 @@ uses
   FMX.ScrollControl.WithRows.Intf,
   System.Collections,
   System.Collections.Generic,
+  ADato.ComponentModel,
   FMX.ScrollControl.Intf,
   FMX.ScrollControl.Impl, ADato.Data.DataModel.intf,
   ADato.ObjectModel.List.intf, ADato.ObjectModel.intf,

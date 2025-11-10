@@ -13,9 +13,9 @@ uses
   Wasm.System.Classes,
   Wasm.FMX.Types,
   Wasm.System.UITypes,
-  Wasm.System.ComponentModel,
   {$ENDIF}
   System_,
+  ADato.ComponentModel,
   FMX.ScrollControl.WithCells.Impl,
   FMX.ScrollControl.WithEditableCells.Intf, ADato.ObjectModel.TrackInterfaces,
   System.ComponentModel, ADato.InsertPosition, FMX.ScrollControl.WithCells.Intf,

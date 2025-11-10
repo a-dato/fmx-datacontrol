@@ -10,13 +10,11 @@ uses
   {$IFNDEF WEBASSEMBLY}
   System.Classes,
   System.Generics.Defaults,
-  System.ComponentModel,
-  {$ELSE}
-  Wasm.System.ComponentModel,
   {$ENDIF}
   System_,
   System.Collections,
   System.Collections.Generic,
+  ADato.ComponentModel,
   ADato.Sortable.Intf;
 
 type

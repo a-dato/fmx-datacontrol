@@ -18,12 +18,10 @@ uses
   Generics.Defaults,
   System.Collections.ListInterface.impl,
   //System.Reflection,
-  ADato.ComponentModel,
   //System.ComponentModel,
   {$ELSE}
   Wasm.System.SysUtils,
   ADato.TypeCustomization,
-  Wasm.System.ComponentModel,
   {$ENDIF}
   System_,
   System.Runtime.Serialization,
@@ -31,6 +29,7 @@ uses
   System.Collections.Generic,
   System.Collections.Specialized,
   System.ComponentModel,
+  ADato.ComponentModel,
 
   ADato.Collections.Specialized,
   ADato.Parser.intf,
@@ -4134,7 +4133,7 @@ begin
       {$IFDEF DELPHI}
       var l := FillRangeWithFunc(i, c, get_RowProperties);
       {$ELSE}
-      l := FillRangeWithFunc(i, c, @get_RowProperties);
+      var l := FillRangeWithFunc(i, c, @get_RowProperties);
       {$ENDIF}
 
       Rows.InsertRange(drv.ViewIndex + 1, l);

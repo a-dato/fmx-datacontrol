@@ -5,12 +5,13 @@ unit ADato.Controls.Tree.Intf;
 interface
 
 uses
-{$IFDEF DELPHI}
+  {$IFNDEF DOTNET}
   Messages,
   System_,
   System.Collections,
   System.Collections.Generic,
   System.ComponentModel,
+  ADato.ComponentModel,
   System.Reflection,
   ADato.Components.Css.intf,
   ADato.Data.DataModel.intf,
@@ -18,7 +19,7 @@ uses
   System.Windows.Forms,
   System.DragDrop.Intf,
   Generics.Defaults, System.JSON, ADato.InsertPosition;
-{$ELSE}
+  {$ELSE}
   System.Collections.Generic,
   System.Drawing,
   System.Windows.Forms,
@@ -28,7 +29,7 @@ uses
   ADato.Graphics,
   ADato.DataModel,
   ADato.Css;
-{$ENDIF}
+  {$ENDIF}
 
 const
   LM_RELEASEEDITOR = WM_USER + 1; // Notify Tree control that edit box must be released

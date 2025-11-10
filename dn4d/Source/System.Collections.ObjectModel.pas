@@ -8,7 +8,8 @@ uses
   System_,
   System.Collections,
   System.Collections.Specialized,
-  System.ComponentModel
+  System.ComponentModel,
+  ADato.ComponentModel
 {$IFDEF DELPHI9_UP}
   ,
   System.Collections.Generic,

@@ -5,12 +5,11 @@ interface
 uses
   {$IFNDEF WEBASSEMBLY}
   System.Generics.Defaults,
-  {$ELSE}
-  Wasm.System.ComponentModel,
   {$ENDIF}
   System_,
   System.ComponentModel,
   System.Collections.Generic,
+  ADato.ComponentModel,
   FMX.ScrollControl.View.Intf,
   FMX.ScrollControl.WithRows.Intf,
   FMX.ScrollControl.WithCells.Intf,

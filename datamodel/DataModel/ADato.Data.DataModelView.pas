@@ -47,6 +47,7 @@ type
 
 
 implementation
+
 uses
   ADato.ComponentModel,
   ADato.Data.DataModel.impl;
