@@ -261,8 +261,8 @@ begin
 
   var newInstance := CreateInstance;
 
-  var locationRow: IDataRow;
-  if not Location.TryAsType<IDataRow>(locationRow) then
+  var locationRow: IDataRow := nil;
+  if (Location <> nil) and not Location.TryAsType<IDataRow>(locationRow) then
     locationRow := _dataModel.FindByKey(Location);
 
   var index := -1;
