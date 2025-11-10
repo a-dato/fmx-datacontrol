@@ -1217,7 +1217,9 @@ end;
 
 function TScrollControlWithEditableCells.EditActiveCell(SetFocus: Boolean; const UserValue: string = ''): Boolean;
 begin
-  StartEditCell(GetActiveCell, UserValue);
+  var cell := GetActiveCell;
+  if CanEditCell(cell) then
+    StartEditCell(GetActiveCell, UserValue);
 
   Result := _cellEditor <> nil;
   if Result and SetFocus then

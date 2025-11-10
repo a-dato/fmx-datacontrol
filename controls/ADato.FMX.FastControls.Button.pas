@@ -32,7 +32,7 @@ uses
   Wasm.FMX.Graphics,
   Wasm.System.ImageList,
   {$ENDIF}
-  System_;
+  System_, ADato.FMX.FastControls.Text;
 
 type
   TButtonType = (None, Positive, Negative, Emphasized);
@@ -225,6 +225,7 @@ type
     _contentHorzAlign: TTextAlign;
 
     _imagesLink: TImageLink;
+    _additionalText: CString;
 
     procedure set_ButtonType(const Value: TButtonType);
     procedure set_EmphasizePicture(const Value: Boolean);
@@ -242,6 +243,7 @@ type
     function  get_ContentHorzAlign: TTextAlign;
     procedure set_ContentHorzAlign(const Value: TTextAlign);
     procedure set_Images(const Value: TCustomImageList);
+    procedure set_AdditionalText(const Value: CString);
 
   protected
     function  get_Images: TCustomImageList; override;
@@ -284,6 +286,7 @@ type
 
     procedure DoExternalClick;
 
+    property AdditionalText: CString write set_AdditionalText;
     property IsChecked: Boolean read GetIsChecked write SetIsChecked;
 
   published
@@ -314,13 +317,12 @@ uses
   {$IFNDEF WEBASSEMBLY}
   System.Math,
   System.Actions, 
-  FMX.Controls, 
+  FMX.Controls
   {$ELSE}
   Wasm.System.Math,
   Wasm.System.Actions,
-  Wasm.FMX.Controls, 
-  {$ENDIF}
-  ADato.FMX.FastControls.Text;
+  Wasm.FMX.Controls
+  {$ENDIF};
 
 { TADatoClickLayout }
 
@@ -1034,14 +1036,25 @@ begin
     Canvas.DrawRect(rect, 3, 3, AllCorners, GetPaintOpacity);
   end;
 
-//  Canvas.Fill.Color := TAlphaColors.Blue;
-//  Canvas.FillRect(_innerBounds, 0.6);
-//
-//  Canvas.Fill.Color := TAlphaColors.Green;
-//  Canvas.FillRect(get_ImageBounds, 0.6);
-//
-//  Canvas.Fill.Color := TAlphaColors.Orange;
-//  Canvas.FillRect(get_TextBounds, 0.6);
+  if not CString.IsNullOrEmpty(_additionalText) then
+  begin
+    var add := _imageBounds.Top/2;
+    var rightPoint := PointF(_imageBounds.Right-6, 0);
+
+    var bounds := RectF(rightPoint.X, rightPoint.Y, rightPoint.X+12, rightPoint.Y+12);
+
+    var oldFont := Canvas.Font.Size;
+    var oldStyle := Canvas.Font.Style;
+    try
+      Canvas.Font.Size := 9;
+      Canvas.Font.Style := Canvas.Font.Style + [TFontStyle.fsBold];
+      Canvas.Fill.Color := TAlphaColors.Orangered;
+      Canvas.FillText(bounds, _additionalText, False, GetPaintOpacity, [], TTextAlign.Trailing, TTextAlign.Center);
+    finally
+      Canvas.Font.Size := oldFont;
+      Canvas.Font.Style := oldStyle;
+    end;
+  end;
 end;
 
 procedure TFastButton.DoResized;
@@ -1223,6 +1236,15 @@ begin
   begin
     _ButtonType := Value;
     RepaintNeeded;
+  end;
+end;
+
+procedure TFastButton.set_AdditionalText(const Value: CString);
+begin
+  if _additionalText <> Value then
+  begin
+    _additionalText := Value;
+    RecalcNeeded;
   end;
 end;
 
