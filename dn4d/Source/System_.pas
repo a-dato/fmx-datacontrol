@@ -268,6 +268,7 @@ type
     function  GetMethod(const AName: string): TRttiMethod;
     function  GetMethods: TArray<TRttiMethod>;
     function  IsArray: Boolean;
+    function  IsBoolean: Boolean;
     function  IsDateTime: Boolean;
     function  IsInterfaceType: Boolean;
     function  IsObjectType: Boolean;
@@ -4452,6 +4453,11 @@ end;
 function &Type.IsMethod: Boolean;
 begin
   Result := GetTypeCode(GetTypeInfo) = TypeCode.Method;
+end;
+
+function &Type.IsBoolean: Boolean;
+begin
+  Result := GetTypeCode(GetTypeInfo) = TypeCode.Boolean;
 end;
 
 function &Type.IsEnum: Boolean;

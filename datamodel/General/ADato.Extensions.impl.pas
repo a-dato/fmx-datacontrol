@@ -36,7 +36,7 @@ type
 
     class var _ExtentionManagers: Dictionary<TGUID, IExtensionManager>;
   protected
-    procedure ClearCacheEntry(const AType: &Type);
+    procedure ClearCache;
 
     // IExtensionManager
     function  HasCustomProperties(const AType: &Type): Boolean;
@@ -293,29 +293,11 @@ begin
   end;
 end;
 
-procedure TExtensionManager.ClearCacheEntry(const AType: &Type);
+procedure TExtensionManager.ClearCache;
 begin
   MonitorEnter(TObject(_ExtentionManagers));
   try
-    var baseType := AType;
-    {$IFDEF DOTNET}
-    var baseInterfaces := baseType.GetInterfaces;
-    var n := 0;
-    {$ENDIF}
-    while baseType <> nil do
-    begin
-      if _CachedProperties.ContainsKey(baseType) then
-        _CachedProperties.Remove(baseType);
-
-      {$IFDEF DELPHI}
-      baseType := baseType.BaseType;
-      {$ELSE}
-      if n = baseInterfaces.Length then
-        baseType := nil else
-        baseType := baseInterfaces[n];
-      inc(n);
-      {$ENDIF}
-    end;
+    _CachedProperties.Clear;
   finally
     MonitorExit(TObject(_ExtentionManagers));
   end;
@@ -361,7 +343,7 @@ begin
       raise Exception.Create('Scheduleserver requires an internal Manager');
     {$ENDIF}
 
-    ClearCacheEntry(AType);
+    ClearCache;
 
     var ex_props: PropertyInfoArray;
     _ObjectExtendedProperties.TryGetValue(AType, ex_props);
@@ -390,7 +372,7 @@ begin
       raise Exception.Create('Scheduleserver requires an internal Manager');
     {$ENDIF}
 
-    ClearCacheEntry(AType);
+    ClearCache;
     _ObjectExtendedProperties[AType] := Properties;
   finally
     MonitorExit(TObject(_ExtentionManagers));
