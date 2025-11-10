@@ -124,6 +124,7 @@ type
     procedure MouseMove(Shift: TShiftState; X, Y: Single); override;
     procedure MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Single); override;
     procedure MouseUp(Button: TMouseButton; Shift: TShiftState; X, Y: Single); override;
+    procedure SetVisible(const Value: Boolean); override;
 
   public
     constructor Create(AOwner: TComponent); override;
@@ -155,7 +156,7 @@ type
 
     property AutoWidth: Boolean read _autoWidth write set_AutoWidth default False;
     property CalcAsAutoWidth: Boolean read _calcAsAutoWidth write set_CalcAsAutoWidth default False;
-    property CalcAsAutoHeight: Boolean read _calcAsAutoHeight write set_CalcAsAutoHeight default False;
+    property CalcAsAutoHeight: Boolean read _calcAsAutoHeight write set_CalcAsAutoHeight default True;
     property MaxWidth: Single write _maxWidth;
     property UnderlineOnHover: Boolean read _underlineOnHover write _underlineOnHover default False;
 
@@ -296,6 +297,8 @@ begin
   _subText := '';
   _subTextFontSize := 10;
   _subTextFontColor := TAlphaColors.Lightslategray;
+
+  _calcAsAutoHeight := True;
 end;
 
 destructor TFastText.Destroy;
@@ -556,6 +559,12 @@ end;
 procedure TFastText.SetTextSettings(const Value: TTextSettings);
 begin
   _settings := Value;
+end;
+
+procedure TFastText.SetVisible(const Value: Boolean);
+begin
+  if Value <> GetVisible then
+    inherited;
 end;
 
 procedure TFastText.set_AutoWidth(const Value: Boolean);

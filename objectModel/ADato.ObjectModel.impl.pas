@@ -711,7 +711,7 @@ end;
 {$IFDEF APP_PLATFORM}
 constructor TObjectModelPropertyWrapper.Create(const AProperty: _PropertyInfo);
 begin
-  inherited;
+  inherited Create(AProperty);
   FBindings := CList<IPropertyBinding>.Create;
 end;
 

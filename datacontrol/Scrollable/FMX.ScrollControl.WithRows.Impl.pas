@@ -107,10 +107,21 @@ type
 
   // public property variables
   private
+    _topRow: Integer;
+    _isPrinting: Boolean;
+
     function  get_Current: Integer;
     procedure set_Current(const Value: Integer);
+    function  get_TopRow: Integer;
+    procedure set_TopRow(const Value: Integer);
+    function  get_IsPrinting: Boolean;
+    procedure set_IsPrinting(const Value: Boolean);
+    function  get_IsScrolling: Boolean;
     function  get_DataItem: CObject;
     procedure set_DataItem(const Value: CObject);
+
+//    function  RequestedOrActualCurrent: Integer;
+    function  RequestedOrActualDataItem: CObject;
 
   // row calculations
   private
@@ -146,6 +157,10 @@ type
     _mustShowSelectionInRealign: Boolean;
 
     _multiSelectSorter: ITreeSortDescription;
+
+    // Used when printing this control and we're on the last page
+    // and the viewportsize needs to be adjusted in order to set _vertScrollBar.Value.
+    _manualContentHeight: Single;
 
     function  HasUpdateCount: Boolean;
     function  HasInternalSelectCount: Boolean;
@@ -183,7 +198,6 @@ type
     procedure SetBasicVertScrollBarValues; override;
     procedure BeforePainting; override;
 
-    function  ScrollControlIsScrolling: Boolean;
     function  ScrollControlIsFastScrolling: Boolean;
 
     function  DoCreateNewRow: IDCRow; virtual;
@@ -266,6 +280,8 @@ type
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
 
+    function  FitRowsDownwards(StartIndex: Integer): Integer;
+
     // drag & drop
     procedure BeginDrag;
 
@@ -328,13 +344,17 @@ type
     property DataModelView: IDataModelView read get_DataModelView write set_DataModelView;
 
     property Current: Integer read get_Current write set_Current;
+    property TopRow: Integer read get_TopRow write set_TopRow;
+    property IsPrinting: Boolean read get_IsPrinting write set_IsPrinting;
+    property IsScrolling: Boolean read get_IsScrolling;
     property DataItem: CObject read get_DataItem write set_DataItem;
 
     property View: IDataViewList read get_View;
     property NotSelectableItems: IList read get_NotSelectableItems write set_NotSelectableItems;
     property ItemType: &Type read _itemType write _itemType;
 
-  published
+  public
+    // designer properties & events
     property SelectionType: TSelectionType read get_SelectionType write set_SelectionType default RowSelection;
     property Options: TDCTreeOptions read _options write set_Options;
     property AllowNoneSelected: Boolean read _allowNoneSelected write set_AllowNoneSelected default False;
@@ -354,6 +374,7 @@ type
 
   TDCRow = class(TBaseInterfacedObject, IDCRow)
   protected
+    [unsafe] _rowsControl: IRowsControl;
     _dataItem: CObject;
     _convertedDataItem: CObject;
     _dataIndex: Integer;
@@ -364,10 +385,9 @@ type
     _control: TControl;
     _enabled: Boolean;
 
-    _ownerIsScrolling: Boolean;
-
     _customTag: CObject;
 
+    function  get_RowsControl: IRowsControl;
     function  get_DataIndex: Integer;
     procedure set_DataIndex(const Value: Integer);
     function  get_DataItem: CObject;
@@ -384,8 +404,6 @@ type
     function  get_IsHeaderRow: Boolean; virtual;
     function  get_Enabled: Boolean;
     procedure set_Enabled(const Value: Boolean);
-    function  get_OwnerIsScrolling: Boolean;
-    procedure set_OwnerIsScrolling(const Value: Boolean); virtual;
     function  get_CustomTag: CObject;
     procedure set_CustomTag(const Value: CObject);
 
@@ -397,7 +415,8 @@ type
     procedure UpdateSelectionRect(OwnerIsFocused: Boolean);
 
   public
-    constructor Create; reintroduce;
+    constructor Create(const RowsControl: IRowsControl); reintroduce;
+
     destructor Destroy; override;
 
     procedure UpdateSelectionVisibility(const SelectionInfo: IRowSelectionInfo; OwnerIsFocused: Boolean); virtual;
@@ -607,7 +626,7 @@ end;
 
 function TScrollControlWithRows.DoCreateNewRow: IDCRow;
 begin
-  Result := TDCRow.Create;
+  Result := TDCRow.Create(Self);
 end;
 
 procedure TScrollControlWithRows.DoDataItemChanged(const DataItem: CObject; const DataIndex: Integer);
@@ -867,18 +886,11 @@ begin
   {$ENDIF}
 end;
 
-function TScrollControlWithRows.ScrollControlIsScrolling: Boolean;
-begin
-  Result := (_scrollingType <> TScrollingType.None);
-  if not Result and (_rowHeightSynchronizer <> nil) then
-    Result := (_rowHeightSynchronizer._scrollingType <> TScrollingType.None);
-end;
-
 function TScrollControlWithRows.ScrollControlIsFastScrolling: Boolean;
 begin
-  Result := ScrollControlIsScrolling and ScrollingWasActivePreviousRealign;
+  Result := IsScrolling and ScrollingWasActivePreviousRealign;
   if not Result and (_rowHeightSynchronizer <> nil) then
-    Result := _rowHeightSynchronizer.ScrollControlIsScrolling and _rowHeightSynchronizer.ScrollingWasActivePreviousRealign;
+    Result := _rowHeightSynchronizer.IsScrolling and _rowHeightSynchronizer.ScrollingWasActivePreviousRealign;
 end;
 
 procedure TScrollControlWithRows.TriggerFilterOrSortChanged(FilterChanged, SortChanged: Boolean);
@@ -1081,6 +1093,11 @@ begin
   Result := _selectionType;
 end;
 
+function TScrollControlWithRows.get_TopRow: Integer;
+begin
+  Result := _topRow;
+end;
+
 function TScrollControlWithRows.get_View: IDataViewList;
 begin
   Result := _view;
@@ -1181,19 +1198,11 @@ end;
 
 function TScrollControlWithRows.get_Current: Integer;
 begin
-  // check if a dataitem just has been set, but no realigncontent has been done yet
-  if (_waitForRepaintInfo <> nil) and (TTreeRowState.RowChanged in _waitForRepaintInfo.RowStateFlags) then
-    ForceImmeditiateRealignContent;
-
   Result := _selectionInfo.ViewListIndex;
 end;
 
 function TScrollControlWithRows.get_DataItem: CObject;
 begin
-  // check if a dataitem just has been set, but no realigncontent has been done yet
-  if (_waitForRepaintInfo <> nil) and (TTreeRowState.RowChanged in _waitForRepaintInfo.RowStateFlags) then
-    ForceImmeditiateRealignContent;
-
   Result := _selectionInfo.DataItem;
 end;
 
@@ -1396,6 +1405,37 @@ begin
   Result := (_view <> nil) and (_view.GetFilterDescriptions <> nil) and (_view.GetFilterDescriptions.Count > 0)
 end;
 
+function TScrollControlWithRows.FitRowsDownwards(StartIndex: Integer): Integer;
+var
+  availableHeight: Integer;
+  virtualY: Single;
+  dataItem: CObject;
+begin
+  Result := 0;
+
+  if (StartIndex < 0) or (_View = nil) then
+    Exit;
+
+  availableHeight := Round(_Content.BoundsRect.Height);
+
+  if StartIndex >= (_View.GetViewList.Count) then Exit;
+
+  var vertScrollbarValue := _vertScrollBar.Value;
+  var vertScrollbarViewportSize := _vertScrollBar.ViewportSize;
+
+  _View.GetSlowPerformanceRowInfo(StartIndex, dataItem, virtualY);
+  Inc(_scrollUpdateCount);
+  try
+    _vertScrollBar.Value := virtualY;
+    _vertScrollBar.ViewportSize := availableHeight;
+  finally
+    Dec(_scrollUpdateCount);
+  end;
+
+  DoRealignContent;
+  Result := _View.ActiveViewRows.Count;
+end;
+
 constructor TScrollControlWithRows.Create(AOwner: TComponent);
 begin
   inherited;
@@ -1404,6 +1444,7 @@ begin
 
   _selectionInfo := CreateSelectionInfoInstance;
   _rowHeightDefault := 30;
+  _manualContentHeight := -1;
 
   _options := [TreeOption_ShowHeaders, TreeOption_ShowHeaderGrid];
 
@@ -1440,6 +1481,18 @@ end;
 function TScrollControlWithRows.get_DataModelView: IDataModelView;
 begin
   Result := _dataModelView;
+end;
+
+function TScrollControlWithRows.get_IsPrinting: Boolean;
+begin
+  Result := _isPrinting;
+end;
+
+function TScrollControlWithRows.get_IsScrolling: Boolean;
+begin
+  Result := (_scrollingType <> TScrollingType.None);
+  if not Result and (_rowHeightSynchronizer <> nil) then
+    Result := (_rowHeightSynchronizer._scrollingType <> TScrollingType.None);
 end;
 
 function TScrollControlWithRows.get_Model: IObjectListModel;
@@ -1561,6 +1614,11 @@ begin
     data := _dataModelView.DataModel.Rows as IList;
 
   set_DataList(data);
+end;
+
+procedure TScrollControlWithRows.set_IsPrinting(const Value: Boolean);
+begin
+  _isPrinting := Value;
 end;
 
 procedure TScrollControlWithRows.set_Model(const Value: IObjectListModel);
@@ -1762,17 +1820,31 @@ end;
 
 procedure TScrollControlWithRows.ModelContextChanged(const Sender: IObjectModelContext; const Context: CObject);
 begin
-  if HasInternalSelectCount or (_previousHardAssignedDataModelView <> nil) then
+  if HasInternalSelectCount then
     Exit;
 
-  var dItem := get_DataItem;
+  var dItem := _selectionInfo.DataItem;
 
   var drv: IDataRowView;
   if dItem.TryAsType<IDataRowView>(drv) then
     dItem := drv.Row.Data;
 
-  if not CObject.Equals(dItem, Context) then
-    set_DataItem(Context);
+  if CObject.Equals(dItem, Context) then
+    Exit;
+
+  if (Context = nil) then
+  begin
+    set_DataItem(nil);
+    Exit;
+  end;
+
+//  if _previousHardAssignedDataModelView <> nil then
+//  begin
+//    var dr := GetDataModel.FindByKey(Context);
+//    GetDataModelView.MakeRowVisible(dr);
+//  end;
+
+  set_DataItem(Context);
 end;
 
 procedure TScrollControlWithRows.ModelContextPropertyChanged(const Sender: IObjectModelContext; const Context: CObject; const AProperty: _PropertyInfo);
@@ -1937,7 +2009,7 @@ end;
 procedure TScrollControlWithRows.InitRow(const Row: IDCRow; const IsAboveRefRow: Boolean = False);
 begin
   var rowInfo := _view.RowLoadedInfo(Row.ViewListIndex);
-  var rowNeedsReload := Row.IsScrollingIntoView or not rowInfo.InnerCellsAreApplied or (rowInfo.ControlNeedsResizeSoft and (_scrollingType <> TScrollingType.WithScrollBar));
+  var rowNeedsReload := IsPrinting or Row.IsScrollingIntoView or not rowInfo.InnerCellsAreApplied or (rowInfo.ControlNeedsResizeSoft and (_scrollingType <> TScrollingType.WithScrollBar));
 
   var oldRowHeight: Single := -1;
 
@@ -1951,8 +2023,6 @@ begin
   end
   else if rowNeedsReload then
     oldRowHeight := _view.GetRowHeight(Row.ViewListIndex);
-
-  Row.OwnerIsScrolling := _scrollingType <> TScrollingType.None;
 
   if rowNeedsReload then
   begin
@@ -2863,6 +2933,19 @@ begin
   inherited;
 end;
 
+//function TScrollControlWithRows.RequestedOrActualCurrent: Integer;
+//begin
+//  if (_waitForRepaintInfo <> nil) and (_waitForRepaintInfo.Current <> -1) then
+//    Result := _waitForRepaintInfo.Current else
+//    Result := _selectioninfo.ViewListIndex;
+//end;
+
+function TScrollControlWithRows.RequestedOrActualDataItem: CObject;
+begin
+  if (_waitForRepaintInfo <> nil) and (_waitForRepaintInfo.DataItem <> nil) then
+    Result := _waitForRepaintInfo.DataItem else
+    Result := _selectioninfo.DataItem;
+end;
 
 procedure TScrollControlWithRows.ResetView(const FromViewListIndex: Integer = -1; ClearOneRowOnly: Boolean = False);
 begin
@@ -2918,8 +3001,7 @@ begin
     StopMasterSynchronizer(goMaster);
   end;
 
-  if (_selectionInfo <> nil) and (_selectionInfo.DataItem <> nil) then
-    GetInitializedWaitForRefreshInfo.DataItem := _selectionInfo.DataItem;
+  GetInitializedWaitForRefreshInfo.DataItem := RequestedOrActualDataItem;
 
 //  // make sure scrollbars are up-to-date
 //  DoRealignContent;
@@ -3018,7 +3100,7 @@ begin
       //          yChange := _vertScrollBar.Value - (rowStopY - _vertScrollBar.ViewportSize);
     end;
 
-    if not SameValue(yChange, 0) then
+    if not SameValue(yChange, 0, 0.5) then
     begin
       _mustShowSelectionInRealign := True;
       if _selectionInfo.LastSelectionEventTrigger = TSelectionEventTrigger.External then
@@ -3095,7 +3177,13 @@ end;
 
 procedure TScrollControlWithRows.SetBasicVertScrollBarValues;
 begin
-  inherited;
+  if _manualContentHeight > 0 then
+  begin
+    _vertScrollBar.Min := 0;
+    _vertScrollBar.ViewportSize := _manualContentHeight;
+  end else
+    inherited;
+
   UpdateRowHeightSynchronizerScrollbar;
 end;
 
@@ -3154,6 +3242,34 @@ begin
   _selectionType := Value;
 end;
 
+procedure TScrollControlWithRows.set_TopRow(const Value: Integer);
+var
+  virtualY: Single;
+  dataItem: CObject;
+begin
+  if (_View <> nil) and (_topRow <> Value) and (Value >= 0) then
+  begin
+    _topRow := Value;
+
+    _View.GetSlowPerformanceRowInfo(Value, dataItem, virtualY);
+    Inc(_scrollUpdateCount);
+    try
+      if (_vertScrollBar.Value + _vertScrollBar.ViewportSize) >= _vertScrollBar.Max then
+      begin
+        _vertScrollBar.ViewportSize := _vertScrollBar.Max - virtualY;
+        _manualContentHeight := _vertScrollBar.ViewportSize;
+      end else
+        _manualContentHeight := -1;
+
+      _vertScrollBar.Value := virtualY;
+    finally
+      Dec(_scrollUpdateCount);
+    end;
+
+    DoRealignContent;
+  end;
+end;
+
 procedure TScrollControlWithRows.set_AllowNoneSelected(const Value: Boolean);
 begin
   _allowNoneSelected := Value;
@@ -3170,7 +3286,7 @@ end;
 
 procedure TScrollControlWithRows.set_DataItem(const Value: CObject);
 begin
-  var dItem := get_DataItem;
+  var dItem := _selectionInfo.DataItem;
   if ViewIsDataModelView and (dItem <> nil) then
     dItem := dItem.AsType<IDataRowView>.Row.Data;
 
@@ -3339,9 +3455,10 @@ begin
   UpdateControlVisibility;
 end;
 
-constructor TDCRow.Create;
+constructor TDCRow.Create(const RowsControl: IRowsControl);
 begin
   inherited Create;
+  _rowsControl := RowsControl;
   _virtualYPosition := -1;
   _enabled := True;
 end;
@@ -3399,9 +3516,9 @@ begin
   Result := False
 end;
 
-function TDCRow.get_OwnerIsScrolling: Boolean;
+function TDCRow.get_RowsControl: IRowsControl;
 begin
-  Result := _ownerIsScrolling
+  Result := _rowsControl;
 end;
 
 function TDCRow.get_VirtualYPosition: Single;
@@ -3525,11 +3642,6 @@ end;
 procedure TDCRow.set_Enabled(const Value: Boolean);
 begin
   _enabled := Value;
-end;
-
-procedure TDCRow.set_OwnerIsScrolling(const Value: Boolean);
-begin
-  _ownerIsScrolling := Value;
 end;
 
 procedure TDCRow.set_VirtualYPosition(const Value: Single);

@@ -63,7 +63,7 @@ type
   // checkbox behaviour
   protected
 //    _checkBoxUpdateCount: Integer;
-    procedure LoadDefaultDataIntoControl(const Cell: IDCTreeCell; const FlatColumn: IDCTreeLayoutColumn; const IsSubProp: Boolean); override;
+    procedure LoadDefaultDataIntoControl(const Cell: IDCTreeCell; const IsSubProp: Boolean); override;
     function  ProvideCellData(const Cell: IDCTreeCell; const PropName: CString; const IsSubProp: Boolean): CObject; override;
 
     procedure OnPropertyCheckBoxChange(Sender: TObject);
@@ -140,7 +140,8 @@ type
     property EditingInfo: ITreeEditingInfo read _editingInfo;
     property CellEditor: IDCCellEditor read _cellEditor;
 
-  published
+  public
+    // designer properties & events
     property EditRowStart: RowEditEvent read _editRowStart write _editRowStart;
     property EditRowEnd: RowEditEvent read _editRowEnd write _editRowEnd;
     property EditCellStart: StartEditEvent read _editCellStart write _editCellStart;
@@ -536,7 +537,11 @@ begin
 
     if Key <> 0 then
     begin
-      if (Key in [vkUp, vkDown, vkPrior, vkEnd, vkTab]) and IsEditOrNew then
+      var isRowChange := (Key in [vkUp, vkDown, vkPrior, vkEnd, vkTab]);
+      if not isRowChange and (ssCtrl in Shift) and (Key in [vkHome, vkEnd]) then
+        isRowChange := True;
+
+      if isRowChange and IsEditOrNew then
       begin
         var pt := _paintTime;
         if not CheckCanChangeRow then
@@ -577,7 +582,7 @@ begin
   end;
 end;
 
-procedure TScrollControlWithEditableCells.LoadDefaultDataIntoControl(const Cell: IDCTreeCell; const FlatColumn: IDCTreeLayoutColumn; const IsSubProp: Boolean);
+procedure TScrollControlWithEditableCells.LoadDefaultDataIntoControl(const Cell: IDCTreeCell; const IsSubProp: Boolean);
 begin
   inc(_updateCount);
   try
@@ -789,9 +794,9 @@ begin
   begin
     Column.CustomWidth := _tempCachedEditingColumnCustomWidth;
     _tempCachedEditingColumnCustomWidth := -1;
-
-    FastColumnAlignAfterColumnChange;
   end;
+
+  FastColumnAlignAfterColumnChange;
 end;
 
 procedure TScrollControlWithEditableCells.ResetView(const FromViewListIndex: Integer; ClearOneRowOnly: Boolean);
@@ -916,7 +921,13 @@ begin
   var em: IEditableModel;
   if (_model <> nil) and interfaces.Supports<IEditableModel>(_model, em) and em.CanAdd then
   begin
-    em.AddNew(Self.Current, InsertPosition.After);
+    var addL: IAddToList;
+    var addDm: IAddToDataModel;
+    if interfaces.Supports<IAddToList>(_model, addL) then
+      addL.AddNew(Self.Current, False)
+    else if interfaces.Supports<IAddToDataModel>(_model, addDm) then
+      addDm.AddNew(GetActiveRow.DataItem, InsertPosition.After);
+
     Exit(True);
   end;
 
@@ -1295,7 +1306,7 @@ begin
     begin
       // KV: 24/01/2025
       // Update the actual contents of the cell after the data in the cell has changed
-      LoadDefaultDataIntoControl(cell, cell.LayoutColumn, False);
+      LoadDefaultDataIntoControl(cell, False);
     end;
 
     _editingInfo.CellEditingFinished;
@@ -1461,11 +1472,19 @@ end;
 
 procedure TScrollControlWithEditableCells.HideEditor;
 begin
-  var clmn := _cellEditor.Cell.Column;
+  var cell := _cellEditor.Cell;
 
+  _cellEditor.EndEdit;
   _cellEditor := nil;
 
-  ResetColumnWidthOnHideEditor(clmn);
+  var row := cell.Row as IDCTreeRow;
+  if (cell.Column.WidthType = TDCColumnWidthType.AlignToContent) and row.ContentCellSizes.ContainsKey(cell.Index) then
+  begin
+    row.ContentCellSizes.Remove(cell.Index);
+    cell.LayoutColumn.Width := 0;  // make sure it get's recalced
+  end;
+
+  ResetColumnWidthOnHideEditor(cell.Column);
 
   var activeCell := GetActiveCell;
   if activeCell = nil then Exit; // cell scrolled out of view
@@ -1953,7 +1972,7 @@ end;
 
 procedure TDCCellEditor.EndEdit;
 begin
-// TODO
+  _cell.InfoControl.Visible := True;
 end;
 
 function TDCCellEditor.get_Cell: IDCTreeCell;
@@ -2433,10 +2452,17 @@ end;
 
 procedure TObjectListModelItemChangedDelegate.CancelEdit(const Item: CObject);
 begin
-  if (_UpdateCount = 0) then
+  var cancelHandled: Boolean := False;
+  if (_UpdateCount = 0) and _owner.IsEditOrNew then
+  begin
     _Owner.CancelEditFromExternal;
+    cancelHandled := True;
+  end;
 
   SetItemInCurrentView(Item);
+
+  if not cancelHandled then
+    _Owner.DoDataItemChangedInternal(Item);
 end;
 
 constructor TObjectListModelItemChangedDelegate.Create(const AOwner: TScrollControlWithEditableCells);

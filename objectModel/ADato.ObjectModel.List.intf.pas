@@ -183,6 +183,19 @@ type
     property MultiSelect: IObjectModelMultiSelect read get_MultiSelect;
   end;
 
+  IContextChangedHandler = interface(IBaseInterface)
+    ['{FABBC6E4-5214-4277-9EEF-016A663CF07B}']
+    function get_OnContextChanged: ContextChangedEventHandlerProc;
+    function get_ChildModel: IObjectListModel;
+    function get_ParentModel: IObjectListModel;
+    function get_ParentProperty: _PropertyInfo;
+
+    property ChildModel: IObjectListModel read get_ChildModel;
+    property ParentModel: IObjectListModel read get_ParentModel;
+    property ParentProperty: _PropertyInfo read get_ParentProperty;
+    property OnContextChanged: ContextChangedEventHandlerProc read get_OnContextChanged;
+  end;
+
   TValidatePosition = reference to function (
     const SrcRow, DestRow: IDataRowView;
     Position: InsertPosition;

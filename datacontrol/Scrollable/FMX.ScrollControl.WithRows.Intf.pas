@@ -57,6 +57,9 @@ type
     procedure set_RowHeightDefault(const Value: Single);
     function  get_rowHeightFixed: Single;
     procedure set_RowHeightFixed(const Value: Single);
+    function  get_IsPrinting: Boolean;
+    procedure set_IsPrinting(const Value: Boolean);
+    function  get_IsScrolling: Boolean;
 
     procedure OnSelectionInfoChanged;
     function  SelectionCount: Integer;
@@ -72,6 +75,8 @@ type
     property SelectionType: TSelectionType read get_SelectionType write set_SelectionType;
     property RowHeightFixed: Single read get_rowHeightFixed write set_RowHeightFixed;
     property RowHeightDefault: Single read get_rowHeightDefault write set_RowHeightDefault;
+    property IsPrinting: Boolean read get_IsPrinting write set_IsPrinting;
+    property IsScrolling: Boolean read get_IsScrolling;
   end;
 
   TDataIndexArray = array of Integer;
@@ -125,6 +130,7 @@ type
 
   IDCRow = interface(IBaseInterface)
     ['{C9AFABA4-644A-4FA7-A911-AC6ACFD7C608}']
+    function  get_RowsControl: IRowsControl;
     function  get_DataIndex: Integer;
     procedure set_DataIndex(const Value: Integer);
     function  get_DataItem: CObject;
@@ -144,9 +150,6 @@ type
     function  get_CustomTag: CObject;
     procedure set_CustomTag(const Value: CObject);
 
-    function  get_OwnerIsScrolling: Boolean;
-    procedure set_OwnerIsScrolling(const Value: Boolean);
-
     function  Height: Single;
     function  HasChildren: Boolean;
     function  HasVisibleChildren: Boolean;
@@ -159,6 +162,7 @@ type
 
     procedure UpdateSelectionVisibility(const SelectionInfo: IRowSelectionInfo; OwnerIsFocused: Boolean);
 
+    property RowsControl: IRowsControl read get_RowsControl;
     property DataIndex: Integer read get_DataIndex write set_DataIndex;
     property DataItem: CObject read get_DataItem write set_DataItem;
     property ConvertedDataItem: CObject read get_ConvertedDataItem;
@@ -171,8 +175,6 @@ type
 
     // control below can be used to insert custom controls and recycle them if needed.
     property CustomTag: CObject read get_CustomTag write set_CustomTag;
-
-    property OwnerIsScrolling: Boolean read get_OwnerIsScrolling write set_OwnerIsScrolling;
   end;
 
   TDoCreateNewRow = reference to function: IDCRow;
@@ -228,6 +230,7 @@ type
 
     property RowStateFlags: TTreeRowStateFlags read get_RowStateFlags write set_RowStateFlags;
     property Current: Integer read get_Current write set_Current;
+
     property DataItem: CObject read get_DataItem write set_DataItem;
     property SortDescriptions: List<IListSortDescription> read get_SortDescriptions write set_SortDescriptions;
     property FilterDescriptions: List<IListFilterDescription> read get_FilterDescriptions write set_FilterDescriptions;

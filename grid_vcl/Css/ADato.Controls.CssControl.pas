@@ -89,9 +89,7 @@ type
     procedure WMNCCalcSize(var Message: TWMNCCalcSize); message WM_NCCALCSIZE;
     procedure WMNCPaint(var Message: TWMNCPaint); message WM_NCPAINT;
 
-    {$IFDEF APP_PLATFORM}
     function AsType(const AType: &Type) : CObject;
-    {$ENDIF}
 
     {$IFDEF DELPHI}
     // IBaseInterface methods
@@ -369,12 +367,10 @@ begin
   Result := _styleSheet;
 end;
 
-{$IFDEF APP_PLATFORM}
 function TCssControl.AsType(const AType: &Type) : CObject;
 begin
 
 end;
-{$ENDIF}
 
 function TCssControl.getRefCount: Integer;
 begin

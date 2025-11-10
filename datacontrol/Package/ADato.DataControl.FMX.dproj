@@ -189,7 +189,6 @@
         <DCCReference Include="..\Tree\FMX.ScrollControl.WithEditableCells.Impl.pas"/>
         <DCCReference Include="..\Tree\FMX.ScrollControl.WithEditableCells.Intf.pas"/>
         <DCCReference Include="..\Tree\FMX.ScrollControl.WithCells.PopupMenu.pas"/>
-        <DCCReference Include="..\Tree\FMX.ScrollControl.DataControl.Intf.pas"/>
         <DCCReference Include="..\Tree\FMX.ScrollControl.DataControl.Impl.pas"/>
         <DCCReference Include="..\Tree\FMX.ScrollControl.DataControl.Binders.pas"/>
         <BuildConfiguration Include="Base">

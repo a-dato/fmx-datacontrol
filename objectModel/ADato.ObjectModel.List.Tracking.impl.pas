@@ -35,6 +35,7 @@ type
     TObjectListModel<T>,
     IObjectListModelChangeTracking,
     IAddingNew,
+    IAddToList,
     IEditState,
     IEditableModel,
     INotifyListItemChanged,
@@ -86,8 +87,10 @@ type
     function  get_IsNew: Boolean;
     function  get_IsEditOrNew: Boolean;
 
+    // IAddToList
+    function  AddNew(Index: Integer = -1; AddBefore: Boolean = False) : Boolean;
+
     // IEditableModel
-    function  AddNew(Index: Integer; Position: InsertPosition) : Boolean;
     procedure BeginEdit(Index: Integer);
     procedure CancelEdit; virtual;
     procedure EndEdit; virtual;
@@ -129,11 +132,11 @@ uses
   {$ENDIF}
   ADato.TraceEvents.intf,
   ADato.MultiObjectModelContextSupport.impl,
-  ADato.EditableObjectModelContext.impl;
+  ADato.EditableObjectModelContext.impl, System.Math;
 
 { TObjectListModel<T> }
 
-function TObjectListModelWithChangeTracking<T>.AddNew(Index: Integer; Position: InsertPosition) : Boolean;
+function TObjectListModelWithChangeTracking<T>.AddNew(Index: Integer = -1; AddBefore: Boolean = False) : Boolean;
 begin
   Result := False;
 
@@ -146,7 +149,11 @@ begin
       if Interfaces.Supports<IEditableListObject>(get_ObjectModelContext, e) then
       begin
         Result := True;
-        e.AddNew(item, Index, Position);
+
+        var ix := IfThen(Index = -1, get_Context.Count, Index);
+        var pos := IfThen(AddBefore, Integer(InsertPosition.Before), Integer(InsertPosition.After));
+
+        e.AddNew(item, ix, InsertPosition(pos));
       end;
     end;
   finally
@@ -358,7 +365,7 @@ begin
   begin
     var n :IListItemChanged;
     for n in _OnItemChanged do
-      n.CancelEdit(Context.Context);
+      n.CancelEdit(OriginalObject);
   end;
 end;
 

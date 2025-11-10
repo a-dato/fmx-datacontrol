@@ -135,7 +135,7 @@ end;
 procedure TTreeSortDescription.SortBegin;
 begin
   inherited;
-  _dummyRow := TDCTreeRow.Create;
+  _dummyRow := TDCTreeRow.Create(_flatColumn.Column.TreeControl as IRowsControl);
   _dummyCell := TDCTreeCell.Create(_dummyRow, _flatColumn);
 
   if _flatColumn.Column.InfoControlClass <> TInfoControlClass.Custom then
@@ -168,7 +168,7 @@ begin
   _flatColumn := Column;
   _onGetSortCellData := OnGetSortCellData;
 
-  _dummyRow := TDCTreeRow.Create;
+  _dummyRow := TDCTreeRow.Create(_flatColumn.Column.TreeControl as IRowsControl);
   _dummyCell := TDCTreeCell.Create(_dummyRow, _flatColumn);
 
   // user can direct assign values to InfoControl in cellloading / cellloaded

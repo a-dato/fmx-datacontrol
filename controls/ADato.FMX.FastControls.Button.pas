@@ -399,7 +399,6 @@ begin
 //    NoBounds: offSet := 0;
   end;
 
-  var yOffSet := 0.0;
   if HasImage then
   begin
     var imgSize := _config.ImageSizeInt;
