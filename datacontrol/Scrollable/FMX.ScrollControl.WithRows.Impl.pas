@@ -680,7 +680,7 @@ begin
   _view.RowLoaded(currentRow, False);
 
   
-  var goMaster := TryStartMasterSynchronizer;
+  var goMaster := TryStartMasterSynchronizer(True);
   try
     CreateAndSynchronizeSynchronizerRow(currentRow);
 
@@ -1983,7 +1983,6 @@ procedure TScrollControlWithRows.CreateAndSynchronizeSynchronizerRow(const Row: 
 begin
   if not SyncIsMasterSynchronizer and not IsMasterSynchronizer then
     Exit; // nothing to do
-
 
   var otherRow := _rowHeightSynchronizer.View.GetActiveRowIfExists(Row.ViewListIndex);
   if IsMasterSynchronizer then
