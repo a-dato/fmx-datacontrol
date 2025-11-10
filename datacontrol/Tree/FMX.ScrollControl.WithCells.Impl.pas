@@ -1991,7 +1991,14 @@ begin
   end;
 
   UpdateMultiSelectColumnVisibility;
-  DoCellSelected(GetActiveCell, _selectionInfo.LastSelectionEventTrigger);
+  var cell := GetActiveCell;
+  if (cell = nil) and _realignContentRequested then
+  begin
+    ForceImmeditiateRealignContent;
+    cell := GetActiveCell; // can still be nil..
+  end;
+
+  DoCellSelected(cell, _selectionInfo.LastSelectionEventTrigger);
 end;
 
 function TScrollControlWithCells.ScrollPerformanceShouldHideColumns(const FlatIndex: Integer): Boolean;
