@@ -629,8 +629,8 @@ end;
 function TADatoClickLayout.GetPaintOpacity: Single;
 begin
   if not Self.Enabled then
-    Result := Opacity * 0.6 else
-    Result := Opacity;
+    Result := GetAbsoluteOpacity * 0.6 else
+    Result := GetAbsoluteOpacity;
 end;
 
 function TADatoClickLayout.GetText: string;
@@ -786,7 +786,7 @@ begin
     begin
       var bitmapRect := TRectF.Create(0, 0, Bitmap.Width, Bitmap.Height);
       var imgRect := _imageBounds.Round; //TRectF.Create(CenteredRect(_imageBounds.Round, TRectF.Create(0, 0, Bitmap.Width / ScreenScale, Bitmap.Height/ ScreenScale).Round));
-      Canvas.DrawBitmap(Bitmap, BitmapRect, imgRect, IfThen(Enabled, 1, 0.6), False);
+      Canvas.DrawBitmap(Bitmap, BitmapRect, imgRect, GetPaintOpacity, False);
     end;
   finally
     bitmap.Free;
