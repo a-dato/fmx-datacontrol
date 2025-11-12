@@ -268,6 +268,7 @@ type
     function  GetMethod(const AName: string): TRttiMethod;
     function  GetMethods: TArray<TRttiMethod>;
     function  IsArray: Boolean;
+    function  IsBoolean: Boolean;
     function  IsDateTime: Boolean;
     function  IsInterfaceType: Boolean;
     function  IsObjectType: Boolean;
@@ -1842,7 +1843,7 @@ type
   )
   protected
     function AsType(const Value: &Type) : CObject; virtual;
-    function QueryInterface(const IID: TGUID; out Obj): HResult; virtual; stdcall;
+    function QueryInterface(const IID: TGUID; out Obj): HResult; stdcall;
     function _AddRef: Integer; stdcall;
     function _Release: Integer; stdcall;
 
@@ -4452,6 +4453,11 @@ end;
 function &Type.IsMethod: Boolean;
 begin
   Result := GetTypeCode(GetTypeInfo) = TypeCode.Method;
+end;
+
+function &Type.IsBoolean: Boolean;
+begin
+  Result := GetTypeCode(GetTypeInfo) = TypeCode.Boolean;
 end;
 
 function &Type.IsEnum: Boolean;

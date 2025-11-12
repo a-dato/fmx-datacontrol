@@ -11708,7 +11708,7 @@ begin
         sortDesc := CListSortDescriptionWithProperty.Create(description.SortDirection, description.PropertyDescriptor);
         coll.Add(sortDesc);
       end
-      else if description.SortType = SortType.CellData then
+      else if description.SortType in [SortType.DisplayText, SortType.CellData] then
       begin
         sortDesc := CListSortDescriptionWithProperty.Create(description.SortDirection, description.LayoutColumn.Column.PropertyName);
         coll.Add(sortDesc);
