@@ -3595,29 +3595,33 @@ begin
       var formatApplied: Boolean;
       cellValue := Cell.Column.ProvideCellData(cell, cell.Column.PropertyName);
       DoCellFormatting(cell, True, {var} cellValue, {out} formatApplied);
-      // KV: 10/11/2025
-      Exit(Cell.Column.GetDefaultCellData(cell, cellValue, True {Do not format value}));
-//      Result := Cell.Column.GetDefaultCellData(cell, cellValue, formatApplied);
+
+      // GetDefaultCellData should apply formatting when it has not been applied or when SortType = TSortType.Displaytext
+      Result := Cell.Column.GetDefaultCellData(cell, cellValue, formatApplied or (Cell.Column.SortType <> TSortType.Displaytext));
+      if (Result <> nil) and not Result.IsString and (Cell.Column.SortType = TSortType.Displaytext) then
+        Result := Result.ToString;
     end else
     begin
       DoCellLoaded(Cell, True, dummyPerfMode, dummyHeightVar);
       Result := (Cell.InfoControl as ICaption).Text;
     end;
 
-    if Cell.Column.SortType = TSortType.Displaytext then
-      Exit(Result)
-    else if Cell.Column.SortType = TSortType.CellData then
-      // KV: 10/11/2025 -> This line should also return 'Result'
-      Exit(cell.Data)
-    else if Cell.Column.SortType = TSortType.ColumnCellComparer then
-    begin
-      if cell.Data <> nil then
-        Exit(cell.Data)
-      else if cellValue <> nil then
-        Exit(cellValue)
-      else
-        Exit(Result);
-    end;
+    Exit(Result);
+
+//    if Cell.Column.SortType = TSortType.Displaytext then
+//      Exit(Result)
+//    else if Cell.Column.SortType = TSortType.CellData then
+//      // KV: 10/11/2025 -> This line should also return 'Result'
+//      Exit(cell.Data)
+//    else if Cell.Column.SortType = TSortType.ColumnCellComparer then
+//    begin
+//      if cell.Data <> nil then
+//        Exit(cell.Data)
+//      else if cellValue <> nil then
+//        Exit(cellValue)
+//      else
+//        Exit(Result);
+//    end;
   finally
     AtomicDecrement(_isSortingOrFiltering);
   end;
