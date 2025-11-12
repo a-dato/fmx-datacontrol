@@ -142,7 +142,7 @@ type
 
     procedure DoCellLoaded(const Cell: IDCTreeCell; RequestForSort: Boolean; var PerformanceModeWhileScrolling: Boolean; var OverrideRowHeight: Single); virtual;
     function  DoCellLoading(const Cell: IDCTreeCell; RequestForSort: Boolean; var PerformanceModeWhileScrolling: Boolean; var OverrideRowHeight: Single): Boolean; virtual;
-    procedure DoCellFormatting(const Cell: IDCTreeCell; RequestForSort: Boolean; var Value: CObject; out FormatApplied: Boolean); virtual;
+    function  DoCellFormatting(const Cell: IDCTreeCell; RequestForSort: Boolean; var Value: CObject) : Boolean; virtual;
     function  DoCellCanChange(const OldCell, NewCell: IDCTreeCell): Boolean; virtual;
     procedure DoCellChanging(const OldCell, NewCell: IDCTreeCell);
     procedure DoCellChanged(const OldCell, NewCell: IDCTreeCell);
@@ -559,7 +559,7 @@ type
     function  HasPropertyAttached: Boolean;
 
     function  ProvideCellData(const Cell: IDCTreeCell; const PropName: CString; IsSubProp: Boolean = False): CObject;
-    function  GetDefaultCellData(const Cell: IDCTreeCell; const CellValue: CObject; FormatApplied: Boolean): CObject; virtual;
+    function  GetFormattedValue(const Cell: IDCTreeCell; const CellValue: CObject): CString; virtual;
 
     // width settings
     property WidthType: TDCColumnWidthType read get_WidthType;
@@ -607,7 +607,7 @@ type
     constructor Create; override;
 
     function  IsSelectionColumn: Boolean; override;
-    function  GetDefaultCellData(const Cell: IDCTreeCell; const CellValue: CObject; FormatApplied: Boolean): CObject; override;
+    // function  GetFormattedValue(const Cell: IDCTreeCell; const CellValue: CObject): CObject; override;
   end;
 
   TDCTreeColumnList = class(CObservableCollectionEx<IDCTreeColumn>, IDCTreeColumnList)
@@ -1608,8 +1608,13 @@ begin
   if flatColumn.Column.SortType = TSortType.None then
     Exit;
 
-  var sortDirection := ListSortDirection.Descending;
-  if (flatColumn.ActiveSort <> nil) and (flatColumn.ActiveSort.SortDirection = ListSortDirection.Descending) then
+  var sortDirection: ListSortDirection;
+  if flatColumn.ActiveSort <> nil then
+  begin
+    if flatColumn.ActiveSort.SortDirection = ListSortDirection.Ascending then
+      sortDirection := ListSortDirection.Descending else
+      sortDirection := ListSortDirection.Ascending
+  end else
     sortDirection := ListSortDirection.Ascending;
 
   UpdateColumnSort(flatColumn.Column, sortDirection, not (ssCtrl in Shift));
@@ -2532,9 +2537,10 @@ begin
   end;
 end;
 
-procedure TScrollControlWithCells.DoCellFormatting(const Cell: IDCTreeCell; RequestForSort: Boolean; var Value: CObject; out FormatApplied: Boolean);
+function TScrollControlWithCells.DoCellFormatting(const Cell: IDCTreeCell; RequestForSort: Boolean; var Value: CObject) : Boolean;
 begin
-  FormatApplied := False;
+  Result := False;
+
   if Assigned(_cellFormatting) then
   begin
     var args := DCCellFormattingEventArgs.Create(Cell, Value);
@@ -2543,7 +2549,7 @@ begin
 
       _cellFormatting(Self, args);
       Value := args.Value;
-      FormatApplied := args.FormattingApplied;
+      Result := args.FormattingApplied;
     finally
       args.Free;
     end;
@@ -3079,16 +3085,33 @@ begin
       infoClass := cell.Column.SubInfoControlClass;
     end;
 
-    var formattedValue: CObject := nil;
-
+    var cellValue: CObject;
     _localCheckSetInDefaultData := False;
     if ctrl <> nil then
     begin
-      var formatApplied: Boolean;
-      var cellValue := ProvideCellData(cell, propName, IsSubProp);
-      DoCellFormatting(cell, False, {var} cellValue, {out} formatApplied);
+      cellValue := ProvideCellData(cell, propName, IsSubProp);
+
+      if infoClass = TInfoControlClass.Text then
+      begin
+        var cellText: CString;
+        if DoCellFormatting(cell, False, {var} cellValue) then
+          celltext := cellValue.ToString(True) else
+          celltext := cell.Column.GetFormattedValue(cell, cellValue);
+
+        (ctrl as ICaption).Text := CStringToString(celltext);
+      end
+      else if infoClass = TInfoControlClass.CheckBox then
+      begin
+        var b: Boolean;
+        if not cellValue.TryGetValue<Boolean>(b) then
+          b := False;
+        (ctrl as IIsChecked).IsChecked := b;
+        _localCheckSetInDefaultData := True;
+      end;
+
 
       {$IFDEF APP_PLATFORM}
+      Assert(False, ' Code needs checking');
       if not CString.IsNullOrEmpty(propName) and not formatApplied and (cellValue <> nil) and (_app <> nil) and (cell.Column.InfoControlClass = TInfoControlClass.Text) then
       begin
         var item_type := GetItemType;
@@ -3104,25 +3127,9 @@ begin
         end;
       end;
       {$ENDIF}
-
-      formattedValue := cell.Column.GetDefaultCellData(cell, cellValue, formatApplied);
-
-      if ctrl <> nil then
-      begin
-        if infoClass = TInfoControlClass.Text then
-        begin
-          var s := CStringToString(formattedValue.ToString(True));
-          (ctrl as ICaption).Text := s;
-        end
-        else if infoClass = TInfoControlClass.CheckBox then
-        begin
-          (ctrl as IIsChecked).IsChecked := formattedValue.AsType<Boolean>;
-          _localCheckSetInDefaultData := True;
-        end;
-      end;
     end;
 
-    if formattedValue <> nil then
+    if cellValue <> nil then
       cell.LayoutColumn.ContainsData := TColumnContainsData.Yes;
   except
     LoadDefaultDataIntoControl(Cell, IsSubProp);
@@ -3589,17 +3596,13 @@ begin
     var dummyPerfMode: Boolean;
     var dummyHeightVar: Single;
     var loadDefaultData := DoCellLoading(Cell, True, dummyPerfMode, dummyHeightVar);
-    var cellValue: CObject := nil;
+
     if loadDefaultData then
     begin
       var formatApplied: Boolean;
-      cellValue := Cell.Column.ProvideCellData(cell, cell.Column.PropertyName);
-      DoCellFormatting(cell, True, {var} cellValue, {out} formatApplied);
-
-      // GetDefaultCellData should apply formatting when it has not been applied or when SortType = TSortType.Displaytext
-      Result := Cell.Column.GetDefaultCellData(cell, cellValue, formatApplied or (Cell.Column.SortType <> TSortType.Displaytext));
-      if (Result <> nil) and not Result.IsString and (Cell.Column.SortType = TSortType.Displaytext) then
-        Result := Result.ToString;
+      Result := Cell.Column.ProvideCellData(cell, cell.Column.PropertyName);
+      if not DoCellFormatting(cell, True, {var} Result) and (Cell.Column.SortType = TSortType.Displaytext) then
+        Result := Cell.Column.GetFormattedValue(cell, Result);
     end else
     begin
       DoCellLoaded(Cell, True, dummyPerfMode, dummyHeightVar);
@@ -4206,25 +4209,20 @@ begin
   Result := False;
 end;
 
-function TDCTreeColumn.GetDefaultCellData(const Cell: IDCTreeCell; const CellValue: CObject; FormatApplied: Boolean): CObject;
+function TDCTreeColumn.GetFormattedValue(const Cell: IDCTreeCell; const CellValue: CObject): CString;
 begin
-  Result := CellValue;
-  if not FormatApplied and (Result <> nil) then
+  if (CellValue <> nil) or not CellValue.IsDateTime or not CDateTime(CellValue).Equals(CDateTime.MinValue) then
   begin
-    //    if Result.GetType.IsDateTime and CDateTime(Result).Equals(CDateTime.MinValue) then
-    //      Result := nil
-    if Result.IsDateTime and CDateTime(Result).Equals(CDateTime.MinValue) then
-      Result := nil
-
-    else if not CString.IsNullOrEmpty(get_format) or (_formatProvider <> nil) then
+    if not CString.IsNullOrEmpty(get_format) or (_formatProvider <> nil) then
     begin
       var formatSpec: CString;
       if not CString.IsNullOrEmpty(get_format) then
         formatSpec := CString.Concat('{0:', get_format, '}') else
         formatSpec := '{0}';
 
-      Result := CString.Format(_formatProvider, formatSpec, [Result]);
-    end;
+      Result := CString.Format(_formatProvider, formatSpec, [CellValue]);
+    end else
+      Result := CellValue.ToString;
   end;
 end;
 
@@ -5918,14 +5916,14 @@ begin
   Result := TDCTreeCheckboxColumn.Create;
 end;
 
-function TDCTreeCheckboxColumn.GetDefaultCellData(const Cell: IDCTreeCell; const CellValue: CObject; FormatApplied: Boolean): CObject;
-begin
-  var bool: Boolean;
-  if (CellValue = nil) or not CellValue.TryAsType<Boolean>(bool) then
-    bool := False;
-
-  Result := bool;
-end;
+//function TDCTreeCheckboxColumn.GetDefaultCellData(const Cell: IDCTreeCell; const CellValue: CObject; FormatApplied: Boolean): CObject;
+//begin
+//  var bool: Boolean;
+//  if (CellValue = nil) or not CellValue.TryAsType<Boolean>(bool) then
+//    bool := False;
+//
+//  Result := bool;
+//end;
 
 function TDCTreeCheckboxColumn.get_Selectable: Boolean;
 begin

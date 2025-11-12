@@ -895,9 +895,8 @@ begin
       Exit;
   end;
 
-  var formatApplied: Boolean;
   var cellValue := Cell.Column.ProvideCellData(cell, cell.Column.PropertyName);
-  DoCellFormatting(cell, True, {var} cellValue, {out} formatApplied);
+  DoCellFormatting(cell, True, {var} cellValue);
 
   var startEditArgs: DCStartEditEventArgs;
   AutoObject.Guard(DCStartEditEventArgs.Create(Cell, cellValue), startEditArgs);

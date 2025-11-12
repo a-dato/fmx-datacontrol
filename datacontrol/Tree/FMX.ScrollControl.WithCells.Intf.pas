@@ -211,7 +211,7 @@ type
     function  IsSelectionColumn: Boolean;
 
     function  ProvideCellData(const Cell: IDCTreeCell; const PropName: CString; IsSubProp: Boolean = False): CObject;
-    function  GetDefaultCellData(const Cell: IDCTreeCell; const CellValue: CObject; FormatApplied: Boolean): CObject;
+    function  GetFormattedValue(const Cell: IDCTreeCell; const CellValue: CObject): CString;
 
     function  HasPropertyAttached: Boolean;
 
