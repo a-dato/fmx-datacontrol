@@ -4211,8 +4211,11 @@ end;
 
 function TDCTreeColumn.GetFormattedValue(const Cell: IDCTreeCell; const CellValue: CObject): CString;
 begin
-  if (CellValue <> nil) or not CellValue.IsDateTime or not CDateTime(CellValue).Equals(CDateTime.MinValue) then
+  if CellValue <> nil then
   begin
+    if CellValue.IsDateTime and CDateTime(CellValue).Equals(CDateTime.MinValue) then
+      Exit;
+
     if not CString.IsNullOrEmpty(get_format) or (_formatProvider <> nil) then
     begin
       var formatSpec: CString;
