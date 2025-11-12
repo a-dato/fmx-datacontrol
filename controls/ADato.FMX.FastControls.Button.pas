@@ -35,7 +35,7 @@ uses
   System_, ADato.FMX.FastControls.Text;
 
 type
-  TButtonType = (None, Positive, Negative, Emphasized);
+  TButtonType = (None, Positive, Negative, Circle, Emphasized);
   TUnderlineType = (NoUnderline, Color1, Color2, Color3, Color4);
   TTagType = (NoBounds, RoundPost, SignPost);
   TImagePosition = (Left, Right, Top, Bottom, Center);
@@ -1012,6 +1012,17 @@ begin
   begin
     Canvas.Fill.Color := TAlphaColor($FFFDFDFE);
     Canvas.FillRect(outerRect, 3, 3, AllCorners, GetPaintOpacity);
+  end
+  else if _buttonType = TButtonType.Circle then
+  begin
+    var w: Single := CMath.Min(_config.ImageSizeInt + 4, CMath.Min(Width, Height));
+    outerRect := RectF((Width-w)/2, (Height-w)/2, (Width-w)/2 + w, (Height-w)/2 + w);
+
+    // circle
+    Canvas.Fill.Color := TAlphaColors.Orangered;
+    Canvas.FillRect(outerRect, outerRect.Width/2, outerRect.Height/2, AllCorners, 0.15);
+    Canvas.Stroke.Color := TAlphaColors.Orangered;
+    Canvas.DrawRect(outerRect, outerRect.Width/2, outerRect.Height/2, AllCorners, 1);
   end;
 
   if not _showHoverEffect then
