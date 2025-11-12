@@ -3355,7 +3355,7 @@ begin
   if GetInitializedWaitForRefreshInfo.DataItem = nil then
     GetInitializedWaitForRefreshInfo.DataItem := get_DataItem;
 
-  if (_multiSelectSorter <> nil) then
+  if (_multiSelectSorter <> nil) and not ViewIsDataModelView then
   begin
     var ix := -1;
     if (_view <> nil) and (_view.GetSortDescriptions <> nil) then

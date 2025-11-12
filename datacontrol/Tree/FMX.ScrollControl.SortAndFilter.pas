@@ -212,14 +212,16 @@ end;
 
 function TTreeFilterDescription.IsMatch(const Value: CObject; DataIndex: Integer = -1): Boolean;
 
-  function MatchText(const TextData: CString): Boolean;
+  function MatchText(const TextData: CObject): Boolean;
   begin
-    if CString.IsNullOrEmpty(TextData) then
-      Result := ShowEmptyValues or CString.IsNullOrEmpty(_FilterText)
-    else if not CString.IsNullOrEmpty(_FilterText) then
-      Result := TextData.ToLower.Contains(_FilterText.ToLower)
-    else
-      Result := True;
+    Result := False;
+
+    if not CString.IsNullOrEmpty(_FilterText) then
+    begin
+      var s := TextData.ToString(True);
+      if not CString.IsNullOrEmpty(s) then
+        Result := s.ToLower.Contains(_FilterText.ToLower)
+    end;
   end;
 
 begin
@@ -229,15 +231,17 @@ begin
   begin
     var searchObj: CObject;
     for searchObj in datalist do
-      if MatchText(searchObj.ToString) and ((_FilterValues = nil) or (_FilterValues.BinarySearch(searchObj) >= 0)) then
+      if ((_FilterValues <> nil) and (_FilterValues.BinarySearch(searchObj) >= 0)) or MatchText(searchObj) then
         Exit(True);
 
     Result := False;
   end else
-    Result := MatchText(Value.ToString(True)) and ((_FilterValues = nil) or (_FilterValues.BinarySearch(Value) >= 0));
+    Result := ((_FilterValues <> nil) and (_FilterValues.BinarySearch(Value) >= 0)) or MatchText(Value);
 
-  if not Result and (DataIndex <> -1) and (_flatColumn.Column.TreeControl.SelectionCount > 0) then
-    Result := _flatColumn.Column.TreeControl.IsSelected(DataIndex);
+  // KV: 12/11/2025 Code removed
+  // TTreeFilterDescription also used by TDataModel
+  //  if not Result and (DataIndex <> -1) and (_flatColumn.Column.TreeControl.SelectionCount > 0) then
+  //    Result := _flatColumn.Column.TreeControl.IsSelected(DataIndex);
 end;
 
 procedure TTreeFilterDescription.set_filterText(const Value: CString);
