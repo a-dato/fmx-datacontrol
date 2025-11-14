@@ -689,12 +689,16 @@ end;
 
 procedure TScrollControlWithEditableCells.OnEditorExit;
 begin
+  {$IFDEF DEBUG}
+  // KV: Dissabled to fix F2 | Down arrow | F2
+  {$ELSE}
   // windows wants to clear the focus control after this point
   // therefor we need a little time untill we can EndEdit and free the editor
   TThread.ForceQueue(nil, procedure
   begin
     SafeForcedEndEdit;
   end);
+  {$ENDIF}
 end;
 
 procedure TScrollControlWithEditableCells.OnEditorKeyDown(var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
@@ -880,10 +884,8 @@ end;
 procedure TScrollControlWithEditableCells.StartEditCell(const Cell: IDCTreeCell; const UserValue: string = '');
 begin
   // row can be in edit mode already, but cell should not be in edit mode yet
-  if (Cell = nil) or Cell.Column.ReadOnly or (TDCTreeOption.ReadOnly in _options) then
+  if (Cell = nil) or not CanEditCell(Cell) or _editingInfo.CellIsEditing then
     Exit;
-
-  Assert(not _editingInfo.CellIsEditing);
 
   if not _editingInfo.RowIsEditing then
   begin
@@ -1218,7 +1220,7 @@ function TScrollControlWithEditableCells.EditActiveCell(SetFocus: Boolean; const
 begin
   var cell := GetActiveCell;
   if CanEditCell(cell) then
-    StartEditCell(GetActiveCell, UserValue);
+    StartEditCell(cell, UserValue);
 
   Result := _cellEditor <> nil;
   if Result and SetFocus then
@@ -1796,8 +1798,10 @@ begin
         if ViewIsDataModelView then
           GetDataModelView.DataModel.SetPropertyValue(Cell.Column.PropertyName, Cell.Row.DataItem.GetValue<IDataRowView>.Row, Data)
         else begin
-          var prop := _editingInfo.EditItem.GetType.PropertyByName(Cell.Column.PropertyName);
-          prop.SetValue(_editingInfo.EditItem, Data, []);
+          // var prop := _editingInfo.EditItem.GetType.PropertyByName(Cell.Column.PropertyName);
+          var prop := GetItemType.PropertyByName(Cell.Column.PropertyName);
+          if prop <> nil then
+            prop.SetValue(_editingInfo.EditItem, Data, []);
         end;
       end;
     finally
@@ -1932,7 +1936,7 @@ begin
     _editor.OnExit := nil;
 
     // TODO: _editor is already being destroyed at this point
-    _editor.Free;
+    FreeAndNil(_editor);
   end;
 
   inherited;

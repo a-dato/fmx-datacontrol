@@ -103,6 +103,7 @@ type
     function  GetSelectionInfo(const DataIndex: Integer): IRowSelectionInfo;
 
     function  SelectedRowCount: Integer;
+    function  SelectedDataItems: List<CObject>;
     function  SelectedDataIndexes: List<Integer>;
 
     procedure BeginUpdate;

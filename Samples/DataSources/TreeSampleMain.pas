@@ -4,27 +4,21 @@ interface
 
 uses
   System.SysUtils, System.Types, System.UITypes, System.Classes, System.Variants,
-  FMX.Types, FMX.Controls, FMX.Forms, FMX.Graphics, FMX.Dialogs, FMX.Layouts,
-  System.Collections.Generic,
-  ADato.FMX.Controls.ScrollableControl.Impl,
-  ADato.FMX.Controls.ScrollableRowControl.Impl, ADato.Controls.FMX.Tree.Impl,
-  FMX.Controls.Presentation, FMX.StdCtrls, System_, FMX.Edit,
-  ADato.Data.DataModel.intf, System.Actions, FMX.ActnList, FireDAC.Stan.Intf,
-  FireDAC.Stan.Option, FireDAC.Stan.Param, FireDAC.Stan.Error, FireDAC.DatS,
-  FireDAC.Phys.Intf, FireDAC.DApt.Intf, Data.DB, FireDAC.Comp.DataSet,
-  FireDAC.Comp.Client, Delphi.Extensions.VirtualDataset,
-  ADato.Data.VirtualDatasetDataModel, ADato.Data.DatasetDataModel, System.Rtti,
-  System.Bindings.Outputs, Fmx.Bind.Editors, Data.Bind.EngExt,
-  Fmx.Bind.DBEngExt, Data.Bind.Components, Data.Bind.DBScope, FireDAC.UI.Intf,
-  FireDAC.Stan.Def, FireDAC.Stan.Pool, FireDAC.Stan.Async, FireDAC.Phys,
-  FireDAC.Phys.MSSQL, FireDAC.Phys.MSSQLDef, FireDAC.FMXUI.Wait, FireDAC.DApt,
-  FMX.Grid.Style, Fmx.Bind.Grid, Data.Bind.Grid, FMX.ScrollBox, FMX.Grid,
-  ADato.Controls.FMX.Tree.Intf, System.ComponentModel, ApplicationObjects,
-  ADato.Data.DataModelViewDataset;
+  FMX.Forms,
+  FireDAC.Stan.Intf, FireDAC.Stan.Option, FireDAC.Stan.Param,
+  FireDAC.Stan.Error, FireDAC.DatS, FireDAC.Phys.Intf, FireDAC.DApt.Intf,
+  Data.Bind.EngExt, Fmx.Bind.DBEngExt, System.Rtti, System.Bindings.Outputs,
+  Fmx.Bind.Editors, FMX.ScrollControl.Impl, FMX.ScrollControl.WithRows.Impl,
+  FMX.ScrollControl.WithCells.Impl, FMX.ScrollControl.WithEditableCells.Impl,
+  FMX.ScrollControl.DataControl.Impl, ADato.Data.DataModelViewDataset,
+  Data.Bind.Components, Data.Bind.DBScope, Data.DB,
+  Delphi.Extensions.VirtualDataset, ADato.Data.VirtualDatasetDataModel,
+  ADato.Data.DatasetDataModel, FireDAC.Comp.DataSet, FireDAC.Comp.Client,
+  System.Actions, FMX.ActnList, FMX.StdCtrls, FMX.Edit, FMX.Controls,
+  FMX.Controls.Presentation, FMX.Types, FMX.Layouts, ADato.Data.DataModel.intf;
 
 type
   TForm1 = class(TForm)
-    FMXTreeControl1: TFMXTreeControl;
     Button1: TButton;
     Layout1: TLayout;
     Layout2: TLayout;
@@ -50,19 +44,17 @@ type
     LinkControlToField2: TLinkControlToField;
     edDataModelName: TEdit;
     Label1: TLabel;
+    DataControl1: TDataControl;
     procedure acCollapseExecute(Sender: TObject);
     procedure acExpandExecute(Sender: TObject);
     procedure Button1Click(Sender: TObject);
     procedure Button3Click(Sender: TObject);
     procedure TDatasetClick(Sender: TObject);
-    procedure FMXTreeControl1LayoutColumnsComplete(Sender: TObject; e: EventArgs);
   private
 
   protected
     procedure SetupMemTable;
     procedure SetupDataModelViewDataset;
-
-    procedure TreeControlAddingNew(Sender: TObject; Args: AddingNewEventArgs);
 
   public
     _companyDataModel: IDataModel;
@@ -75,33 +67,30 @@ var
 implementation
 
 uses
-  System.Collections,
-  ADato.Data.DataModel.impl, ADato.InsertPosition,
-  System.TypInfo;
+  System.Collections, ApplicationObjects;
 
 {$R *.fmx}
 
 procedure TForm1.acCollapseExecute(Sender: TObject);
 begin
-  FMXTreeControl1.CollapseCurrentRow;
+  DataControl1.CollapseCurrentRow;
 end;
 
 procedure TForm1.acExpandExecute(Sender: TObject);
 begin
-  FMXTreeControl1.ExpandCurrentRow;
+  DataControl1.ExpandCurrentRow;
 end;
 
 procedure TForm1.Button1Click(Sender: TObject);
 begin
-  FMXTreeControl1.AddingNew := nil;
-  FMXTreeControl1.Data := TAppObjects.CreateCompanyList;
+  DataControl1.DataList := TAppObjects.CreateCompanyList as IList;
 end;
 
 procedure TForm1.Button3Click(Sender: TObject);
 begin
   _companyDataModel := TAppObjects.CreateCompanyDataModel;
-  FMXTreeControl1.AddingNew := TreeControlAddingNew;
-  FMXTreeControl1.DataModelView := _companyDataModel.DefaultView;
+
+  DataControl1.DataModelView := _companyDataModel.DefaultView;
 
   // Prepare for data aware components
   // TDataModelViewDataset presents an IDataModel/IDataModelView as a TDataset
@@ -110,20 +99,6 @@ begin
   SetupDataModelViewDataset;
   HierarchyToTDataset.DataModelView := _companyDataModel.DefaultView;
   HierarchyToTDataset.Open;
-end;
-
-procedure TForm1.TreeControlAddingNew(Sender: TObject; Args: AddingNewEventArgs);
-begin
-  if (FMXTreeControl1.Row = nil) or (FMXTreeControl1.Row.Level = 0) then
-  begin
-    var c: ICompany := TCompany.Create;
-    Args.NewObject := c;
-  end
-  else
-  begin
-    var u: IUser := TUser.Create;
-    Args.NewObject := u;
-  end;
 end;
 
 procedure TForm1.TDatasetClick(Sender: TObject);
@@ -145,16 +120,7 @@ begin
 
   MemtableToDataModel.Open;
 
-  FMXTreeControl1.AddingNew := nil;
-  FMXTreeControl1.DataModelView := MemtableToDataModel.DataModelView;
-end;
-
-procedure TForm1.FMXTreeControl1LayoutColumnsComplete(Sender: TObject; e:
-    EventArgs);
-begin
-  // Are we dealing with a hierarchycal data view?
-  if FMXTreeControl1.DataModelView <> nil then
-    FMXTreeControl1.Columns[0].ShowHierarchy := True;
+  DataControl1.DataModelView := MemtableToDataModel.DataModelView;
 end;
 
 procedure TForm1.SetupDataModelViewDataset;
