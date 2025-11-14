@@ -226,7 +226,7 @@ type
     function  get_FilterDescriptions: List<IListFilterDescription>;
     procedure set_FilterDescriptions(const Value: List<IListFilterDescription>);
 
-    procedure ClearIrrelevantInfo;
+    procedure ClearSelectionInfo;
 
     property RowStateFlags: TTreeRowStateFlags read get_RowStateFlags write set_RowStateFlags;
     property Current: Integer read get_Current write set_Current;

@@ -137,6 +137,10 @@ begin
 
     _SavedContext := nil;
     _IsChanged := False;
+
+    // no change is triggered, while proeprties can have effect on what should be shown..
+    if _UpdateCount = 0 then
+      DoContextChanged;
   end;
 end;
 

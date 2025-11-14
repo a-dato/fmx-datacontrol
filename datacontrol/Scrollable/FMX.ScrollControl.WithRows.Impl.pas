@@ -521,7 +521,7 @@ type
   public
     constructor Create(const Owner: IRefreshControl); reintroduce;
 
-    procedure ClearIrrelevantInfo;
+    procedure ClearSelectionInfo;
 
     property RowStateFlags: TTreeRowStateFlags read get_RowStateFlags;
     property Current: Integer read get_Current write set_Current;
@@ -3930,18 +3930,24 @@ begin
 end;
 
 { TWaitForRepaintInfo }
-
-procedure TWaitForRepaintInfo.ClearIrrelevantInfo;
+procedure TWaitForRepaintInfo.ClearSelectionInfo;
 begin
-  _rowStateFlags := _rowStateFlags - [SortChanged, FilterChanged];
-
-  // ONLY KEEP CURRENT
-  // we use current to reselect a item at that position after for example a refresh of the treecontrol
-
   _dataItem := nil;
-  _sortDescriptions := nil;
-  _filterDescriptions := nil;
+  _current := -1;
+  _rowStateFlags := _rowStateFlags - [RowChanged];
 end;
+
+//procedure TWaitForRepaintInfo.ClearIrrelevantInfo;
+//begin
+//  _rowStateFlags := _rowStateFlags - [SortChanged, FilterChanged];
+//
+//  // ONLY KEEP CURRENT
+//  // we use current to reselect a item at that position after for example a refresh of the treecontrol
+//
+//  _dataItem := nil;
+//  _sortDescriptions := nil;
+//  _filterDescriptions := nil;
+//end;
 
 constructor TWaitForRepaintInfo.Create(const Owner: IRefreshControl);
 begin

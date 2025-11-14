@@ -706,7 +706,7 @@ end;
 
 procedure TFastTextControlBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
 begin
-  if IsUpdating or IsLinkedProperty(AProperty) then Exit;
+  if IsUpdating or not IsBoundProperty(AProperty) then Exit;
 
   if Value <> nil then
     _Control.Text := CStringToString(Value.ToString) else
@@ -727,7 +727,7 @@ procedure TFastTextControlSmartLinkBinding.SetValue(const AProperty: _PropertyIn
 begin
   if _UpdateCount > 0 then Exit;
 
-  if IsLinkedProperty(AProperty) then
+  if not IsBoundProperty(AProperty) then
     ExecuteFromLink(Obj) else
     inherited;
 end;

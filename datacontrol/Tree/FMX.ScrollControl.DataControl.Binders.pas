@@ -169,7 +169,7 @@ end;
 
 procedure TDataControlBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
 begin
-  if IsUpdating or IsLinkedProperty(AProperty) then Exit;
+  if IsUpdating or not IsBoundProperty(AProperty) then Exit;
 
   case _propType of
     DataList: _control.DataList := Value.AsType<IList>;

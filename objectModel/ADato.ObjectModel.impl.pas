@@ -104,6 +104,7 @@ type
     procedure Link(const PropName: string; const ABinding: IPropertyBinding); overload; virtual;
     procedure Unbind({const} ABinding: IPropertyBinding); overload;
     procedure Unbind; overload; virtual;
+    function  IsLink(const Binding: IPropertyBinding; const PropInfo: _PropertyInfo): Boolean;
 
     function  CheckValueFromBoundProperty(const ABinding: IPropertyBinding; const Value: CObject) : Boolean; virtual;
     procedure PropertyNotifyBindings(const AProperty: IObjectModelProperty);
@@ -528,6 +529,22 @@ begin
   {$ELSE}
   Link(_Model.GetTypeEx().GetProperty(PropName), ABinding);
   {$ENDIF}
+end;
+
+function TObjectModelContext.IsLink(const Binding: IPropertyBinding; const PropInfo: _PropertyInfo): Boolean;
+begin
+//  Result := Binding. IsLinkedProperty(PropInfo);
+
+  if (Binding = nil) or (Binding.PropertyInfo = PropInfo) then
+    Exit(False);
+
+  var o_prop: IObjectModelProperty;
+  if Interfaces.Supports<IObjectModelProperty>(PropInfo, o_prop) then
+    for var boundProp in o_prop.Bindings do
+      if boundProp.PropertyInfo = Binding.PropertyInfo then
+        Exit(True);
+
+  Exit(False);
 end;
 
 procedure TObjectModelContext.Unbind({const} ABinding: IPropertyBinding);

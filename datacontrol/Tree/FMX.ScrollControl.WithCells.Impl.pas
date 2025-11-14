@@ -2861,6 +2861,11 @@ begin
   if not DoCellCanChange(oldCell, newCell) then
     Exit;
 
+  // DoCellCanChange can trigger a ViewReset
+  // since we are selecting, we can ignore any set of the dataitem..
+  if _waitForRepaintInfo <> nil then
+    _waitForRepaintInfo.ClearSelectionInfo;
+
   DoCellChanging(oldCell, newCell);
 
   _selectionInfo.BeginUpdate;
