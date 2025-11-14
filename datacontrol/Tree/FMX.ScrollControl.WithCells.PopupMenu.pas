@@ -60,7 +60,7 @@ uses
   FMX.ScrollControl.DataControl.Impl;
 
 type
-//  IFilterItem = interface;
+  IFilterItem = interface;
 
   TfrmFMXPopupMenuDataControl = class(TForm)
     PopupListBox: TListBox;
@@ -107,8 +107,6 @@ type
   private
   {$ENDIF}
 
-//    _FilterBorder: TLayout;
-    _data: List<CObject>;
     _PopupResult: TPopupResult;
     _dataControl: TDataControl;
 
@@ -132,7 +130,7 @@ type
 
 
     procedure EnableItem(Index: integer; Value: boolean);
-    procedure LoadFilterItems(const Data: Dictionary<CObject, CString>; Comparer: IComparer<CObject>; Selected: List<CObject>; SelectEmptyValue: Boolean; CompareText: Boolean);
+    procedure LoadFilterItems(const Data: Dictionary<CObject, CString>; const Comparer: IComparer<CObject>; const Selected: List<CObject>; CompareText: Boolean);
     property  PopupResult: TPopupResult read _PopupResult;
     property  AllowClearColumnFilter: Boolean write SetAllowClearColumnFilter;
     property  SelectedItems: List<CObject> read get_SelectedItems;
@@ -140,47 +138,30 @@ type
     property LayoutColumn: IDCTreeLayoutColumn read get_LayoutColumn write set_LayoutColumn;
   end;
 
-//  IFilterItem = interface(IBaseInterface)
-//    function  get_Data: CObject;
-//    procedure set_Data(const Value: CObject);
-//    function  get_Text: CString;
-//    procedure set_Text(const Value: CString);
-//    function  get_Checked: Boolean;
-//    procedure set_Checked(const Value: Boolean);
-//
-//    property Data: CObject
-//      read  get_Data
-//      write set_Data;
-//
-//    property Text: CString
-//      read  get_Text
-//      write set_Text;
-//
-//    property Checked: Boolean
-//      read  get_Checked
-//      write set_Checked;
-//  end;
-//
-//  {$M+}
-//  TFilterItem = class(TBaseInterfacedObject, IFilterItem)
-//  protected
-//    _Data: CObject;
-//    _Text: CString;
-//    _Checked: Boolean;
-//    function  get_Data: CObject;
-//    procedure set_Data(const Value: CObject);
-//    function  get_Text: CString;
-//    procedure set_Text(const Value: CString);
-//    function  get_Checked: Boolean;
-//    procedure set_Checked(const Value: Boolean);
-//  public
-//    constructor Create(const Data: CObject; const Text: CString; const Checked: Boolean);
-//  published
-//    property Data: CObject read  get_Data write set_Data;
-//    property Text: CString read  get_Text write set_Text;
-//    property Checked: Boolean read  get_Checked write set_Checked;
-//  end;
-//  {$M-}
+  {$M+}
+  IFilterItem = interface(IBaseInterface)
+    function  get_Key: CObject;
+    function  get_Text: CString;
+
+    property Key: CObject read  get_Key;
+    property Text: CString read  get_Text;
+  end;
+
+  TFilterItem = class(TBaseInterfacedObject, IFilterItem)
+  protected
+    _Key: CObject;
+    _Text: CString;
+
+    function  get_Key: CObject;
+    function  get_Text: CString;
+
+  public
+    constructor Create(const Key: CObject; const Text: CString);
+
+    function GetHashCode: Integer; override;
+    function Equals(const other: CObject): Boolean; override;
+    function ToString: CString; override;
+  end;
 
 implementation
 
@@ -290,6 +271,8 @@ begin
   _dataControl.AllowNoneSelected := True;
   _dataControl.CellSelected := TreeCellSelected;
   _dataControl.CellFormatting := TreeCellFormatting;
+  _dataControl.ItemType := &Type.From<IFilterItem>;
+
   filterlist.AddObject(_dataControl);
 
   var column1: IDCTreeCheckboxColumn := TDCTreeCheckboxColumn.Create;
@@ -312,38 +295,41 @@ begin
   inherited;
 end;
 
-procedure TfrmFMXPopupMenuDataControl.LoadFilterItems(const Data: Dictionary<CObject, CString>; Comparer: IComparer<CObject>; Selected: List<CObject>; SelectEmptyValue, CompareText: Boolean);
-//var
-//  checked: Boolean;
-//  item: IFilterItem;
-//  kv: KeyValuePair<CObject, CString>;
+procedure TfrmFMXPopupMenuDataControl.LoadFilterItems(const Data: Dictionary<CObject, CString>; const Comparer: IComparer<CObject>; const Selected: List<CObject>; CompareText: Boolean);
 begin
-  _data := CList<CObject>.Create(Data.Count);
-  var pair: KeyValuePair<CObject, CString>;
-  for pair in Data do
-    _data.Add(pair.Key);
+  var items: List<IFilterItem> := CList<IFilterItem>.Create(Data.Count);
 
-  _data.Sort(
-      function (const x, y: CObject): Integer
+  var selected_items: List<IFilterItem>;
+  if Selected <> nil then
+    selected_items := CList<IFilterItem>.Create(Selected.Count);
+
+  var item: IFilterItem;
+  var kv: KeyValuePair<CObject, CString>;
+
+  for kv in Data do
+  begin
+    item := TFilterItem.Create(kv.Key, kv.Value);
+    items.Add(item);
+
+    if (Selected <> nil) and (Selected.Contains(kv.Key) or (CObject.Equals(kv.Key, NO_VALUE_KEY) and Selected.Contains(nil))) then
+      selected_items.Add(item);
+  end;
+
+  items.Sort(
+      function (const x, y: IFilterItem): Integer
       begin
-        if CompareText then
-        begin
-          if Comparer <> nil then
-            Result := Comparer.Compare(x.ToString, y.ToString) else
-            Result := CObject.Compare(x.ToString, y.ToString);
-        end
-        else if Comparer <> nil then
-          Result := Comparer.Compare(x, y)
+        if Comparer <> nil then
+          Result := Comparer.Compare(x.Key, y.Key)
+        else if CompareText then
+          Result := CString.Compare(x.Text, y.Text)
         else
-          Result := CObject.Compare(x, y);
+          Result := CObject.Compare(x.Key, y.Key);
       end);
 
-  _dataControl.DataList := _data as IList;
-  _dataControl.AssignSelection(Selected as IList);
+  _dataControl.DataList := items as IList;
 
-  // add filter
-  if edSearch.Text <> string.Empty then
-    edSearchChangeTracking(nil);
+  if selected_items <> nil then
+    _dataControl.AssignSelection(selected_items as IList);
 end;
 
 function TfrmFMXPopupMenuDataControl.get_LayoutColumn: IDCTreeLayoutColumn;
@@ -353,9 +339,17 @@ end;
 
 function TfrmFMXPopupMenuDataControl.get_SelectedItems: List<CObject>;
 begin
-  Result := _dataControl.SelectedItems;
-  if (Result.Count = 0) or (Result.Count = _data.Count) then
-    Result := nil;
+  var selected := _dataControl.SelectedItems<IFilterItem>;
+  if (selected.Count = 0) or (selected.Count = _dataControl.DataList.Count) then
+    Exit(nil);
+
+  Result := CList<CObject>.Create(selected.Count);
+  for var f in selected do
+  begin
+    if CObject.Equals(f.Key, NO_VALUE_KEY) then
+      Result.Add(nil) else
+      Result.Add(f.Key);
+  end;
 end;
 
 procedure TfrmFMXPopupMenuDataControl.SetAllowClearColumnFilter(Value: Boolean);
@@ -471,6 +465,39 @@ begin
     e.Value := 'no value';
     e.FormattingApplied := True;
   end;
+end;
+
+{ TFilterItem }
+
+constructor TFilterItem.Create(const Key: CObject; const Text: CString);
+begin
+  _Key := Key;
+  _Text := Text;
+end;
+
+function TFilterItem.GetHashCode: Integer;
+begin
+  Result := _Key.GetHashCode;
+end;
+
+function TFilterItem.Equals(const other: CObject): Boolean;
+begin
+  Result := CObject.Equals(_Key, other.AsType<IFilterItem>.Key);
+end;
+
+function TFilterItem.ToString: CString;
+begin
+  Result := _Text;
+end;
+
+function TFilterItem.get_Text: CString;
+begin
+  Result := _Text;
+end;
+
+function TFilterItem.get_Key: CObject;
+begin
+  Result := _Key;
 end;
 
 end.

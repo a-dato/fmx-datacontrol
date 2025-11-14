@@ -39,8 +39,6 @@ uses
   FMX.ScrollControl.DataControl.Impl;
 
 type
-//  IFilterItem = interface;
-
   TfrmComboMultiBoxPopup = class(TForm)
     filterlist: TRectangle;
     lyFilter: TLayout;

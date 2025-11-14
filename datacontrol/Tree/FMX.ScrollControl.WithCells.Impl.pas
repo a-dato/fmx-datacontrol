@@ -81,7 +81,7 @@ type
     procedure CreateDefaultColumns;
     procedure ShowHeaderPopupMenu(const LayoutColumn: IDCTreeLayoutColumn);
     procedure HeaderPopupMenu_Closed(Sender: TObject; var Action: TCloseAction);
-    function  GetColumnValues(const LayoutColumn: IDCTreeLayoutColumn): Dictionary<CObject, CString>;
+    function  GetColumnValues(const LayoutColumn: IDCTreeLayoutColumn; Add_NO_VALUE: Boolean): Dictionary<CObject, CString>;
 
     procedure GetSortAndFilterImages(out ImageList: TCustomImageList; out FilterIndex, SortAscIndex, SortDescIndex: Integer);
 
@@ -1709,9 +1709,9 @@ begin
     if flatColumn.ActiveFilter = nil then
     begin
       {$IFNDEF WEBASSEMBLY}
-      filter := TTreeFilterDescription.Create(flatColumn, OnGetCellDataForSorting);
+      filter := TTreeFilterDescriptionWithRow.Create(flatColumn, OnGetCellDataForSorting);
       {$ELSE}
-      filter := TTreeFilterDescription.Create(flatColumn, @OnGetCellDataForSorting);
+      filter := TTreeFilterDescriptionWithRow.Create(flatColumn, @OnGetCellDataForSorting);
       {$ENDIF}
       FlatColumn.ActiveFilter := filter;
     end;
@@ -1732,14 +1732,26 @@ begin
   end;
 end;
 
-function TScrollControlWithCells.GetColumnValues(const LayoutColumn: IDCTreeLayoutColumn): Dictionary<CObject, CString>;
-begin
-  var dict: Dictionary<Integer, CObject> := CDictionary<Integer, CObject>.Create;
+function TScrollControlWithCells.GetColumnValues(const LayoutColumn: IDCTreeLayoutColumn; Add_NO_VALUE: Boolean): Dictionary<CObject, CString>;
+var
+  filterDescription: IListFilterDescription;
 
+  function GetText(const obj: CObject) : CString;
+  begin
+    var o := obj;
+    if DoCellFormatting(filterDescription as IDCTreeCell, False, {var} o) then
+      Result := o.ToString(True) else
+      Result := LayoutColumn.Column.GetFormattedValue(filterDescription as IDCTreeCell, o);
+
+    if CString.IsNullOrEmpty(Result) then
+      Result := NO_VALUE;
+  end;
+
+begin
   {$IFNDEF WEBASSEMBLY}
-  var filterDescription: IListFilterDescription := TTreeFilterDescription.Create(LayoutColumn, OnGetCellDataForSorting);
+  filterDescription := TTreeFilterDescriptionWithRow.Create(LayoutColumn, OnGetCellDataForSorting);
   {$ELSE}
-  var filterDescription: IListFilterDescription := TTreeFilterDescription.Create(LayoutColumn, @OnGetCellDataForSorting);
+  filterDescription := TTreeFilterDescriptionWithRow.Create(LayoutColumn, @OnGetCellDataForSorting);
   {$ENDIF}
 
   var orgDataList := _view.OriginalData;
@@ -1749,34 +1761,30 @@ begin
   if ViewIsDataModelView and interfaces.Supports<IDataModel>(orgDataList, dm) then
     orgDataList := dm.Rows as IList;
 
+  Result := CDictionary<CObject, CString>.Create;
+
   var item: CObject;
   for item in orgDataList do
   begin
     var obj := filterDescription.GetFilterableValue(item);
-    if obj = nil then
-      Continue;
+
+    if (obj = nil) and Add_NO_VALUE then
+    begin
+      if not Result.ContainsKey(NO_VALUE_KEY)  then
+        Result[NO_VALUE_KEY] := NO_VALUE;
+      continue;
+    end;
 
     if obj.IsOfType<IList> then
     begin
       var o: CObject;
       for o in obj.AsType<IList> do
-      begin
-        var hash := o.GetHashCode;
-        if not dict.ContainsKey(hash) then
-          dict.Add(hash, o);
-      end;
-    end else
-    begin
-      var hash := obj.GetHashCode;
-      if not dict.ContainsKey(hash) then
-        dict.Add(hash, obj);
-    end;
+        if not Result.ContainsKey(o)  then
+          Result[o] := GetText(o)
+    end
+    else if not Result.ContainsKey(obj)  then
+      Result[obj] := GetText(obj);
   end;
-
-  Result := CDictionary<CObject, CString>.Create;
-  var filterableObj: CObject;
-  for filterableObj in dict.Values do
-    Result.Add(filterableObj, filterableObj.ToString);
 end;
 
 procedure TScrollControlWithCells.ShowHeaderPopupMenu(const LayoutColumn: IDCTreeLayoutColumn);
@@ -1812,20 +1820,21 @@ begin
 
   if showFilter then
   begin
-    dataValues := GetColumnValues(LayoutColumn);
-
     // Dummy descriptor
     var descriptor: IListSortDescriptionWithComparer := TTreeSortDescriptionWithComparer.Create(LayoutColumn, OnGetCellDataForSorting);
     var comparer := DoSortingGetComparer(descriptor);
     var filter := LayoutColumn.ActiveFilter;
 
     if filter <> nil then
-      // Show filter values which already exist for this column
-      popupMenu.LoadFilterItems(dataValues, comparer, filter.FilterValues, // Current selected items in filter Tree
-                                filter.ShowEmptyValues,
-                                LayoutColumn.Column.SortType = TSortType.DisplayText)
+    begin
+      dataValues := GetColumnValues(LayoutColumn, filter.ShowEmptyValues);
+      popupMenu.LoadFilterItems(dataValues, comparer, filter.FilterValues, LayoutColumn.Column.SortType = TSortType.Displaytext);
+    end
     else
-      popupMenu.LoadFilterItems(dataValues, comparer, nil, False, False);
+    begin
+      dataValues := GetColumnValues(LayoutColumn, True);
+      popupMenu.LoadFilterItems(dataValues, comparer, nil, LayoutColumn.Column.SortType = TSortType.Displaytext);
+    end;
 
     popupMenu.AllowClearColumnFilter := (filter <> nil);
   end;
@@ -4211,6 +4220,8 @@ end;
 
 function TDCTreeColumn.GetFormattedValue(const Cell: IDCTreeCell; const CellValue: CObject): CString;
 begin
+  Result := nil;
+
   if CellValue <> nil then
   begin
     if CellValue.IsDateTime and CDateTime(CellValue).Equals(CDateTime.MinValue) then

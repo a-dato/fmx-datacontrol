@@ -490,8 +490,8 @@ type
     function  IsSelected(const DataIndex: Integer): Boolean;
     function  GetSelectionInfo(const DataIndex: Integer): IRowSelectionInfo;
     function  SelectedRowCount: Integer;
+    function  SelectedDataItems: List<CObject>;
     function  SelectedDataIndexes: List<Integer>;
-
   end;
 
   TWaitForRepaintInfo = class(TInterfacedObject, IWaitForRepaintInfo)
@@ -1060,8 +1060,10 @@ begin
     {$ENDIF}
   else begin
     var aType := GetItemType;
-    if aType.IsUnknown and (_dataList.Count > 0) then
-      aType := _dataList[0].GetType;
+
+    // Handled in GetItemType
+    //    if aType.IsUnknown and (_dataList.Count > 0) then
+    //      aType := _dataList[0].GetType;
 
     {$IFNDEF WEBASSEMBLY}
     _view := TDataViewList.Create(_dataList, DoCreateNewRow, OnViewChanged, aType);
@@ -1112,16 +1114,16 @@ begin
   if TDCTreeOption.HideHScrollBar in _options then
     _horzScrollBar.Visible := False;
 
-  if (TDCTreeOption.MultiSelect in OldFlags) <> (TDCTreeOption.MultiSelect in NewFlags) then
-  begin
-    if (TDCTreeOption.MultiSelect in NewFlags) then
-      _multiSelectSorter := TTreeMultiSelectSortDescription.Create(Self)
-    else begin
-      _multiSelectSorter := nil;
-      if (_selectionInfo <> nil) then
-        _selectionInfo.ClearMultiSelections;
-    end;
-  end;
+//  if (TDCTreeOption.MultiSelect in OldFlags) <> (TDCTreeOption.MultiSelect in NewFlags) then
+//  begin
+//    if (TDCTreeOption.MultiSelect in NewFlags) then
+//      _multiSelectSorter := TTreeMultiSelectSortDescription.Create(Self)
+//    else begin
+//      _multiSelectSorter := nil;
+//      if (_selectionInfo <> nil) then
+//        _selectionInfo.ClearMultiSelections;
+//    end;
+//  end;
 
   if ((TDCTreeOption.AlternatingRowBackground in OldFlags) <> (TDCTreeOption.AlternatingRowBackground in NewFlags)) then
   begin
@@ -3143,7 +3145,21 @@ end;
 
 function TScrollControlWithRows.SelectedItems: List<CObject>;
 begin
-  Result := SelectedItems<CObject>;
+  if _view = nil then Exit(nil);
+
+  var items := _selectionInfo.SelectedDataItems;
+
+  if ViewIsDataModelView then
+  begin
+    Result := CList<CObject>.Create(items.Count);
+    for var o in items do
+    begin
+      var dr: IDataRow;
+      if o.TryAsType<IDataRow>(dr) then
+        Result.Add(dr.Data);
+    end;
+  end else
+    Result := items;
 end;
 
 function TScrollControlWithRows.SelectedItems<T>: List<T>;
@@ -3162,9 +3178,15 @@ begin
     var item := _view.OriginalData[ix];
 
     var dr: IDataRow;
-    if ViewIsDataModelView and item.TryAsType<IDataRow>(dr) then
-      Result.Add(dr.Data.AsType<T>) else
-      Result.Add(item.AsType<T>);
+    var item_t: T;
+
+    if ViewIsDataModelView then
+    begin
+      if item.TryAsType<IDataRow>(dr) and dr.Data.TryAsType<T>(item_T) then
+        Result.Add(item_t);
+    end
+    else if item.TryAsType<T>(item_t) then
+      Result.Add(item_t);
   end;
 end;
 
@@ -3892,6 +3914,20 @@ begin
   finally
     EndUpdate;
   end;
+end;
+
+function TRowSelectionInfo.SelectedDataItems: List<CObject>;
+begin
+  Result := CList<CObject>.Create;
+
+  if _multiSelection.Count > 0 then
+  begin
+    var item: IRowSelectionInfo;
+    for item in _multiSelection.Values do
+      Result.Add(item.DataItem)
+  end
+  else if _lastSelectedDataItem <> nil then
+    Result.Add(_lastSelectedDataItem);
 end;
 
 function TRowSelectionInfo.SelectedDataIndexes: List<Integer>;
