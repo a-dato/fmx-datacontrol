@@ -17,7 +17,7 @@ uses
   System_,
   System.Collections,
   FMX.ScrollControl.WithCells.Intf,
-  FMX.ScrollControl.WithRows.Intf;
+  FMX.ScrollControl.WithRows.Intf, System.Collections.Generic;
 
 type
   TDataControlEventRegistration = class
@@ -203,7 +203,7 @@ type
     Editor        : TControl; // Custom user editor
     MinEditorWidth: Single;
 
-    constructor Create(const ACell: IDCTreeCell; const EditValue: CObject); reintroduce;
+    constructor Create(const ACell: IDCTreeCell; const AValue: CObject); reintroduce;
 
     property Cell: IDCTreeCell read _cell;
     property DataItem: CObject read get_DataItem;
@@ -392,10 +392,10 @@ end;
 
 { DCStartEditEventArgs }
 
-constructor DCStartEditEventArgs.Create(const ACell: IDCTreeCell; const EditValue: CObject);
+constructor DCStartEditEventArgs.Create(const ACell: IDCTreeCell; const AValue: CObject);
 begin
   inherited Create(ACell);
-  Value := EditValue;
+  Value := AValue;
   MinEditorWidth := 125;
 end;
 
