@@ -62,9 +62,6 @@ type
 
     function  MeOrSynchronizerIsUpdating: Boolean;
 
-  // published property variables
-
-
   protected
     _selectionType: TSelectionType;
     _rowHeightFixed: Single;
@@ -1114,7 +1111,11 @@ begin
   if TDCTreeOption.HideHScrollBar in _options then
     _horzScrollBar.Visible := False;
 
-//  if (TDCTreeOption.MultiSelect in OldFlags) <> (TDCTreeOption.MultiSelect in NewFlags) then
+  if (TDCTreeOption.MultiSelect in OldFlags) and not (TDCTreeOption.MultiSelect in NewFlags) then
+    _options := _options - [TDCTreeOption.KeepMultiSelectOnSelect]
+  else if not (TDCTreeOption.KeepMultiSelectOnSelect in OldFlags) and (TDCTreeOption.KeepMultiSelectOnSelect in NewFlags) and not (TDCTreeOption.MultiSelect in NewFlags) then
+    set_Options(_options + [TDCTreeOption.MultiSelect]);
+
 //  begin
 //    if (TDCTreeOption.MultiSelect in NewFlags) then
 //      _multiSelectSorter := TTreeMultiSelectSortDescription.Create(Self)
@@ -1273,7 +1274,7 @@ begin
   var makeVisible :=
     (_view <> nil) and
     not (TDCTreeOption.HideVScrollBar in _options) and
-    (_vertScrollBar.ViewPortSize + IfThen(_horzScrollBar.Visible, _horzScrollBar.Height, 0) < _vertScrollBar.Max);
+    (_vertScrollBar.ViewPortSize + IfThen(_horzScrollBar.Visible, _horzScrollBar.Height, 0) < (_vertScrollBar.Max - 1));
 
   if _vertScrollBar.Visible = makeVisible then
     Exit;
@@ -2678,7 +2679,7 @@ begin
 
     _selectionInfo.AddToSelection(Row.DataIndex, Row.ViewListIndex, Row.DataItem);
   end
-  else if (TDCTreeOption.MultiSelect in _options) and (ssCtrl in Shift) and (_selectionInfo.LastSelectionEventTrigger = TSelectionEventTrigger.Click) then
+  else if (TDCTreeOption.KeepMultiSelectOnSelect in _options) or ((TDCTreeOption.MultiSelect in _options) and (ssCtrl in Shift) and (_selectionInfo.LastSelectionEventTrigger = TSelectionEventTrigger.Click)) then
   begin
     if not _selectionInfo.IsSelected(Row.DataIndex) then
       _selectionInfo.AddToSelection(Row.DataIndex, Row.ViewListIndex, Row.DataItem) else
