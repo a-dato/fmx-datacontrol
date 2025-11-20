@@ -103,6 +103,7 @@ type
     procedure OnEditorKeyDown(var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
     procedure OnEditorExit;
 
+    function  LoadDefaultPickListForCell(const Cell: IDCTreeCell; const CellValue: CObject) : IList;
     procedure StartEditCell(const Cell: IDCTreeCell; const UserValue: string = '');
     function  EndEditCell: Boolean;
     procedure SafeForcedEndEdit;
@@ -882,6 +883,33 @@ begin
   end;
 end;
 
+function TScrollControlWithEditableCells.LoadDefaultPickListForCell(const Cell: IDCTreeCell; const CellValue: CObject) : IList;
+begin
+  Result := nil;
+
+  var tp := &Type.Unknown;
+  if not CString.IsNullOrEmpty(Cell.Column.PropertyName) then
+  begin
+    if ViewIsDataModelView then
+      tp := GetDataModelView.DataModel.FindColumnByName(Cell.Column.PropertyName).DataType else
+      tp := GetItemType.PropertyByName(Cell.Column.PropertyName).GetType;
+  end;
+
+  if tp.IsUnknown and (CellValue <> nil) then
+    tp := CellValue.GetType;
+
+  if tp.IsEnum then
+  begin
+    var arr := CEnum.GetValues(tp);
+    if arr <> nil then
+    begin
+      Result := CList<CObject>.Create(Length(arr));
+      for var o in arr do
+        Result.Add(o);
+    end;
+  end;
+end;
+
 procedure TScrollControlWithEditableCells.StartEditCell(const Cell: IDCTreeCell; const UserValue: string = '');
 begin
   // row can be in edit mode already, but cell should not be in edit mode yet
@@ -903,6 +931,7 @@ begin
   var startEditArgs: DCStartEditEventArgs;
   AutoObject.Guard(DCStartEditEventArgs.Create(Cell, cellValue), startEditArgs);
 
+  startEditArgs.PickList := LoadDefaultPickListForCell(Cell, cellValue);
   startEditArgs.AllowEditing := True;
   if Assigned(_editCellStart) then
     _editCellStart(Self, startEditArgs);
