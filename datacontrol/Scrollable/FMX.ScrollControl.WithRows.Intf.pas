@@ -250,6 +250,7 @@ type
     TreeOption_HideHoverEffect,
     TreeOption_ReadOnly,
     TreeOption_MultiSelect,
+    TreeOption_KeepMultiSelectOnSelect,
     TreeOption_AllowColumnUpdates,
     TreeOption_AllowAddNewRows,
     TreeOption_AllowDeleteRows
@@ -285,6 +286,7 @@ type
     HideHoverEffect: TDCTreeOptionFlag = TreeOption_HideHoverEffect;
     ReadOnly: TDCTreeOptionFlag = TreeOption_ReadOnly;
     MultiSelect: TDCTreeOptionFlag = TreeOption_MultiSelect;
+    KeepMultiSelectOnSelect: TDCTreeOptionFlag = TreeOption_KeepMultiSelectOnSelect;
     AllowColumnUpdates: TDCTreeOptionFlag = TreeOption_AllowColumnUpdates;
     AllowAddNewRows: TDCTreeOptionFlag = TreeOption_AllowAddNewRows;
     AllowDeleteRows: TDCTreeOptionFlag = TreeOption_AllowDeleteRows;
