@@ -122,11 +122,10 @@ begin
 
       if _Control.SelectionCount > 1 then
         Result := _Control.SelectedItems
-      else // Radio buttons
-      begin
-        _currentItem := ConvertToDataItem(_Control.DataItem);
-        Exit(_currentItem);
-      end;
+      else if _Control.SelectionCount = 1 then
+        Result := _Control.SelectedItems[0]
+      else
+        Result := nil;
     end;
   end;
 end;

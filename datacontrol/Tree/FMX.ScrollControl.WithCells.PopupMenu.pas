@@ -60,8 +60,6 @@ uses
   FMX.ScrollControl.DataControl.Impl;
 
 type
-  IFilterItem = interface;
-
   TfrmFMXPopupMenuDataControl = class(TForm)
     PopupListBox: TListBox;
     lbiSortSmallToLarge: TListBoxItem;
@@ -136,31 +134,6 @@ type
     property  SelectedItems: List<CObject> read get_SelectedItems;
 
     property LayoutColumn: IDCTreeLayoutColumn read get_LayoutColumn write set_LayoutColumn;
-  end;
-
-  {$M+}
-  IFilterItem = interface(IBaseInterface)
-    function  get_Key: CObject;
-    function  get_Text: CString;
-
-    property Key: CObject read  get_Key;
-    property Text: CString read  get_Text;
-  end;
-
-  TFilterItem = class(TBaseInterfacedObject, IFilterItem)
-  protected
-    _Key: CObject;
-    _Text: CString;
-
-    function  get_Key: CObject;
-    function  get_Text: CString;
-
-  public
-    constructor Create(const Key: CObject; const Text: CString);
-
-    function GetHashCode: Integer; override;
-    function Equals(const other: CObject): Boolean; override;
-    function ToString: CString; override;
   end;
 
 implementation
@@ -271,7 +244,7 @@ begin
   _dataControl.AllowNoneSelected := True;
   _dataControl.CellSelected := TreeCellSelected;
   _dataControl.CellFormatting := TreeCellFormatting;
-  _dataControl.ItemType := &Type.From<IFilterItem>;
+  _dataControl.ItemType := &Type.From<ICellDataItem>;
 
   filterlist.AddObject(_dataControl);
 
@@ -297,18 +270,18 @@ end;
 
 procedure TfrmFMXPopupMenuDataControl.LoadFilterItems(const Data: Dictionary<CObject, CString>; const Comparer: IComparer<CObject>; const Selected: List<CObject>; CompareText: Boolean);
 begin
-  var items: List<IFilterItem> := CList<IFilterItem>.Create(Data.Count);
+  var items: List<ICellDataItem> := CList<ICellDataItem>.Create(Data.Count);
 
-  var selected_items: List<IFilterItem>;
+  var selected_items: List<ICellDataItem>;
   if Selected <> nil then
-    selected_items := CList<IFilterItem>.Create(Selected.Count);
+    selected_items := CList<ICellDataItem>.Create(Selected.Count);
 
-  var item: IFilterItem;
+  var item: ICellDataItem;
   var kv: KeyValuePair<CObject, CString>;
 
   for kv in Data do
   begin
-    item := TFilterItem.Create(kv.Key, kv.Value);
+    item := TCellDataItem.Create(kv.Key, kv.Value);
     items.Add(item);
 
     if (Selected <> nil) and (Selected.Contains(kv.Key) or (CObject.Equals(kv.Key, NO_VALUE_KEY) and Selected.Contains(nil))) then
@@ -316,14 +289,14 @@ begin
   end;
 
   items.Sort(
-      function (const x, y: IFilterItem): Integer
+      function (const x, y: ICellDataItem): Integer
       begin
         if Comparer <> nil then
-          Result := Comparer.Compare(x.Key, y.Key)
+          Result := Comparer.Compare(x.Data, y.Data)
         else if CompareText then
           Result := CString.Compare(x.Text, y.Text)
         else
-          Result := CObject.Compare(x.Key, y.Key);
+          Result := CObject.Compare(x.Data, y.Data);
       end);
 
   _dataControl.DataList := items as IList;
@@ -339,16 +312,16 @@ end;
 
 function TfrmFMXPopupMenuDataControl.get_SelectedItems: List<CObject>;
 begin
-  var selected := _dataControl.SelectedItems<IFilterItem>;
+  var selected := _dataControl.SelectedItems<ICellDataItem>;
   if (selected.Count = 0) or (selected.Count = _dataControl.DataList.Count) then
     Exit(nil);
 
   Result := CList<CObject>.Create(selected.Count);
   for var f in selected do
   begin
-    if CObject.Equals(f.Key, NO_VALUE_KEY) then
+    if CObject.Equals(f.Data, NO_VALUE_KEY) then
       Result.Add(nil) else
-      Result.Add(f.Key);
+      Result.Add(f.Data);
   end;
 end;
 
@@ -465,39 +438,6 @@ begin
     e.Value := 'no value';
     e.FormattingApplied := True;
   end;
-end;
-
-{ TFilterItem }
-
-constructor TFilterItem.Create(const Key: CObject; const Text: CString);
-begin
-  _Key := Key;
-  _Text := Text;
-end;
-
-function TFilterItem.GetHashCode: Integer;
-begin
-  Result := _Key.GetHashCode;
-end;
-
-function TFilterItem.Equals(const other: CObject): Boolean;
-begin
-  Result := CObject.Equals(_Key, other.AsType<IFilterItem>.Key);
-end;
-
-function TFilterItem.ToString: CString;
-begin
-  Result := _Text;
-end;
-
-function TFilterItem.get_Text: CString;
-begin
-  Result := _Text;
-end;
-
-function TFilterItem.get_Key: CObject;
-begin
-  Result := _Key;
 end;
 
 end.

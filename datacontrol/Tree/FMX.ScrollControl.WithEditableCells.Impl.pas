@@ -103,6 +103,7 @@ type
     procedure OnEditorKeyDown(var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
     procedure OnEditorExit;
 
+    function  LoadDefaultPickListForCell(const Cell: IDCTreeCell; const CellValue: CObject) : IList;
     procedure StartEditCell(const Cell: IDCTreeCell; const UserValue: string = '');
     function  EndEditCell: Boolean;
     procedure SafeForcedEndEdit;
@@ -307,11 +308,12 @@ type
 
     procedure OnDropDownEditorClose(Sender: TObject);
     procedure OnDropDownEditorOpen(Sender: TObject);
-    procedure OnDropdownEditorChange(Sender: TObject);
 
     procedure Dropdown;
 
     procedure OnEditorKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState); override;
+
+    function PickListSupportsCellDataItem(const PickList: IList) : Boolean;
   public
     procedure BeginEdit(const EditValue: CObject); override;
 
@@ -881,6 +883,33 @@ begin
   end;
 end;
 
+function TScrollControlWithEditableCells.LoadDefaultPickListForCell(const Cell: IDCTreeCell; const CellValue: CObject) : IList;
+begin
+  Result := nil;
+
+  var tp := &Type.Unknown;
+  if not CString.IsNullOrEmpty(Cell.Column.PropertyName) then
+  begin
+    if ViewIsDataModelView then
+      tp := GetDataModelView.DataModel.FindColumnByName(Cell.Column.PropertyName).DataType else
+      tp := GetItemType.PropertyByName(Cell.Column.PropertyName).GetType;
+  end;
+
+  if tp.IsUnknown and (CellValue <> nil) then
+    tp := CellValue.GetType;
+
+  if tp.IsEnum then
+  begin
+    var arr := CEnum.GetValues(tp);
+    if arr <> nil then
+    begin
+      Result := CList<CObject>.Create(Length(arr));
+      for var o in arr do
+        Result.Add(o);
+    end;
+  end;
+end;
+
 procedure TScrollControlWithEditableCells.StartEditCell(const Cell: IDCTreeCell; const UserValue: string = '');
 begin
   // row can be in edit mode already, but cell should not be in edit mode yet
@@ -898,11 +927,11 @@ begin
   end;
 
   var cellValue := Cell.Column.ProvideCellData(cell, cell.Column.PropertyName);
-  DoCellFormatting(cell, True, {var} cellValue);
 
   var startEditArgs: DCStartEditEventArgs;
   AutoObject.Guard(DCStartEditEventArgs.Create(Cell, cellValue), startEditArgs);
 
+  startEditArgs.PickList := LoadDefaultPickListForCell(Cell, cellValue);
   startEditArgs.AllowEditing := True;
   if Assigned(_editCellStart) then
     _editCellStart(Self, startEditArgs);
@@ -910,7 +939,6 @@ begin
   if startEditArgs.AllowEditing then
   begin
     _editingInfo.StartCellEdit(Cell.Row.DataIndex, FlatColumnByColumn(Cell.Column).Index);
-
     ShowEditor(Cell, startEditArgs, UserValue);
   end;
 end;
@@ -1283,8 +1311,8 @@ begin
     begin
       CancelEdit(True);
       Exit(False);
-    end else
-      _cellEditor.Value := val;
+    end;
+//     else _cellEditor.Value := val;
 
     if Assigned(_editCellEnd) then
     begin
@@ -1930,6 +1958,8 @@ end;
 
 destructor TDCCellEditor.Destroy;
 begin
+  inherited;
+
   if _editor <> nil then
   begin
     _editor.OnKeyDown := nil;
@@ -1938,8 +1968,6 @@ begin
     // TODO: _editor is already being destroyed at this point
     FreeAndNil(_editor);
   end;
-
-  inherited;
 end;
 
 procedure TDCCellEditor.BeginEdit(const EditValue: CObject);
@@ -2189,11 +2217,11 @@ begin
   {$IFNDEF WEBASSEMBLY}
   ce.OnClosePopup := OnDropDownEditorClose;
   ce.OnPopup := OnDropDownEditorOpen;
-  ce.OnChange := OnDropdownEditorChange;
+  // ce.OnChange := OnDropdownEditorChange;
   {$ELSE}
   ce.OnClosePopup := @OnDropDownEditorClose;
   ce.OnPopup := @OnDropDownEditorOpen;
-  ce.OnChange := @OnDropdownEditorChange;
+  //ce.OnChange := @OnDropdownEditorChange;
   {$ENDIF}
 
   inherited;
@@ -2212,18 +2240,23 @@ end;
 function TDCCellDropDownEditor.get_Value: CObject;
 begin
   var ce := TComboEdit(_editor);
-  var index := ce.ItemIndex;
-  if index <> -1 then
-    _Value := _PickList[index] else
-    _Value := nil;
 
-//  if _Value <> nil then
+  if (_PickList <> nil) and (ce.ItemIndex <> -1) then
+  begin
+    if PickListSupportsCellDataItem(_PickList) then
+    begin
+      var pl_celldata: List<ICellDataItem> := _PickList as List<ICellDataItem>;
+      _Value := pl_celldata[ce.ItemIndex].Data;
+    end else
+      _Value := _PickList[ce.ItemIndex];
+  end
+  else
+  begin
+    _Value := ce.text;
+    ParseValue(_Value);
+  end;
+
   Result := _Value;
-end;
-
-procedure TDCCellDropDownEditor.OnDropdownEditorChange(Sender: TObject);
-begin
-  _saveData := TComboEdit(_editor).ItemIndex <> -1;
 end;
 
 procedure TDCCellDropDownEditor.OnDropDownEditorClose(Sender: TObject);
@@ -2250,6 +2283,7 @@ end;
 
 procedure TDCCellDropDownEditor.OnEditorKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
 begin
+  Assert(False, 'KV: This code is obsolete ?? Keys handled by DataControl');
   if Key in [vkUp, vkDown, vkPrior, vkNext, vkHome, vkEnd] then
   begin
     var cb := _editor as TComboEdit;
@@ -2306,25 +2340,62 @@ begin
   end;
 end;
 
+//
+// Delphi does not distinguish between List<CObject> and List<ICellDataItem>
+// Here we do an extra check to if we have a List with ICellDataItem items!
+//
+function TDCCellDropDownEditor.PickListSupportsCellDataItem(const PickList: IList) : Boolean;
+begin
+  Result := (PickList <> nil) and PickList.InnerType.Equals(&Type.From<ICellDataItem>);
+end;
+
 procedure TDCCellDropDownEditor.set_Value(const Value: CObject);
 begin
-  var val: CObject := Value;
-  if not ParseValue(val) then
-    val := _originalValue;
-
   var ce := TComboEdit(_editor);
 
-  ce.Clear;
-  var o: CObject;
-  for o in _PickList do
-    ce.Items.Add(o.ToString);
+  if _PickList <> nil then
+  begin
+    ce.Clear;
 
-  var val2 := CStringToString(val.ToString(True));
-  var ix := ce.Items.IndexOf(val2);
+    if _PickList <> nil then
+    begin
+      if PickListSupportsCellDataItem(_PickList) then
+      begin
+        var pl_celldata: List<ICellDataItem> := _PickList as List<ICellDataItem>;
+        for var cd in pl_celldata do
+          ce.Items.Add(cd.Text);
 
-  if ix <> -1 then
-    ce.ItemIndex := ix else
-    ce.Text := val2;
+        ce.ItemIndex := pl_celldata.FindIndex(function(const Item: ICellDataItem) : Boolean begin
+          Result := CObject.Equals(Item.Data, Value);
+        end);
+      end
+      else
+      begin
+        var i := 0;
+        var n := -1;
+
+        for var o in _PickList do
+        begin
+          var cellData := o;
+          var cellText: CString;
+
+          if _editorHandler.DoCellFormatting(_cell, False, {var} cellData) then
+            celltext := cellData.ToString(True) else
+            celltext := _cell.Column.GetFormattedValue(_cell, cellData);
+
+          ce.Items.Add(celltext);
+
+          if CObject.Equals(o, Value) then
+            n := i;
+
+          inc(i);
+        end;
+
+        ce.ItemIndex := n;
+      end;
+    end;
+  end else
+    ce.Text := CStringToString(Value.ToString(True));
 end;
 
 //function TDCCellDropDownEditor.TryBeginEditWithUserKey( UserKey: string): Boolean;
@@ -2509,10 +2580,8 @@ end;
 
 destructor TDCCheckBoxCellEditor.Destroy;
 begin
-//  if _standAloneCheckbox then
-
   TCheckBox(_editor).OnChange := _originalOnChange;
-  _editor := nil; // keep it alive in the inherited Destroy
+  // _editor := nil; // keep it alive in the inherited Destroy
 
   inherited;
 end;
@@ -2571,7 +2640,8 @@ procedure TDCCellMultiSelectDropDownEditor.BeginEdit(const EditValue: CObject);
 begin
   {$IFNDEF WEBASSEMBLY}
   _editor := TComboMultiBox.Create(nil);
-  TComboMultiBox(_editor).Items := _PickList;
+  Assert(False);
+  // TComboMultiBox(_editor).Items := _PickList;
   TComboMultiBox(_editor).SelectedItems := EditValue.AsType<IList>;
   _cell.Control.AddObject(_editor);
 

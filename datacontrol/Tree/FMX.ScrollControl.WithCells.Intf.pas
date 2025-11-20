@@ -616,6 +616,16 @@ type
 //    function  SelectedCellCount: Integer;
 //  end;
 
+
+  {$M+}
+  ICellDataItem = interface(IBaseInterface)
+    function  get_Data: CObject;
+    function  get_Text: CString;
+
+    property Data: CObject read  get_Data;
+    property Text: CString read  get_Text;
+  end;
+
 const
   CELL_MIN_INDENT = 10;
   HEADER_IMG_SIZE = 14;
