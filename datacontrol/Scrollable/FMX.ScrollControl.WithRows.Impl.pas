@@ -841,9 +841,14 @@ begin
 
   inc(ctrl._scrollUpdateCount);
   try
-    ctrl.VertScrollBar.Max := master._vertScrollBar.Max;
-    ctrl.VertScrollBar.ViewportSize := master._vertScrollBar.ViewportSize;
-    ctrl.VertScrollBar.Value := master._vertScrollBar.Value;
+    ctrl.VertScrollBar.ValueRange.BeginUpdate;
+    try
+      ctrl.VertScrollBar.Max := master._vertScrollBar.Max;
+      ctrl.VertScrollBar.ViewportSize := master._vertScrollBar.ViewportSize;
+      ctrl.VertScrollBar.Value := master._vertScrollBar.Value;
+    finally
+      ctrl.VertScrollBar.ValueRange.EndUpdate;
+    end;
 
     ctrl.CheckVertScrollbarVisibility;
   finally
@@ -1430,8 +1435,13 @@ begin
   _View.GetSlowPerformanceRowInfo(StartIndex, dataItem, virtualY);
   Inc(_scrollUpdateCount);
   try
-    _vertScrollBar.Value := virtualY;
-    _vertScrollBar.ViewportSize := availableHeight;
+    _vertScrollBar.ValueRange.BeginUpdate;
+    try
+      _vertScrollBar.Value := virtualY;
+      _vertScrollBar.ViewportSize := availableHeight;
+    finally
+      _vertScrollBar.ValueRange.EndUpdate;
+    end;
   finally
     Dec(_scrollUpdateCount);
   end;
