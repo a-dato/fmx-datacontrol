@@ -17,11 +17,16 @@ uses
   {$ENDIF}
   System_,
   FMX.ScrollControl.WithCells.Impl,
-  FMX.ScrollControl.WithEditableCells.Intf, ADato.ObjectModel.TrackInterfaces,
-  System.ComponentModel, ADato.InsertPosition, FMX.ScrollControl.WithCells.Intf,
-  System.Collections, ADato.ObjectModel.List.intf, System.Collections.Generic,
+  FMX.ScrollControl.WithEditableCells.Intf,
+  ADato.ObjectModel.TrackInterfaces,
+  ADato.ObjectModel.List.intf,
+  System.ComponentModel,
+  ADato.InsertPosition,
+  FMX.ScrollControl.WithCells.Intf,
+  System.Collections,
+  System.Collections.Generic,
   FMX.ScrollControl.WithRows.Intf,
-  FMX.ScrollControl.Events, ADato.Data.DataModel.intf;
+  FMX.ScrollControl.Events, ADato.Data.DataModel.intf, FMX.PickList.Intf;
 
 type
   TScrollControlWithEditableCells = class(TScrollControlWithCells, IDataControlEditorHandler)
@@ -313,11 +318,11 @@ type
 
     procedure OnEditorKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState); override;
 
-    function PickListSupportsCellDataItem(const PickList: IList) : Boolean;
+    function PickListSupportsDataItemWithText(const PickList: IList) : Boolean;
   public
     procedure BeginEdit(const EditValue: CObject); override;
 
-//    function  TryBeginEditWithUserKey(UserKey: string): Boolean; override;
+    // function  TryBeginEditWithUserKey(UserKey: string): Boolean; override;
 
     property PickList: IList read get_PickList write set_PickList;
     property SaveData: Boolean read _saveData write _saveData;
@@ -2217,17 +2222,19 @@ begin
   {$IFNDEF WEBASSEMBLY}
   ce.OnClosePopup := OnDropDownEditorClose;
   ce.OnPopup := OnDropDownEditorOpen;
+  ce.OnKeyDown := OnEditorKeyDown;
   // ce.OnChange := OnDropdownEditorChange;
   {$ELSE}
   ce.OnClosePopup := @OnDropDownEditorClose;
   ce.OnPopup := @OnDropDownEditorOpen;
+  ce.OnKeyDown := @OnEditorKeyDown;
   //ce.OnChange := @OnDropdownEditorChange;
   {$ENDIF}
 
   inherited;
 
-  var val := CStringToString(_originalValue.ToString(True));
-  ce.ItemIndex := ce.Items.IndexOf(val);
+//  var val := CStringToString(_originalValue.ToString(True));
+//  ce.ItemIndex := ce.Items.IndexOf(val);
 
   Dropdown;
 end;
@@ -2243,9 +2250,9 @@ begin
 
   if (_PickList <> nil) and (ce.ItemIndex <> -1) then
   begin
-    if PickListSupportsCellDataItem(_PickList) then
+    if PickListSupportsDataItemWithText(_PickList) then
     begin
-      var pl_celldata: List<ICellDataItem> := _PickList as List<ICellDataItem>;
+      var pl_celldata: List<TDataItemWithText> := _PickList as List<TDataItemWithText>;
       _Value := pl_celldata[ce.ItemIndex].Data;
     end else
       _Value := _PickList[ce.ItemIndex];
@@ -2283,7 +2290,6 @@ end;
 
 procedure TDCCellDropDownEditor.OnEditorKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
 begin
-  Assert(False, 'KV: This code is obsolete ?? Keys handled by DataControl');
   if Key in [vkUp, vkDown, vkPrior, vkNext, vkHome, vkEnd] then
   begin
     var cb := _editor as TComboEdit;
@@ -2344,9 +2350,9 @@ end;
 // Delphi does not distinguish between List<CObject> and List<ICellDataItem>
 // Here we do an extra check to if we have a List with ICellDataItem items!
 //
-function TDCCellDropDownEditor.PickListSupportsCellDataItem(const PickList: IList) : Boolean;
+function TDCCellDropDownEditor.PickListSupportsDataItemWithText(const PickList: IList) : Boolean;
 begin
-  Result := (PickList <> nil) and PickList.InnerType.Equals(&Type.From<ICellDataItem>);
+  Result := (PickList <> nil) and PickList.InnerType.Equals(&Type.From<TDataItemWithText>);
 end;
 
 procedure TDCCellDropDownEditor.set_Value(const Value: CObject);
@@ -2359,13 +2365,13 @@ begin
 
     if _PickList <> nil then
     begin
-      if PickListSupportsCellDataItem(_PickList) then
+      if PickListSupportsDataItemWithText(_PickList) then
       begin
-        var pl_celldata: List<ICellDataItem> := _PickList as List<ICellDataItem>;
+        var pl_celldata: List<TDataItemWithText> := _PickList as List<TDataItemWithText>;
         for var cd in pl_celldata do
           ce.Items.Add(cd.Text);
 
-        ce.ItemIndex := pl_celldata.FindIndex(function(const Item: ICellDataItem) : Boolean begin
+        ce.ItemIndex := pl_celldata.FindIndex(function(const Item: TDataItemWithText) : Boolean begin
           Result := CObject.Equals(Item.Data, Value);
         end);
       end

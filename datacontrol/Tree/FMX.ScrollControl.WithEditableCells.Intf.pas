@@ -71,15 +71,6 @@ type
     property Editor: TControl read get_editor;
   end;
 
-  IPickListSupport = interface
-    ['{F670376D-2A80-4963-B53A-3EF994D0263C}']
-    function  get_PickList: IList;
-    procedure set_PickList(const Value: IList);
-
-    property PickList: IList read get_PickList write set_PickList;
-  end;
-
-
 implementation
 
 end.

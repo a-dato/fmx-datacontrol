@@ -953,22 +953,6 @@ type
     procedure StartResizing(const HeaderCell: IHeaderCell);
   end;
 
-  TCellDataItem = class(TBaseInterfacedObject, ICellDataItem)
-  protected
-    _Data: CObject;
-    _Text: CString;
-
-    function  get_Data: CObject;
-    function  get_Text: CString;
-
-  public
-    constructor Create(const Data: CObject; const Text: CString);
-
-    function GetHashCode: Integer; override;
-    function Equals(const other: CObject): Boolean; override;
-    function ToString: CString; override;
-  end;
-
 const
   AUTO_SELECT_COLUMN_TAG = 'autoselect';
 
@@ -6536,39 +6520,6 @@ begin
 
   var rect := RectF(5, 5, Self.Width - 10, 15);
   Self.Canvas.FillRect(rect, 3, 3, AllCorners, 0.3, TCornerType.Round);
-end;
-
-{ TCellDataItem }
-
-constructor TCellDataItem.Create(const Data: CObject; const Text: CString);
-begin
-  _Data := Data;
-  _Text := Text;
-end;
-
-function TCellDataItem.GetHashCode: Integer;
-begin
-  Result := _Data.GetHashCode;
-end;
-
-function TCellDataItem.Equals(const other: CObject): Boolean;
-begin
-  Result := CObject.Equals(_Data, other.AsType<ICellDataItem>.Data);
-end;
-
-function TCellDataItem.ToString: CString;
-begin
-  Result := _Text;
-end;
-
-function TCellDataItem.get_Text: CString;
-begin
-  Result := _Text;
-end;
-
-function TCellDataItem.get_Data: CObject;
-begin
-  Result := _Data;
 end;
 
 end.

@@ -140,7 +140,7 @@ implementation
 
 uses
   FMX.ScrollControl.SortAndFilter,
-  FMX.ScrollControl.WithRows.Intf;
+  FMX.ScrollControl.WithRows.Intf, FMX.PickList.Intf;
 
 {$R *.fmx}
 
@@ -244,7 +244,7 @@ begin
   _dataControl.AllowNoneSelected := True;
   _dataControl.CellSelected := TreeCellSelected;
   _dataControl.CellFormatting := TreeCellFormatting;
-  _dataControl.ItemType := &Type.From<ICellDataItem>;
+  _dataControl.ItemType := &Type.From<TDataItemWithText>;
 
   filterlist.AddObject(_dataControl);
 
@@ -255,7 +255,7 @@ begin
   _dataControl.Columns.Add(column1);
 
   var column2: IDCTreeColumn := TDCTreeColumn.Create;
-  column2.PropertyName := '[object]';
+  column2.PropertyName := 'Text';
   column2.Visualisation.ReadOnly := True;
   column2.WidthSettings.WidthType := TDCColumnWidthType.Percentage;
   column2.WidthSettings.Width := 100;
@@ -270,18 +270,18 @@ end;
 
 procedure TfrmFMXPopupMenuDataControl.LoadFilterItems(const Data: Dictionary<CObject, CString>; const Comparer: IComparer<CObject>; const Selected: List<CObject>; CompareText: Boolean);
 begin
-  var items: List<ICellDataItem> := CList<ICellDataItem>.Create(Data.Count);
+  var items: List<TDataItemWithText> := CList<TDataItemWithText>.Create(Data.Count);
 
-  var selected_items: List<ICellDataItem>;
+  var selected_items: List<TDataItemWithText>;
   if Selected <> nil then
-    selected_items := CList<ICellDataItem>.Create(Selected.Count);
+    selected_items := CList<TDataItemWithText>.Create(Selected.Count);
 
-  var item: ICellDataItem;
+  var item: TDataItemWithText;
   var kv: KeyValuePair<CObject, CString>;
 
   for kv in Data do
   begin
-    item := TCellDataItem.Create(kv.Key, kv.Value);
+    item := TDataItemWithText.Create(kv.Key, kv.Value);
     items.Add(item);
 
     if (Selected <> nil) and (Selected.Contains(kv.Key) or (CObject.Equals(kv.Key, NO_VALUE_KEY) and Selected.Contains(nil))) then
@@ -289,7 +289,7 @@ begin
   end;
 
   items.Sort(
-      function (const x, y: ICellDataItem): Integer
+      function (const x, y: TDataItemWithText): Integer
       begin
         if Comparer <> nil then
           Result := Comparer.Compare(x.Data, y.Data)
@@ -312,7 +312,7 @@ end;
 
 function TfrmFMXPopupMenuDataControl.get_SelectedItems: List<CObject>;
 begin
-  var selected := _dataControl.SelectedItems<ICellDataItem>;
+  var selected := _dataControl.SelectedItems<TDataItemWithText>;
   if (selected.Count = 0) or (selected.Count = _dataControl.DataList.Count) then
     Exit(nil);
 
