@@ -598,6 +598,20 @@ begin
   Obj := TObject(Value);
 end;
 
+// Enums
+procedure CastFrom_Enum(Inst: PTypedInstance; const Value; out Obj: CObject);
+begin
+  var v: TValue;
+  var p: Pointer := Pointer(@Value);
+  TValue.Make(@p, Inst.TypeInfo, v);
+  Obj := CObject.From<TValue>(v);
+end;
+
+procedure CastTo_Enum(Inst: PTypedInstance; const Value: CObject; out Obj);
+begin
+  Value.AsType<TValue>.ExtractRawData(@Obj);
+end;
+
 // DynArray
 
 function DynLen(Arr: Pointer): Longint; inline;
@@ -840,6 +854,21 @@ begin
 end;
 
 const
+  Cast_Vtable_Enum: array[0..4] of Pointer =
+  (
+    @NopQueryInterface,
+    @NopAddref,
+    @NopRelease,
+    @CastFrom_Enum,
+    @CastTo_Enum
+  );
+
+  function Cast_Selector_Enum(info: PTypeInfo; size: Integer): Pointer;
+  begin
+    Result := MakeTypedInstance(@Cast_Vtable_Enum, info);
+  end;
+
+const
   Cast_Vtable_Class: array[0..4] of Pointer =
   (
     @NopQueryInterface,
@@ -910,7 +939,8 @@ const
       // tkChar
       (Flags: [ifSelector]; Data: @Cast_Selector_Char),
       // tkEnumeration
-      (Flags: [ifSelector]; Data: @Cast_Selector_Integer),
+      (Flags: [ifSelector]; Data: @Cast_Selector_Enum),
+      // (Flags: [ifSelector]; Data: @Cast_Selector_Integer),
       // tkFloat
       (Flags: [ifSelector]; Data: @Cast_Selector_Float),
       // tkString

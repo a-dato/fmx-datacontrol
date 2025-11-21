@@ -604,28 +604,6 @@ type
     function  DoOnCompareColumnCells(const Column: IDCTreeColumn; const Left, Right: CObject): Integer;
   end;
 
-//  ICellSelectionInfo = interface(ISelectionInfo)
-//    ['{3C232BB9-0DB4-4F4A-9321-EB9880E26C71}']
-//    function  CellIsSelected(const ColumnIndex: Integer): Boolean;
-//
-//    procedure AddCellSelection(const ColumnIndex: Integer);
-//    procedure RemoveCellSelection(const ColumnIndex: Integer);
-//
-//    function  CopyColumnIndexes: List<Integer>;
-//    function  LastSelectedColumnIndex: Integer;
-//    function  SelectedCellCount: Integer;
-//  end;
-
-
-  {$M+}
-  ICellDataItem = interface(IBaseInterface)
-    function  get_Data: CObject;
-    function  get_Text: CString;
-
-    property Data: CObject read  get_Data;
-    property Text: CString read  get_Text;
-  end;
-
 const
   CELL_MIN_INDENT = 10;
   HEADER_IMG_SIZE = 14;
