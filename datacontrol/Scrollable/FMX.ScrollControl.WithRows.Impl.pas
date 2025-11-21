@@ -3156,21 +3156,24 @@ end;
 
 function TScrollControlWithRows.SelectedItems: List<CObject>;
 begin
-  if _view = nil then Exit(nil);
+  if _view = nil then
+    Exit(nil);
 
-  var items := _selectionInfo.SelectedDataItems;
+  var dataIndexes := _selectionInfo.SelectedDataIndexes;
+  dataIndexes.Sort;
 
-  if ViewIsDataModelView then
+  Result := CList<CObject>.Create(dataIndexes.Count);
+
+  var ix: Integer;
+  for ix in dataIndexes do
   begin
-    Result := CList<CObject>.Create(items.Count);
-    for var o in items do
-    begin
-      var dr: IDataRow;
-      if o.TryAsType<IDataRow>(dr) then
-        Result.Add(dr.Data);
-    end;
-  end else
-    Result := items;
+    var item := _view.OriginalData[ix];
+
+    var dr: IDataRow;
+    if ViewIsDataModelView and item.TryAsType<IDataRow>(dr) then
+      Result.Add(dr.Data) else
+      Result.Add(item);
+  end;
 end;
 
 function TScrollControlWithRows.SelectedItems<T>: List<T>;
@@ -3191,12 +3194,9 @@ begin
     var dr: IDataRow;
     var item_t: T;
 
-    if ViewIsDataModelView then
-    begin
-      if item.TryAsType<IDataRow>(dr) and dr.Data.TryAsType<T>(item_T) then
-        Result.Add(item_t);
-    end
-    else if item.TryAsType<T>(item_t) then
+    if item.TryAsType<T>(item_t) then
+      Result.Add(item_t)
+    else if ViewIsDataModelView and item.TryAsType<IDataRow>(dr) and dr.Data.TryAsType<T>(item_T) then
       Result.Add(item_t);
   end;
 end;
