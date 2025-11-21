@@ -279,6 +279,8 @@ type
     procedure UpdateColumnSort(const Column: IDCTreeColumn; SortDirection: ListSortDirection; ClearOtherSort: Boolean);
     procedure UpdateColumnFilter(const Column: IDCTreeColumn; const FilterText: CString; const FilterValues: List<CObject>);
 
+    procedure UpdateSelectedColumn(const Column: Integer);
+
     procedure SelectAll; override;
     function  RadioInsteadOfCheck: Boolean;
 
@@ -1746,6 +1748,18 @@ begin
   begin
     var headerCell := _headerRow.Cells[FlatColumn.Index];
     FlatColumn.UpdateCellControlsByRow(HeaderCell);
+  end;
+end;
+
+procedure TScrollControlWithCells.UpdateSelectedColumn(const Column: Integer);
+begin
+  var currentSelection := _selectionInfo as ITreeSelectionInfo;
+
+  currentSelection.BeginUpdate;
+  try
+    currentSelection.SelectedLayoutColumn := Column;
+  finally
+    currentSelection.EndUpdate;
   end;
 end;
 
