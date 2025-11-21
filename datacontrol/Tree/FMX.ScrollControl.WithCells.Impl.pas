@@ -279,6 +279,8 @@ type
     procedure UpdateColumnSort(const Column: IDCTreeColumn; SortDirection: ListSortDirection; ClearOtherSort: Boolean);
     procedure UpdateColumnFilter(const Column: IDCTreeColumn; const FilterText: CString; const FilterValues: List<CObject>);
 
+    procedure UpdateSelectedColumn(const Column: Integer);
+
     procedure SelectAll; override;
     function  RadioInsteadOfCheck: Boolean;
 
@@ -1121,14 +1123,15 @@ begin
     Exit;
 
   AssignWidthsToAlignColumns;
-//  _fullRepositionCellsNeeded := _fullRepositionCellsNeeded or _treeLayout.RecalcRequired;
 
   ProcessColumnVisibilityRules;
+
+  UpdateHorzScrollbar;
+
   UpdatePositionAndWidthCells;
 
   PositionTree;
 
-  UpdateHorzScrollbar;
   SetBasicVertScrollBarValues;
 
   if DefaultLayout <> nil then
@@ -1732,6 +1735,18 @@ begin
   end;
 end;
 
+procedure TScrollControlWithCells.UpdateSelectedColumn(const Column: Integer);
+begin
+  var currentSelection := _selectionInfo as ITreeSelectionInfo;
+
+  currentSelection.BeginUpdate;
+  try
+    currentSelection.SelectedLayoutColumn := Column;
+  finally
+    currentSelection.EndUpdate;
+  end;
+end;
+
 function TScrollControlWithCells.GetColumnValues(const LayoutColumn: IDCTreeLayoutColumn; Add_NO_VALUE: Boolean): Dictionary<CObject, CString>;
 var
   filterDescription: IListFilterDescription;
@@ -2078,9 +2093,14 @@ begin
     var setHorzBackToMinValue := SameValue(_horzScrollBar.Min, _horzScrollBar.Value);
     var rowCtrlWidth := CalculateRowControlWidth(False);
 
-    _horzScrollBar.Min := frozenColumnWidth;
-    _horzScrollBar.Max := rowCtrlWidth + _treeLayout.ContentOverFlow;
-    _horzScrollBar.ViewportSize := rowCtrlWidth - frozenColumnWidth;
+    _horzScrollBar.ValueRange.BeginUpdate;
+    try
+      _horzScrollBar.Min := frozenColumnWidth;
+      _horzScrollBar.Max := rowCtrlWidth + _treeLayout.ContentOverFlow;
+      _horzScrollBar.ViewportSize := rowCtrlWidth - frozenColumnWidth;
+    finally
+      _horzScrollBar.ValueRange.EndUpdate;
+    end;
 
     if setHorzBackToMinValue then
       _horzScrollBar.Value := _horzScrollBar.Min;
@@ -5124,6 +5144,9 @@ begin
           layoutClmn.Width := CMath.Max(layoutClmn.Width, layoutClmn.Column.WidthMin);
           if layoutClmn.Column.WidthMax > 0 then
             layoutClmn.Width := CMath.Min(layoutClmn.Width, layoutClmn.Column.WidthMax);
+
+          if layoutClmn.Width > 215 then
+            layoutClmn.Width := layoutClmn.Width + 5 - 10 + 5;
 
           widthLeft := widthLeft - layoutClmn.Width;
           columnsToCalculate.RemoveAt(ix);
