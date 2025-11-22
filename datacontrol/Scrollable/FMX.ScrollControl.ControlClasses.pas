@@ -41,6 +41,25 @@ uses
   ADato.FMX.FastControls.Button;
 
 type
+  // Interface that handles communication between a cell editor inside the tree control
+  // and the actual control used for the editing
+  IEditControl = interface(IBaseInterface)
+    ['{D407A256-CED9-4FCD-8AED-E6B6578AE83D}']
+    function get_Control: TControl;
+
+    property Control: TControl read get_Control;
+  end;
+
+  TEditControl = class(TBaseInterfacedObject, IEditControl)
+  protected
+    _control: TControl;
+
+    function get_Control: TControl;
+
+  public
+    constructor Create(AControl: TControl);
+  end;
+
   IDataControlClassFactory = interface
     ['{08ADE46F-92EA-4A14-9208-51FD5347C754}']
     function CreateHeaderRect(const Owner: TComponent): TRectangle;
@@ -265,6 +284,18 @@ end;
 function TDataControlClassFactory.IsCustomFactory: Boolean;
 begin
   Result := _isCustomFactory;
+end;
+
+{ TEditControl }
+
+constructor TEditControl.Create(AControl: TControl);
+begin
+  _control := AControl;
+end;
+
+function TEditControl.get_Control: TControl;
+begin
+  Result := _control;
 end;
 
 initialization
