@@ -26,7 +26,8 @@ uses
   System.Collections,
   System.Collections.Generic,
   FMX.ScrollControl.WithRows.Intf,
-  FMX.ScrollControl.Events, ADato.Data.DataModel.intf, FMX.PickList.Intf;
+  FMX.ScrollControl.Events, ADato.Data.DataModel.intf, FMX.PickList.Intf,
+  FMX.ScrollControl.ControlClasses;
 
 type
   TScrollControlWithEditableCells = class(TScrollControlWithCells, IDataControlEditorHandler)
@@ -195,7 +196,11 @@ type
     _editorHandler: IDataControlEditorHandler;
 
     _cell: IDCTreeCell;
+    {$IFDEF EDITCONTROL}
+    _editor: IEditControl;
+    {$ELSE}
     _editor: TControl;
+    {$ENDIF}
     _originalValue: CObject;
 
     function  get_Cell: IDCTreeCell;
@@ -404,7 +409,6 @@ uses
   Wasm.FMX.Platform,
   Wasm.System.SysUtils,
   {$ENDIF}
-  FMX.ScrollControl.ControlClasses,
   FMX.ControlCalculations,
   ADato.Collections.Specialized,
   System.Reflection;
@@ -1970,8 +1974,11 @@ begin
     _editor.OnKeyDown := nil;
     _editor.OnExit := nil;
 
+    {$IFDEF EDITCONTROL}
+    {$ELSE}
     // TODO: _editor is already being destroyed at this point
     FreeAndNil(_editor);
+    {$ENDIF}
   end;
 end;
 
@@ -2000,7 +2007,11 @@ begin
     {$ENDIF}
   end;
 
+  {$IFDEF EDITCONTROL}
+  _cell.Control.AddObject(_editor.Control);
+  {$ELSE}
   _cell.Control.AddObject(_editor);
+  {$ENDIF}
 
   _OriginalValue := EditValue;
 
@@ -2025,7 +2036,11 @@ end;
 
 function TDCCellEditor.get_Editor: TControl;
 begin
+  {$IFDEF EDITCONTROL}
+  Result := _editor.Control;
+  {$ELSE}
   Result := _editor;
+  {$ENDIF}
 end;
 
 function TDCCellEditor.get_Modified: Boolean;
@@ -2099,8 +2114,13 @@ begin
   // TODO: We say here that Owner is nil, but since we add _editor to control it means
   // when parent control is freed _editor's lifetime is dependant on that control.
   // So trying to free with _editor.Free fails in destroy.
+  {$IFDEF EDITCONTROL}
+//  _editor := DataControlClassFactory.CreateEdit(nil);
+//  _cell.Control.AddObject(_editor);
+  {$ELSE}
   _editor := DataControlClassFactory.CreateEdit(nil);
   _cell.Control.AddObject(_editor);
+  {$ENDIF}
 
   {$IFNDEF WEBASSEMBLY}
   TEdit(_editor).OnChangeTracking := OnTextCellEditorChangeTracking;
@@ -2153,10 +2173,13 @@ end;
 
 procedure TDCCellDateTimeEditor.BeginEdit(const EditValue: CObject);
 begin
+  {$IFDEF EDITCONTROL}
+  {$ELSE}
   _editor := DataControlClassFactory.CreateDateEdit(nil);
   _cell.Control.AddObject(_editor);
 
   _editor.TabStop := false;
+  {$ENDIF}
 
   {$IFNDEF WEBASSEMBLY}
   TDateEdit(_editor).OnOpenPicker := OnDateTimeEditorOpen;
@@ -2213,8 +2236,11 @@ end;
 
 procedure TDCCellDropDownEditor.BeginEdit(const EditValue: CObject);
 begin
+  {$IFDEF EDITCONTROL}
+  {$ELSE}
   _editor := DataControlClassFactory.CreateComboEdit(nil);
   _cell.Control.AddObject(_editor);
+  {$ENDIF}
 
   var ce := TComboEdit(_editor);
   ce.DropDownCount := 5;
@@ -2433,8 +2459,11 @@ end;
 
 procedure TDCTextCellMultilineEditor.InternalBeginEdit(const EditValue: CObject);
 begin
+  {$IFDEF EDITCONTROL}
+  {$ELSE}
   _editor := DataControlClassFactory.CreateMemo(nil);
   _cell.Control.AddObject(_editor);
+  {$ENDIF}
 
   TMemo(_editor).ShowScrollBars := false;
   {$IFNDEF WEBASSEMBLY}
@@ -2568,9 +2597,10 @@ end;
 
 procedure TDCCheckBoxCellEditor.BeginEdit(const EditValue: CObject);
 begin
-//  if not _standAloneCheckbox then
-//    _editor := ScrollableRowControl_DefaultCheckboxClass.Create(nil) else
-    _editor := _cell.InfoControl as TStyledControl;
+  {$IFDEF EDITCONTROL}
+  {$ELSE}
+  _editor := _cell.InfoControl as TStyledControl;
+  {$ENDIF}
 
   _originalOnChange := TCheckBox(_editor).OnChange;
 
@@ -2605,8 +2635,11 @@ begin
   if ParseValue({var} isChecked) then
     _Value := isChecked;
 
+  {$IFDEF EDITCONTROL}
+  {$ELSE}
   if Assigned(_originalOnChange) then
     _originalOnChange(_editor);
+  {$ENDIF}
 end;
 
 procedure TDCCheckBoxCellEditor.OnEditorKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
@@ -2627,7 +2660,10 @@ end;
 constructor TDCCustomCellEditor.Create(const EditorHandler: IDataControlEditorHandler; const Cell: IDCTreeCell; const Editor: TControl);
 begin
   inherited Create(EditorHandler, Cell);
+  {$IFDEF EDITCONTROL}
+  {$ELSE}
   _editor := Editor;
+  {$ENDIF}
 end;
 
 function TDCCustomCellEditor.get_Value: CObject;
@@ -2645,11 +2681,14 @@ end;
 procedure TDCCellMultiSelectDropDownEditor.BeginEdit(const EditValue: CObject);
 begin
   {$IFNDEF WEBASSEMBLY}
+  {$IFDEF EDITCONTROL}
+  {$ELSE}
   _editor := TComboMultiBox.Create(nil);
   Assert(False);
-  // TComboMultiBox(_editor).Items := _PickList;
+
   TComboMultiBox(_editor).SelectedItems := EditValue.AsType<IList>;
   _cell.Control.AddObject(_editor);
+  {$ENDIF}
 
   inherited;
 

@@ -41,24 +41,73 @@ uses
   ADato.FMX.FastControls.Button;
 
 type
+  {$IFDEF EDITCONTROL}
   // Interface that handles communication between a cell editor inside the tree control
   // and the actual control used for the editing
   IEditControl = interface(IBaseInterface)
     ['{D407A256-CED9-4FCD-8AED-E6B6578AE83D}']
-    function get_Control: TControl;
+    function  get_Control: TControl;
+    function  get_OnExit: TNotifyEvent;
+    procedure set_OnExit(const Value: TNotifyEvent);
+    function  get_OnKeyDown: TKeyEvent;
+    procedure set_OnKeyDown(const Value: TKeyEvent);
+    function  get_Position: TPosition;
+    procedure set_Position(const Value: TPosition);
+    function  get_Width: Single;
+    procedure set_Width(const Value: Single);
+    function  get_Height: Single;
+    procedure set_Height(const Value: Single);
+
+    procedure SetFocus;
 
     property Control: TControl read get_Control;
+    property OnExit: TNotifyEvent read get_OnExit write set_OnExit;
+    property OnKeyDown: TKeyEvent read get_OnKeyDown write set_OnKeyDown;
+
+    property Position: TPosition read get_Position write set_Position;
+    property Width: Single read get_Width write set_Width;
+    property Height: Single read get_Height write set_Height;
   end;
 
-  TEditControl = class(TBaseInterfacedObject, IEditControl)
+  IComboEditControl = interface(IEditControl)
+    ['{0A5E499C-31BB-42B8-BDD5-16EFA661C377}']
+
+  end;
+
+  TEditControlImpl = class(TBaseInterfacedObject, IEditControl)
   protected
     _control: TControl;
 
-    function get_Control: TControl;
+    function  get_Control: TControl;
+    function  get_OnExit: TNotifyEvent;
+    procedure set_OnExit(const Value: TNotifyEvent);
+    function  get_OnKeyDown: TKeyEvent;
+    procedure set_OnKeyDown(const Value: TKeyEvent);
+    function  get_Position: TPosition;
+    procedure set_Position(const Value: TPosition);
+    function  get_Width: Single;
+    procedure set_Width(const Value: Single);
+    function  get_Height: Single;
+    procedure set_Height(const Value: Single);
 
+    procedure SetFocus;
   public
     constructor Create(AControl: TControl);
   end;
+
+  TComboEditControl = class(TComboEdit, IEditControl{, IComboEditControl})
+  protected
+    _editControl: IEditControl;
+
+    function get_EditControl: IEditControl;
+
+  public
+    constructor Create(AOwner: TComponent); override;
+
+    property EditControl: IEditControl read get_EditControl implements IEditControl;
+
+  end;
+  {$ENDIF}
 
   IDataControlClassFactory = interface
     ['{08ADE46F-92EA-4A14-9208-51FD5347C754}']
@@ -78,7 +127,12 @@ type
     function CreateEdit(const Owner: TComponent): TEdit;
     function CreateMemo(const Owner: TComponent): TMemo;
     function CreateDateEdit(const Owner: TComponent): TDateEdit;
+
+    {$IFDEF EDITCONTROL}
+    function CreateComboEdit(const Owner: TComponent): IEditControl;
+    {$ELSE}
     function CreateComboEdit(const Owner: TComponent): TComboEdit;
+    {$ENDIF}
 
     procedure HandleRowBackground(const RowRect: TRectangle; Alternate: Boolean);
   end;
@@ -108,7 +162,11 @@ type
     function CreateEdit(const Owner: TComponent): TEdit; virtual;
     function CreateMemo(const Owner: TComponent): TMemo; virtual;
     function CreateDateEdit(const Owner: TComponent): TDateEdit; virtual;
+    {$IFDEF EDITCONTROL}
+    function CreateComboEdit(const Owner: TComponent): IEditControl;
+    {$ELSE}
     function CreateComboEdit(const Owner: TComponent): TComboEdit; virtual;
+    {$ENDIF}
 
     procedure HandleRowBackground(const RowRect: TRectangle; Alternate: Boolean); virtual;
   end;
@@ -194,10 +252,17 @@ begin
   Result := TCheckBox.Create(Owner);
 end;
 
+{$IFDEF EDITCONTROL}
+function TDataControlClassFactory.CreateComboEdit(const Owner: TComponent): IEditControl;
+begin
+  Result := TComboEditControl.Create(Owner);
+end;
+{$ELSE}
 function TDataControlClassFactory.CreateComboEdit(const Owner: TComponent): TComboEdit;
 begin
   Result := TComboEdit.Create(Owner);
 end;
+{$ENDIF}
 
 function TDataControlClassFactory.CreateDateEdit(const Owner: TComponent): TDateEdit;
 begin
@@ -286,17 +351,87 @@ begin
   Result := _isCustomFactory;
 end;
 
-{ TEditControl }
+{$IFDEF EDITCONTROL}
+{ TComboEditControl }
+constructor TComboEditControl.Create(AOwner: TComponent);
+begin
+  inherited;
 
-constructor TEditControl.Create(AControl: TControl);
+  _editControl := TEditControlImpl.Create(Self);
+end;
+
+function TComboEditControl.get_EditControl: IEditControl;
+begin
+  Result := _editControl;
+end;
+
+{ TEditControlImpl }
+
+constructor TEditControlImpl.Create(AControl: TControl);
 begin
   _control := AControl;
 end;
 
-function TEditControl.get_Control: TControl;
+function TEditControlImpl.get_Control: TControl;
 begin
   Result := _control;
 end;
+
+function TEditControlImpl.get_Height: Single;
+begin
+  Result := _control.Height;
+end;
+
+function TEditControlImpl.get_OnExit: TNotifyEvent;
+begin
+  Result := _control.OnExit;
+end;
+
+function TEditControlImpl.get_OnKeyDown: TKeyEvent;
+begin
+  Result := _control.OnKeyDown;
+end;
+
+function TEditControlImpl.get_Position: TPosition;
+begin
+  Result := _control.Position;
+end;
+
+function TEditControlImpl.get_Width: Single;
+begin
+  Result := _control.Width;
+end;
+
+procedure TEditControlImpl.SetFocus;
+begin
+  _control.SetFocus;
+end;
+
+procedure TEditControlImpl.set_Height(const Value: Single);
+begin
+  _control.Height := Value;
+end;
+
+procedure TEditControlImpl.set_OnExit(const Value: TNotifyEvent);
+begin
+  _control.OnExit := Value;
+end;
+
+procedure TEditControlImpl.set_OnKeyDown(const Value: TKeyEvent);
+begin
+  _control.OnKeyDown := Value;
+end;
+
+procedure TEditControlImpl.set_Position(const Value: TPosition);
+begin
+  _control.Position := Value;
+end;
+
+procedure TEditControlImpl.set_Width(const Value: Single);
+begin
+  _control.Width := Value;
+end;
+{$ENDIF}
 
 initialization
   DataControlClassFactory := TDataControlClassFactory.Create;
