@@ -52,7 +52,7 @@ type
     function  CanRealignContent: Boolean; override;
     function  CanEditCell(const Cell: IDCTreeCell): Boolean;
 
-    procedure ShowEditor(const Cell: IDCTreeCell; const StartEditArgs: DCStartEditEventArgs; const UserValue: string = '');
+    procedure ShowEditor(const Cell: IDCTreeCell; const StartEditArgs: DCStartEditEventArgs; const UserValue: CString);
     procedure HideEditor;
 
     function  TryAddRow(const Position: InsertPosition): Boolean;
@@ -75,6 +75,8 @@ type
 
     procedure UpdateColumnCheck(const DataIndex: Integer; const Column: IDCTreeColumn; IsChecked: Boolean); overload;
     procedure DoCellCheckChangedByUser(const Cell: IDCTreeCell); overload;
+
+    procedure OnViewChanged(Sender: TObject; e: EventArgs); override;
 
   public
     function  ItemCheckedInColumn(const Item: CObject; const Column: IDCTreeColumn): Boolean;
@@ -109,7 +111,7 @@ type
     procedure OnEditorExit;
 
     function  LoadDefaultPickListForCell(const Cell: IDCTreeCell; const CellValue: CObject) : IList;
-    procedure StartEditCell(const Cell: IDCTreeCell; const UserValue: string = '');
+    procedure StartEditCell(const Cell: IDCTreeCell; const UserValue: CString);
     function  EndEditCell: Boolean;
     procedure SafeForcedEndEdit;
 
@@ -130,10 +132,11 @@ type
     procedure CancelEditFromExternal;
 
     procedure CancelEdit(CellOnly: Boolean = False); // canceling is difficult to only do the cell
-    function  EditActiveCell(SetFocus: Boolean; const UserValue: string = ''): Boolean;
+    function  EditActiveCell(SetFocus: Boolean; const UserValue: CString): Boolean;
 
   public
     constructor Create(AOwner: TComponent); override;
+    destructor Destroy; override;
 
     function  IsEdit: Boolean;
     function  IsNew: Boolean;
@@ -218,7 +221,7 @@ type
     procedure BeginEdit(const EditValue: CObject); virtual;
     procedure EndEdit; virtual;
 
-    function TryBeginEditWithUserKey(UserKey: string): Boolean; virtual;
+    function TryBeginEditWithUserKey(UserKey: CString): Boolean; virtual;
   end;
 
   TDCCustomCellEditor = class(TDCCellEditor)
@@ -264,7 +267,7 @@ type
 
   public
     procedure BeginEdit(const EditValue: CObject); override;
-    function  TryBeginEditWithUserKey(UserKey: string): Boolean; override;
+    function  TryBeginEditWithUserKey(UserKey: CString): Boolean; override;
   end;
 
   TDCTextCellMultilineEditor = class(TDCCellEditor)
@@ -280,7 +283,7 @@ type
     procedure OnEditorKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState); override;
   public
     procedure BeginEdit(const EditValue: CObject); override;
-    function  TryBeginEditWithUserKey(UserKey: string): Boolean; override;
+    function  TryBeginEditWithUserKey(UserKey: CString): Boolean; override;
   end;
 
   TDCCellDateTimeEditor = class(TDCCellEditor)
@@ -322,8 +325,6 @@ type
   public
     procedure BeginEdit(const EditValue: CObject); override;
 
-    // function  TryBeginEditWithUserKey(UserKey: string): Boolean; override;
-
     property PickList: IList read get_PickList write set_PickList;
     property SaveData: Boolean read _saveData write _saveData;
   end;
@@ -344,8 +345,6 @@ type
 //    procedure OnEditorKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState); override;
   public
     procedure BeginEdit(const EditValue: CObject); override;
-
-//    function  TryBeginEditWithUserKey(UserKey: string): Boolean; override;
 
     property PickList: IList read get_PickList write set_PickList;
     property SaveData: Boolean read _saveData write _saveData;
@@ -494,7 +493,7 @@ begin
   if (Key in [vkF2, vkReturn]) and CanEditCell(GetActiveCell) then
   begin
     if not _editingInfo.CellIsEditing then
-      StartEditCell(GetActiveCell)
+      StartEditCell(GetActiveCell, nil {keep cell data value})
     else if Key = vkReturn then
       EndEditCell;
 
@@ -534,6 +533,13 @@ begin
   begin
     if CheckCanChangeRow and TryDeleteSelectedRows then
       Key := 0;
+  end
+
+  // check delete cell content
+  else if ((Key = vkDelete) or (Key = vkBack)) and CanEditCell(GetActiveCell) then
+  begin
+    StartEditCell(GetActiveCell, '' {clear cell});
+    Key := 0;
   end
 
   // else inherited
@@ -692,6 +698,27 @@ begin
     if IHadFocus then
       Self.SetFocus;
   end;
+end;
+
+procedure TScrollControlWithEditableCells.OnViewChanged(Sender: TObject; e: EventArgs);
+begin
+  if not IsNew and _editingInfo.RowIsEditing then
+  begin
+    // before datamodel realy EndEdit, it calls OnViewChanged
+    // we cannot know if the DataModel is still in Edit mode or not by asking the EditFlags..
+    // doesn't matter on ViewChange we simply want to stop editing
+    if _editingInfo.CellIsEditing then
+      EndEditCell;
+
+    // EndCellEdit can already execute EndRowEdit!!
+    // therefor ask if RowIsEditing again
+    if _editingInfo.RowIsEditing then
+      DoEditRowEnd(GetActiveRow as IDCTreeRow);
+
+    Exit;
+  end;
+
+  inherited;
 end;
 
 procedure TScrollControlWithEditableCells.OnEditorExit;
@@ -884,7 +911,7 @@ begin
       (newCell.InfoControl as IIsChecked).IsChecked := not (newCell.InfoControl as IIsChecked).IsChecked;
     end
     else if ((ssDouble in Shift) or (crrntCell = newCell)) and not _editingInfo.CellIsEditing then
-      StartEditCell(newCell);
+      StartEditCell(newCell, nil {keep cell data value});
   end;
 end;
 
@@ -915,7 +942,7 @@ begin
   end;
 end;
 
-procedure TScrollControlWithEditableCells.StartEditCell(const Cell: IDCTreeCell; const UserValue: string = '');
+procedure TScrollControlWithEditableCells.StartEditCell(const Cell: IDCTreeCell; const UserValue: CString);
 begin
   // row can be in edit mode already, but cell should not be in edit mode yet
   if (Cell = nil) or not CanEditCell(Cell) or _editingInfo.CellIsEditing then
@@ -1249,10 +1276,10 @@ begin
   DoDataItemChangedInternal(GetActiveRow.DataItem); //, GetActiveRow.DataIndex);
 end;
 
-function TScrollControlWithEditableCells.EditActiveCell(SetFocus: Boolean; const UserValue: string = ''): Boolean;
+function TScrollControlWithEditableCells.EditActiveCell(SetFocus: Boolean; const UserValue: CString): Boolean;
 begin
   var cell := GetActiveCell;
-  if CanEditCell(cell) then
+  if (cell <> nil) and CanEditCell(cell) then
     StartEditCell(cell, UserValue);
 
   Result := _cellEditor <> nil;
@@ -1311,6 +1338,12 @@ begin
 
     var val := _cellEditor.Value;
     var cell := _cellEditor.Cell;
+
+    if CObject.Equals(_cellEditor.Value, _cellEditor.OriginalValue) then
+    begin
+      CancelEdit(True);
+      Exit(True);
+    end;
 
     if not DoCellParsing(cell, True, {var} val) then
     begin
@@ -1384,7 +1417,7 @@ end;
 
 function TScrollControlWithEditableCells.CanEditCell(const Cell: IDCTreeCell): Boolean;
 begin
-  Result := not Cell.Column.ReadOnly and not (TDCTreeOption.ReadOnly in _options);
+  Result := (Cell <> nil) and not Cell.Column.ReadOnly and not (TDCTreeOption.ReadOnly in _options);
 end;
 
 procedure TScrollControlWithEditableCells.EndEditFromExternal;
@@ -1452,7 +1485,7 @@ begin
   _checkedItems := CDictionary<IDCTreeColumn, List<Integer>>.Create;
 end;
 
-procedure TScrollControlWithEditableCells.ShowEditor(const Cell: IDCTreeCell; const StartEditArgs: DCStartEditEventArgs; const UserValue: string = '');
+procedure TScrollControlWithEditableCells.ShowEditor(const Cell: IDCTreeCell; const StartEditArgs: DCStartEditEventArgs; const UserValue: CString);
 var
   dataType: &Type;
 begin
@@ -1781,6 +1814,13 @@ begin
   end;
 end;
 
+destructor TScrollControlWithEditableCells.Destroy;
+begin
+  _cellEditor := nil;
+
+  inherited;
+end;
+
 function TScrollControlWithEditableCells.DoAddingNew(out NewObject: CObject) : Boolean;
 begin
   NewObject := nil;
@@ -1948,7 +1988,7 @@ end;
 
 { TDCCellEditor }
 
-function TDCCellEditor.TryBeginEditWithUserKey(UserKey: string): Boolean;
+function TDCCellEditor.TryBeginEditWithUserKey(UserKey: CString): Boolean;
 begin
   Result := False;
 end;
@@ -1965,12 +2005,10 @@ destructor TDCCellEditor.Destroy;
 begin
   inherited;
 
-  if _editor <> nil then
+  if (_editor <> nil) and not (csDestroying in _editor.ComponentState) then
   begin
     _editor.OnKeyDown := nil;
     _editor.OnExit := nil;
-
-    // TODO: _editor is already being destroyed at this point
     FreeAndNil(_editor);
   end;
 end;
@@ -2139,9 +2177,9 @@ begin
   TEdit(_editor).Text := CStringToString(val.ToString(True));
 end;
 
-function TDCTextCellEditor.TryBeginEditWithUserKey(UserKey: string): Boolean;
+function TDCTextCellEditor.TryBeginEditWithUserKey(UserKey: CString): Boolean;
 begin
-  Result := UserKey <> '';
+  Result := UserKey <> nil;
   if Result then
   begin
     InternalBeginEdit(UserKey);
@@ -2404,17 +2442,6 @@ begin
     ce.Text := CStringToString(Value.ToString(True));
 end;
 
-//function TDCCellDropDownEditor.TryBeginEditWithUserKey( UserKey: string): Boolean;
-//begin
-//  var ce := TComboEdit(_editor);
-//  ce.DropDown;
-//
-//  var ix := ce.Items.IndexOf(UserKey);
-//  Result := ix <> -1;
-//  if Result then
-//    ce.ItemIndex := ix;
-//end;
-
 { TDCTextCellMultilineEditor }
 
 procedure TDCTextCellMultilineEditor.BeginEdit(const EditValue: CObject);
@@ -2473,9 +2500,9 @@ begin
   TMemo(_editor).Text := CStringToString(val.ToString(True));
 end;
 
-function TDCTextCellMultilineEditor.TryBeginEditWithUserKey(UserKey: string): Boolean;
+function TDCTextCellMultilineEditor.TryBeginEditWithUserKey(UserKey: CString): Boolean;
 begin
-  Result := UserKey <> '';
+  Result := UserKey <> nil;
   if Result then
   begin
     InternalBeginEdit(UserKey);
