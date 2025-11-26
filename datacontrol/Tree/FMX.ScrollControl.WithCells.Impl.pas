@@ -1737,14 +1737,13 @@ end;
 
 procedure TScrollControlWithCells.UpdateSelectedColumn(const Column: Integer);
 begin
-  var currentSelection := _selectionInfo as ITreeSelectionInfo;
+  _selectionInfo.LastSelectionEventTrigger := TSelectionEventTrigger.Key;
 
-  currentSelection.BeginUpdate;
-  try
-    currentSelection.SelectedLayoutColumn := Column;
-  finally
-    currentSelection.EndUpdate;
-  end;
+  var requestedSelection := _selectionInfo.Clone as ITreeSelectionInfo;
+  requestedSelection.ClearAllSelections;
+  requestedSelection.SelectedLayoutColumn := Column;
+
+  TrySelectItem(requestedSelection, [ssShift]);
 end;
 
 function TScrollControlWithCells.GetColumnValues(const LayoutColumn: IDCTreeLayoutColumn; Add_NO_VALUE: Boolean): Dictionary<CObject, CString>;
@@ -2365,7 +2364,9 @@ begin
   Result := nil;
   if _treeLayout = nil then Exit;
 
-  Result := _treeLayout.LayoutColumns[(_selectionInfo as ITreeSelectionInfo).SelectedLayoutColumn];
+  var selectedLayoutColumn := (_selectionInfo as ITreeSelectionInfo).SelectedLayoutColumn;
+  if (selectedLayoutColumn = -1) or (_treeLayout.LayoutColumns.Count = 0) then Exit;
+  Result := _treeLayout.LayoutColumns[selectedLayoutColumn];
 end;
 
 procedure TScrollControlWithCells.set_AllowNoneSelected(const Value: Boolean);
