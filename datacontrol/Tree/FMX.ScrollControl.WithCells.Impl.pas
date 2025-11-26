@@ -244,7 +244,6 @@ type
 
     function  CreateDummyRowForChanging(const FromSelectionInfo: IRowSelectionInfo): IDCRow; override;
 
-    function  GetActiveCell: IDCTreeCell;
     function  GetCellByControl(const Control: TControl): IDCTreeCell;
 
     procedure ClearCalculatedColumnWidths;
@@ -272,6 +271,7 @@ type
     function  OnGetCellDataForSorting(const Cell: IDCTreeCell): CObject;
     function  IsSortingOrFiltering: Boolean;
     function  IsSpecifiedColumnReload: Boolean;
+    function  GetActiveCell: IDCTreeCell;
 
     procedure RefreshColumn(const Column: IDCTreeColumn);
     procedure ColumnsChangedFromExternal;
@@ -3395,15 +3395,15 @@ begin
     if Length(txt.Text) = 0 then
       Exit(0);
 
-//    var maxWidth := IfThen(cell.Column.WidthMax > 0, cell.Column.WidthMax, -1);
-//    if cell.Column.CustomWidth > 0 then
-//      maxWidth := cell.Column.CustomWidth;
-//
-//    var isSingleLine := not txt.WordWrap or ((cell.Column.WidthType = TDCColumnWidthType.AlignToContent) and (maxWidth = -1));
-//
-//    var cellHeight :=
-//    if not isSingleLine then
-//      cellHeight := txt.TextHeight; // TextControlHeight(txt, txt.TextSettings, TextForSizeCalc(txt.Text), -1, -1, maxWidth);
+    var maxWidth: Single;
+    if cell.Column.CustomWidth > 0 then
+      maxWidth := cell.Column.CustomWidth else
+      maxWidth := IfThen(cell.Column.WidthMax > 0, cell.Column.WidthMax, -1);
+
+    var calcAsAutoWidth := txt.CalcAsAutoWidth;
+    if maxWidth <> -1 then
+      txt.Width := maxWidth;
+    txt.CalcAsAutoWidth := maxWidth = -1;
 
     Result := txt.TextHeight;
   end else

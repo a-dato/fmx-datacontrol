@@ -262,7 +262,7 @@ type
     _ignoreNextRowChanged: RowChangedEventArgs;
     _ignoreNextRowPropertiesChanged: RowPropertiesChangedEventArgs;
 
-    procedure OnViewChanged(Sender: TObject; e: EventArgs);
+    procedure OnViewChanged(Sender: TObject; e: EventArgs); virtual;
     procedure DataModelViewRowChanged(const Sender: IBaseInterface; Args: RowChangedEventArgs);
     procedure DataModelViewRowPropertiesChanged(Sender: TObject; Args: RowPropertiesChangedEventArgs); virtual;
 
@@ -1383,6 +1383,9 @@ begin
 //    _masterSynchronizerIndex := True;
 
     // let the master take care of the sorting/filtering/current
+    if _waitForRepaintInfo = nil then
+      _waitForRepaintInfo := _rowHeightSynchronizer._waitForRepaintInfo;
+
     _rowHeightSynchronizer._waitForRepaintInfo := nil;
     _rowHeightSynchronizer._realignContentRequested := False;
     _rowHeightSynchronizer._scrollingType := _scrollingType;
@@ -2396,6 +2399,9 @@ begin
   var row: IDCRow;
   for row in _view.ActiveViewRows do
     VisualizeRowSelection(row);
+
+  if IsMasterSynchronizer then
+    _rowHeightSynchronizer.OnSelectionInfoChanged;
 end;
 
 function TScrollControlWithRows.ConvertedDataItem: CObject;
@@ -2493,8 +2499,8 @@ begin
   if _waitForRepaintInfo = nil then
     Exit;
 
-  var sortChanged := (_waitForRepaintInfo <> nil) and (TTreeRowState.SortChanged in _waitForRepaintInfo.RowStateFlags);
-  var filterChanged := (_waitForRepaintInfo <> nil) and (TTreeRowState.FilterChanged in _waitForRepaintInfo.RowStateFlags);
+  var sortChanged := (TTreeRowState.SortChanged in _waitForRepaintInfo.RowStateFlags);
+  var filterChanged := (TTreeRowState.FilterChanged in _waitForRepaintInfo.RowStateFlags);
 
   inc(_updateCount);
   try
@@ -2882,6 +2888,10 @@ begin
     end;
 
   finally
+    // set model context / cell selected if the correct one was not set yet
+    if (_waitForRepaintInfo <> nil) and (RowChanged in _waitForRepaintInfo.RowStateFlags) then
+      OnSelectionInfoChanged;
+
     _waitForRepaintInfo := nil;
   end;
 end;
@@ -2970,12 +2980,13 @@ begin
 
   if ViewIsDataModelView then
   begin
-    inc(_internalSelectCount);
-    try
-      GetDataModelView.CurrencyManager.Current := -1;
-    finally
-      dec(_internalSelectCount);
-    end;
+    // I think I don't want this here...
+//    inc(_internalSelectCount);
+//    try
+//      GetDataModelView.CurrencyManager.Current := -1;
+//    finally
+//      dec(_internalSelectCount);
+//    end;
   end;
 
   _view.ResetView(FromViewListIndex, ClearOneRowOnly);
@@ -3160,6 +3171,9 @@ begin
     Exit(nil);
 
   var dataIndexes := _selectionInfo.SelectedDataIndexes;
+  if dataIndexes.Count = 0 then
+    Exit(nil);
+
   dataIndexes.Sort;
 
   Result := CList<CObject>.Create(dataIndexes.Count);
@@ -3182,6 +3196,9 @@ begin
     Exit(nil);
 
   var dataIndexes := _selectionInfo.SelectedDataIndexes;
+  if dataIndexes.Count = 0 then
+    Exit(nil);
+
   dataIndexes.Sort;
 
   Result := CList<T>.Create(dataIndexes.Count);
@@ -3250,7 +3267,7 @@ begin
     end;
 
     if viewListIndex = -1 then
-      viewListIndex := CMath.Min(_selectionInfo.ViewListIndex - 1, _view.ViewCount - 1);
+      viewListIndex := CMath.Min(_selectionInfo.ViewListIndex, _view.ViewCount - 1);
   end
   else if ViewIsDataModelView then
     viewListIndex := CMath.Max(0, GetDataModelView.CurrencyManager.Current);
@@ -3314,7 +3331,9 @@ end;
 procedure TScrollControlWithRows.set_Current(const Value: Integer);
 begin
   if (_selectionInfo = nil) or (_selectionInfo.ViewListIndex <> Value) then
-    GetInitializedWaitForRefreshInfo.Current := Value;
+    GetInitializedWaitForRefreshInfo.Current := Value
+  else if (_waitForRepaintInfo <> nil) and (_waitForRepaintInfo.Current <> Value) then
+    _waitForRepaintInfo.Current := Value
 end;
 
 procedure TScrollControlWithRows.set_DataItem(const Value: CObject);

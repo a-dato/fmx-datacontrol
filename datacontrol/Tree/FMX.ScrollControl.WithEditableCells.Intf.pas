@@ -55,12 +55,15 @@ type
     function  get_Value: CObject;
     procedure set_Value(const Value: CObject);
     function  get_OriginalValue: CObject;
+    function  get_PickList: IList;
+    procedure set_PickList(const Value: IList);
     function  get_editor: TControl;
 
     procedure BeginEdit(const Value: CObject);
     procedure EndEdit;
 
-    function  TryBeginEditWithUserKey(UserKey: string): Boolean;
+    function  TryBeginEditWithUserKey(UserKey: CString): Boolean;
+
     function  ParseValue(var AValue: CObject): Boolean;
 
     property Cell: IDCTreeCell read get_Cell;
@@ -69,6 +72,7 @@ type
     property Value: CObject read get_Value write set_Value;
     property OriginalValue: CObject read get_OriginalValue;
     property Editor: TControl read get_editor;
+    property PickList: IList read get_PickList write set_PickList;
   end;
 
 implementation

@@ -332,6 +332,7 @@ type
     function  Content: TControl;
     function  FullColumnList: IList<IDCTreeColumn>;
     function  GetItemType: &Type;
+    function  GetActiveCell: IDCTreeCell;
 
     {$IFDEF DEBUG}
     {$IFNDEF WEBASSEMBLY}
