@@ -327,11 +327,20 @@ begin
   if not _ignoreDefaultPaint then
   begin
     _layout.Opacity := AbsoluteOpacity;
+    if (TextWidthWithPadding > Self.Width) then
+      _layout.MaxSize := PointF(Self.Width - (TextWidthWithPadding - TextWidth), _layout.MaxSize.Y);
+    if (TextHeightWithPadding > Self.Height) then
+      _layout.MaxSize := PointF(_layout.MaxSize.X, Self.Height - (TextHeightWithPadding - TextHeight));
+
     _layout.RenderLayout(Canvas);
 
     if Length(_subText) > 0 then
     begin
       _subTextlayout.Opacity := AbsoluteOpacity;
+      if (_subTextlayout.TextWidth > Self.Width) then
+        _subTextlayout.MaxSize := PointF(Self.Width, _subTextlayout.MaxSize.Y);
+      if (_subTextlayout.TextHeight > Self.Height) then
+        _subTextlayout.MaxSize := PointF(_subTextlayout.MaxSize.X, _subTextlayout.MaxSize.Y);
       _subTextlayout.RenderLayout(Canvas);
     end;
   end;
@@ -361,20 +370,6 @@ function TFastText.GetDefaultSize: TSizeF;
 begin
   Result := TSizeF.Create(50, 16);
 end;
-
-//procedure TFastText.Painting;
-//begin
-////  Calculate;
-//
-//  inherited;
-//end;
-
-//procedure TFastText.PrepareForPaint;
-//begin
-////  Calculate;
-//
-//  inherited;
-//end;
 
 function TFastText.GetDefaultTextSettings: TTextSettings;
 begin

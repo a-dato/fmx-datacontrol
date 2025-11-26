@@ -93,6 +93,8 @@ type
     procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
     procedure FormKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar;
         Shift: TShiftState);
+    procedure lbiSortSmallToLargeMouseEnter(Sender: TObject);
+    procedure lbiSortSmallToLargeMouseLeave(Sender: TObject);
     procedure Timer1Timer(Sender: TObject);
   public type
     TPopupResult = (ptCancel, ptSortAscending, ptSortDescending, ptAddColumnAfter, ptHideColumn, ptClearFilter, ptClearSortAndFilter, ptClearAll, ptFilter);
@@ -420,6 +422,16 @@ procedure TfrmFMXPopupMenuDataControl.lbiClearFilterClick(Sender: TObject);
 begin
   _PopupResult := TPopupResult.ptClearFilter;
   Close;
+end;
+
+procedure TfrmFMXPopupMenuDataControl.lbiSortSmallToLargeMouseEnter(Sender: TObject);
+begin
+  (Sender as TListBoxItem).Opacity := 0.5;
+end;
+
+procedure TfrmFMXPopupMenuDataControl.lbiSortSmallToLargeMouseLeave(Sender: TObject);
+begin
+  (Sender as TListBoxItem).Opacity := 1;
 end;
 
 procedure TfrmFMXPopupMenuDataControl.Timer1Timer(Sender: TObject);

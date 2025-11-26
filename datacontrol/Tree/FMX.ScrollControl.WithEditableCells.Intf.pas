@@ -60,7 +60,7 @@ type
     procedure BeginEdit(const Value: CObject);
     procedure EndEdit;
 
-    function  TryBeginEditWithUserKey(UserKey: string): Boolean;
+    function  TryBeginEditWithUserKey(UserKey: CString): Boolean;
     function  ParseValue(var AValue: CObject): Boolean;
 
     property Cell: IDCTreeCell read get_Cell;
