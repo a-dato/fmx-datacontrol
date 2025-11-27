@@ -315,7 +315,7 @@ end;
 function TfrmFMXPopupMenuDataControl.get_SelectedItems: List<CObject>;
 begin
   var selected := _dataControl.SelectedItems<TDataItemWithText>;
-  if (selected.Count = 0) or (selected.Count = _dataControl.DataList.Count) then
+  if (selected = nil) or (selected.Count = 0) or (selected.Count = _dataControl.DataList.Count) then
     Exit(nil);
 
   Result := CList<CObject>.Create(selected.Count);

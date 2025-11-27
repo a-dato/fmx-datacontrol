@@ -210,6 +210,8 @@ type
     function  get_ContainsFocus: Boolean;
     function  get_Modified: Boolean;
     {$IFDEF EDITCONTROL}
+    function  get_DefaultValue: CObject;
+    procedure set_DefaultValue(const Value: CObject);
     function  get_Value: CObject; virtual;
     procedure set_Value(const Value: CObject); virtual;
     {$ELSE}
@@ -1553,6 +1555,7 @@ begin
       _cellEditor := TDCCellDropDownEditor.Create(self, Cell);
 
     {$IFDEF EDITCONTROL}
+    _cellEditor.DefaultValue := StartEditArgs.DefaultValue;
     _cellEditor.PickList := StartEditArgs.PickList;
     {$ELSE}
     (_cellEditor as IPickListSupport).PickList := StartEditArgs.PickList;
@@ -2179,6 +2182,16 @@ begin
 end;
 
 {$IFDEF EDITCONTROL}
+function TDCCellEditor.get_DefaultValue: CObject;
+begin
+  Result := _editor.DefaultValue;
+end;
+
+procedure TDCCellEditor.set_DefaultValue(const Value: CObject);
+begin
+  _editor.DefaultValue := Value;
+end;
+
 function TDCCellEditor.get_Value: CObject;
 begin
   Result := _editor.Value;

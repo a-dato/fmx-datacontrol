@@ -51,6 +51,8 @@ type
     ['{3278B3F2-2D64-4049-9AF2-EE411F3AE509}']
     function  get_Cell: IDCTreeCell;
     function  get_ContainsFocus: Boolean;
+    function  get_DefaultValue: CObject;
+    procedure set_DefaultValue(const Value: CObject);
     function  get_Modified: Boolean;
     function  get_Value: CObject;
     procedure set_Value(const Value: CObject);
@@ -68,6 +70,7 @@ type
 
     property Cell: IDCTreeCell read get_Cell;
     property ContainsFocus: Boolean read get_ContainsFocus;
+    property DefaultValue: CObject read get_DefaultValue write set_DefaultValue;
     property Modified: Boolean read get_Modified;
     property Value: CObject read get_Value write set_Value;
     property OriginalValue: CObject read get_OriginalValue;

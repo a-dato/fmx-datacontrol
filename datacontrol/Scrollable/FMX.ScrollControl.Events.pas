@@ -199,6 +199,7 @@ type
     MultiSelect   : Boolean;
     // Holds the value to edit
     Value         : CObject;
+    DefaultValue  : CObject;
     MultilineEdit : Boolean;  // True - show Multiline editor
     Editor        : TControl; // Custom user editor
     MinEditorWidth: Single;

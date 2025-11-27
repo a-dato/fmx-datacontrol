@@ -38,19 +38,24 @@ uses
   {$ENDIF}
   System_,
   ADato.FMX.FastControls.Text,
-  ADato.FMX.FastControls.Button, System.Collections;
+  ADato.FMX.FastControls.Button, System.Collections, System.Collections.Generic;
 
 type
   {$IFDEF EDITCONTROL}
   TFormatItem = reference to function(const Item: CObject; ItemIndex: Integer) : CString;
+  TItemShowing = reference to function(const Item: CObject; ItemIndex: Integer; const Text: string) : Boolean;
 
   // Interface that handles communication between a cell editor inside the tree control
   // and the actual control used for the editing
   IEditControl = interface(IBaseInterface)
     ['{D407A256-CED9-4FCD-8AED-E6B6578AE83D}']
     function  get_Control: TControl;
+    function  get_DefaultValue: CObject;
+    procedure set_DefaultValue(const Value: CObject);
     function  get_FormatItem: TFormatItem;
     procedure set_FormatItem(const Value: TFormatItem);
+    function  get_ItemShowing: TItemShowing;
+    procedure set_ItemShowing(const Value: TItemShowing);
     function  get_OnExit: TNotifyEvent;
     procedure set_OnExit(const Value: TNotifyEvent);
     function  get_OnKeyDown: TKeyEvent;
@@ -65,6 +70,7 @@ type
     procedure set_Value(const Value: CObject);
 
     procedure SetFocus;
+    function  RefreshItems: Boolean;
     procedure DoKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
 
     property Control: TControl read get_Control;
@@ -72,9 +78,11 @@ type
     property OnKeyDown: TKeyEvent read get_OnKeyDown write set_OnKeyDown;
 
     property FormatItem: TFormatItem read get_FormatItem write set_FormatItem;
+    property ItemShowing: TItemShowing read get_ItemShowing write set_ItemShowing;
     property Position: TPosition read get_Position write set_Position;
     property Width: Single read get_Width write set_Width;
     property Height: Single read get_Height write set_Height;
+    property DefaultValue: CObject read get_DefaultValue write set_DefaultValue;
     property Value: CObject read get_Value write set_Value;
   end;
 
@@ -91,11 +99,17 @@ type
   TEditControlImpl = class(TBaseInterfacedObject, IEditControl)
   protected
     _control: TControl;
+    _DefaultValue: CObject;
     _FormatItem: TFormatItem;
+    _ItemShowing: TItemShowing;
 
     function  get_Control: TControl;
+    function  get_DefaultValue: CObject;
+    procedure set_DefaultValue(const Value: CObject);
     function  get_FormatItem: TFormatItem;
     procedure set_FormatItem(const Value: TFormatItem);
+    function  get_ItemShowing: TItemShowing;
+    procedure set_ItemShowing(const Value: TItemShowing);
     function  get_OnExit: TNotifyEvent;
     procedure set_OnExit(const Value: TNotifyEvent);
     function  get_OnKeyDown: TKeyEvent;
@@ -111,9 +125,12 @@ type
 
     procedure Dispose; override;
     function  DoFormatItem(const Item: CObject; ItemIndex: Integer; out Value: string) : Boolean; virtual;
+    function  DoItemShowing(const Item: CObject; ItemIndex: Integer; const Text: string) : Boolean; virtual;
     procedure DoKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState); virtual;
+    procedure DoKeyUp(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState); virtual;
 
     procedure SetFocus;
+    function  RefreshItems: Boolean; virtual;
   public
     constructor Create(AControl: TControl);
   end;
@@ -127,6 +144,7 @@ type
   TComboEditControlImpl = class(TEditControlImpl, IComboEditControl)
   protected
     _PickList: IList;
+    _ItemsShowing: IList;
 
     function  get_PickList: IList;
     procedure set_PickList(const Value: IList);
@@ -134,8 +152,14 @@ type
     function  get_Value: CObject; override;
     procedure set_Value(const Value: CObject); override;
 
+    function  ActivePickList: IList;
     procedure DropDown;
     procedure DoKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState); override;
+    procedure DoKeyUp(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState); override;
+    function  MatchText(const Text: string; const Search: string) : Boolean;
+    function  MatchTextIndex(const Text: string; const Search: string) : Integer;
+    function  FindBestMatch(const Items: List<string>; const Text: string; var Pos: Integer) : Integer;
+    function  RefreshItems: Boolean; override;
   end;
 
   TTextEditControl = class(TEdit, IEditControl)
@@ -156,6 +180,7 @@ type
 
     function get_EditControl: IEditControl;
 
+    procedure DoExit; override;
   public
     constructor Create(AOwner: TComponent); override;
 
@@ -433,6 +458,11 @@ begin
   _editControl := TComboEditControlImpl.Create(Self);
 end;
 
+procedure TComboEditControl.DoExit;
+begin
+;
+end;
+
 function TComboEditControl.get_EditControl: IEditControl;
 begin
   Result := _editControl;
@@ -443,6 +473,7 @@ end;
 constructor TEditControlImpl.Create(AControl: TControl);
 begin
   _control := AControl;
+  _control.OnKeyUp := DoKeyUp;
 end;
 
 procedure TEditControlImpl.Dispose;
@@ -459,7 +490,19 @@ begin
   Result := Value <> '';
 end;
 
+function TEditControlImpl.DoItemShowing(const Item: CObject; ItemIndex: Integer; const Text: string) : Boolean;
+begin
+  if Assigned(_ItemShowing) then
+    Result := _ItemShowing(Item, ItemIndex, Text) else
+    Result := True;
+end;
+
 procedure TEditControlImpl.DoKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
+begin
+
+end;
+
+procedure TEditControlImpl.DoKeyUp(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
 begin
 
 end;
@@ -467,6 +510,16 @@ end;
 function TEditControlImpl.get_Control: TControl;
 begin
   Result := _control;
+end;
+
+function TEditControlImpl.get_DefaultValue: CObject;
+begin
+  Result := _DefaultValue;
+end;
+
+procedure TEditControlImpl.set_DefaultValue(const Value: CObject);
+begin
+  _DefaultValue := Value;
 end;
 
 function TEditControlImpl.get_FormatItem: TFormatItem;
@@ -477,6 +530,11 @@ end;
 function TEditControlImpl.get_Height: Single;
 begin
   Result := _control.Height;
+end;
+
+function TEditControlImpl.get_ItemShowing: TItemShowing;
+begin
+  Result := _ItemShowing;
 end;
 
 function TEditControlImpl.get_OnExit: TNotifyEvent;
@@ -504,6 +562,11 @@ begin
   Result := _control.Width;
 end;
 
+function TEditControlImpl.RefreshItems: Boolean;
+begin
+
+end;
+
 procedure TEditControlImpl.SetFocus;
 begin
   _control.SetFocus;
@@ -517,6 +580,11 @@ end;
 procedure TEditControlImpl.set_Height(const Value: Single);
 begin
   _control.Height := Value;
+end;
+
+procedure TEditControlImpl.set_ItemShowing(const Value: TItemShowing);
+begin
+  _ItemShowing := Value;
 end;
 
 procedure TEditControlImpl.set_OnExit(const Value: TNotifyEvent);
@@ -589,28 +657,129 @@ begin
   end;
 end;
 
+function TComboEditControlImpl.MatchTextIndex(const Text: string; const Search: string) : Integer;
+begin
+  Result := Text.ToLower.IndexOf(Search.ToLower);
+end;
+
+function TComboEditControlImpl.MatchText(const Text: string; const Search: string) : Boolean;
+begin
+  Result := MatchTextIndex(Text, Search) <> -1;
+end;
+
+function TComboEditControlImpl.FindBestMatch(const Items: List<string>; const Text: string; var Pos: Integer) : Integer;
+begin
+  Result := -1;
+  Pos := Integer.MaxValue;
+
+  for var i := 0 to Items.Count - 1 do
+  begin
+    var p := MatchTextIndex(Items[i], Text);
+    if (p <> -1) and (p < Pos) then
+    begin
+      Result := i;
+      Pos := p;
+    end;
+  end;
+end;
+
+function TComboEditControlImpl.RefreshItems: Boolean;
+begin
+  if _control is TComboEdit then
+  begin
+    var ce := _control as TComboEdit;
+    if _PickList <> nil then
+    begin
+      var itemsShowing: List<CObject> := nil;
+      var items: List<string> := CList<string>.Create(_PickList.Count);
+      var i := 0;
+      for var o in _PickList do
+      begin
+        var s: string;
+        if DoFormatItem(o, i, s) then
+        begin
+          if DoItemShowing(o, i, s) then
+          begin
+            items.Add(s);
+            if itemsShowing <> nil then
+              itemsShowing.Add(o);
+          end
+          else if itemsShowing = nil then
+            itemsShowing := CList<CObject>.Create;
+        end;
+        inc(i);
+      end;
+
+      var itemUpdateNeeded := False;
+
+      if items.Count = ce.Items.Count then
+      begin
+        for var n := 0 to ce.Items.Count - 1 do
+        begin
+          if items[n] <> ce.Items[n] then
+          begin
+            itemUpdateNeeded := True;
+            break;
+          end;
+        end;
+      end else
+        itemUpdateNeeded := True;
+
+      if itemUpdateNeeded then
+      begin
+        ce.BeginUpdate;
+        try
+          var text := ce.Text;
+
+          ce.Clear;
+          ce.ItemIndex := -1;
+
+          if items.Count = 0 then
+            ce.Items.Add('')
+
+          else
+          begin
+            for var s in items do
+              ce.Items.Add(s);
+
+            var pos: Integer;
+            ce.ItemIndex := FindBestMatch(items, text, {var} pos);
+            if ce.ItemIndex <> -1 then
+            begin
+              ce.SelStart := pos + Length(text);
+              ce.SelLength := Length(items[0]) - ce.SelStart;
+            end;
+          end;
+        finally
+          ce.EndUpdate;
+        end;
+
+        _ItemsShowing := itemsShowing as IList;
+      end;
+    end;
+  end;
+end;
+
+procedure TComboEditControlImpl.DoKeyUp(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
+begin
+  inherited;
+  if (Key = vkBack) or (KeyChar in ['a'..'z', 'A'..'Z']) then
+    RefreshItems;
+end;
+
+function TComboEditControlImpl.ActivePickList: IList;
+begin
+  if _ItemsShowing <> nil then
+    Result := _ItemsShowing else
+    Result := _PickList;
+end;
+
 procedure TComboEditControlImpl.DropDown;
 begin
   if _control is TComboEdit then
   begin
     var ce := _control as TComboEdit;
-    if (_PickList <> nil) and (ce.Items.Count = 0) then
-    begin
-      ce.BeginUpdate;
-      try
-        var i := 0;
-        for var o in _PickList do
-        begin
-          var s: string;
-          if DoFormatItem(o, i, s) then
-            ce.Items.Add(s);
-          inc(i);
-        end;
-      finally
-        ce.EndUpdate;
-      end;
-    end;
-
+    RefreshItems;
     ce.DropDown;
   end;
 end;
@@ -625,9 +794,10 @@ begin
   if _control is TComboEdit then
   begin
     var ce := _control as TComboEdit;
-
-    if (_PickList <> nil) and (ce.ItemIndex >= 0) and (ce.ItemIndex < _PickList.Count) then
-      Result := _PickList[ce.ItemIndex];
+    var items := ActivePickList;
+    if (items <> nil) and (ce.ItemIndex >= 0) and (ce.ItemIndex < items.Count) then
+      Result := items[ce.ItemIndex] else
+      Result := _DefaultValue;
   end;
 end;
 
@@ -641,18 +811,27 @@ begin
   if _control is TComboEdit then
   begin
     var ce := _control as TComboEdit;
+    var items := ActivePickList;
 
-    if (_PickList <> nil) then
+    if items <> nil then
     begin
-      var i := _PickList.IndexOf(Value);
-      ce.ItemIndex := i;
+      var i := items.IndexOf(Value);
+      if i <> ce.ItemIndex then
+      begin
+        ce.BeginUpdate;
+        try
+          ce.ItemIndex := i;
+        finally
+          ce.EndUpdate;
+        end;
+      end;
     end;
   end;
 end;
 {$ENDIF}
 
 { TTextEditControlImpl }
-
+{$IFDEF EDITCONTROL}
 function TTextEditControlImpl.get_Value: CObject;
 begin
   if _control is TCustomEdit then
@@ -669,6 +848,7 @@ begin
     ce.SelectAll;
   end;
 end;
+{$ENDIF}
 
 initialization
   DataControlClassFactory := TDataControlClassFactory.Create;

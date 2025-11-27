@@ -3144,23 +3144,22 @@ begin
         _localCheckSetInDefaultData := True;
       end;
 
-
       {$IFDEF APP_PLATFORM}
-      Assert(False, ' Code needs checking');
-      if not CString.IsNullOrEmpty(propName) and not formatApplied and (cellValue <> nil) and (_app <> nil) and (cell.Column.InfoControlClass = TInfoControlClass.Text) then
-      begin
-        var item_type := GetItemType;
-        if item_type <> nil then
-        begin
-          var prop := item_type.PropertyByName(propName);
-          var descr: IPropertyDescriptor;
-          if Interfaces.Supports<IPropertyDescriptor>(prop, descr) and (descr.Formatter <> nil) then
-          begin
-            (ctrl as ICaption).Text := CStringToString(descr.Formatter.Format(nil {Context}, cellValue, nil));
-            Exit;
-          end;
-        end;
-      end;
+//      Assert(False, ' Code needs checking');
+//      if not CString.IsNullOrEmpty(propName) and not formatApplied and (cellValue <> nil) and (_app <> nil) and (cell.Column.InfoControlClass = TInfoControlClass.Text) then
+//      begin
+//        var item_type := GetItemType;
+//        if item_type <> nil then
+//        begin
+//          var prop := item_type.PropertyByName(propName);
+//          var descr: IPropertyDescriptor;
+//          if Interfaces.Supports<IPropertyDescriptor>(prop, descr) and (descr.Formatter <> nil) then
+//          begin
+//            (ctrl as ICaption).Text := CStringToString(descr.Formatter.Format(nil {Context}, cellValue, nil));
+//            Exit;
+//          end;
+//        end;
+//      end;
       {$ENDIF}
     end;
 
