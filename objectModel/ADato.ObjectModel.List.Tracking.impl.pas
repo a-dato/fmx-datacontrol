@@ -73,7 +73,7 @@ type
     procedure NotifyAddingNew(const Context: IObjectModelContext; var Index: Integer; Position: InsertPosition);
     procedure NotifyRemoved(const Item: CObject; const Index: Integer);
     procedure NotifyBeginEdit(const Context: IObjectModelContext); virtual;
-    procedure NotifyCancelEdit(const Context: IObjectModelContext; const OriginalObject: CObject);
+    procedure NotifyCancelEdit(const Context: IObjectModelContext; var OriginalObject: CObject);
     procedure NotifyEndEdit(const Context: IObjectModelContext; const OriginalObject: CObject; Index: Integer; Position: InsertPosition); virtual;
 
     procedure set_StoreChangedItems(const Value: Boolean);
@@ -349,15 +349,19 @@ begin
   end;
 end;
 
-procedure TObjectListModelWithChangeTracking<T>.NotifyCancelEdit(const Context: IObjectModelContext; const OriginalObject: CObject);
+procedure TObjectListModelWithChangeTracking<T>.NotifyCancelEdit(const Context: IObjectModelContext; var OriginalObject: CObject);
 begin
+  var wasNew := get_IsNew;
+
   _EditContext := nil;
 
   var i := _Context.IndexOf(Context.Context);
   if i = -1 then
     raise Exception.Create('NotifyCancelEdit, item could not be located');
 
-  _Context[i] := OriginalObject;
+  if not wasNew then
+    _Context[i] := OriginalObject else
+    _Context.RemoveAt(i);
 
   if _OnItemChanged <> nil then
   begin
@@ -365,6 +369,9 @@ begin
     for n in _OnItemChanged do
       n.CancelEdit(OriginalObject);
   end;
+
+  if wasNew then
+    OriginalObject := nil;
 end;
 
 procedure TObjectListModelWithChangeTracking<T>.NotifyEndEdit(const Context: IObjectModelContext; const OriginalObject: CObject; Index: Integer; Position: InsertPosition);
