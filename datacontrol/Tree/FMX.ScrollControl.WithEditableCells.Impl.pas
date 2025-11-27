@@ -1273,7 +1273,9 @@ begin
       TryDeleteSelectedRows;
   end;
 
-  DoDataItemChangedInternal(GetActiveRow.DataItem); //, GetActiveRow.DataIndex);
+  var row := GetActiveRow;
+  if row <> nil then
+    DoDataItemChangedInternal(GetActiveRow.DataItem); //, GetActiveRow.DataIndex);
 end;
 
 function TScrollControlWithEditableCells.EditActiveCell(SetFocus: Boolean; const UserValue: CString): Boolean;
