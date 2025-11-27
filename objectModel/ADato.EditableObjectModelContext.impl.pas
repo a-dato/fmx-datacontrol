@@ -125,7 +125,7 @@ begin
 
     var notify: INotifyListItemChanged;
     if (_UpdateCount = 0) and interfaces.Supports<INotifyListItemChanged>(_Owner, notify) then
-      notify.NotifyCancelEdit(Self, _SavedContext);
+      notify.NotifyCancelEdit(Self, {var} _SavedContext);
 
     // in case of clone, set old item back
     BeginUpdate;

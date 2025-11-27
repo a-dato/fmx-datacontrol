@@ -134,7 +134,7 @@ type
 
     // INotifyListItemChanged
     procedure NotifyAddingNew(const Context: IObjectModelContext; var Index: Integer; Position: InsertPosition);
-    procedure NotifyCancelEdit(const Context: IObjectModelContext; const OriginalObject: CObject);
+    procedure NotifyCancelEdit(const Context: IObjectModelContext; var OriginalObject: CObject);
     procedure NotifyBeginEdit(const Context: IObjectModelContext);
     procedure NotifyEndEdit(const Context: IObjectModelContext; const OriginalObject: CObject; Index: Integer; Position: InsertPosition);
     procedure NotifyRemoved(const Item: CObject; const Index: Integer);
@@ -457,7 +457,7 @@ begin
     n.BeginEdit(Context.Context);
 end;
 
-procedure TDataModelObjectListModel.NotifyCancelEdit(const Context: IObjectModelContext; const OriginalObject: CObject);
+procedure TDataModelObjectListModel.NotifyCancelEdit(const Context: IObjectModelContext; var OriginalObject: CObject);
 begin
   // if IsNew item then insert it into the _changedItems this way
   // it will be removed properly in NotifyRemoved
@@ -472,7 +472,8 @@ begin
     n.CancelEdit(canceledObj);
 
   if wasNew and CObject.Equals(Context.Context, canceledObj) then // it has been removed by _dataModel
-    set_ObjectContext(nil);
+    OriginalObject := nil;
+//    set_ObjectContext(nil);
 end;
 
 procedure TDataModelObjectListModel.NotifyEndEdit(const Context: IObjectModelContext; const OriginalObject: CObject; Index: Integer; Position: InsertPosition);

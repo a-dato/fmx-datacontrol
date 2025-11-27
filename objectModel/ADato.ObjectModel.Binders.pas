@@ -8,14 +8,14 @@ interface
 
 uses
   {$IFNDEF WEBASSEMBLY}
-  FMX.Edit, 
-  FMX.StdCtrls, 
-  FMX.ListBox, 
-  FMX.Memo, 
+  FMX.Edit,
+  FMX.StdCtrls,
+  FMX.ListBox,
+  FMX.Memo,
   FMX.Controls,
-  FMX.Types, 
-  System.Classes, 
-  FMX.SpinBox, 
+  FMX.Types,
+  System.Classes,
+  FMX.SpinBox,
   FMX.Objects,
   FMX.Graphics,
   FMX.NumberBox,
@@ -419,6 +419,9 @@ type
   end;
   {$ENDIF}
 
+ const
+  DISABLED_OPACITY = 0.6;
+
 implementation
 
 uses
@@ -567,6 +570,7 @@ begin
   // make it possible to copy code..
   _control.Enabled := True;
   TEdit(_control).ReadOnly := not IsEditable;
+  _control.Opacity := IfThen(not IsEditable, DISABLED_OPACITY, 1);
 end;
 
 
@@ -981,6 +985,7 @@ begin
   // make it possible to copy code..
   _control.Enabled := True;
   TMemo(_control).ReadOnly := not IsEditable;
+  _control.Opacity := IfThen(not IsEditable, DISABLED_OPACITY, 1);
 end;
 
 function TMemoControlBinding.WaitForNotifyModel: Boolean;
@@ -1188,9 +1193,8 @@ end;
 procedure TTextControlBinding.UpdateControlEditability(IsEditable: Boolean);
 begin
   // textControls can't be edited, therefor always should be true so that they can be copied!!
-
-//  inherited;
   _control.Enabled := True;
+  _control.Opacity := IfThen(not IsEditable, DISABLED_OPACITY, 1);
 end;
 
 { TTextControlSmartLinkBinding }
@@ -1216,7 +1220,7 @@ begin
   var iwid: IPropertyAccessibility;
   if (Context <> nil) and Context.TryAsType<IPropertyAccessibility>(iwid) then
   begin
-    var edState := iwid.CanEditProperty(__PropertyInfo.Name);
+    var edState := iwid.PropertyState(__PropertyInfo.Name);
     isEditable := edState.IsEditable;
     isVisible := edState.IsVisible;
   end;
@@ -1382,11 +1386,11 @@ end;
 
 procedure TControlBinding<T>.UpdateControlVisibility(IsVisible: Boolean);
 begin
-  {$IFDEF DEBUG}
-  _control.Opacity := IfThen(not IsVisible, 0.2, 1);
-  {$ELSE}
-  _control.Opacity := IfThen(not IsVisible, 0, 1);
-  {$ENDIF}
+  // do not set Visibility, for code can already make controls (in)visible
+  // it is better to interfere with the Opacity
+
+//  _control.Visible := IsVisible;
+  _control.Opacity := IfThen(IsVisible, 1, 0);
 end;
 
 procedure TControlBinding<T>.HideAndClearUpdatedRect(const Index: Integer; const Rect: TRectangle);
@@ -1507,7 +1511,7 @@ begin
   BeginUpdate;
   try
 //    {$IFDEF DOTNET}
-//    if Value = nil then 
+//    if Value = nil then
 //    begin
 //      _control.Text := CDateTime.MinValue.ToString;
 //      Exit;
@@ -1922,6 +1926,7 @@ begin
   // make it possible to copy code..
   _control.Enabled := True;
   TComboEdit(_control).ReadOnly := not IsEditable;
+  _control.Opacity := IfThen(not IsEditable, DISABLED_OPACITY, 1);
 end;
 
 { TComboEditControlSmartLinkBinding }
