@@ -2373,7 +2373,7 @@ begin
       var convertedDataItem := ConvertToDataItem(Self.DataItem);
 
       // trigger a ContextChanged event for multiselect change event
-      if _model.ObjectContext = convertedDataItem then
+      if _model.HasMultiSelection and (_model.ObjectContext = convertedDataItem) then
       begin
         (_model.ObjectModelContext as IUpdatableObject).BeginUpdate;
         try
