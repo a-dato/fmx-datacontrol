@@ -60,7 +60,6 @@ type
     function get_Control: TControl;
 
     procedure UpdateControlEditability(IsEditable: Boolean);
-    procedure UpdateControlVisibility(IsVisible: Boolean);
 
     procedure OnFreeNotificationDestroy;
 
@@ -163,7 +162,6 @@ type
     procedure OnFreeNotificationDestroy;
 
     procedure UpdateControlEditability(IsEditable: Boolean); virtual;
-    procedure UpdateControlVisibility(IsVisible: Boolean);
 
     procedure ExecuteFromLink(const Obj: CObject);
     procedure UpdatedByLink;
@@ -570,7 +568,6 @@ begin
   // make it possible to copy code..
   _control.Enabled := True;
   TEdit(_control).ReadOnly := not IsEditable;
-  _control.Opacity := IfThen(not IsEditable, DISABLED_OPACITY, 1);
 end;
 
 
@@ -985,7 +982,6 @@ begin
   // make it possible to copy code..
   _control.Enabled := True;
   TMemo(_control).ReadOnly := not IsEditable;
-  _control.Opacity := IfThen(not IsEditable, DISABLED_OPACITY, 1);
 end;
 
 function TMemoControlBinding.WaitForNotifyModel: Boolean;
@@ -1194,7 +1190,6 @@ procedure TTextControlBinding.UpdateControlEditability(IsEditable: Boolean);
 begin
   // textControls can't be edited, therefor always should be true so that they can be copied!!
   _control.Enabled := True;
-  _control.Opacity := IfThen(not IsEditable, DISABLED_OPACITY, 1);
 end;
 
 { TTextControlSmartLinkBinding }
@@ -1226,7 +1221,10 @@ begin
   end;
 
   UpdateControlEditability(isEditable);
-  UpdateControlVisibility(isVisible);
+
+  // do not set Visibility, for code can already make controls (in)visible
+  // it is better to interfere with the Opacity
+  _control.Opacity := IfThen(IsVisible, IfThen(IsEditable, 1, DISABLED_OPACITY), 0);
 end;
 
 { TControlBinding }
@@ -1382,15 +1380,6 @@ end;
 procedure TControlBinding<T>.UpdateControlEditability(IsEditable: Boolean);
 begin
   _control.Enabled := IsEditable;
-end;
-
-procedure TControlBinding<T>.UpdateControlVisibility(IsVisible: Boolean);
-begin
-  // do not set Visibility, for code can already make controls (in)visible
-  // it is better to interfere with the Opacity
-
-//  _control.Visible := IsVisible;
-  _control.Opacity := IfThen(IsVisible, 1, 0);
 end;
 
 procedure TControlBinding<T>.HideAndClearUpdatedRect(const Index: Integer; const Rect: TRectangle);
@@ -1926,7 +1915,6 @@ begin
   // make it possible to copy code..
   _control.Enabled := True;
   TComboEdit(_control).ReadOnly := not IsEditable;
-  _control.Opacity := IfThen(not IsEditable, DISABLED_OPACITY, 1);
 end;
 
 { TComboEditControlSmartLinkBinding }

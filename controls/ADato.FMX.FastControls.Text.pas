@@ -712,7 +712,6 @@ procedure TFastTextControlBinding.UpdateControlEditability(IsEditable: Boolean);
 begin
   // textControls can't be edited, therefor always should be true so that they can be copied!!
   _control.Enabled := True;
-  _control.Opacity := IfThen(not IsEditable, DISABLED_OPACITY, 1);
 end;
 
 { TFastTextControlSmartLinkBinding }
