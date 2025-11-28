@@ -550,7 +550,8 @@ uses
   {$ENDIF}
   FMX.ScrollControl.ControlClasses,
   FMX.ScrollControl.View.Impl, FMX.ControlCalculations,
-  ADato.TraceEvents.intf, FMX.ScrollControl.SortAndFilter;
+  ADato.TraceEvents.intf, FMX.ScrollControl.SortAndFilter,
+  System.ComponentModel;
 
 
 { TScrollControlWithRows }
