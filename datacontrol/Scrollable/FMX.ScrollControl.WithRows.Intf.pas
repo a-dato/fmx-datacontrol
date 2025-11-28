@@ -6,14 +6,14 @@ uses
   {$IFNDEF WEBASSEMBLY}
   FMX.Controls, 
   System.SysUtils,
-  System.ComponentModel,
   {$ELSE}
   Wasm.FMX.Controls,
-  Wasm.System.ComponentModel,
   {$ENDIF}
   System_, 
-  System.Collections.Generic, 
-  ADato.Data.DataModel.intf, FMX.ScrollControl.Intf;
+  System.Collections.Generic,
+  ADato.ComponentModel,
+  ADato.Data.DataModel.intf, 
+  FMX.ScrollControl.Intf;
 
 type
   TSelectionType = (HideSelection, CellSelection, RowSelection);

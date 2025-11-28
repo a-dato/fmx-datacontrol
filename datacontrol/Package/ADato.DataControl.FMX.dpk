@@ -57,6 +57,7 @@ contains
   FMX.ScrollControl.WithEditableCells.Intf in '..\Tree\FMX.ScrollControl.WithEditableCells.Intf.pas',
   FMX.ScrollControl.WithCells.PopupMenu in '..\Tree\FMX.ScrollControl.WithCells.PopupMenu.pas',
   FMX.ScrollControl.DataControl.Impl in '..\Tree\FMX.ScrollControl.DataControl.Impl.pas',
-  FMX.ScrollControl.DataControl.Binders in '..\Tree\FMX.ScrollControl.DataControl.Binders.pas';
+  FMX.ScrollControl.DataControl.Binders in '..\Tree\FMX.ScrollControl.DataControl.Binders.pas',
+  FMX.PickList.Intf in '..\Scrollable\FMX.PickList.Intf.pas';
 
 end.

@@ -92,7 +92,9 @@ type
     function get_ChildModel: IObjectListModel;
     function get_ParentModel: IObjectListModel;
     function get_ParentProperty: _PropertyInfo;
+    {$IFNDEF DOTNET}
     function get_OnContextChanged: ContextChangedEventHandlerProc;
+    {$ENDIF}
 
   public
     constructor Create(const ParentModel: IObjectListModel; const ChildModel: IObjectListModel; const AProp: _PropertyInfo);
@@ -305,7 +307,11 @@ begin
   _parentProperty := AProp;
 
   // Install the handler
+  {$IFNDEF DOTNET}
   _parentModel.ObjectModelContext.OnContextChanged.Add(OnContextChanged);
+  {$ELSE}
+  _parentModel.ObjectModelContext.OnContextChanged += @OnContextChanged;
+  {$ENDIF}
 end;
 
 destructor TContextChangedHandler.Destroy;
@@ -313,14 +319,21 @@ begin
   inherited;
 
   // Remove the handler
+  {$IFNDEF DOTNET}
   if _parentModel <> nil then
     _parentModel.ObjectModelContext.OnContextChanged.Remove(OnContextChanged);
+  {$ELSE}
+  if _parentModel <> nil then
+    _parentModel.ObjectModelContext.OnContextChanged -= @OnContextChanged;
+  {$ENDIF}
 end;
 
+{$IFNDEF DOTNET}
 function TContextChangedHandler.get_OnContextChanged: ContextChangedEventHandlerProc;
 begin
   Result := OnContextChanged;
 end;
+{$ENDIF}
 
 function TContextChangedHandler.get_ChildModel: IObjectListModel;
 begin

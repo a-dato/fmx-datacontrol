@@ -29,7 +29,6 @@ uses
   Wasm.System.Types, 
   Wasm.FMX.ImgList, 
   Wasm.FMX.Objects,
-  Wasm.System.ComponentModel,
   Wasm.FMX.Forms,
   Wasm.FMX.Types,
   Wasm.FMX.ActnList, 
@@ -43,7 +42,9 @@ uses
   FMX.ScrollControl.WithCells.Intf,
   FMX.ScrollControl.WithRows.Impl,
 
-  ADato.Collections.Specialized, System.Collections.Specialized,
+  ADato.ComponentModel,
+  ADato.Collections.Specialized, 
+  System.Collections.Specialized,
   FMX.ScrollControl.WithRows.Intf,
   FMX.ScrollControl.Events, ADato.Data.DataModel.intf;
 
@@ -3477,12 +3478,15 @@ begin
 
   // if during reading the component the "OptionsChanged" came before the "loading of columns"
   if (_autoMultiSelectColumn <> nil) then
-    for var clmn in _columns do
+  begin
+    var clmn: IDCTreeColumn;
+    for clmn in _columns do
       if clmn.IsSelectionColumn then
       begin
         _autoMultiSelectColumn := nil;
         Break;
-      end;
+      end;    
+  end;
 
   if _treeLayout = nil then
     _treeLayout := TDCTreeLayout.Create(Self) else
@@ -5364,12 +5368,16 @@ procedure TDCTreeLayout.UpdateLayoutColumnList;
 begin
   var fullClmnList := _columnsControl.FullColumnList;
   if _layoutColumns.Count > 0 then
-    for var lyClmnIx := _layoutColumns.Count - 1 downto 0 do
+  begin
+    var lyClmnIx: Integer;
+    for lyClmnIx := _layoutColumns.Count - 1 downto 0 do
       if not fullClmnList.Contains(_layoutColumns[lyClmnIx].Column) then
-        _layoutColumns.RemoveAt(lyClmnIx);
+        _layoutColumns.RemoveAt(lyClmnIx);    
+  end;
 
   var updatedLayoutClmns: List<IDCTreeLayoutColumn> := CList<IDCTreeLayoutColumn>.Create;
-  for var clmnIx := 0 to fullClmnList.Count - 1 do
+  var clmnIx: Integer;
+  for clmnIx := 0 to fullClmnList.Count - 1 do
   begin
     var clmn := fullClmnList[clmnIx];
 
