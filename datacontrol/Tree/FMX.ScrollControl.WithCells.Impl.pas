@@ -1737,13 +1737,15 @@ end;
 
 procedure TScrollControlWithCells.UpdateSelectedColumn(const Column: Integer);
 begin
-  _selectionInfo.LastSelectionEventTrigger := TSelectionEventTrigger.Key;
+  _selectionInfo.BeginUpdate;
+  try
+    _selectionInfo.ClearAllSelections;
+    (_selectionInfo as ITreeSelectionInfo).SelectedLayoutColumn := Column;
+  finally
+    _selectionInfo.EndUpdate;
+  end;
 
-  var requestedSelection := _selectionInfo.Clone as ITreeSelectionInfo;
-  requestedSelection.ClearAllSelections;
-  requestedSelection.SelectedLayoutColumn := Column;
-
-  TrySelectItem(requestedSelection, [ssShift]);
+  TrySelectItem(_selectionInfo, [ssShift]);
 end;
 
 function TScrollControlWithCells.GetColumnValues(const LayoutColumn: IDCTreeLayoutColumn; Add_NO_VALUE: Boolean): Dictionary<CObject, CString>;
