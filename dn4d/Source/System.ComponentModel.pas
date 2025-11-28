@@ -15,6 +15,12 @@ uses
 
 type
   {$M+}
+  IUpdatableObject = interface
+    ['{3A369F1E-AC6C-4CD0-8A87-E2C41D4C579D}']
+    procedure BeginUpdate;
+    procedure EndUpdate;
+  end;
+
   ICancelAddNew = interface(IBaseInterface)
     ['{CF222852-2560-41F9-A442-F30987CC75D5}']
     procedure CancelNew(itemIndex: Integer);

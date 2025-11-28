@@ -15,6 +15,7 @@ uses
   FMX.Layouts,
   FMX.ActnList,
   FMX.Objects,
+  FMX.Types,
   {$ELSE}
   Wasm.System.UITypes,
   Wasm.System.Types,
@@ -23,12 +24,13 @@ uses
   Wasm.FMX.StdCtrls,
   Wasm.FMX.Graphics,
   Wasm.FMX.Layouts,
+  Wasm.FMX.Types,
   {$ENDIF}
   System_,
   System.Collections.Generic,
   System.Collections,
   System.Collections.Specialized,
-  FMX.ScrollControl.WithRows.Intf, FMX.Types, ADato.ComponentModel;
+  FMX.ScrollControl.WithRows.Intf, ADato.ComponentModel;
 
 type
   TSortType = (None, Displaytext, CellData, PropertyValue, ColumnCellComparer, RowComparer);

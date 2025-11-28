@@ -82,7 +82,7 @@ uses
   {$ELSE}
   Wasm.System.SysUtils
   {$ENDIF}
-  , ADato.ComponentModel
+  , System.ComponentModel
   ;
 
 { TMultiEditableObjectModelContext }

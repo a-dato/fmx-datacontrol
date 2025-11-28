@@ -126,13 +126,17 @@ type
 implementation
 
 uses
-  {$IFDEF DELPHI}
+  {$IFNDEF DOTNET}
   System.Classes,
   System.TypInfo,
+  System.Math,
+  {$ELSE}
+  Wasm.System.Classes,
+  Wasm.System.Math,
   {$ENDIF}
   ADato.TraceEvents.intf,
   ADato.MultiObjectModelContextSupport.impl,
-  ADato.EditableObjectModelContext.impl, System.Math;
+  ADato.EditableObjectModelContext.impl;
 
 { TObjectListModel<T> }
 

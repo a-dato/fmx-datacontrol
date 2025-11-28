@@ -21,12 +21,6 @@ uses
 
 type
   {$M+}
-  IUpdatableObject = interface
-    ['{3A369F1E-AC6C-4CD0-8A87-E2C41D4C579D}']
-    procedure BeginUpdate;
-    procedure EndUpdate;
-  end;
-
   UpdateFlag = (ApplyUpdate, IgnoreUpdate);
   IUpdateableObjectWithUpdateFlag = interface
     ['{76AEEAE0-1A5F-4552-835C-3C3C41421485}']

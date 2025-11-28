@@ -374,7 +374,7 @@ type
 
   TDCRow = class(TBaseInterfacedObject, IDCRow)
   protected
-    [unsafe] _rowsControl: IRowsControl;
+    {$IFNDEF DOTNET}[unsafe]{$ENDIF} _rowsControl: IRowsControl;
     _dataItem: CObject;
     _convertedDataItem: CObject;
     _dataIndex: Integer;

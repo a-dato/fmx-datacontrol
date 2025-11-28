@@ -185,7 +185,9 @@ type
 
   IContextChangedHandler = interface(IBaseInterface)
     ['{FABBC6E4-5214-4277-9EEF-016A663CF07B}']
+    {$IFNDEF DOTNET}
     function get_OnContextChanged: ContextChangedEventHandlerProc;
+    {$ENDIF}
     function get_ChildModel: IObjectListModel;
     function get_ParentModel: IObjectListModel;
     function get_ParentProperty: _PropertyInfo;
@@ -193,7 +195,9 @@ type
     property ChildModel: IObjectListModel read get_ChildModel;
     property ParentModel: IObjectListModel read get_ParentModel;
     property ParentProperty: _PropertyInfo read get_ParentProperty;
+    {$IFNDEF DOTNET}
     property OnContextChanged: ContextChangedEventHandlerProc read get_OnContextChanged;
+    {$ENDIF}
   end;
 
   TValidatePosition = reference to function (
