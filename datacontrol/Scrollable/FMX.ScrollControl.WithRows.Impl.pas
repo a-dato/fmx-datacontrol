@@ -1432,9 +1432,6 @@ begin
 
   if StartIndex >= (_View.GetViewList.Count) then Exit;
 
-  var vertScrollbarValue := _vertScrollBar.Value;
-  var vertScrollbarViewportSize := _vertScrollBar.ViewportSize;
-
   _View.GetSlowPerformanceRowInfo(StartIndex, dataItem, virtualY);
   Inc(_scrollUpdateCount);
   try

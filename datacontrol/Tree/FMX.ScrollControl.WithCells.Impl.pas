@@ -3403,7 +3403,6 @@ begin
       maxWidth := cell.Column.CustomWidth else
       maxWidth := IfThen(cell.Column.WidthMax > 0, cell.Column.WidthMax, -1);
 
-    var calcAsAutoWidth := txt.CalcAsAutoWidth;
     if maxWidth <> -1 then
       txt.Width := maxWidth;
     txt.CalcAsAutoWidth := maxWidth = -1;
@@ -3636,7 +3635,6 @@ begin
 
     if loadDefaultData then
     begin
-      var formatApplied: Boolean;
       Result := Cell.Column.ProvideCellData(cell, cell.Column.PropertyName);
       if not DoCellFormatting(cell, True, {var} Result) and (Cell.Column.SortType = TSortType.Displaytext) then
         Result := Cell.Column.GetFormattedValue(cell, Result);
