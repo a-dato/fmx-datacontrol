@@ -28,7 +28,7 @@ type
   IPropertyAccessibility = interface(IBaseInterface)
     ['{B87E53A9-7B47-4F12-862C-8C5B098073EB}']
     function CanEditObject: Boolean;
-    function CanEditProperty(const PropName: CString): TEditableState;
+    function PropertyState(const PropName: CString): TEditableState;
 
     procedure ClearEditablity(const PropName: CString);
   end;

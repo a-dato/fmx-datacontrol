@@ -61,9 +61,6 @@ type
 
     function  MeOrSynchronizerIsUpdating: Boolean;
 
-  // published property variables
-
-
   protected
     _selectionType: TSelectionType;
     _rowHeightFixed: Single;
@@ -264,7 +261,7 @@ type
     _ignoreNextRowChanged: RowChangedEventArgs;
     _ignoreNextRowPropertiesChanged: RowPropertiesChangedEventArgs;
 
-    procedure OnViewChanged(Sender: TObject; e: EventArgs);
+    procedure OnViewChanged(Sender: TObject; e: EventArgs); virtual;
     procedure DataModelViewRowChanged(const Sender: IBaseInterface; Args: RowChangedEventArgs);
     procedure DataModelViewRowPropertiesChanged(Sender: TObject; Args: RowPropertiesChangedEventArgs); virtual;
 
@@ -489,8 +486,8 @@ type
     function  IsSelected(const DataIndex: Integer): Boolean;
     function  GetSelectionInfo(const DataIndex: Integer): IRowSelectionInfo;
     function  SelectedRowCount: Integer;
+    function  SelectedDataItems: List<CObject>;
     function  SelectedDataIndexes: List<Integer>;
-
   end;
 
   TWaitForRepaintInfo = class(TInterfacedObject, IWaitForRepaintInfo)
@@ -520,7 +517,7 @@ type
   public
     constructor Create(const Owner: IRefreshControl); reintroduce;
 
-    procedure ClearIrrelevantInfo;
+    procedure ClearSelectionInfo;
 
     property RowStateFlags: TTreeRowStateFlags read get_RowStateFlags;
     property Current: Integer read get_Current write set_Current;
@@ -679,7 +676,7 @@ begin
   _view.RowLoaded(currentRow, False);
 
   
-  var goMaster := TryStartMasterSynchronizer;
+  var goMaster := TryStartMasterSynchronizer(True);
   try
     CreateAndSynchronizeSynchronizerRow(currentRow);
 
@@ -843,9 +840,14 @@ begin
 
   inc(ctrl._scrollUpdateCount);
   try
-    ctrl.VertScrollBar.Max := master._vertScrollBar.Max;
-    ctrl.VertScrollBar.ViewportSize := master._vertScrollBar.ViewportSize;
-    ctrl.VertScrollBar.Value := master._vertScrollBar.Value;
+    ctrl.VertScrollBar.ValueRange.BeginUpdate;
+    try
+      ctrl.VertScrollBar.Max := master._vertScrollBar.Max;
+      ctrl.VertScrollBar.ViewportSize := master._vertScrollBar.ViewportSize;
+      ctrl.VertScrollBar.Value := master._vertScrollBar.Value;
+    finally
+      ctrl.VertScrollBar.ValueRange.EndUpdate;
+    end;
 
     ctrl.CheckVertScrollbarVisibility;
   finally
@@ -1059,8 +1061,10 @@ begin
     {$ENDIF}
   else begin
     var aType := GetItemType;
-    if aType.IsUnknown and (_dataList.Count > 0) then
-      aType := _dataList[0].GetType;
+
+    // Handled in GetItemType
+    //    if aType.IsUnknown and (_dataList.Count > 0) then
+    //      aType := _dataList[0].GetType;
 
     {$IFNDEF WEBASSEMBLY}
     _view := TDataViewList.Create(_dataList, DoCreateNewRow, OnViewChanged, aType);
@@ -1111,16 +1115,20 @@ begin
   if TDCTreeOption.HideHScrollBar in _options then
     _horzScrollBar.Visible := False;
 
-  if (TDCTreeOption.MultiSelect in OldFlags) <> (TDCTreeOption.MultiSelect in NewFlags) then
-  begin
-    if (TDCTreeOption.MultiSelect in NewFlags) then
-      _multiSelectSorter := TTreeMultiSelectSortDescription.Create(Self)
-    else begin
-      _multiSelectSorter := nil;
-      if (_selectionInfo <> nil) then
-        _selectionInfo.ClearMultiSelections;
-    end;
-  end;
+  if (TDCTreeOption.MultiSelect in OldFlags) and not (TDCTreeOption.MultiSelect in NewFlags) then
+    _options := _options - [TDCTreeOption.KeepMultiSelectOnSelect]
+  else if not (TDCTreeOption.KeepMultiSelectOnSelect in OldFlags) and (TDCTreeOption.KeepMultiSelectOnSelect in NewFlags) and not (TDCTreeOption.MultiSelect in NewFlags) then
+    set_Options(_options + [TDCTreeOption.MultiSelect]);
+
+//  begin
+//    if (TDCTreeOption.MultiSelect in NewFlags) then
+//      _multiSelectSorter := TTreeMultiSelectSortDescription.Create(Self)
+//    else begin
+//      _multiSelectSorter := nil;
+//      if (_selectionInfo <> nil) then
+//        _selectionInfo.ClearMultiSelections;
+//    end;
+//  end;
 
   if ((TDCTreeOption.AlternatingRowBackground in OldFlags) <> (TDCTreeOption.AlternatingRowBackground in NewFlags)) then
   begin
@@ -1270,7 +1278,7 @@ begin
   var makeVisible :=
     (_view <> nil) and
     not (TDCTreeOption.HideVScrollBar in _options) and
-    (_vertScrollBar.ViewPortSize + IfThen(_horzScrollBar.Visible, _horzScrollBar.Height, 0) < _vertScrollBar.Max);
+    (_vertScrollBar.ViewPortSize + IfThen(_horzScrollBar.Visible, _horzScrollBar.Height, 0) < (_vertScrollBar.Max - 1));
 
   if _vertScrollBar.Visible = makeVisible then
     Exit;
@@ -1374,6 +1382,9 @@ begin
 //    _masterSynchronizerIndex := True;
 
     // let the master take care of the sorting/filtering/current
+    if _waitForRepaintInfo = nil then
+      _waitForRepaintInfo := _rowHeightSynchronizer._waitForRepaintInfo;
+
     _rowHeightSynchronizer._waitForRepaintInfo := nil;
     _rowHeightSynchronizer._realignContentRequested := False;
     _rowHeightSynchronizer._scrollingType := _scrollingType;
@@ -1426,8 +1437,13 @@ begin
   _View.GetSlowPerformanceRowInfo(StartIndex, dataItem, virtualY);
   Inc(_scrollUpdateCount);
   try
-    _vertScrollBar.Value := virtualY;
-    _vertScrollBar.ViewportSize := availableHeight;
+    _vertScrollBar.ValueRange.BeginUpdate;
+    try
+      _vertScrollBar.Value := virtualY;
+      _vertScrollBar.ViewportSize := availableHeight;
+    finally
+      _vertScrollBar.ValueRange.EndUpdate;
+    end;
   finally
     Dec(_scrollUpdateCount);
   end;
@@ -1983,7 +1999,6 @@ begin
   if not SyncIsMasterSynchronizer and not IsMasterSynchronizer then
     Exit; // nothing to do
 
-
   var otherRow := _rowHeightSynchronizer.View.GetActiveRowIfExists(Row.ViewListIndex);
   if IsMasterSynchronizer then
   begin
@@ -2357,7 +2372,7 @@ begin
       var convertedDataItem := ConvertToDataItem(Self.DataItem);
 
       // trigger a ContextChanged event for multiselect change event
-      if _model.ObjectContext = convertedDataItem then
+      if _model.HasMultiSelection and (_model.ObjectContext = convertedDataItem) then
       begin
         (_model.ObjectModelContext as IUpdatableObject).BeginUpdate;
         try
@@ -2383,6 +2398,9 @@ begin
   var row: IDCRow;
   for row in _view.ActiveViewRows do
     VisualizeRowSelection(row);
+
+  if IsMasterSynchronizer then
+    _rowHeightSynchronizer.OnSelectionInfoChanged;
 end;
 
 function TScrollControlWithRows.ConvertedDataItem: CObject;
@@ -2480,8 +2498,8 @@ begin
   if _waitForRepaintInfo = nil then
     Exit;
 
-  var sortChanged := (_waitForRepaintInfo <> nil) and (TTreeRowState.SortChanged in _waitForRepaintInfo.RowStateFlags);
-  var filterChanged := (_waitForRepaintInfo <> nil) and (TTreeRowState.FilterChanged in _waitForRepaintInfo.RowStateFlags);
+  var sortChanged := (TTreeRowState.SortChanged in _waitForRepaintInfo.RowStateFlags);
+  var filterChanged := (TTreeRowState.FilterChanged in _waitForRepaintInfo.RowStateFlags);
 
   inc(_updateCount);
   try
@@ -2676,7 +2694,7 @@ begin
 
     _selectionInfo.AddToSelection(Row.DataIndex, Row.ViewListIndex, Row.DataItem);
   end
-  else if (TDCTreeOption.MultiSelect in _options) and (ssCtrl in Shift) and (_selectionInfo.LastSelectionEventTrigger = TSelectionEventTrigger.Click) then
+  else if (TDCTreeOption.KeepMultiSelectOnSelect in _options) or ((TDCTreeOption.MultiSelect in _options) and (ssCtrl in Shift) and (_selectionInfo.LastSelectionEventTrigger = TSelectionEventTrigger.Click)) then
   begin
     if not _selectionInfo.IsSelected(Row.DataIndex) then
       _selectionInfo.AddToSelection(Row.DataIndex, Row.ViewListIndex, Row.DataItem) else
@@ -2869,6 +2887,10 @@ begin
     end;
 
   finally
+    // set model context / cell selected if the correct one was not set yet
+    if (_waitForRepaintInfo <> nil) and (RowChanged in _waitForRepaintInfo.RowStateFlags) then
+      OnSelectionInfoChanged;
+
     _waitForRepaintInfo := nil;
   end;
 end;
@@ -2957,12 +2979,13 @@ begin
 
   if ViewIsDataModelView then
   begin
-    inc(_internalSelectCount);
-    try
-      GetDataModelView.CurrencyManager.Current := -1;
-    finally
-      dec(_internalSelectCount);
-    end;
+    // I think I don't want this here...
+//    inc(_internalSelectCount);
+//    try
+//      GetDataModelView.CurrencyManager.Current := -1;
+//    finally
+//      dec(_internalSelectCount);
+//    end;
   end;
 
   _view.ResetView(FromViewListIndex, ClearOneRowOnly);
@@ -3143,7 +3166,27 @@ end;
 
 function TScrollControlWithRows.SelectedItems: List<CObject>;
 begin
-  Result := SelectedItems<CObject>;
+  if _view = nil then
+    Exit(nil);
+
+  var dataIndexes := _selectionInfo.SelectedDataIndexes;
+  if dataIndexes.Count = 0 then
+    Exit(nil);
+
+  dataIndexes.Sort;
+
+  Result := CList<CObject>.Create(dataIndexes.Count);
+
+  var ix: Integer;
+  for ix in dataIndexes do
+  begin
+    var item := _view.OriginalData[ix];
+
+    var dr: IDataRow;
+    if ViewIsDataModelView and item.TryAsType<IDataRow>(dr) then
+      Result.Add(dr.Data) else
+      Result.Add(item);
+  end;
 end;
 
 function TScrollControlWithRows.SelectedItems<T>: List<T>;
@@ -3152,6 +3195,9 @@ begin
     Exit(nil);
 
   var dataIndexes := _selectionInfo.SelectedDataIndexes;
+  if dataIndexes.Count = 0 then
+    Exit(nil);
+
   dataIndexes.Sort;
 
   Result := CList<T>.Create(dataIndexes.Count);
@@ -3162,9 +3208,12 @@ begin
     var item := _view.OriginalData[ix];
 
     var dr: IDataRow;
-    if ViewIsDataModelView and item.TryAsType<IDataRow>(dr) then
-      Result.Add(dr.Data.AsType<T>) else
-      Result.Add(item.AsType<T>);
+    var item_t: T;
+
+    if item.TryAsType<T>(item_t) then
+      Result.Add(item_t)
+    else if ViewIsDataModelView and item.TryAsType<IDataRow>(dr) and dr.Data.TryAsType<T>(item_T) then
+      Result.Add(item_t);
   end;
 end;
 
@@ -3217,7 +3266,7 @@ begin
     end;
 
     if viewListIndex = -1 then
-      viewListIndex := CMath.Min(_selectionInfo.ViewListIndex - 1, _view.ViewCount - 1);
+      viewListIndex := CMath.Min(_selectionInfo.ViewListIndex, _view.ViewCount - 1);
   end
   else if ViewIsDataModelView then
     viewListIndex := CMath.Max(0, GetDataModelView.CurrencyManager.Current);
@@ -3281,7 +3330,9 @@ end;
 procedure TScrollControlWithRows.set_Current(const Value: Integer);
 begin
   if (_selectionInfo = nil) or (_selectionInfo.ViewListIndex <> Value) then
-    GetInitializedWaitForRefreshInfo.Current := Value;
+    GetInitializedWaitForRefreshInfo.Current := Value
+  else if (_waitForRepaintInfo <> nil) and (_waitForRepaintInfo.Current <> Value) then
+    _waitForRepaintInfo.Current := Value
 end;
 
 procedure TScrollControlWithRows.set_DataItem(const Value: CObject);
@@ -3355,7 +3406,7 @@ begin
   if GetInitializedWaitForRefreshInfo.DataItem = nil then
     GetInitializedWaitForRefreshInfo.DataItem := get_DataItem;
 
-  if (_multiSelectSorter <> nil) then
+  if (_multiSelectSorter <> nil) and not ViewIsDataModelView then
   begin
     var ix := -1;
     if (_view <> nil) and (_view.GetSortDescriptions <> nil) then
@@ -3894,6 +3945,20 @@ begin
   end;
 end;
 
+function TRowSelectionInfo.SelectedDataItems: List<CObject>;
+begin
+  Result := CList<CObject>.Create;
+
+  if _multiSelection.Count > 0 then
+  begin
+    var item: IRowSelectionInfo;
+    for item in _multiSelection.Values do
+      Result.Add(item.DataItem)
+  end
+  else if _lastSelectedDataItem <> nil then
+    Result.Add(_lastSelectedDataItem);
+end;
+
 function TRowSelectionInfo.SelectedDataIndexes: List<Integer>;
 begin
   Result := CList<Integer>.Create;
@@ -3930,18 +3995,24 @@ begin
 end;
 
 { TWaitForRepaintInfo }
-
-procedure TWaitForRepaintInfo.ClearIrrelevantInfo;
+procedure TWaitForRepaintInfo.ClearSelectionInfo;
 begin
-  _rowStateFlags := _rowStateFlags - [SortChanged, FilterChanged];
-
-  // ONLY KEEP CURRENT
-  // we use current to reselect a item at that position after for example a refresh of the treecontrol
-
   _dataItem := nil;
-  _sortDescriptions := nil;
-  _filterDescriptions := nil;
+  _current := -1;
+  _rowStateFlags := _rowStateFlags - [RowChanged];
 end;
+
+//procedure TWaitForRepaintInfo.ClearIrrelevantInfo;
+//begin
+//  _rowStateFlags := _rowStateFlags - [SortChanged, FilterChanged];
+//
+//  // ONLY KEEP CURRENT
+//  // we use current to reselect a item at that position after for example a refresh of the treecontrol
+//
+//  _dataItem := nil;
+//  _sortDescriptions := nil;
+//  _filterDescriptions := nil;
+//end;
 
 constructor TWaitForRepaintInfo.Create(const Owner: IRefreshControl);
 begin

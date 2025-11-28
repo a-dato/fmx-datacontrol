@@ -82,7 +82,7 @@ type
     procedure CreateDefaultColumns;
     procedure ShowHeaderPopupMenu(const LayoutColumn: IDCTreeLayoutColumn);
     procedure HeaderPopupMenu_Closed(Sender: TObject; var Action: TCloseAction);
-    function  GetColumnValues(const LayoutColumn: IDCTreeLayoutColumn): Dictionary<CObject, CString>;
+    function  GetColumnValues(const LayoutColumn: IDCTreeLayoutColumn; Add_NO_VALUE: Boolean): Dictionary<CObject, CString>;
 
     procedure GetSortAndFilterImages(out ImageList: TCustomImageList; out FilterIndex, SortAscIndex, SortDescIndex: Integer);
 
@@ -143,7 +143,7 @@ type
 
     procedure DoCellLoaded(const Cell: IDCTreeCell; RequestForSort: Boolean; var PerformanceModeWhileScrolling: Boolean; var OverrideRowHeight: Single); virtual;
     function  DoCellLoading(const Cell: IDCTreeCell; RequestForSort: Boolean; var PerformanceModeWhileScrolling: Boolean; var OverrideRowHeight: Single): Boolean; virtual;
-    procedure DoCellFormatting(const Cell: IDCTreeCell; RequestForSort: Boolean; var Value: CObject; out FormatApplied: Boolean); virtual;
+    function  DoCellFormatting(const Cell: IDCTreeCell; RequestForSort: Boolean; var Value: CObject) : Boolean; virtual;
     function  DoCellCanChange(const OldCell, NewCell: IDCTreeCell): Boolean; virtual;
     procedure DoCellChanging(const OldCell, NewCell: IDCTreeCell);
     procedure DoCellChanged(const OldCell, NewCell: IDCTreeCell);
@@ -245,7 +245,6 @@ type
 
     function  CreateDummyRowForChanging(const FromSelectionInfo: IRowSelectionInfo): IDCRow; override;
 
-    function  GetActiveCell: IDCTreeCell;
     function  GetCellByControl(const Control: TControl): IDCTreeCell;
 
     procedure ClearCalculatedColumnWidths;
@@ -273,12 +272,15 @@ type
     function  OnGetCellDataForSorting(const Cell: IDCTreeCell): CObject;
     function  IsSortingOrFiltering: Boolean;
     function  IsSpecifiedColumnReload: Boolean;
+    function  GetActiveCell: IDCTreeCell;
 
     procedure RefreshColumn(const Column: IDCTreeColumn);
     procedure ColumnsChangedFromExternal;
 
     procedure UpdateColumnSort(const Column: IDCTreeColumn; SortDirection: ListSortDirection; ClearOtherSort: Boolean);
     procedure UpdateColumnFilter(const Column: IDCTreeColumn; const FilterText: CString; const FilterValues: List<CObject>);
+
+    procedure UpdateSelectedColumn(const Column: Integer);
 
     procedure SelectAll; override;
     function  RadioInsteadOfCheck: Boolean;
@@ -560,7 +562,7 @@ type
     function  HasPropertyAttached: Boolean;
 
     function  ProvideCellData(const Cell: IDCTreeCell; const PropName: CString; IsSubProp: Boolean = False): CObject;
-    function  GetDefaultCellData(const Cell: IDCTreeCell; const CellValue: CObject; FormatApplied: Boolean): CObject; virtual;
+    function  GetFormattedValue(const Cell: IDCTreeCell; const CellValue: CObject): CString; virtual;
 
     // width settings
     property WidthType: TDCColumnWidthType read get_WidthType;
@@ -608,7 +610,7 @@ type
     constructor Create; override;
 
     function  IsSelectionColumn: Boolean; override;
-    function  GetDefaultCellData(const Cell: IDCTreeCell; const CellValue: CObject; FormatApplied: Boolean): CObject; override;
+    // function  GetFormattedValue(const Cell: IDCTreeCell; const CellValue: CObject): CObject; override;
   end;
 
   TDCTreeColumnList = class(CObservableCollectionEx<IDCTreeColumn>, IDCTreeColumnList)
@@ -1122,14 +1124,15 @@ begin
     Exit;
 
   AssignWidthsToAlignColumns;
-//  _fullRepositionCellsNeeded := _fullRepositionCellsNeeded or _treeLayout.RecalcRequired;
 
   ProcessColumnVisibilityRules;
+
+  UpdateHorzScrollbar;
+
   UpdatePositionAndWidthCells;
 
   PositionTree;
 
-  UpdateHorzScrollbar;
   SetBasicVertScrollBarValues;
 
   if DefaultLayout <> nil then
@@ -1609,8 +1612,13 @@ begin
   if flatColumn.Column.SortType = TSortType.None then
     Exit;
 
-  var sortDirection := ListSortDirection.Descending;
-  if (flatColumn.ActiveSort <> nil) and (flatColumn.ActiveSort.SortDirection = ListSortDirection.Descending) then
+  var sortDirection: ListSortDirection;
+  if flatColumn.ActiveSort <> nil then
+  begin
+    if flatColumn.ActiveSort.SortDirection = ListSortDirection.Ascending then
+      sortDirection := ListSortDirection.Descending else
+      sortDirection := ListSortDirection.Ascending
+  end else
     sortDirection := ListSortDirection.Ascending;
 
   UpdateColumnSort(flatColumn.Column, sortDirection, not (ssCtrl in Shift));
@@ -1705,9 +1713,9 @@ begin
     if flatColumn.ActiveFilter = nil then
     begin
       {$IFNDEF WEBASSEMBLY}
-      filter := TTreeFilterDescription.Create(flatColumn, OnGetCellDataForSorting);
+      filter := TTreeFilterDescriptionWithRow.Create(flatColumn, OnGetCellDataForSorting);
       {$ELSE}
-      filter := TTreeFilterDescription.Create(flatColumn, @OnGetCellDataForSorting);
+      filter := TTreeFilterDescriptionWithRow.Create(flatColumn, @OnGetCellDataForSorting);
       {$ENDIF}
       FlatColumn.ActiveFilter := filter;
     end;
@@ -1728,14 +1736,39 @@ begin
   end;
 end;
 
-function TScrollControlWithCells.GetColumnValues(const LayoutColumn: IDCTreeLayoutColumn): Dictionary<CObject, CString>;
+procedure TScrollControlWithCells.UpdateSelectedColumn(const Column: Integer);
 begin
-  var dict: Dictionary<Integer, CObject> := CDictionary<Integer, CObject>.Create;
+  _selectionInfo.BeginUpdate;
+  try
+    _selectionInfo.ClearAllSelections;
+    (_selectionInfo as ITreeSelectionInfo).SelectedLayoutColumn := Column;
+  finally
+    _selectionInfo.EndUpdate;
+  end;
 
+  TrySelectItem(_selectionInfo, [ssShift]);
+end;
+
+function TScrollControlWithCells.GetColumnValues(const LayoutColumn: IDCTreeLayoutColumn; Add_NO_VALUE: Boolean): Dictionary<CObject, CString>;
+var
+  filterDescription: IListFilterDescription;
+
+  function GetText(const obj: CObject) : CString;
+  begin
+    var o := obj;
+    if DoCellFormatting(filterDescription as IDCTreeCell, False, {var} o) then
+      Result := o.ToString(True) else
+      Result := LayoutColumn.Column.GetFormattedValue(filterDescription as IDCTreeCell, o);
+
+    if CString.IsNullOrEmpty(Result) then
+      Result := NO_VALUE;
+  end;
+
+begin
   {$IFNDEF WEBASSEMBLY}
-  var filterDescription: IListFilterDescription := TTreeFilterDescription.Create(LayoutColumn, OnGetCellDataForSorting);
+  filterDescription := TTreeFilterDescriptionWithRow.Create(LayoutColumn, OnGetCellDataForSorting);
   {$ELSE}
-  var filterDescription: IListFilterDescription := TTreeFilterDescription.Create(LayoutColumn, @OnGetCellDataForSorting);
+  filterDescription := TTreeFilterDescriptionWithRow.Create(LayoutColumn, @OnGetCellDataForSorting);
   {$ENDIF}
 
   var orgDataList := _view.OriginalData;
@@ -1745,34 +1778,30 @@ begin
   if ViewIsDataModelView and interfaces.Supports<IDataModel>(orgDataList, dm) then
     orgDataList := dm.Rows as IList;
 
+  Result := CDictionary<CObject, CString>.Create;
+
   var item: CObject;
   for item in orgDataList do
   begin
     var obj := filterDescription.GetFilterableValue(item);
-    if obj = nil then
-      Continue;
+
+    if (obj = nil) and Add_NO_VALUE then
+    begin
+      if not Result.ContainsKey(NO_VALUE_KEY)  then
+        Result[NO_VALUE_KEY] := NO_VALUE;
+      continue;
+    end;
 
     if obj.IsOfType<IList> then
     begin
       var o: CObject;
       for o in obj.AsType<IList> do
-      begin
-        var hash := o.GetHashCode;
-        if not dict.ContainsKey(hash) then
-          dict.Add(hash, o);
-      end;
-    end else
-    begin
-      var hash := obj.GetHashCode;
-      if not dict.ContainsKey(hash) then
-        dict.Add(hash, obj);
-    end;
+        if not Result.ContainsKey(o)  then
+          Result[o] := GetText(o)
+    end
+    else if not Result.ContainsKey(obj)  then
+      Result[obj] := GetText(obj);
   end;
-
-  Result := CDictionary<CObject, CString>.Create;
-  var filterableObj: CObject;
-  for filterableObj in dict.Values do
-    Result.Add(filterableObj, filterableObj.ToString);
 end;
 
 procedure TScrollControlWithCells.ShowHeaderPopupMenu(const LayoutColumn: IDCTreeLayoutColumn);
@@ -1808,20 +1837,21 @@ begin
 
   if showFilter then
   begin
-    dataValues := GetColumnValues(LayoutColumn);
-
     // Dummy descriptor
     var descriptor: IListSortDescriptionWithComparer := TTreeSortDescriptionWithComparer.Create(LayoutColumn, OnGetCellDataForSorting);
     var comparer := DoSortingGetComparer(descriptor);
     var filter := LayoutColumn.ActiveFilter;
 
     if filter <> nil then
-      // Show filter values which already exist for this column
-      popupMenu.LoadFilterItems(dataValues, comparer, filter.FilterValues, // Current selected items in filter Tree
-                                filter.ShowEmptyValues,
-                                LayoutColumn.Column.SortType = TSortType.DisplayText)
+    begin
+      dataValues := GetColumnValues(LayoutColumn, filter.ShowEmptyValues);
+      popupMenu.LoadFilterItems(dataValues, comparer, filter.FilterValues, LayoutColumn.Column.SortType = TSortType.Displaytext);
+    end
     else
-      popupMenu.LoadFilterItems(dataValues, comparer, nil, False, False);
+    begin
+      dataValues := GetColumnValues(LayoutColumn, True);
+      popupMenu.LoadFilterItems(dataValues, comparer, nil, LayoutColumn.Column.SortType = TSortType.Displaytext);
+    end;
 
     popupMenu.AllowClearColumnFilter := (filter <> nil);
   end;
@@ -2065,9 +2095,14 @@ begin
     var setHorzBackToMinValue := SameValue(_horzScrollBar.Min, _horzScrollBar.Value);
     var rowCtrlWidth := CalculateRowControlWidth(False);
 
-    _horzScrollBar.Min := frozenColumnWidth;
-    _horzScrollBar.Max := rowCtrlWidth + _treeLayout.ContentOverFlow;
-    _horzScrollBar.ViewportSize := rowCtrlWidth - frozenColumnWidth;
+    _horzScrollBar.ValueRange.BeginUpdate;
+    try
+      _horzScrollBar.Min := frozenColumnWidth;
+      _horzScrollBar.Max := rowCtrlWidth + _treeLayout.ContentOverFlow;
+      _horzScrollBar.ViewportSize := rowCtrlWidth - frozenColumnWidth;
+    finally
+      _horzScrollBar.ValueRange.EndUpdate;
+    end;
 
     if setHorzBackToMinValue then
       _horzScrollBar.Value := _horzScrollBar.Min;
@@ -2332,7 +2367,9 @@ begin
   Result := nil;
   if _treeLayout = nil then Exit;
 
-  Result := _treeLayout.LayoutColumns[(_selectionInfo as ITreeSelectionInfo).SelectedLayoutColumn];
+  var selectedLayoutColumn := (_selectionInfo as ITreeSelectionInfo).SelectedLayoutColumn;
+  if (selectedLayoutColumn = -1) or (_treeLayout.LayoutColumns.Count = 0) then Exit;
+  Result := _treeLayout.LayoutColumns[selectedLayoutColumn];
 end;
 
 procedure TScrollControlWithCells.set_AllowNoneSelected(const Value: Boolean);
@@ -2533,9 +2570,10 @@ begin
   end;
 end;
 
-procedure TScrollControlWithCells.DoCellFormatting(const Cell: IDCTreeCell; RequestForSort: Boolean; var Value: CObject; out FormatApplied: Boolean);
+function TScrollControlWithCells.DoCellFormatting(const Cell: IDCTreeCell; RequestForSort: Boolean; var Value: CObject) : Boolean;
 begin
-  FormatApplied := False;
+  Result := False;
+
   if Assigned(_cellFormatting) then
   begin
     var args := DCCellFormattingEventArgs.Create(Cell, Value);
@@ -2544,7 +2582,7 @@ begin
 
       _cellFormatting(Self, args);
       Value := args.Value;
-      FormatApplied := args.FormattingApplied;
+      Result := args.FormattingApplied;
     finally
       args.Free;
     end;
@@ -2856,6 +2894,11 @@ begin
   if not DoCellCanChange(oldCell, newCell) then
     Exit;
 
+  // DoCellCanChange can trigger a ViewReset
+  // since we are selecting, we can ignore any set of the dataitem..
+  if _waitForRepaintInfo <> nil then
+    _waitForRepaintInfo.ClearSelectionInfo;
+
   DoCellChanging(oldCell, newCell);
 
   _selectionInfo.BeginUpdate;
@@ -3080,16 +3123,33 @@ begin
       infoClass := cell.Column.SubInfoControlClass;
     end;
 
-    var formattedValue: CObject := nil;
-
+    var cellValue: CObject;
     _localCheckSetInDefaultData := False;
     if ctrl <> nil then
     begin
-      var formatApplied: Boolean;
-      var cellValue := ProvideCellData(cell, propName, IsSubProp);
-      DoCellFormatting(cell, False, {var} cellValue, {out} formatApplied);
+      cellValue := ProvideCellData(cell, propName, IsSubProp);
+
+      if infoClass = TInfoControlClass.Text then
+      begin
+        var cellText: CString;
+        if DoCellFormatting(cell, False, {var} cellValue) then
+          celltext := cellValue.ToString(True) else
+          celltext := cell.Column.GetFormattedValue(cell, cellValue);
+
+        (ctrl as ICaption).Text := CStringToString(celltext);
+      end
+      else if infoClass = TInfoControlClass.CheckBox then
+      begin
+        var b: Boolean;
+        if not cellValue.TryGetValue<Boolean>(b) then
+          b := False;
+        (ctrl as IIsChecked).IsChecked := b;
+        _localCheckSetInDefaultData := True;
+      end;
+
 
       {$IFDEF APP_PLATFORM}
+      Assert(False, ' Code needs checking');
       if not CString.IsNullOrEmpty(propName) and not formatApplied and (cellValue <> nil) and (_app <> nil) and (cell.Column.InfoControlClass = TInfoControlClass.Text) then
       begin
         var item_type := GetItemType;
@@ -3105,25 +3165,9 @@ begin
         end;
       end;
       {$ENDIF}
-
-      formattedValue := cell.Column.GetDefaultCellData(cell, cellValue, formatApplied);
-
-      if ctrl <> nil then
-      begin
-        if infoClass = TInfoControlClass.Text then
-        begin
-          var s := CStringToString(formattedValue.ToString(True));
-          (ctrl as ICaption).Text := s;
-        end
-        else if infoClass = TInfoControlClass.CheckBox then
-        begin
-          (ctrl as IIsChecked).IsChecked := formattedValue.AsType<Boolean>;
-          _localCheckSetInDefaultData := True;
-        end;
-      end;
     end;
 
-    if formattedValue <> nil then
+    if cellValue <> nil then
       cell.LayoutColumn.ContainsData := TColumnContainsData.Yes;
   except
     LoadDefaultDataIntoControl(Cell, IsSubProp);
@@ -3355,15 +3399,15 @@ begin
     if Length(txt.Text) = 0 then
       Exit(0);
 
-//    var maxWidth := IfThen(cell.Column.WidthMax > 0, cell.Column.WidthMax, -1);
-//    if cell.Column.CustomWidth > 0 then
-//      maxWidth := cell.Column.CustomWidth;
-//
-//    var isSingleLine := not txt.WordWrap or ((cell.Column.WidthType = TDCColumnWidthType.AlignToContent) and (maxWidth = -1));
-//
-//    var cellHeight :=
-//    if not isSingleLine then
-//      cellHeight := txt.TextHeight; // TextControlHeight(txt, txt.TextSettings, TextForSizeCalc(txt.Text), -1, -1, maxWidth);
+    var maxWidth: Single;
+    if cell.Column.CustomWidth > 0 then
+      maxWidth := cell.Column.CustomWidth else
+      maxWidth := IfThen(cell.Column.WidthMax > 0, cell.Column.WidthMax, -1);
+
+    var calcAsAutoWidth := txt.CalcAsAutoWidth;
+    if maxWidth <> -1 then
+      txt.Width := maxWidth;
+    txt.CalcAsAutoWidth := maxWidth = -1;
 
     Result := txt.TextHeight;
   end else
@@ -3593,32 +3637,35 @@ begin
     var dummyPerfMode: Boolean;
     var dummyHeightVar: Single;
     var loadDefaultData := DoCellLoading(Cell, True, dummyPerfMode, dummyHeightVar);
-    var cellValue: CObject := nil;
+
     if loadDefaultData then
     begin
       var formatApplied: Boolean;
-      cellValue := Cell.Column.ProvideCellData(cell, cell.Column.PropertyName);
-      DoCellFormatting(cell, True, {var} cellValue, {out} formatApplied);
-      Result := Cell.Column.GetDefaultCellData(cell, cellValue, formatApplied);
+      Result := Cell.Column.ProvideCellData(cell, cell.Column.PropertyName);
+      if not DoCellFormatting(cell, True, {var} Result) and (Cell.Column.SortType = TSortType.Displaytext) then
+        Result := Cell.Column.GetFormattedValue(cell, Result);
     end else
     begin
       DoCellLoaded(Cell, True, dummyPerfMode, dummyHeightVar);
       Result := (Cell.InfoControl as ICaption).Text;
     end;
 
-    if Cell.Column.SortType = TSortType.Displaytext then
-      Exit(Result)
-    else if Cell.Column.SortType = TSortType.CellData then
-      Exit(cell.Data)
-    else if Cell.Column.SortType = TSortType.ColumnCellComparer then
-    begin
-      if cell.Data <> nil then
-        Exit(cell.Data)
-      else if cellValue <> nil then
-        Exit(cellValue)
-      else
-        Exit(Result);
-    end;
+    Exit(Result);
+
+//    if Cell.Column.SortType = TSortType.Displaytext then
+//      Exit(Result)
+//    else if Cell.Column.SortType = TSortType.CellData then
+//      // KV: 10/11/2025 -> This line should also return 'Result'
+//      Exit(cell.Data)
+//    else if Cell.Column.SortType = TSortType.ColumnCellComparer then
+//    begin
+//      if cell.Data <> nil then
+//        Exit(cell.Data)
+//      else if cellValue <> nil then
+//        Exit(cellValue)
+//      else
+//        Exit(Result);
+//    end;
   finally
     AtomicDecrement(_isSortingOrFiltering);
   end;
@@ -4203,25 +4250,25 @@ begin
   Result := False;
 end;
 
-function TDCTreeColumn.GetDefaultCellData(const Cell: IDCTreeCell; const CellValue: CObject; FormatApplied: Boolean): CObject;
+function TDCTreeColumn.GetFormattedValue(const Cell: IDCTreeCell; const CellValue: CObject): CString;
 begin
-  Result := CellValue;
-  if not FormatApplied and (Result <> nil) then
-  begin
-    //    if Result.GetType.IsDateTime and CDateTime(Result).Equals(CDateTime.MinValue) then
-    //      Result := nil
-    if Result.IsDateTime and CDateTime(Result).Equals(CDateTime.MinValue) then
-      Result := nil
+  Result := nil;
 
-    else if not CString.IsNullOrEmpty(get_format) or (_formatProvider <> nil) then
+  if CellValue <> nil then
+  begin
+    if CellValue.IsDateTime and CDateTime(CellValue).Equals(CDateTime.MinValue) then
+      Exit;
+
+    if not CString.IsNullOrEmpty(get_format) or (_formatProvider <> nil) then
     begin
       var formatSpec: CString;
       if not CString.IsNullOrEmpty(get_format) then
         formatSpec := CString.Concat('{0:', get_format, '}') else
         formatSpec := '{0}';
 
-      Result := CString.Format(_formatProvider, formatSpec, [Result]);
-    end;
+      Result := CString.Format(_formatProvider, formatSpec, [CellValue]);
+    end else
+      Result := CellValue.ToString;
   end;
 end;
 
@@ -5105,6 +5152,9 @@ begin
           if layoutClmn.Column.WidthMax > 0 then
             layoutClmn.Width := CMath.Min(layoutClmn.Width, layoutClmn.Column.WidthMax);
 
+          if layoutClmn.Width > 215 then
+            layoutClmn.Width := layoutClmn.Width + 5 - 10 + 5;
+
           widthLeft := widthLeft - layoutClmn.Width;
           columnsToCalculate.RemoveAt(ix);
         end
@@ -5919,14 +5969,14 @@ begin
   Result := TDCTreeCheckboxColumn.Create;
 end;
 
-function TDCTreeCheckboxColumn.GetDefaultCellData(const Cell: IDCTreeCell; const CellValue: CObject; FormatApplied: Boolean): CObject;
-begin
-  var bool: Boolean;
-  if (CellValue = nil) or not CellValue.TryAsType<Boolean>(bool) then
-    bool := False;
-
-  Result := bool;
-end;
+//function TDCTreeCheckboxColumn.GetDefaultCellData(const Cell: IDCTreeCell; const CellValue: CObject; FormatApplied: Boolean): CObject;
+//begin
+//  var bool: Boolean;
+//  if (CellValue = nil) or not CellValue.TryAsType<Boolean>(bool) then
+//    bool := False;
+//
+//  Result := bool;
+//end;
 
 function TDCTreeCheckboxColumn.get_Selectable: Boolean;
 begin

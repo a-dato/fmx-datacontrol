@@ -32,10 +32,10 @@ uses
   Wasm.FMX.Graphics,
   Wasm.System.ImageList,
   {$ENDIF}
-  System_;
+  System_, ADato.FMX.FastControls.Text;
 
 type
-  TButtonType = (None, Positive, Negative, Emphasized);
+  TButtonType = (None, Positive, Negative, Circle, Emphasized);
   TUnderlineType = (NoUnderline, Color1, Color2, Color3, Color4);
   TTagType = (NoBounds, RoundPost, SignPost);
   TImagePosition = (Left, Right, Top, Bottom, Center);
@@ -225,6 +225,7 @@ type
     _contentHorzAlign: TTextAlign;
 
     _imagesLink: TImageLink;
+    _additionalText: CString;
 
     procedure set_ButtonType(const Value: TButtonType);
     procedure set_EmphasizePicture(const Value: Boolean);
@@ -242,6 +243,7 @@ type
     function  get_ContentHorzAlign: TTextAlign;
     procedure set_ContentHorzAlign(const Value: TTextAlign);
     procedure set_Images(const Value: TCustomImageList);
+    procedure set_AdditionalText(const Value: CString);
 
   protected
     function  get_Images: TCustomImageList; override;
@@ -284,6 +286,7 @@ type
 
     procedure DoExternalClick;
 
+    property AdditionalText: CString write set_AdditionalText;
     property IsChecked: Boolean read GetIsChecked write SetIsChecked;
 
   published
@@ -314,13 +317,12 @@ uses
   {$IFNDEF WEBASSEMBLY}
   System.Math,
   System.Actions, 
-  FMX.Controls, 
+  FMX.Controls
   {$ELSE}
   Wasm.System.Math,
   Wasm.System.Actions,
-  Wasm.FMX.Controls, 
-  {$ENDIF}
-  ADato.FMX.FastControls.Text;
+  Wasm.FMX.Controls
+  {$ENDIF};
 
 { TADatoClickLayout }
 
@@ -627,8 +629,8 @@ end;
 function TADatoClickLayout.GetPaintOpacity: Single;
 begin
   if not Self.Enabled then
-    Result := Opacity * 0.6 else
-    Result := Opacity;
+    Result := GetAbsoluteOpacity * 0.6 else
+    Result := GetAbsoluteOpacity;
 end;
 
 function TADatoClickLayout.GetText: string;
@@ -784,7 +786,7 @@ begin
     begin
       var bitmapRect := TRectF.Create(0, 0, Bitmap.Width, Bitmap.Height);
       var imgRect := _imageBounds.Round; //TRectF.Create(CenteredRect(_imageBounds.Round, TRectF.Create(0, 0, Bitmap.Width / ScreenScale, Bitmap.Height/ ScreenScale).Round));
-      Canvas.DrawBitmap(Bitmap, BitmapRect, imgRect, IfThen(Enabled, 1, 0.6), False);
+      Canvas.DrawBitmap(Bitmap, BitmapRect, imgRect, GetPaintOpacity, False);
     end;
   finally
     bitmap.Free;
@@ -1010,6 +1012,17 @@ begin
   begin
     Canvas.Fill.Color := TAlphaColor($FFFDFDFE);
     Canvas.FillRect(outerRect, 3, 3, AllCorners, GetPaintOpacity);
+  end
+  else if _buttonType = TButtonType.Circle then
+  begin
+    var w: Single := CMath.Min(_config.ImageSizeInt + 4, CMath.Min(Width, Height));
+    outerRect := RectF((Width-w)/2, (Height-w)/2, (Width-w)/2 + w, (Height-w)/2 + w);
+
+    // circle
+    Canvas.Fill.Color := TAlphaColors.Orangered;
+    Canvas.FillRect(outerRect, outerRect.Width/2, outerRect.Height/2, AllCorners, 0.15);
+    Canvas.Stroke.Color := TAlphaColors.Orangered;
+    Canvas.DrawRect(outerRect, outerRect.Width/2, outerRect.Height/2, AllCorners, 1);
   end;
 
   if not _showHoverEffect then
@@ -1034,14 +1047,25 @@ begin
     Canvas.DrawRect(rect, 3, 3, AllCorners, GetPaintOpacity);
   end;
 
-//  Canvas.Fill.Color := TAlphaColors.Blue;
-//  Canvas.FillRect(_innerBounds, 0.6);
-//
-//  Canvas.Fill.Color := TAlphaColors.Green;
-//  Canvas.FillRect(get_ImageBounds, 0.6);
-//
-//  Canvas.Fill.Color := TAlphaColors.Orange;
-//  Canvas.FillRect(get_TextBounds, 0.6);
+  if not CString.IsNullOrEmpty(_additionalText) then
+  begin
+    var add := _imageBounds.Top/2;
+    var rightPoint := PointF(_imageBounds.Right-6, 0);
+
+    var bounds := RectF(rightPoint.X, rightPoint.Y, rightPoint.X+12, rightPoint.Y+12);
+
+    var oldFont := Canvas.Font.Size;
+    var oldStyle := Canvas.Font.Style;
+    try
+      Canvas.Font.Size := 9;
+      Canvas.Font.Style := Canvas.Font.Style + [TFontStyle.fsBold];
+      Canvas.Fill.Color := TAlphaColors.Orangered;
+      Canvas.FillText(bounds, _additionalText, False, GetPaintOpacity, [], TTextAlign.Trailing, TTextAlign.Center);
+    finally
+      Canvas.Font.Size := oldFont;
+      Canvas.Font.Style := oldStyle;
+    end;
+  end;
 end;
 
 procedure TFastButton.DoResized;
@@ -1223,6 +1247,15 @@ begin
   begin
     _ButtonType := Value;
     RepaintNeeded;
+  end;
+end;
+
+procedure TFastButton.set_AdditionalText(const Value: CString);
+begin
+  if _additionalText <> Value then
+  begin
+    _additionalText := Value;
+    RecalcNeeded;
   end;
 end;
 

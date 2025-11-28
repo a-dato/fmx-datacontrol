@@ -84,7 +84,7 @@ type
   INotifyListItemChanged = interface(IBaseInterface)
     ['{FE713187-9C8E-45AF-BC0B-DE0E7AC67A13}']
     procedure NotifyAddingNew(const Context: IObjectModelContext; var Index: Integer; Position: InsertPosition);
-    procedure NotifyCancelEdit(const Context: IObjectModelContext; const OriginalObject: CObject);
+    procedure NotifyCancelEdit(const Context: IObjectModelContext; var OriginalObject: CObject);
     procedure NotifyBeginEdit(const Context: IObjectModelContext);
     procedure NotifyEndEdit(const Context: IObjectModelContext; const OriginalObject: CObject; Index: Integer; Position: InsertPosition);
     procedure NotifyRemoved(const Item: CObject; const Index: Integer);

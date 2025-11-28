@@ -327,11 +327,20 @@ begin
   if not _ignoreDefaultPaint then
   begin
     _layout.Opacity := AbsoluteOpacity;
+    if (TextWidthWithPadding > Self.Width) then
+      _layout.MaxSize := PointF(Self.Width - (TextWidthWithPadding - TextWidth), _layout.MaxSize.Y);
+    if (TextHeightWithPadding > Self.Height) then
+      _layout.MaxSize := PointF(_layout.MaxSize.X, Self.Height - (TextHeightWithPadding - TextHeight));
+
     _layout.RenderLayout(Canvas);
 
     if Length(_subText) > 0 then
     begin
       _subTextlayout.Opacity := AbsoluteOpacity;
+      if (_subTextlayout.TextWidth > Self.Width) then
+        _subTextlayout.MaxSize := PointF(Self.Width, _subTextlayout.MaxSize.Y);
+      if (_subTextlayout.TextHeight > Self.Height) then
+        _subTextlayout.MaxSize := PointF(_subTextlayout.MaxSize.X, _subTextlayout.MaxSize.Y);
       _subTextlayout.RenderLayout(Canvas);
     end;
   end;
@@ -361,20 +370,6 @@ function TFastText.GetDefaultSize: TSizeF;
 begin
   Result := TSizeF.Create(50, 16);
 end;
-
-//procedure TFastText.Painting;
-//begin
-////  Calculate;
-//
-//  inherited;
-//end;
-
-//procedure TFastText.PrepareForPaint;
-//begin
-////  Calculate;
-//
-//  inherited;
-//end;
 
 function TFastText.GetDefaultTextSettings: TTextSettings;
 begin
@@ -706,7 +701,7 @@ end;
 
 procedure TFastTextControlBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
 begin
-  if IsUpdating or IsLinkedProperty(AProperty) then Exit;
+  if IsUpdating or not IsBoundProperty(AProperty) then Exit;
 
   if Value <> nil then
     _Control.Text := CStringToString(Value.ToString) else
@@ -716,8 +711,6 @@ end;
 procedure TFastTextControlBinding.UpdateControlEditability(IsEditable: Boolean);
 begin
   // textControls can't be edited, therefor always should be true so that they can be copied!!
-
-//  inherited;
   _control.Enabled := True;
 end;
 
@@ -727,7 +720,7 @@ procedure TFastTextControlSmartLinkBinding.SetValue(const AProperty: _PropertyIn
 begin
   if _UpdateCount > 0 then Exit;
 
-  if IsLinkedProperty(AProperty) then
+  if not IsBoundProperty(AProperty) then
     ExecuteFromLink(Obj) else
     inherited;
 end;

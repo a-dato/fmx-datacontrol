@@ -182,7 +182,7 @@ begin
       try
         Layout.TopLeft := PointF(6, 6);
         Layout.MaxSize := PointF(Memo.Width, 9999);
-        Layout.WordWrap := Memo.WordWrap;
+        Layout.WordWrap := True; // {Memo.WordWrap};
         Layout.HorizontalAlign := TTextAlign.Leading;
         Layout.VerticalAlign := TTextAlign.Leading;
         Layout.Font := Memo.Font;

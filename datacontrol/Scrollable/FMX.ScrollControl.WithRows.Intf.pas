@@ -103,6 +103,7 @@ type
     function  GetSelectionInfo(const DataIndex: Integer): IRowSelectionInfo;
 
     function  SelectedRowCount: Integer;
+    function  SelectedDataItems: List<CObject>;
     function  SelectedDataIndexes: List<Integer>;
 
     procedure BeginUpdate;
@@ -226,7 +227,7 @@ type
     function  get_FilterDescriptions: List<IListFilterDescription>;
     procedure set_FilterDescriptions(const Value: List<IListFilterDescription>);
 
-    procedure ClearIrrelevantInfo;
+    procedure ClearSelectionInfo;
 
     property RowStateFlags: TTreeRowStateFlags read get_RowStateFlags write set_RowStateFlags;
     property Current: Integer read get_Current write set_Current;
@@ -249,6 +250,7 @@ type
     TreeOption_HideHoverEffect,
     TreeOption_ReadOnly,
     TreeOption_MultiSelect,
+    TreeOption_KeepMultiSelectOnSelect,
     TreeOption_AllowColumnUpdates,
     TreeOption_AllowAddNewRows,
     TreeOption_AllowDeleteRows
@@ -284,6 +286,7 @@ type
     HideHoverEffect: TDCTreeOptionFlag = TreeOption_HideHoverEffect;
     ReadOnly: TDCTreeOptionFlag = TreeOption_ReadOnly;
     MultiSelect: TDCTreeOptionFlag = TreeOption_MultiSelect;
+    KeepMultiSelectOnSelect: TDCTreeOptionFlag = TreeOption_KeepMultiSelectOnSelect;
     AllowColumnUpdates: TDCTreeOptionFlag = TreeOption_AllowColumnUpdates;
     AllowAddNewRows: TDCTreeOptionFlag = TreeOption_AllowAddNewRows;
     AllowDeleteRows: TDCTreeOptionFlag = TreeOption_AllowDeleteRows;

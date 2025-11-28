@@ -12,7 +12,7 @@ uses
   Wasm.FMX.Controls,
   Wasm.FMX.StdCtrls,
   {$ENDIF}
-  System_;
+  System_, System.Collections;
 
 type
   TScrollingType = (None, WithScrollBar, Other);

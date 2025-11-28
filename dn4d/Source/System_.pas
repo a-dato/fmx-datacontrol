@@ -268,6 +268,7 @@ type
     function  GetMethod(const AName: string): TRttiMethod;
     function  GetMethods: TArray<TRttiMethod>;
     function  IsArray: Boolean;
+    function  IsBoolean: Boolean;
     function  IsDateTime: Boolean;
     function  IsInterfaceType: Boolean;
     function  IsObjectType: Boolean;
@@ -1842,7 +1843,7 @@ type
   )
   protected
     function AsType(const Value: &Type) : CObject; virtual;
-    function QueryInterface(const IID: TGUID; out Obj): HResult; virtual; stdcall;
+    function QueryInterface(const IID: TGUID; out Obj): HResult; stdcall;
     function _AddRef: Integer; stdcall;
     function _Release: Integer; stdcall;
 
@@ -4452,6 +4453,11 @@ end;
 function &Type.IsMethod: Boolean;
 begin
   Result := GetTypeCode(GetTypeInfo) = TypeCode.Method;
+end;
+
+function &Type.IsBoolean: Boolean;
+begin
+  Result := GetTypeCode(GetTypeInfo) = TypeCode.Boolean;
 end;
 
 function &Type.IsEnum: Boolean;
@@ -11333,7 +11339,61 @@ end;
 
 class function CEnum.GetValues(const AType: &Type) : CObject.ObjectArray;
 begin
-  Assert(False);
+  case &Type.GetTypeCode(AType) of
+    TypeCode.Enum:
+    begin
+      if AType.GetTypeInfo.Kind = tkRecord  then
+        //
+        // .Net alike enum implemented using a record structure (see for example unit System.Drawing)
+        //
+      begin
+        var enum := Assembly.GetRegisteredEnum(AType);
+        if enum <> nil then
+        begin
+          var values := enum.Values;
+          SetLength(Result, Length(values));
+          for var i in values do
+            Result[i] := values[i];
+        end;
+      end
+      else
+        //
+        // Delphi enum type.
+        //
+      begin
+        var typeData := GetTypeData(AType.GetTypeInfo);
+        if (typeData <> nil) then
+        begin
+          SetLength(Result, (typeData^.MaxValue - typeData^.MinValue) + 1);
+
+          for var i := typeData^.MinValue to typeData^.MaxValue do
+          begin
+            var v: TValue;
+            TValue.Make(i, AType.GetTypeInfo, v);
+            Result[i - typeData^.MinValue] := CObject.From<TValue>(v);
+          end;
+        end;
+      end;
+    end;
+
+    TypeCode.Set:
+    begin
+      var typeData := GetTypeData(AType.GetTypeInfo);
+      var setTypeData := GetTypeData(typeData^.CompType^);
+
+      SetLength(Result, (setTypeData^.MaxValue - setTypeData^.MinValue) + 1);
+
+      for var i := setTypeData^.MinValue to setTypeData^.MaxValue do
+      begin
+        var v: TValue;
+        TValue.Make(i, AType.GetTypeInfo, v);
+        Result[i - typeData^.MinValue] := CObject.From<TValue>(v);
+      end;
+    end;
+
+  else
+    raise ArgumentException.Create(string.Format('Type must be an enumerator or set (%s)', [AType._TypeInfo.Name]));
+  end;
 end;
 
 function CEnum.ToString: CString;

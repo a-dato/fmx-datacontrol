@@ -382,9 +382,7 @@ end;
 procedure TObjectModelMultiSelect.set_IsActive(const Value: Boolean);
 begin
   if _isActive = Value then
-
     Exit;
-
 
   _isActive := Value;
 

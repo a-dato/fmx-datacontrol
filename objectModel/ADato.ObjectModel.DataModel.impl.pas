@@ -134,7 +134,7 @@ type
 
     // INotifyListItemChanged
     procedure NotifyAddingNew(const Context: IObjectModelContext; var Index: Integer; Position: InsertPosition);
-    procedure NotifyCancelEdit(const Context: IObjectModelContext; const OriginalObject: CObject);
+    procedure NotifyCancelEdit(const Context: IObjectModelContext; var OriginalObject: CObject);
     procedure NotifyBeginEdit(const Context: IObjectModelContext);
     procedure NotifyEndEdit(const Context: IObjectModelContext; const OriginalObject: CObject; Index: Integer; Position: InsertPosition);
     procedure NotifyRemoved(const Item: CObject; const Index: Integer);
@@ -261,8 +261,8 @@ begin
 
   var newInstance := CreateInstance;
 
-  var locationRow: IDataRow;
-  if not Location.TryAsType<IDataRow>(locationRow) then
+  var locationRow: IDataRow := nil;
+  if (Location <> nil) and not Location.TryAsType<IDataRow>(locationRow) then
     locationRow := _dataModel.FindByKey(Location);
 
   var index := -1;
@@ -445,7 +445,9 @@ begin
   CacheOriginalData(Context.Context);
 
   var row := _dataModel.FindByKey(Context.Context);
+
   _dataModel.BeginEdit(row);
+  _dataModel.FlagEditRow(row, [RowEditState.DataHasChanged]);
 
   if row <> nil then
     row.Data := Context.Context;
@@ -455,7 +457,7 @@ begin
     n.BeginEdit(Context.Context);
 end;
 
-procedure TDataModelObjectListModel.NotifyCancelEdit(const Context: IObjectModelContext; const OriginalObject: CObject);
+procedure TDataModelObjectListModel.NotifyCancelEdit(const Context: IObjectModelContext; var OriginalObject: CObject);
 begin
   // if IsNew item then insert it into the _changedItems this way
   // it will be removed properly in NotifyRemoved
@@ -465,19 +467,13 @@ begin
   var row := _dataModel.FindByKey(canceledObj);
   _dataModel.CancelEdit(row);
 
-  if not wasNew then
-  begin
-    var dr := _dataModel.FindByKey(canceledObj);
-    if dr <> nil then
-      dr.Data := OriginalObject;
-  end;
-
   var n: IListItemChanged;
   for n in get_OnItemChanged do
     n.CancelEdit(canceledObj);
 
   if wasNew and CObject.Equals(Context.Context, canceledObj) then // it has been removed by _dataModel
-    set_ObjectContext(nil);
+    OriginalObject := nil;
+//    set_ObjectContext(nil);
 end;
 
 procedure TDataModelObjectListModel.NotifyEndEdit(const Context: IObjectModelContext; const OriginalObject: CObject; Index: Integer; Position: InsertPosition);
@@ -674,6 +670,15 @@ end;
 
 procedure TDataModelObjectListModel.ResetContextFromChangedItems;
 
+  procedure RemoveSafeFromDataModel(const DataRow: IDataRow);
+  begin
+    for var child in _dataModel.Children(DataRow, TChildren.IncludeParentRows) do
+      if not child.Equals(DataRow) then
+        CacheOriginalData(child.Data);
+
+    _dataModel.Remove(DataRow);
+  end;
+
   procedure ResetByLevel(const Level, MaxLevel: Integer);
   begin
     // first reset parents
@@ -704,13 +709,13 @@ procedure TDataModelObjectListModel.ResetContextFromChangedItems;
         case pair.Value of
           TObjectListChangeType.Added: begin
             if dr <> nil then
-              _dataModel.Remove(dr);
+              RemoveSafeFromDataModel(dr);
 
             foundItems.Add(obj);
           end;
           TObjectListChangeType.Changed: begin
             if dr <> nil then
-              _dataModel.Remove(dr);
+              RemoveSafeFromDataModel(dr);
 
             // re-index
             if (rowInfo.Position <> InsertPosition.None) then
@@ -745,16 +750,40 @@ procedure TDataModelObjectListModel.ResetContextFromChangedItems;
     ResetByLevel(Level + 1, MaxLevel);
   end;
 
+  procedure AddNonChangedChildrenAgain(const Level, MaxLevel: Integer);
+  begin
+    if Level > MaxLevel then
+      Exit;
+
+    var childItemPair: KeyValuePair<CObject, TDataRowInfo>;
+    for childItemPair {children that werent changed} in _originalDataRows do
+      if (childItemPair.Value.Level = Level) and (_dataModel.FindByKey(childItemPair.Key) = nil) then
+        _dataModel.Add(childItemPair.Key, childItemPair.Value.Location {can be nil}, childItemPair.Value.Position);
+
+    AddNonChangedChildrenAgain(Level + 1, MaxLevel);
+  end;
+
+  function CalcMaxLevel: Integer;
+  begin
+    Result := 0;
+    var rowInfo: TDataRowInfo;
+    for rowInfo in _originalDataRows.Values do
+      Result := CMath.Max(Result, rowInfo.Level);
+  end;
+
 begin
   if get_IsEditOrNew then
     CancelEdit;
 
-  var maxLevel := 0;
-  var rowInfo: TDataRowInfo;
-  for rowInfo in _originalDataRows.Values do
-    maxLevel := CMath.Max(maxLevel, rowInfo.Level);
+  _dataModel.BeginUpdate;
+  try
+    ResetByLevel(0, CalcMaxLevel);
 
-  ResetByLevel(0, maxLevel);
+    // calc again, for _originalDataRows can be changed in ResetByLevel
+    AddNonChangedChildrenAgain(0, CalcMaxLevel);
+  finally
+    _dataModel.EndUpdate;
+  end;
 
   get_ChangedItems.Clear;
 end;

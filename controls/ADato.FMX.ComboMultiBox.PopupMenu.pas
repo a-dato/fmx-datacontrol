@@ -39,8 +39,6 @@ uses
   FMX.ScrollControl.DataControl.Impl;
 
 type
-//  IFilterItem = interface;
-
   TfrmComboMultiBoxPopup = class(TForm)
     filterlist: TRectangle;
     lyFilter: TLayout;
@@ -48,7 +46,6 @@ type
     edSearch: TEdit;
     Timer1: TTimer;
     Line1: TLine;
-    Button1: TButton;
     procedure btnApplyFiltersClick(Sender: TObject);
     procedure Button1Click(Sender: TObject);
     procedure cbSelectAllClick(Sender: TObject);
@@ -63,7 +60,7 @@ type
     _oldSelection: List<CObject>;
 
     _selectUpdateCount: Integer;
-    _onSelectionChanged: TNotifyEvent;
+    _CellSelected: CellSelectedEvent;
 
     function  get_IsOpen: Boolean;
     procedure set_IsOpen(const Value: Boolean);
@@ -85,7 +82,7 @@ type
     property  SelectedItems: List<CObject> read get_SelectedItems;
 
     property IsOpen: Boolean read get_IsOpen write set_IsOpen;
-    property OnSelectionChanged: TNotifyEvent write _onSelectionChanged;
+    property CellSelected: CellSelectedEvent write _CellSelected;
   end;
 
 implementation
@@ -108,7 +105,7 @@ begin
 
   DataControl := TDataControl.Create(Self);
   DataControl.Align := TAlignLayout.Client;
-  DataControl.Options := [TDCTreeOption.MultiSelect];
+  DataControl.Options := [TDCTreeOption.MultiSelect, TDCTreeOption.KeepMultiSelectOnSelect];
   DataControl.RowHeightFixed := 26;
   DataControl.AllowNoneSelected := True;
   DataControl.CellSelected := TreeCellSelected;
@@ -189,6 +186,8 @@ begin
 
   if Value then
   begin
+    lyFilter.Visible := False;
+    edSearch.Visible := False;
     _oldSelection := DataControl.SelectedItems;
 
     var absPf := _parentControl.LocalToScreen(PointF(0, _parentControl.Height + 5));
@@ -240,8 +239,8 @@ begin
     end;
   end;
 
-  if Assigned(_onSelectionChanged) then
-    _onSelectionChanged(Self);
+  if Assigned(_CellSelected) then
+    _CellSelected(Self, e);
 end;
 
 procedure TfrmComboMultiBoxPopup.edSearchChangeTracking(Sender: TObject);
@@ -268,6 +267,9 @@ procedure TfrmComboMultiBoxPopup.Timer1Timer(Sender: TObject);
 begin
   if (DataControl <> nil) and (DataControl.View <> nil) and (DataControl.SelectedItems <> nil) then
     cbSelectAll.IsChecked := DataControl.View.ViewCount = DataControl.SelectedItems.Count;
+
+  lyFilter.Visible := (DataControl.DataList <> nil) and (DataControl.DataList.Count >= 6);
+  edSearch.Visible := (DataControl.DataList <> nil) and (DataControl.DataList.Count >= 10);
 end;
 
 procedure TfrmComboMultiBoxPopup.TreeCellFormatting(const Sender: TObject; e: DCCellFormattingEventArgs);

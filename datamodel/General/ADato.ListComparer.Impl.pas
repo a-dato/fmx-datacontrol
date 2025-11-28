@@ -129,13 +129,22 @@ end;
 
 function TListComparer.Compare(const x, y: TKeyRow): Integer;
 begin
+  // KV: 10/11/2025 always put nil's behind real values
   if x.Key = nil then
   begin
     if y.Key = nil then Exit(0);
-    Exit(_sorts[0].Sort.SortDirection.ToMultiplier);
+    Exit(1);
   end
   else if y.Key = nil then
-    Exit(-_sorts[0].Sort.SortDirection.ToMultiplier);
+    Exit(-1);
+
+//  if x.Key = nil then
+//  begin
+//    if y.Key = nil then Exit(0);
+//      Exit(_sorts[0].Sort.SortDirection.ToMultiplier);
+//  end
+//  else if y.Key = nil then
+//    Exit(-_sorts[0].Sort.SortDirection.ToMultiplier);
 
   {$IFDEF DELPHI}
   if x.Key.IsArray then

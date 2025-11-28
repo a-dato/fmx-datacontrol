@@ -145,6 +145,7 @@ type
     procedure UpdatePropertyBindingValues(const APropertyName: CString); overload;
     procedure AddTriggersAsLinks(const ACustomProperty: ICustomProperty; const AccessoryProperties: List<_PropertyInfo>);
     function  HasBindings: Boolean;
+    function  IsLink(const Binding: IPropertyBinding; const PropInfo: _PropertyInfo): Boolean;
 
     property Context: CObject read get_Context write set_Context;
     {$IFDEF DELPHI}
@@ -200,8 +201,6 @@ type
     procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
     function  GetFuncPickList: TGetPickList;
     procedure SetFuncPickList(const Value: TGetPickList);
-
-    function  IsLinkedProperty(const AProperty: _PropertyInfo) : Boolean;
 
     property ObjectModelContext: IObjectModelContext read get_ObjectModelContext write set_ObjectModelContext;
     property PropertyInfo: _PropertyInfo read get_PropertyInfo write set_PropertyInfo;

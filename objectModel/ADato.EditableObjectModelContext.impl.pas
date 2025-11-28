@@ -125,7 +125,7 @@ begin
 
     var notify: INotifyListItemChanged;
     if (_UpdateCount = 0) and interfaces.Supports<INotifyListItemChanged>(_Owner, notify) then
-      notify.NotifyCancelEdit(Self, _SavedContext);
+      notify.NotifyCancelEdit(Self, {var} _SavedContext);
 
     // in case of clone, set old item back
     BeginUpdate;
@@ -137,6 +137,10 @@ begin
 
     _SavedContext := nil;
     _IsChanged := False;
+
+    // no change is triggered, while proeprties can have effect on what should be shown..
+    if _UpdateCount = 0 then
+      DoContextChanged;
   end;
 end;
 

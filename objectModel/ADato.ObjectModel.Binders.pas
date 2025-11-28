@@ -8,14 +8,14 @@ interface
 
 uses
   {$IFNDEF WEBASSEMBLY}
-  FMX.Edit, 
-  FMX.StdCtrls, 
-  FMX.ListBox, 
-  FMX.Memo, 
+  FMX.Edit,
+  FMX.StdCtrls,
+  FMX.ListBox,
+  FMX.Memo,
   FMX.Controls,
-  FMX.Types, 
-  System.Classes, 
-  FMX.SpinBox, 
+  FMX.Types,
+  System.Classes,
+  FMX.SpinBox,
   FMX.Objects,
   FMX.Graphics,
   FMX.NumberBox,
@@ -60,7 +60,6 @@ type
     function get_Control: TControl;
 
     procedure UpdateControlEditability(IsEditable: Boolean);
-    procedure UpdateControlVisibility(IsVisible: Boolean);
 
     procedure OnFreeNotificationDestroy;
 
@@ -103,7 +102,7 @@ type
     procedure EndUpdate(FromNotifyModelEvent: Boolean = False); virtual;
     function  IsUpdating: Boolean; virtual;
 
-    function  IsLinkedProperty(const AProperty: _PropertyInfo) : Boolean;
+    function  IsBoundProperty(const AProperty: _PropertyInfo) : Boolean;
 
     function  WaitForNotifyModel: Boolean; virtual;
     procedure NotifyModel(Sender: TObject); virtual;
@@ -156,11 +155,13 @@ type
     function  IsUpdating: Boolean; override;
     procedure ExecuteOriginalOnChangeEvent; override;
 
-    procedure OnContextChanged(const Sender: IObjectModelContext; const Item: CObject);
+    procedure CheckControlEditability(const Context: CObject);
+    procedure OnContextChanged(const Sender: IObjectModelContext; const Context: CObject);
+    procedure OnContextPropertyChanged(const Sender: IObjectModelContext; const Context: CObject; const AProperty: _PropertyInfo);
+
     procedure OnFreeNotificationDestroy;
 
     procedure UpdateControlEditability(IsEditable: Boolean); virtual;
-    procedure UpdateControlVisibility(IsVisible: Boolean);
 
     procedure ExecuteFromLink(const Obj: CObject);
     procedure UpdatedByLink;
@@ -416,6 +417,9 @@ type
   end;
   {$ENDIF}
 
+ const
+  DISABLED_OPACITY = 0.6;
+
 implementation
 
 uses
@@ -512,7 +516,7 @@ end;
 procedure TEditControlBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
 begin
   {$IFDEF APP_PLATFORM}
-  if IsUpdating or IsLinkedProperty(AProperty) then Exit;
+  if IsUpdating or not IsBoundProperty(AProperty) then Exit;
 
   BeginUpdate;
   try
@@ -529,7 +533,7 @@ begin
     EndUpdate;
   end;
   {$ELSE}
-  if (_UpdateCount > 0) or IsLinkedProperty(AProperty) then Exit;
+  if (_UpdateCount > 0) or not IsBoundProperty(AProperty) then Exit;
 
   BeginUpdate;
   try
@@ -650,14 +654,10 @@ begin
   Result := False;
 end;
 
-function TPropertyBinding.IsLinkedProperty(const AProperty: _PropertyInfo): Boolean;
+function TPropertyBinding.IsBoundProperty(const AProperty: _PropertyInfo): Boolean;
 begin
-  // smartlink bidings search for original propinfo
-  // (which can have another adress than this binding property).
-//  Result := AProperty <> __PropertyInfo;
-
   // compare names, which is unique comparison for one object class..
-  Result := not CString.Equals(AProperty.Name, __PropertyInfo.Name);
+  Result := CString.Equals(AProperty.Name, __PropertyInfo.Name);
 end;
 
 function TPropertyBinding.IsUpdating: Boolean;
@@ -745,7 +745,7 @@ end;
 procedure TLabelControlBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
 begin
   {$IFDEF APP_PLATFORM}
-  if IsUpdating or IsLinkedProperty(AProperty) then Exit;
+  if IsUpdating or not IsBoundProperty(AProperty) then Exit;
 
   BeginUpdate;
   try
@@ -762,7 +762,7 @@ begin
     EndUpdate;
   end;
   {$ELSE}
-  if (_UpdateCount > 0) or IsLinkedProperty(AProperty) then Exit;
+  if (_UpdateCount > 0) or not IsBoundProperty(AProperty) then Exit;
 
   // use TrimStart/TrimEnd to remove Enters and avoid empty looking labels
   {$IFDEF DELPHI}
@@ -893,7 +893,7 @@ end;
 procedure TComboBoxControlBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
 begin
   {$IFDEF APP_PLATFORM}
-  if IsUpdating or IsLinkedProperty(AProperty) then Exit;
+  if IsUpdating or not IsBoundProperty(AProperty) then Exit;
 
   BeginUpdate;
   try
@@ -919,7 +919,7 @@ begin
     EndUpdate;
   end;
   {$ELSE}
-  if IsUpdating or IsLinkedProperty(AProperty) then Exit;
+  if IsUpdating or not IsBoundProperty(AProperty) then Exit;
 
   BeginUpdate;
   try
@@ -965,7 +965,7 @@ end;
 
 procedure TMemoControlBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
 begin
-  if IsUpdating or IsLinkedProperty(AProperty) then Exit;
+  if IsUpdating or not IsBoundProperty(AProperty) then Exit;
 
   BeginUpdate;
   try
@@ -1022,7 +1022,7 @@ end;
 
 procedure TSwitchControlBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
 begin
-  if IsUpdating or IsLinkedProperty(AProperty) then Exit;
+  if IsUpdating or not IsBoundProperty(AProperty) then Exit;
 
   BeginUpdate;
   try
@@ -1038,7 +1038,7 @@ procedure TLabelControlSmartLinkBinding.SetValue(const AProperty: _PropertyInfo;
 begin
   if _UpdateCount > 0 then Exit;
 
-  if IsLinkedProperty(AProperty) then
+  if not IsBoundProperty(AProperty) then
     ExecuteFromLink(Obj) else
     inherited;
 end;
@@ -1049,7 +1049,7 @@ procedure TEditControlSmartLinkBinding.SetValue(const AProperty: _PropertyInfo; 
 begin
   if _UpdateCount > 0 then Exit;
 
-  if IsLinkedProperty(AProperty) then
+  if not IsBoundProperty(AProperty) then
     ExecuteFromLink(Obj) else
     inherited;
 end;
@@ -1060,7 +1060,7 @@ procedure TComboboxControlSmartLinkBinding.SetValue(const AProperty: _PropertyIn
 begin
   if _UpdateCount > 0 then Exit;
 
-  if IsLinkedProperty(AProperty) then
+  if not IsBoundProperty(AProperty) then
     ExecuteFromLink(Obj) else
     inherited;
 end;
@@ -1071,7 +1071,7 @@ procedure TSwitchControlSmartLinkBinding.SetValue(const AProperty: _PropertyInfo
 begin
   if _UpdateCount > 0 then Exit;
 
-  if IsLinkedProperty(AProperty) then
+  if not IsBoundProperty(AProperty) then
     ExecuteFromLink(Obj) else
     inherited;
 end;
@@ -1082,7 +1082,7 @@ procedure TMemoControlSmartLinkBinding.SetValue(const AProperty: _PropertyInfo; 
 begin
   if _UpdateCount > 0 then Exit;
 
-  if IsLinkedProperty(AProperty) then
+  if not IsBoundProperty(AProperty) then
     ExecuteFromLink(Obj) else
     inherited;
 end;
@@ -1140,7 +1140,7 @@ procedure TSpinControlBinding.SetValue(const AProperty: _PropertyInfo; const Obj
 var
   d: Double;
 begin
-  if IsUpdating or IsLinkedProperty(AProperty) then Exit;
+  if IsUpdating or not IsBoundProperty(AProperty) then Exit;
 
   BeginUpdate;
   try
@@ -1161,7 +1161,7 @@ procedure TSpinControlSmartLinkBinding.SetValue(const AProperty: _PropertyInfo; 
 begin
   if _UpdateCount > 0 then Exit;
 
-  if IsLinkedProperty(AProperty) then
+  if not IsBoundProperty(AProperty) then
     ExecuteFromLink(Obj) else
     inherited;
 end;
@@ -1179,7 +1179,7 @@ end;
 
 procedure TTextControlBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
 begin
-  if IsUpdating or IsLinkedProperty(AProperty) then Exit;
+  if IsUpdating or not IsBoundProperty(AProperty) then Exit;
 
   if Value <> nil then
     _Control.Text := CStringToString(Value.ToString) else
@@ -1189,8 +1189,6 @@ end;
 procedure TTextControlBinding.UpdateControlEditability(IsEditable: Boolean);
 begin
   // textControls can't be edited, therefor always should be true so that they can be copied!!
-
-//  inherited;
   _control.Enabled := True;
 end;
 
@@ -1200,9 +1198,33 @@ procedure TTextControlSmartLinkBinding.SetValue(const AProperty: _PropertyInfo; 
 begin
   if _UpdateCount > 0 then Exit;
 
-  if IsLinkedProperty(AProperty) then
+  if not IsBoundProperty(AProperty) then
     ExecuteFromLink(Obj) else
     inherited;
+end;
+
+procedure TControlBinding<T>.CheckControlEditability(const Context: CObject);
+begin
+  // control = nil when destroyed
+  if _control = nil then
+    Exit;
+
+  var isEditable := True;
+  var isVisible := True;
+
+  var iwid: IPropertyAccessibility;
+  if (Context <> nil) and Context.TryAsType<IPropertyAccessibility>(iwid) then
+  begin
+    var edState := iwid.PropertyState(__PropertyInfo.Name);
+    isEditable := edState.IsEditable;
+    isVisible := edState.IsVisible;
+  end;
+
+  UpdateControlEditability(isEditable);
+
+  // do not set Visibility, for code can already make controls (in)visible
+  // it is better to interfere with the Opacity
+  _control.Opacity := IfThen(IsVisible, IfThen(IsEditable, 1, DISABLED_OPACITY), 0);
 end;
 
 { TControlBinding }
@@ -1299,25 +1321,15 @@ begin
   Result := inherited; // or (_control.IsUpdating);
 end;
 
-procedure TControlBinding<T>.OnContextChanged(const Sender: IObjectModelContext; const Item: CObject);
+procedure TControlBinding<T>.OnContextChanged(const Sender: IObjectModelContext; const Context: CObject);
 begin
-  // control = nil when destroyed
-  if _control = nil then
-    Exit;
+  CheckControlEditability(Context);
+end;
 
-  var isEditable := True;
-  var isVisible := True;
-
-  var iwid: IPropertyAccessibility;
-  if (item <> nil) and item.TryAsType<IPropertyAccessibility>(iwid) then
-  begin
-    var edState := iwid.CanEditProperty(__PropertyInfo.Name);
-    isEditable := edState.IsEditable;
-    isVisible := edState.IsVisible;
-  end;
-
-  UpdateControlEditability(isEditable);
-  UpdateControlVisibility(isVisible);
+procedure TControlBinding<T>.OnContextPropertyChanged(const Sender: IObjectModelContext; const Context: CObject; const AProperty: _PropertyInfo);
+begin
+  if (_control <> nil) and Sender.IsLink(Self, AProperty) then
+    CheckControlEditability(Context);
 end;
 
 procedure TControlBinding<T>.OnFreeNotificationDestroy;
@@ -1335,8 +1347,10 @@ begin
   begin
     {$IFDEF DELPHI}
     _ObjectModelContext.OnContextChanged.Remove(OnContextChanged);
+    _ObjectModelContext.OnPropertyChanged.Remove(OnContextPropertyChanged);
     {$ELSE}
     _ObjectModelContext.OnContextChanged -= OnContextChanged;
+    _ObjectModelContext.OnPropertyChanged -= OnContextPropertyChanged;
     {$ENDIF}
   end;
 
@@ -1346,8 +1360,10 @@ begin
   begin
     {$IFDEF DELPHI}
     _ObjectModelContext.OnContextChanged.Add(OnContextChanged);
+    _ObjectModelContext.OnPropertyChanged.Add(OnContextPropertyChanged);
     {$ELSE}
     _ObjectModelContext.OnContextChanged += OnContextChanged;
+    _ObjectModelContext.OnPropertyChanged += OnContextPropertyChanged;
     {$ENDIF}
 
     OnContextChanged(_ObjectModelContext, _ObjectModelContext.Context);
@@ -1364,15 +1380,6 @@ end;
 procedure TControlBinding<T>.UpdateControlEditability(IsEditable: Boolean);
 begin
   _control.Enabled := IsEditable;
-end;
-
-procedure TControlBinding<T>.UpdateControlVisibility(IsVisible: Boolean);
-begin
-  {$IFDEF DEBUG}
-  _control.Opacity := IfThen(not IsVisible, 0.2, 1);
-  {$ELSE}
-  _control.Opacity := IfThen(not IsVisible, 0, 1);
-  {$ENDIF}
 end;
 
 procedure TControlBinding<T>.HideAndClearUpdatedRect(const Index: Integer; const Rect: TRectangle);
@@ -1488,12 +1495,12 @@ end;
 
 procedure TDateControlBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
 begin
-  if IsUpdating or IsLinkedProperty(AProperty) then Exit;
+  if IsUpdating or not IsBoundProperty(AProperty) then Exit;
 
   BeginUpdate;
   try
 //    {$IFDEF DOTNET}
-//    if Value = nil then 
+//    if Value = nil then
 //    begin
 //      _control.Text := CDateTime.MinValue.ToString;
 //      Exit;
@@ -1524,7 +1531,7 @@ procedure TDateControlSmartLinkBinding.SetValue(const AProperty: _PropertyInfo; 
 begin
   if _UpdateCount > 0 then Exit;
 
-  if IsLinkedProperty(AProperty) then
+  if not IsBoundProperty(AProperty) then
     ExecuteFromLink(Obj) else
     inherited;
 end;
@@ -1535,7 +1542,7 @@ procedure TCheckBoxControlSmartLinkBinding.SetValue(const AProperty: _PropertyIn
 begin
   if _UpdateCount > 0 then Exit;
 
-  if IsLinkedProperty(AProperty) then
+  if not IsBoundProperty(AProperty) then
     ExecuteFromLink(Obj) else
     inherited;
 end;
@@ -1571,7 +1578,7 @@ end;
 
 procedure TCheckBoxControlBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
 begin
-  if IsUpdating or IsLinkedProperty(AProperty) then Exit;
+  if IsUpdating or not IsBoundProperty(AProperty) then Exit;
 
   BeginUpdate;
   try
@@ -1624,7 +1631,7 @@ end;
 
 procedure TTimeControlBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
 begin
-  if IsUpdating or IsLinkedProperty(AProperty) then Exit;
+  if IsUpdating or not IsBoundProperty(AProperty) then Exit;
 
   BeginUpdate;
   try
@@ -1651,7 +1658,7 @@ procedure TTimeControlSmartLinkBinding.SetValue(const AProperty: _PropertyInfo; 
 begin
   if _UpdateCount > 0 then Exit;
 
-  if IsLinkedProperty(AProperty) then
+  if not IsBoundProperty(AProperty) then
     ExecuteFromLink(Obj) else
     inherited;
 end;
@@ -1693,7 +1700,7 @@ end;
 
 procedure TNumberBoxControlBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
 begin
-  if IsUpdating or IsLinkedProperty(AProperty) then Exit;
+  if IsUpdating or not IsBoundProperty(AProperty) then Exit;
 
   BeginUpdate;
   try
@@ -1711,7 +1718,7 @@ procedure TNumberBoxControlSmartLinkBinding.SetValue(const AProperty: _PropertyI
 begin
   if _UpdateCount > 0 then Exit;
 
-  if IsLinkedProperty(AProperty) then
+  if not IsBoundProperty(AProperty) then
     ExecuteFromLink(Obj) else
     inherited;
 end;
@@ -1725,7 +1732,7 @@ end;
 
 procedure TProgressbarControlBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
 begin
-  if IsUpdating or IsLinkedProperty(AProperty) then Exit;
+  if IsUpdating or not IsBoundProperty(AProperty) then Exit;
 
   BeginUpdate;
   try
@@ -1743,7 +1750,7 @@ procedure TProgressbarControlSmartLinkBinding.SetValue(const AProperty: _Propert
 begin
   if _UpdateCount > 0 then Exit;
 
-  if IsLinkedProperty(AProperty) then
+  if not IsBoundProperty(AProperty) then
     ExecuteFromLink(Obj) else
     inherited;
 end;
@@ -1755,7 +1762,7 @@ procedure TImageControlSmartLinkBinding.SetValue(const AProperty: _PropertyInfo;
 begin
   if _UpdateCount > 0 then Exit;
 
-  if IsLinkedProperty(AProperty) then
+  if not IsBoundProperty(AProperty) then
     ExecuteFromLink(Obj) else
     inherited;
 end;
@@ -1773,7 +1780,7 @@ end;
 
 procedure TImageControlBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
 begin
-  if IsUpdating or IsLinkedProperty(AProperty) then Exit;
+  if IsUpdating or not IsBoundProperty(AProperty) then Exit;
 
   BeginUpdate;
   try
@@ -1803,7 +1810,7 @@ end;
 
 procedure TButtonControlBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
 begin
-  if IsUpdating or IsLinkedProperty(AProperty) then Exit;
+  if IsUpdating or not IsBoundProperty(AProperty) then Exit;
   {$IFDEF DELPHI}
   if Value = nil then
     _Control.Text := '' else
@@ -1819,7 +1826,7 @@ procedure TButtonControlSmartLinkBinding.SetValue(const AProperty: _PropertyInfo
 begin
   if _UpdateCount > 0 then Exit;
 
-  if IsLinkedProperty(AProperty) then
+  if not IsBoundProperty(AProperty) then
     ExecuteFromLink(Obj) else
     inherited;
 end;
@@ -1877,7 +1884,7 @@ procedure TComboEditControlBinding.SetValue(const AProperty: _PropertyInfo; cons
 var
   val: CString;
 begin
-  if IsUpdating or IsLinkedProperty(AProperty) then Exit;
+  if IsUpdating or not IsBoundProperty(AProperty) then Exit;
 
   BeginUpdate;
   try
@@ -1916,7 +1923,7 @@ procedure TComboEditControlSmartLinkBinding.SetValue( const AProperty: _Property
 begin
   if _UpdateCount > 0 then Exit;
 
-  if IsLinkedProperty(AProperty) then
+  if not IsBoundProperty(AProperty) then
     ExecuteFromLink(Obj) else
     inherited;
 end;
@@ -1953,7 +1960,7 @@ end;
 
 procedure TComboColorBoxControlBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
 begin
-  if IsUpdating or IsLinkedProperty(AProperty) then Exit;
+  if IsUpdating or not IsBoundProperty(AProperty) then Exit;
 
   BeginUpdate;
   try
@@ -1969,7 +1976,7 @@ procedure TComboColorBoxControlSmartLinkBinding.SetValue(const AProperty: _Prope
 begin
   if _UpdateCount > 0 then Exit;
 
-  if IsLinkedProperty(AProperty) then
+  if not IsBoundProperty(AProperty) then
     ExecuteFromLink(Obj) else
     inherited;
 end;

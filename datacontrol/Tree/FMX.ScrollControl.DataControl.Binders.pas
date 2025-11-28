@@ -18,7 +18,7 @@ uses
   System.Collections,
   ADato.ObjectModel.Binders,
   FMX.ScrollControl.DataControl.Impl,
-  FMX.ScrollControl.Events;
+  FMX.ScrollControl.Events, ADato.FMX.ComboMultiBox, ADato.ObjectModel.intf;
 
 type
   TTreePropertyType = (DataList, CheckedItems);
@@ -50,10 +50,23 @@ type
     destructor Destroy; override;
   end;
 
+  TComboMultiBoxBinding = class(TControlBinding<TComboMultiBox>)
+  protected
+    _orgCellSelectedEvent: CellSelectedEvent;
+
+    procedure OnCellSelected(const Sender: TObject; e: DCCellSelectedEventArgs);
+
+    function  GetValue: CObject; override;
+    procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject); override;
+  public
+    constructor Create(AControl: TComboMultiBox); reintroduce;
+    destructor Destroy; override;
+  end;
+
 implementation
 
 uses
-  ADato.Data.DataModel.intf;
+  ADato.Data.DataModel.intf, FMX.Types, System.Collections.Generic;
 
 
 { TDATACONTROL}
@@ -122,11 +135,10 @@ begin
 
       if _Control.SelectionCount > 1 then
         Result := _Control.SelectedItems
-      else // Radio buttons
-      begin
-        _currentItem := ConvertToDataItem(_Control.DataItem);
-        Exit(_currentItem);
-      end;
+      else if _Control.SelectionCount = 1 then
+        Result := _Control.SelectedItems[0]
+      else
+        Result := nil;
     end;
   end;
 end;
@@ -169,7 +181,7 @@ end;
 
 procedure TDataControlBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
 begin
-  if IsUpdating or IsLinkedProperty(AProperty) then Exit;
+  if IsUpdating or not IsBoundProperty(AProperty) then Exit;
 
   case _propType of
     DataList: _control.DataList := Value.AsType<IList>;
@@ -240,6 +252,65 @@ begin
   end;
 end;
 
+{ TComboMultiBoxBinding }
+
+constructor TComboMultiBoxBinding.Create(AControl: TComboMultiBox);
+begin
+  inherited Create(AControl);
+
+  _orgCellSelectedEvent := AControl.CellSelected;
+  AControl.CellSelected := OnCellSelected;
+end;
+
+destructor TComboMultiBoxBinding.Destroy;
+begin
+  if (_Control <> nil) and ([csDestroying] * _Control.ComponentState = []) then
+    _Control.CellSelected := _orgCellSelectedEvent;
+
+  inherited;
+end;
+
+function TComboMultiBoxBinding.GetValue: CObject;
+begin
+  Result := _control.SelectedItems;
+end;
+
+procedure TComboMultiBoxBinding.OnCellSelected(const Sender: TObject; e: DCCellSelectedEventArgs);
+begin
+  if not e.EventTrigger.IsUserEvent and not _control.InClearClick then
+    Exit;
+
+  if Assigned(_orgCellSelectedEvent) then
+    _orgCellSelectedEvent(Sender, e);
+
+  TThread.ForceQueue(nil, procedure
+  begin
+    NotifyModel(nil);
+  end);
+end;
+
+procedure TComboMultiBoxBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
+begin
+  if IsUpdating or not IsBoundProperty(AProperty) then Exit;
+
+  var selected: IList;
+  if (Value <> nil) and Value.IsString then
+  begin
+    var sa := Value.ToString.Split([',']);
+
+    selected := CList<CObject>.Create;
+    for var s in sa do
+      selected.Add(s);
+  end else
+    selected := Value.AsType<IList>;
+
+  _control.SelectedItems := selected;
+end;
+
+initialization
+  TPropertyBinding.RegisterClassBinding(TDataControl,
+    function(const Control: TFMXObject): IPropertyBinding begin Result := TDataControlBinding.Create(TDataControl(Control)) end);
+
+  TPropertyBinding.RegisterClassBinding(TComboMultiBox,
+    function(const Control: TFMXObject): IPropertyBinding begin Result := TComboMultiBoxBinding.Create(TComboMultiBox(Control)) end);
 end.
-
-

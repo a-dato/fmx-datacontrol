@@ -8,33 +8,12 @@ object Form1: TForm1
   FormFactor.Height = 480
   FormFactor.Devices = [Desktop]
   DesignerMasterStyle = 0
-  object FMXTreeControl1: TFMXTreeControl
-    Align = Client
-    Size.Width = 558.000000000000000000
-    Size.Height = 446.000000000000000000
-    Size.PlatformDefault = False
-    TabOrder = 1
-    AcceptsTab = False
-    AcceptsReturn = False
-    AllowUserToAddRows = True
-    AllowUserToDeleteRows = True
-    AutoFitColumns = False
-    Indent = 20
-    AlwaysShowFocus = False
-    IncrementalSearch = False
-    Options = [TreeOption_ShowHeaders, TreeOption_AutoCommit, TreeOption_AllowCellSelection, TreeOption_AlternatingRowBackground, TreeOption_ShowDragImage, TreeOption_CheckPropertyNames, TreeOption_MultiSelect, TreeOption_GoRowSelection, TreeOption_ColumnsCanResize, TreeOption_ColumnsCanMove, TreeOption_RefreshOnEndEdit]
-    ScrollPerRow = False
-        HighlightRows = True
-    LayoutColumnsComplete = FMXTreeControl1LayoutColumnsComplete
-    Viewport.Width = 556.000000000000000000
-    Viewport.Height = 419.000000000000000000
-  end
   object Layout1: TLayout
     Align = Top
     Size.Width = 757.000000000000000000
     Size.Height = 41.000000000000000000
     Size.PlatformDefault = False
-    TabOrder = 2
+    TabOrder = 1
     object Button1: TButton
       Position.X = 8.000000000000000000
       Position.Y = 11.000000000000000000
@@ -73,7 +52,7 @@ object Form1: TForm1
     Size.Width = 199.000000000000000000
     Size.Height = 446.000000000000000000
     Size.PlatformDefault = False
-    TabOrder = 3
+    TabOrder = 2
     object Button4: TButton
       Action = acExpand
       ImageIndex = -1
@@ -120,6 +99,36 @@ object Form1: TForm1
         TabOrder = 0
       end
     end
+  end
+  object DataControl1: TDataControl
+    Align = Client
+    HitTest = True
+    Size.Width = 558.000000000000000000
+    Size.Height = 446.000000000000000000
+    Size.PlatformDefault = False
+    TabOrder = 12
+    Options = [TreeOption_ShowHeaders, TreeOption_ShowHeaderGrid]
+    RowHeightDefault = 30.000000000000000000
+    AutoFitColumns = True
+    HeaderHeight = 24.000000000000000000
+    AutoExtraColumnSizeMax = -1.000000000000000000
+    CellTopBottomPadding = 5.000000000000000000
+    CellLeftRightPadding = 5.000000000000000000
+    Columns_ = 
+      '<Columns><Item type="TDCTreeColumn"><Caption>Name</Caption><Prop' +
+      'ertyName>Name</PropertyName><InfoControlClass>Text</InfoControlC' +
+      'lass><WidthSettings><WidthType>Percentage</WidthType><Width>100<' +
+      '/Width><WidthMin>0</WidthMin><WidthMax>0</WidthMax></WidthSettin' +
+      'gs><Visualisation><Visible>True</Visible><Frozen>False</Frozen><' +
+      'ReadOnly>False</ReadOnly><Selectable>True</Selectable><AllowResi' +
+      'ze>False</AllowResize><AllowHide>False</AllowHide><HideWhenEmpty' +
+      '>False</HideWhenEmpty><HideGrid>False</HideGrid><IgnoreHeightByR' +
+      'owCalculation>False</IgnoreHeightByRowCalculation></Visualisatio' +
+      'n><SortAndFilter><Sort>None</Sort><ShowSortMenu>False</ShowSortM' +
+      'enu><ShowFilterMenu>False</ShowFilterMenu></SortAndFilter><SubCo' +
+      'ntrolSettings><SubInfoControlClass>Custom</SubInfoControlClass><' +
+      '/SubControlSettings><Hierarchy><ShowHierarchy>True</ShowHierarch' +
+      'y><Indent>0</Indent></Hierarchy></Item></Columns>'#13#10
   end
   object ActionList1: TActionList
     Left = 427

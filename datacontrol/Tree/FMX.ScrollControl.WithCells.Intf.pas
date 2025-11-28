@@ -32,6 +32,10 @@ uses
   System.Collections.Specialized,
   FMX.ScrollControl.WithRows.Intf, ADato.ComponentModel;
 
+const
+  NO_VALUE = '[no value]';
+  NO_VALUE_KEY = 'NO_VALUE';
+
 type
   TSortType = (None, Displaytext, CellData, PropertyValue, ColumnCellComparer, RowComparer);
 
@@ -211,7 +215,7 @@ type
     function  IsSelectionColumn: Boolean;
 
     function  ProvideCellData(const Cell: IDCTreeCell; const PropName: CString; IsSubProp: Boolean = False): CObject;
-    function  GetDefaultCellData(const Cell: IDCTreeCell; const CellValue: CObject; FormatApplied: Boolean): CObject;
+    function  GetFormattedValue(const Cell: IDCTreeCell; const CellValue: CObject): CString;
 
     function  HasPropertyAttached: Boolean;
 
@@ -328,6 +332,7 @@ type
     function  Content: TControl;
     function  FullColumnList: IList<IDCTreeColumn>;
     function  GetItemType: &Type;
+    function  GetActiveCell: IDCTreeCell;
 
     {$IFDEF DEBUG}
     {$IFNDEF WEBASSEMBLY}
@@ -599,18 +604,6 @@ type
     function  DoOnCompareRows(const Left, Right: CObject): Integer;
     function  DoOnCompareColumnCells(const Column: IDCTreeColumn; const Left, Right: CObject): Integer;
   end;
-
-//  ICellSelectionInfo = interface(ISelectionInfo)
-//    ['{3C232BB9-0DB4-4F4A-9321-EB9880E26C71}']
-//    function  CellIsSelected(const ColumnIndex: Integer): Boolean;
-//
-//    procedure AddCellSelection(const ColumnIndex: Integer);
-//    procedure RemoveCellSelection(const ColumnIndex: Integer);
-//
-//    function  CopyColumnIndexes: List<Integer>;
-//    function  LastSelectedColumnIndex: Integer;
-//    function  SelectedCellCount: Integer;
-//  end;
 
 const
   CELL_MIN_INDENT = 10;

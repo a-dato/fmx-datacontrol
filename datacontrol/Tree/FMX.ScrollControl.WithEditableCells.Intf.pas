@@ -14,7 +14,7 @@ uses
   {$ENDIF}
   System_,
   FMX.ScrollControl.WithCells.Intf,
-  System.Collections;
+  System.Collections, System.Collections.Generic;
 
 type
   ITreeEditingInfo = interface
@@ -44,6 +44,7 @@ type
     procedure OnEditorExit;
 
     function  DoCellParsing(const Cell: IDCTreeCell; IsCheckOnEndEdit: Boolean; var AValue: CObject): Boolean;
+    function  DoCellFormatting(const Cell: IDCTreeCell; RequestForSort: Boolean; var Value: CObject) : Boolean;
   end;
 
   IDCCellEditor = interface
@@ -56,10 +57,10 @@ type
     function  get_OriginalValue: CObject;
     function  get_editor: TControl;
 
-    procedure BeginEdit(const EditValue: CObject);
+    procedure BeginEdit(const Value: CObject);
     procedure EndEdit;
 
-    function  TryBeginEditWithUserKey(UserKey: string): Boolean;
+    function  TryBeginEditWithUserKey(UserKey: CString): Boolean;
     function  ParseValue(var AValue: CObject): Boolean;
 
     property Cell: IDCTreeCell read get_Cell;
@@ -69,15 +70,6 @@ type
     property OriginalValue: CObject read get_OriginalValue;
     property Editor: TControl read get_editor;
   end;
-
-  IPickListSupport = interface
-    ['{F670376D-2A80-4963-B53A-3EF994D0263C}']
-    function  get_PickList: IList;
-    procedure set_PickList(const Value: IList);
-
-    property PickList: IList read get_PickList write set_PickList;
-  end;
-
 
 implementation
 
