@@ -1273,6 +1273,7 @@ begin
       TryDeleteSelectedRows;
   end;
 
+  // If ActiveRow = nil then we are resetting and all rows will be calculated again anyway.
   var row := GetActiveRow;
   if row <> nil then
     DoDataItemChangedInternal(GetActiveRow.DataItem); //, GetActiveRow.DataIndex);
