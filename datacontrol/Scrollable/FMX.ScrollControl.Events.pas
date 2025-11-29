@@ -452,16 +452,17 @@ begin
     Exit(nil);
   end;
 
-  _cell.LayoutColumn.CreateCellBase(_showVertGrid, _cell);
-  _cell.Control.AddObject(Control);
-  _cell.InfoControl := Control;
-  _cell.InfoControl.Visible := True;
+  // KV: XXX
+//  _cell.LayoutColumn.CreateCellBase(_showVertGrid, _cell);
+//  _cell.Control.AddObject(Control);
+//  _cell.InfoControl := Control;
+//  _cell.InfoControl.Visible := True;
 
-  var h := _cell.InfoControl.Height + 2*_cell.Column.TreeControl.CellTopBottomPadding;
-  if _cell.Control.Height < h then
-    _cell.Control.Height := h;
-
-  Result := _cell.InfoControl;
+//  var h := _cell.InfoControl.Height + 2*_cell.Column.TreeControl.CellTopBottomPadding;
+//  if _cell.Control.Height < h then
+//    _cell.Control.Height := h;
+//
+//  Result := _cell.InfoControl;
 end;
 
 function DCCellLoadEventArgs.AssignCellStyleLookUp(const StyleLookUp: CString): TStyledControl;
@@ -519,7 +520,7 @@ end;
 
 function DCCheckChangedEventArgs.CheckControl: TControl;
 begin
-  Result := _cell.InfoControl;
+  Result := _cell.InfoControl.Control;
 end;
 
 { DCTreePositionArgs }

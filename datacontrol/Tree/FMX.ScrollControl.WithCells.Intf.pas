@@ -30,7 +30,8 @@ uses
   System.Collections.Generic,
   System.Collections,
   System.Collections.Specialized,
-  FMX.ScrollControl.WithRows.Intf, FMX.Types;
+  FMX.ScrollControl.WithRows.Intf,
+  FMX.ScrollControl.ControlClasses.Intf;
 
 const
   NO_VALUE = '[no value]';
@@ -384,7 +385,7 @@ type
     function  get_ActiveSort: IListSortDescription;
     procedure set_ActiveSort(const Value: IListSortDescription);
 
-    function  CreateInfoControl(const Cell: IDCTreeCell; const ControlClassType: TInfoControlClass): TControl;
+    function  CreateInfoControl(const Cell: IDCTreeCell; const ControlClassType: TInfoControlClass): IDCControl;
     procedure CreateCellBase(const ShowVertGrid: Boolean; const Cell: IDCTreeCell);
     procedure CreateCellBaseControls(const ShowVertGrid: Boolean; const Cell: IDCTreeCell);
     procedure CreateCellStyleControl(const StyleLookUp: CString; const ShowVertGrid: Boolean; const Cell: IDCTreeCell);
@@ -465,12 +466,12 @@ type
     function  get_HideCellInView: Boolean;
     procedure set_HideCellInView(const Value: Boolean);
 
-    function  get_InfoControl: TControl;
-    procedure set_InfoControl(const Value: TControl);
+    function  get_InfoControl: IDCControl;
+    procedure set_InfoControl(const Value: IDCControl);
     function  get_CustomInfoControlBounds: TRectF;
     procedure set_CustomInfoControlBounds(const Value: TRectF);
-    function  get_SubInfoControl: TControl;
-    procedure set_SubInfoControl(const Value: TControl);
+    function  get_SubInfoControl: IDCControl;
+    procedure set_SubInfoControl(const Value: IDCControl);
     function  get_CustomSubInfoControlBounds: TRectF;
     procedure set_CustomSubInfoControlBounds(const Value: TRectF);
 
@@ -497,9 +498,9 @@ type
     property LayoutColumn: IDCTreeLayoutColumn read get_LayoutColumn;
 
     property Control: TControl read get_Control write set_Control;
-    property InfoControl: TControl read get_InfoControl write set_InfoControl;
+    property InfoControl: IDCControl read get_InfoControl write set_InfoControl;
     property CustomInfoControlBounds: TRectF read get_CustomInfoControlBounds write set_CustomInfoControlBounds;
-    property SubInfoControl: TControl read get_SubInfoControl write set_SubInfoControl;
+    property SubInfoControl: IDCControl read get_SubInfoControl write set_SubInfoControl;
     property CustomSubInfoControlBounds: TRectF read get_CustomSubInfoControlBounds write set_CustomSubInfoControlBounds;
 
     // control below can be used to insert custom controls and recycle them if needed.
@@ -586,7 +587,7 @@ type
   TTreeViewState = (ColumnsChanged, ColumnSizeChanged);
   TTreeViewStateFlags = set of TTreeViewState;
 
-  IDataControlWaitForRepaintInfo = interface(IWaitForRepaintInfo)
+  IDCControlWaitForRepaintInfo = interface(IWaitForRepaintInfo)
     ['{96430307-964A-49E5-AFA9-6A9AC179E736}']
     function  get_ViewStateFlags: TTreeViewStateFlags;
     procedure set_ViewStateFlags(const Value: TTreeViewStateFlags);

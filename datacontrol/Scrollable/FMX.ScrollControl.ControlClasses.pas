@@ -13,12 +13,14 @@ uses
   FMX.DateTimeCtrls,
   FMX.Graphics,
   System.Classes,
+  System.Types,
   System.UITypes,
   FMX.ActnList,
   FMX.ImgList,
   FMX.Types,
   FMX.Layouts,
   FMX.TextLayout,
+  FMX.Text,
   {$ELSE}
   Wasm.FMX.Controls,
   Wasm.FMX.StdCtrls,
@@ -37,102 +39,89 @@ uses
   Wasm.FMX.TextLayout,
   {$ENDIF}
   System_,
-  ADato.FMX.FastControls.Text,
-  ADato.FMX.FastControls.Button, System.Collections, System.Collections.Generic;
+  System.Collections,
+  System.Collections.Generic,
+  FMX.ScrollControl.ControlClasses.Intf;
 
 type
-  {$IFDEF EDITCONTROL}
-  TFormatItem = reference to function(const Item: CObject; ItemIndex: Integer) : CString;
-  TItemShowing = reference to function(const Item: CObject; ItemIndex: Integer; const Text: string) : Boolean;
-
-  // Interface that handles communication between a cell editor inside the tree control
-  // and the actual control used for the editing
-  IEditControl = interface(IBaseInterface)
-    ['{D407A256-CED9-4FCD-8AED-E6B6578AE83D}']
-    function  get_Control: TControl;
-    function  get_DefaultValue: CObject;
-    procedure set_DefaultValue(const Value: CObject);
-    function  get_FormatItem: TFormatItem;
-    procedure set_FormatItem(const Value: TFormatItem);
-    function  get_ItemShowing: TItemShowing;
-    procedure set_ItemShowing(const Value: TItemShowing);
-    function  get_OnExit: TNotifyEvent;
-    procedure set_OnExit(const Value: TNotifyEvent);
-    function  get_OnKeyDown: TKeyEvent;
-    procedure set_OnKeyDown(const Value: TKeyEvent);
-    function  get_Position: TPosition;
-    procedure set_Position(const Value: TPosition);
-    function  get_Width: Single;
-    procedure set_Width(const Value: Single);
-    function  get_Height: Single;
-    procedure set_Height(const Value: Single);
-    function  get_Value: CObject;
-    procedure set_Value(const Value: CObject);
-
-    procedure SetFocus;
-    function  RefreshItems: Boolean;
-    procedure DoKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
-
-    property Control: TControl read get_Control;
-    property OnExit: TNotifyEvent read get_OnExit write set_OnExit;
-    property OnKeyDown: TKeyEvent read get_OnKeyDown write set_OnKeyDown;
-
-    property FormatItem: TFormatItem read get_FormatItem write set_FormatItem;
-    property ItemShowing: TItemShowing read get_ItemShowing write set_ItemShowing;
-    property Position: TPosition read get_Position write set_Position;
-    property Width: Single read get_Width write set_Width;
-    property Height: Single read get_Height write set_Height;
-    property DefaultValue: CObject read get_DefaultValue write set_DefaultValue;
-    property Value: CObject read get_Value write set_Value;
-  end;
-
-  IComboEditControl = interface(IEditControl)
-    ['{0A5E499C-31BB-42B8-BDD5-16EFA661C377}']
-    function  get_PickList: IList;
-    procedure set_PickList(const Value: IList);
-
-    procedure DropDown;
-
-    property PickList: IList read get_PickList write set_PickList;
-  end;
-
-  TEditControlImpl = class(TBaseInterfacedObject, IEditControl)
+  TDCControlImpl = class(TBaseInterfacedObject, IDCControl, ITextControl, ICaption, ITextActions, ITextSettings)
   protected
     _control: TControl;
-    _DefaultValue: CObject;
-    _FormatItem: TFormatItem;
-    _ItemShowing: TItemShowing;
+    _tag: CObject;
 
+    function  get_Align: TAlignLayout;
+    procedure set_Align(const Value: TAlignLayout);
+    function  get_BoundsRect: TRectF;
+    procedure set_BoundsRect(const Value: TRectF);
     function  get_Control: TControl;
-    function  get_DefaultValue: CObject;
-    procedure set_DefaultValue(const Value: CObject);
-    function  get_FormatItem: TFormatItem;
-    procedure set_FormatItem(const Value: TFormatItem);
-    function  get_ItemShowing: TItemShowing;
-    procedure set_ItemShowing(const Value: TItemShowing);
-    function  get_OnExit: TNotifyEvent;
-    procedure set_OnExit(const Value: TNotifyEvent);
-    function  get_OnKeyDown: TKeyEvent;
-    procedure set_OnKeyDown(const Value: TKeyEvent);
+    function  get_Cursor: TCursor;
+    procedure set_Cursor(const Value: TCursor);
+    function  get_HitTest: Boolean;
+    procedure set_HitTest(const Value: Boolean);
+    function  get_Enabled: Boolean;
+    procedure set_Enabled(const Value: Boolean);
+    function  get_Margins: TBounds;
+    procedure set_Margins(const Value: TBounds);
+    function  get_Padding: TBounds;
+    procedure set_Padding(const Value: TBounds);
     function  get_Position: TPosition;
     procedure set_Position(const Value: TPosition);
     function  get_Width: Single;
     procedure set_Width(const Value: Single);
     function  get_Height: Single;
     procedure set_Height(const Value: Single);
+    function  get_OnClick: TNotifyEvent;
+    procedure set_OnClick(const Value: TNotifyEvent);
+    function  get_OnExit: TNotifyEvent;
+    procedure set_OnExit(const Value: TNotifyEvent);
+    function  get_Opacity: Single;
+    procedure set_Opacity(const Value: Single);
     function  get_Value: CObject; virtual;
     procedure set_Value(const Value: CObject); virtual;
+    function  get_Visible: Boolean;
+    procedure set_Visible(const Value: Boolean);
 
-    procedure Dispose; override;
-    function  DoFormatItem(const Item: CObject; ItemIndex: Integer; out Value: string) : Boolean; virtual;
-    function  DoItemShowing(const Item: CObject; ItemIndex: Integer; const Text: string) : Boolean; virtual;
-    procedure DoKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState); virtual;
-    procedure DoKeyUp(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState); virtual;
+    function  get_Tag: CObject;
+    procedure set_Tag(const Value: CObject);
+
+    function  get_Caption: ICaption;
+    function  get_TextActions: ITextActions;
+    function  get_TextControl: ITextControl;
+    function  get_TextSettings: ITextSettings;
+
+    property Caption: ICaption read get_Caption implements ICaption;
+    property TextControl: ITextControl read get_TextControl implements ITextControl;
+    property TextActions: ITextActions read get_TextActions implements ITextActions;
+    property TextSettings: ITextSettings read get_TextSettings implements ITextSettings;
 
     procedure SetFocus;
-    function  RefreshItems: Boolean; virtual;
   public
     constructor Create(AControl: TControl);
+  end;
+
+  TEditControlImpl = class(TDCControlImpl, IDCEditControl)
+  protected
+    _DefaultValue: CObject;
+    _FormatItem: TFormatItem;
+
+    function  get_DefaultValue: CObject;
+    procedure set_DefaultValue(const Value: CObject);
+    function  get_FormatItem: TFormatItem;
+    procedure set_FormatItem(const Value: TFormatItem);
+    function  get_OnChange: TNotifyEvent; virtual;
+    procedure set_OnChange(Value: TNotifyEvent); virtual;
+    function  get_OnKeyDown: TKeyEvent;
+    procedure set_OnKeyDown(const Value: TKeyEvent);
+
+    procedure Dispose; override;
+    function  DoFormatItem(const Item: CObject; out Value: string) : Boolean; virtual;
+    procedure DoKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState); virtual;
+    procedure DoKeyUp(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState); virtual;
+  end;
+
+  TImageControlImpl = class(TDCControlImpl, IImageControl)
+    function  get_ImageIndex: Integer;
+    procedure set_ImageIndex(const Value: Integer);
   end;
 
   TTextEditControlImpl = class(TEditControlImpl)
@@ -141,54 +130,143 @@ type
     procedure set_Value(const Value: CObject); override;
   end;
 
+  TCheckBoxControlImpl = class(TEditControlImpl, ICheckBoxControl, IIsChecked)
+  protected
+    function  get_IsChecked: IIsChecked;
+
+    function  get_OnChange: TNotifyEvent; override;
+    procedure set_OnChange(Value: TNotifyEvent); override;
+    function  get_Value: CObject; override;
+    procedure set_Value(const Value: CObject); override;
+
+    property IsChecked: IIsChecked read get_IsChecked implements IIsChecked;
+  end;
+
+  TDateEditControlImpl = class(TEditControlImpl, IDateEditControl)
+  protected
+    function  get_Date: CDateTime;
+    procedure set_Date(const Value: CDateTime);
+
+    function  get_Value: CObject; override;
+    procedure set_Value(const Value: CObject); override;
+  end;
+
+  TRadioButtonControlImpl = class(TEditControlImpl, IRadioButtonControl, IGroupName, IIsChecked)
+  protected
+    function  get_IsChecked: IIsChecked;
+    function  get_GroupName: IGroupName;
+
+    function  get_OnChange: TNotifyEvent; override;
+    procedure set_OnChange(Value: TNotifyEvent); override;
+    function  get_Value: CObject; override;
+    procedure set_Value(const Value: CObject); override;
+
+    property GroupName: IGroupName read get_GroupName implements IGroupName;
+    property IsChecked: IIsChecked read get_IsChecked implements IIsChecked;
+  end;
+
   TComboEditControlImpl = class(TEditControlImpl, IComboEditControl)
   protected
     _PickList: IList;
+    _ItemShowing: TItemShowing;
     _ItemsShowing: IList;
 
+    function  get_ItemIndex: Integer;
+    procedure set_ItemIndex(const Value: Integer);
+    function  get_ItemShowing: TItemShowing;
+    procedure set_ItemShowing(const Value: TItemShowing);
     function  get_PickList: IList;
     procedure set_PickList(const Value: IList);
-
+    function  get_Text: CString;
+    procedure set_Text(const Value: CString);
     function  get_Value: CObject; override;
     procedure set_Value(const Value: CObject); override;
 
     function  ActivePickList: IList;
     procedure DropDown;
+    function  DoItemShowing(const Item: CObject; const Text: string) : Boolean; virtual;
     procedure DoKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState); override;
     procedure DoKeyUp(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState); override;
     function  MatchText(const Text: string; const Search: string) : Boolean;
     function  MatchTextIndex(const Text: string; const Search: string) : Integer;
-    function  FindBestMatch(const Items: List<string>; const Text: string; var Pos: Integer) : Integer;
-    function  RefreshItems: Boolean; override;
+    function  FindBestMatch(const Text: string) : Integer; overload;
+    function  FindBestMatch(const Items: List<string>; const Text: string; var Pos: Integer) : Integer; overload;
+    function  RefreshItems: Boolean;
   end;
 
-  TTextEditControl = class(TEdit, IEditControl)
+  TTextEditControl = class(TEdit, IDCEditControl)
   protected
-    _editControl: IEditControl;
+    _editControl: IDCEditControl;
 
-    function get_EditControl: IEditControl;
+    function get_EditControl: IDCEditControl;
 
   public
     constructor Create(AOwner: TComponent); override;
 
-    property EditControl: IEditControl read get_EditControl implements IEditControl;
+    property EditControl: IDCEditControl read get_EditControl implements IDCEditControl;
   end;
 
-  TComboEditControl = class(TComboEdit, IEditControl)
+  TMemoEditControl = class(TMemo, IDCEditControl)
   protected
-    _editControl: IEditControl;
+    _editControl: IDCEditControl;
 
-    function get_EditControl: IEditControl;
+    function get_EditControl: IDCEditControl;
 
-    procedure DoExit; override;
   public
     constructor Create(AOwner: TComponent); override;
 
-    property EditControl: IEditControl read get_EditControl implements IEditControl;
+    property EditControl: IDCEditControl read get_EditControl implements IDCEditControl;
   end;
-  {$ENDIF}
 
-  IDataControlClassFactory = interface
+  TCheckBoxEditControl = class(TCheckBox, IDCEditControl)
+  protected
+    _editControl: IDCEditControl;
+
+    function get_EditControl: IDCEditControl;
+
+  public
+    constructor Create(AOwner: TComponent); override;
+
+    property EditControl: IDCEditControl read get_EditControl implements IDCEditControl;
+  end;
+
+  TComboEditControl = class(TComboEdit, IDCEditControl)
+  protected
+    _editControl: IDCEditControl;
+
+    function get_EditControl: IDCEditControl;
+
+  public
+    constructor Create(AOwner: TComponent); override;
+
+    property EditControl: IDCEditControl read get_EditControl implements IDCEditControl;
+  end;
+
+  TDateEditControl = class(TDateEdit, IDateEditControl)
+  protected
+    _dateControl: IDateEditControl;
+
+    function get_DateControl: IDateEditControl;
+
+  public
+    constructor Create(AOwner: TComponent); override;
+
+    property DateControl: IDateEditControl read get_DateControl implements IDateEditControl;
+  end;
+
+  TRadioButtonEditControl = class(TRadioButton, IDCEditControl)
+  protected
+    _editControl: IDCEditControl;
+
+    function get_EditControl: IDCEditControl;
+
+  public
+    constructor Create(AOwner: TComponent); override;
+
+    property EditControl: IDCEditControl read get_EditControl implements IDCEditControl;
+  end;
+
+  IDCControlClassFactory = interface
     ['{08ADE46F-92EA-4A14-9208-51FD5347C754}']
     function CreateHeaderRect(const Owner: TComponent): TRectangle;
     function CreateHeaderCellRect(const Owner: TComponent): TRectangle;
@@ -198,26 +276,21 @@ type
     function CreateRowCellRect(const Owner: TComponent): TRectangle;
     function CreateRowRect(const Owner: TComponent): TRectangle;
 
-    function CreateText(const Owner: TComponent): TFastText;
-    function CreateCheckBox(const Owner: TComponent): TCheckBox;
-    function CreateRadioButton(const Owner: TComponent): TRadioButton;
-    function CreateButton(const Owner: TComponent): TFastButton;
+    function CreateText(const Owner: TComponent): IDCControl;
+    function CreateButton(const Owner: TComponent): IDCControl;
     function CreateGlyph(const Owner: TComponent): TGlyph;
-    function CreateMemo(const Owner: TComponent): TMemo;
-    function CreateDateEdit(const Owner: TComponent): TDateEdit;
 
-    {$IFDEF EDITCONTROL}
-    function CreateEdit(const Owner: TComponent): IEditControl;
-    function CreateComboEdit(const Owner: TComponent): IEditControl;
-    {$ELSE}
-    function CreateEdit(const Owner: TComponent): TEdit;
-    function CreateComboEdit(const Owner: TComponent): TComboEdit;
-    {$ENDIF}
+    function CreateEdit(const Owner: TComponent): IDCEditControl;
+    function CreateComboEdit(const Owner: TComponent): IDCEditControl;
+    function CreateCheckBox(const Owner: TComponent): IDCEditControl;
+    function CreateRadioButton(const Owner: TComponent): IDCEditControl;
+    function CreateMemo(const Owner: TComponent): IDCEditControl;
+    function CreateDateEdit(const Owner: TComponent): IDateEditControl;
 
     procedure HandleRowBackground(const RowRect: TRectangle; Alternate: Boolean);
   end;
 
-  TDataControlClassFactory = class(TInterfacedObject, IDataControlClassFactory)
+  TDataControlClassFactory = class(TInterfacedObject, IDCControlClassFactory)
   private
     _isCustomFactory: Boolean;
   public
@@ -234,27 +307,23 @@ type
     function CreateHeaderCellRect(const Owner: TComponent): TRectangle; virtual;
     function CreateRowCellRect(const Owner: TComponent): TRectangle; virtual;
 
-    function CreateText(const Owner: TComponent): TFastText; virtual;
-    function CreateCheckBox(const Owner: TComponent): TCheckBox; virtual;
-    function CreateRadioButton(const Owner: TComponent): TRadioButton; virtual;
-    function CreateButton(const Owner: TComponent): TFastButton; virtual;
+    function CreateText(const Owner: TComponent): IDCControl; virtual;
+    function CreateButton(const Owner: TComponent): IDCControl; virtual;
     function CreateGlyph(const Owner: TComponent): TGlyph; virtual;
-    function CreateMemo(const Owner: TComponent): TMemo; virtual;
-    function CreateDateEdit(const Owner: TComponent): TDateEdit; virtual;
-    {$IFDEF EDITCONTROL}
-    function CreateEdit(const Owner: TComponent): IEditControl; virtual;
-    function CreateComboEdit(const Owner: TComponent): IEditControl; virtual;
-    {$ELSE}
-    function CreateEdit(const Owner: TComponent): TEdit; virtual;
-    function CreateComboEdit(const Owner: TComponent): TComboEdit; virtual;
-    {$ENDIF}
+
+    function CreateCheckBox(const Owner: TComponent): IDCEditControl; virtual;
+    function CreateRadioButton(const Owner: TComponent): IDCEditControl; virtual;
+    function CreateMemo(const Owner: TComponent): IDCEditControl; virtual;
+    function CreateDateEdit(const Owner: TComponent): IDateEditControl; virtual;
+    function CreateEdit(const Owner: TComponent): IDCEditControl; virtual;
+    function CreateComboEdit(const Owner: TComponent): IDCEditControl; virtual;
 
     procedure HandleRowBackground(const RowRect: TRectangle; Alternate: Boolean); virtual;
   end;
 
 var
   // see Initialization section
-  DataControlClassFactory: IDataControlClassFactory;
+  DataControlClassFactory: IDCControlClassFactory;
 
   DEFAULT_GREY_COLOR: TAlphaColor;
   DEFAULT_WHITE_COLOR: TAlphaColor;
@@ -271,13 +340,12 @@ implementation
 
 uses
   {$IFNDEF WEBASSEMBLY}
-  System.SysUtils,
-  System.Types
+  System.SysUtils
   {$ELSE}
   Wasm.System.SysUtils,
   Wasm.System.Types
   {$ENDIF}
-  ;
+  , ADato.FMX.FastControls.Text;
 
 { TDataControlClassFactory }
 
@@ -314,50 +382,44 @@ begin
 
   DEFAULT_HEADER_BACKGROUND := TAlphaColors.Null;
   DEFAULT_HEADER_STROKE := TAlphaColors.Grey;
-  DEFAULT_CELL_STROKE := TAlphaColors.Lightgray;    
+  DEFAULT_CELL_STROKE := TAlphaColors.Lightgray;
 end;
 {$ENDIF}
 
-function TDataControlClassFactory.CreateMemo(const Owner: TComponent): TMemo;
+function TDataControlClassFactory.CreateButton(const Owner: TComponent): IDCControl;
 begin
-  Result := TMemo.Create(Owner);
+  // ult := TFastButton.Create(Owner);
 end;
 
-function TDataControlClassFactory.CreateButton(const Owner: TComponent): TFastButton;
+function TDataControlClassFactory.CreateCheckBox(const Owner: TComponent): IDCEditControl;
 begin
-  Result := TFastButton.Create(Owner);
+  Result := TCheckBoxEditControl.Create(Owner);
 end;
 
-function TDataControlClassFactory.CreateCheckBox(const Owner: TComponent): TCheckBox;
-begin
-  Result := TCheckBox.Create(Owner);
-end;
-
-{$IFDEF EDITCONTROL}
-function TDataControlClassFactory.CreateEdit(const Owner: TComponent): IEditControl;
+function TDataControlClassFactory.CreateEdit(const Owner: TComponent): IDCEditControl;
 begin
   Result := TTextEditControl.Create(Owner);
 end;
 
-function TDataControlClassFactory.CreateComboEdit(const Owner: TComponent): IEditControl;
+function TDataControlClassFactory.CreateMemo(const Owner: TComponent): IDCEditControl;
+begin
+  Result := TMemoEditControl.Create(Owner);
+end;
+
+function TDataControlClassFactory.CreateComboEdit(const Owner: TComponent): IDCEditControl;
 begin
   Result := TComboEditControl.Create(Owner);
 end;
-{$ELSE}
-function TDataControlClassFactory.CreateEdit(const Owner: TComponent): TEdit;
+
+function TDataControlClassFactory.CreateDateEdit(const Owner: TComponent): IDateEditControl;
 begin
-  Result := TEdit.Create(Owner);
+  // Result := TDateTimeEditOnKeyDownOverride.Create(Owner);
+  Result := TDateEditControl.Create(Owner);
 end;
 
-function TDataControlClassFactory.CreateComboEdit(const Owner: TComponent): TComboEdit;
+function TDataControlClassFactory.CreateRadioButton(const Owner: TComponent): IDCEditControl;
 begin
-  Result := TComboEdit.Create(Owner);
-end;
-{$ENDIF}
-
-function TDataControlClassFactory.CreateDateEdit(const Owner: TComponent): TDateEdit;
-begin
-  Result := TDateTimeEditOnKeyDownOverride.Create(Owner);
+  Result := TRadioButtonEditControl.Create(Owner);
 end;
 
 function TDataControlClassFactory.CreateGlyph(const Owner: TComponent): TGlyph;
@@ -379,11 +441,6 @@ begin
   Result.Stroke.Color := DEFAULT_HEADER_STROKE;
   Result.Sides := [TSide.Bottom];
   {$ENDIF}
-end;
-
-function TDataControlClassFactory.CreateRadioButton(const Owner: TComponent): TRadioButton;
-begin
-  Result := TRadioButton.Create(Owner);
 end;
 
 function TDataControlClassFactory.CreateRowCellRect(const Owner: TComponent): TRectangle;
@@ -411,11 +468,11 @@ begin
   {$ENDIF}
 end;
 
-function TDataControlClassFactory.CreateText(const Owner: TComponent): TFastText;
+function TDataControlClassFactory.CreateText(const Owner: TComponent): IDCControl;
 begin
   Result := TFastText.Create(Owner);
-  Result.VertTextAlign := TTextAlign.Center;
-  Result.CalcAsAutoWidth := True;
+//  Result.VertTextAlign := TTextAlign.Center;
+//  Result.CalcAsAutoWidth := True;
 end;
 
 procedure TDataControlClassFactory.HandleRowBackground(const RowRect: TRectangle; Alternate: Boolean);
@@ -437,7 +494,6 @@ begin
   Result := _isCustomFactory;
 end;
 
-{$IFDEF EDITCONTROL}
 { TEditControl }
 constructor TTextEditControl.Create(AOwner: TComponent);
 begin
@@ -446,7 +502,55 @@ begin
   _editControl := TTextEditControlImpl.Create(Self);
 end;
 
-function TTextEditControl.get_EditControl: IEditControl;
+function TTextEditControl.get_EditControl: IDCEditControl;
+begin
+  Result := _editControl;
+end;
+
+{ TMemoEditControl }
+constructor TMemoEditControl.Create(AOwner: TComponent);
+begin
+  inherited;
+  _editControl := TTextEditControlImpl.Create(Self);
+end;
+
+function TMemoEditControl.get_EditControl: IDCEditControl;
+begin
+  Result := _editControl;
+end;
+
+{ TCheckBoxEditControl }
+constructor TCheckBoxEditControl.Create(AOwner: TComponent);
+begin
+  inherited;
+  _editControl := TCheckBoxControlImpl.Create(Self);
+end;
+
+function TCheckBoxEditControl.get_EditControl: IDCEditControl;
+begin
+  Result := _editControl;
+end;
+
+{ TDateTimeEditControl }
+constructor TDateEditControl.Create(AOwner: TComponent);
+begin
+  inherited;
+  _dateControl := TDateEditControlImpl.Create(Self);
+end;
+
+function TDateEditControl.get_DateControl: IDateEditControl;
+begin
+  Result := _dateControl;
+end;
+
+{ TRadioButtonEditControl }
+constructor TRadioButtonEditControl.Create(AOwner: TComponent);
+begin
+  inherited;
+  _editControl := TRadioButtonControlImpl.Create(Self);
+end;
+
+function TRadioButtonEditControl.get_EditControl: IDCEditControl;
 begin
   Result := _editControl;
 end;
@@ -458,43 +562,221 @@ begin
   _editControl := TComboEditControlImpl.Create(Self);
 end;
 
-procedure TComboEditControl.DoExit;
-begin
-;
-end;
-
-function TComboEditControl.get_EditControl: IEditControl;
+function TComboEditControl.get_EditControl: IDCEditControl;
 begin
   Result := _editControl;
 end;
 
-{ TEditControlImpl }
-
-constructor TEditControlImpl.Create(AControl: TControl);
+{ TDCControlImpl }
+constructor TDCControlImpl.Create(AControl: TControl);
 begin
   _control := AControl;
-  _control.OnKeyUp := DoKeyUp;
+  // _control.OnKeyUp := DoKeyUp;
 end;
 
+function TDCControlImpl.get_Padding: TBounds;
+begin
+  Result := _control.Padding;
+end;
+
+function TDCControlImpl.get_Position: TPosition;
+begin
+  Result := _control.Position;
+end;
+
+function TDCControlImpl.get_Value: CObject;
+begin
+
+end;
+
+function TDCControlImpl.get_Visible: Boolean;
+begin
+  Result := _control.Visible;
+end;
+
+function TDCControlImpl.get_Width: Single;
+begin
+  Result := _control.Width;
+end;
+
+function TDCControlImpl.get_Tag: CObject;
+begin
+  Result := _tag;
+end;
+
+function TDCControlImpl.get_Caption: ICaption;
+begin
+  Interfaces.Supports<ICaption>(_control, Result);
+end;
+
+function TDCControlImpl.get_TextActions: ITextActions;
+begin
+  Interfaces.Supports<ITextActions>(_control, Result);
+end;
+
+function TDCControlImpl.get_TextControl: ITextControl;
+begin
+  Interfaces.Supports<ITextControl>(_control, Result);
+end;
+
+function TDCControlImpl.get_TextSettings: ITextSettings;
+begin
+  Interfaces.Supports<ITextSettings>(_control, Result);
+end;
+
+procedure TDCControlImpl.SetFocus;
+begin
+  _control.SetFocus;
+end;
+
+procedure TDCControlImpl.set_Align(const Value: TAlignLayout);
+begin
+  _control.Align := Value;
+end;
+
+procedure TDCControlImpl.set_BoundsRect(const Value: TRectF);
+begin
+  _control.BoundsRect := Value;
+end;
+
+procedure TDCControlImpl.set_Cursor(const Value: TCursor);
+begin
+  _control.Cursor := Value;
+end;
+
+procedure TDCControlImpl.set_Enabled(const Value: Boolean);
+begin
+  _control.Enabled := Value;
+end;
+
+procedure TDCControlImpl.set_Height(const Value: Single);
+begin
+  _control.Height := Value;
+end;
+
+procedure TDCControlImpl.set_HitTest(const Value: Boolean);
+begin
+  _control.HitTest := Value;
+end;
+
+procedure TDCControlImpl.set_Margins(const Value: TBounds);
+begin
+  _control.Margins := Value;
+end;
+
+procedure TDCControlImpl.set_OnClick(const Value: TNotifyEvent);
+begin
+  _control.OnClick := Value;
+end;
+
+procedure TDCControlImpl.set_OnExit(const Value: TNotifyEvent);
+begin
+  _control.OnExit := Value;
+end;
+
+procedure TDCControlImpl.set_Opacity(const Value: Single);
+begin
+  _control.Opacity := Value;
+end;
+
+procedure TDCControlImpl.set_Padding(const Value: TBounds);
+begin
+  _control.Padding := Value;
+end;
+
+procedure TDCControlImpl.set_Position(const Value: TPosition);
+begin
+  _control.Position := Value;
+end;
+
+procedure TDCControlImpl.set_Tag(const Value: CObject);
+begin
+  _tag := Value;
+end;
+
+procedure TDCControlImpl.set_Value(const Value: CObject);
+begin
+
+end;
+
+procedure TDCControlImpl.set_Visible(const Value: Boolean);
+begin
+  _control.Visible := Value;
+end;
+
+procedure TDCControlImpl.set_Width(const Value: Single);
+begin
+  _control.Width := Value;
+end;
+
+function TDCControlImpl.get_Align: TAlignLayout;
+begin
+  Result := _control.Align;
+end;
+
+function TDCControlImpl.get_BoundsRect: TRectF;
+begin
+  result := _control.BoundsRect;
+end;
+
+function TDCControlImpl.get_Control: TControl;
+begin
+  Result := _control;
+end;
+
+function TDCControlImpl.get_Cursor: TCursor;
+begin
+  Result := _control.Cursor;
+end;
+
+function TDCControlImpl.get_Enabled: Boolean;
+begin
+  Result := _control.Enabled;
+end;
+
+function TDCControlImpl.get_Height: Single;
+begin
+  Result := _control.Height;
+end;
+
+function TDCControlImpl.get_HitTest: Boolean;
+begin
+  Result := _control.HitTest;
+end;
+
+function TDCControlImpl.get_Margins: TBounds;
+begin
+  Result := _control.Margins;
+end;
+
+function TDCControlImpl.get_OnClick: TNotifyEvent;
+begin
+  Result := _control.OnClick;
+end;
+
+function TDCControlImpl.get_OnExit: TNotifyEvent;
+begin
+  Result := _control.OnExit;
+end;
+
+function TDCControlImpl.get_Opacity: Single;
+begin
+  Result := _control.Opacity;
+end;
+
+{ TEditControlImpl }
 procedure TEditControlImpl.Dispose;
 begin
   inherited;
   FreeAndNil(_control);
 end;
 
-function TEditControlImpl.DoFormatItem(const Item: CObject; ItemIndex: Integer; out Value: string) : Boolean;
+function TEditControlImpl.DoFormatItem(const Item: CObject; out Value: string) : Boolean;
 begin
   if Assigned(_FormatItem) then
-    Value := CStringToString(_FormatItem(Item, ItemIndex)) else
+    Value := CStringToString(_FormatItem(Item)) else
     Value := CStringToString(Item.ToString);
   Result := Value <> '';
-end;
-
-function TEditControlImpl.DoItemShowing(const Item: CObject; ItemIndex: Integer; const Text: string) : Boolean;
-begin
-  if Assigned(_ItemShowing) then
-    Result := _ItemShowing(Item, ItemIndex, Text) else
-    Result := True;
 end;
 
 procedure TEditControlImpl.DoKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
@@ -507,10 +789,6 @@ begin
 
 end;
 
-function TEditControlImpl.get_Control: TControl;
-begin
-  Result := _control;
-end;
 
 function TEditControlImpl.get_DefaultValue: CObject;
 begin
@@ -527,19 +805,9 @@ begin
   Result := _FormatItem;
 end;
 
-function TEditControlImpl.get_Height: Single;
+function TEditControlImpl.get_OnChange: TNotifyEvent;
 begin
-  Result := _control.Height;
-end;
 
-function TEditControlImpl.get_ItemShowing: TItemShowing;
-begin
-  Result := _ItemShowing;
-end;
-
-function TEditControlImpl.get_OnExit: TNotifyEvent;
-begin
-  Result := _control.OnExit;
 end;
 
 function TEditControlImpl.get_OnKeyDown: TKeyEvent;
@@ -547,49 +815,14 @@ begin
   Result := _control.OnKeyDown;
 end;
 
-function TEditControlImpl.get_Position: TPosition;
-begin
-  Result := _control.Position;
-end;
-
-function TEditControlImpl.get_Value: CObject;
-begin
-
-end;
-
-function TEditControlImpl.get_Width: Single;
-begin
-  Result := _control.Width;
-end;
-
-function TEditControlImpl.RefreshItems: Boolean;
-begin
-
-end;
-
-procedure TEditControlImpl.SetFocus;
-begin
-  _control.SetFocus;
-end;
-
 procedure TEditControlImpl.set_FormatItem(const Value: TFormatItem);
 begin
   _FormatItem := Value;
 end;
 
-procedure TEditControlImpl.set_Height(const Value: Single);
+procedure TEditControlImpl.set_OnChange(Value: TNotifyEvent);
 begin
-  _control.Height := Value;
-end;
 
-procedure TEditControlImpl.set_ItemShowing(const Value: TItemShowing);
-begin
-  _ItemShowing := Value;
-end;
-
-procedure TEditControlImpl.set_OnExit(const Value: TNotifyEvent);
-begin
-  _control.OnExit := Value;
 end;
 
 procedure TEditControlImpl.set_OnKeyDown(const Value: TKeyEvent);
@@ -597,25 +830,7 @@ begin
   _control.OnKeyDown := Value;
 end;
 
-procedure TEditControlImpl.set_Position(const Value: TPosition);
-begin
-  _control.Position := Value;
-end;
-
-procedure TEditControlImpl.set_Value(const Value: CObject);
-begin
-
-end;
-
-procedure TEditControlImpl.set_Width(const Value: Single);
-begin
-  _control.Width := Value;
-end;
-{$ENDIF}
-
-{$IFDEF EDITCONTROL}
 { TComboEditControlImpl }
-
 procedure TComboEditControlImpl.DoKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
 begin
   if (Key in [vkUp, vkDown, vkPrior, vkNext, vkHome, vkEnd]) and (_control is TComboEdit) then
@@ -657,6 +872,13 @@ begin
   end;
 end;
 
+function TComboEditControlImpl.DoItemShowing(const Item: CObject; const Text: string) : Boolean;
+begin
+  if Assigned(_ItemShowing) then
+    Result := _ItemShowing(Item, Text) else
+    Result := True;
+end;
+
 function TComboEditControlImpl.MatchTextIndex(const Text: string; const Search: string) : Integer;
 begin
   Result := Text.ToLower.IndexOf(Search.ToLower);
@@ -665,6 +887,22 @@ end;
 function TComboEditControlImpl.MatchText(const Text: string; const Search: string) : Boolean;
 begin
   Result := MatchTextIndex(Text, Search) <> -1;
+end;
+
+function TComboEditControlImpl.FindBestMatch(const Text: string) : Integer;
+begin
+  var items := ActivePickList;
+  if items <> nil then
+  begin
+    var p: Integer;
+    var l: List<string> := CList<string>.Create(items.Count);
+    var s: string;
+    for var o in items do
+      if DoFormatItem(o, s) then
+        l.Add(s);
+    Result := FindBestMatch(l, Text, p);
+  end else
+    Result := -1;
 end;
 
 function TComboEditControlImpl.FindBestMatch(const Items: List<string>; const Text: string; var Pos: Integer) : Integer;
@@ -690,24 +928,20 @@ begin
     var ce := _control as TComboEdit;
     if _PickList <> nil then
     begin
-      var itemsShowing: List<CObject> := nil;
+      var itemsShowing: List<CObject> := CList<CObject>.Create(_PickList.Count);
       var items: List<string> := CList<string>.Create(_PickList.Count);
-      var i := 0;
+
       for var o in _PickList do
       begin
         var s: string;
-        if DoFormatItem(o, i, s) then
+        if DoFormatItem(o, s) then
         begin
-          if DoItemShowing(o, i, s) then
+          if DoItemShowing(o, s) then
           begin
             items.Add(s);
-            if itemsShowing <> nil then
-              itemsShowing.Add(o);
-          end
-          else if itemsShowing = nil then
-            itemsShowing := CList<CObject>.Create;
+            itemsShowing.Add(o);
+          end;
         end;
-        inc(i);
       end;
 
       var itemUpdateNeeded := False;
@@ -743,18 +977,21 @@ begin
               ce.Items.Add(s);
 
             var pos: Integer;
-            ce.ItemIndex := FindBestMatch(items, text, {var} pos);
-            if ce.ItemIndex <> -1 then
+            var match_index := FindBestMatch(items, text, {var} pos);
+            if match_index <> -1 then
             begin
+              ce.ItemIndex := match_index;
               ce.SelStart := pos + Length(text);
-              ce.SelLength := Length(items[0]) - ce.SelStart;
+              ce.SelLength := Length(items[match_index]) - ce.SelStart;
             end;
           end;
         finally
           ce.EndUpdate;
         end;
 
-        _ItemsShowing := itemsShowing as IList;
+        if itemsShowing.Count <> _PickList.Count then
+          _ItemsShowing := itemsShowing as IList else
+          _ItemsShowing := nil;
       end;
     end;
   end;
@@ -782,6 +1019,29 @@ begin
     RefreshItems;
     ce.DropDown;
   end;
+end;
+
+function TComboEditControlImpl.get_ItemIndex: Integer;
+begin
+  if _control is TComboEdit then
+    Result := (_control as TComboEdit).ItemIndex else
+    Result := -1;
+end;
+
+procedure TComboEditControlImpl.set_ItemIndex(const Value: Integer);
+begin
+  if _control is TComboEdit then
+    (_control as TComboEdit).ItemIndex := Value;
+end;
+
+function TComboEditControlImpl.get_ItemShowing: TItemShowing;
+begin
+  Result := _ItemShowing;
+end;
+
+procedure TComboEditControlImpl.set_ItemShowing(const Value: TItemShowing);
+begin
+  _ItemShowing := Value;
 end;
 
 function TComboEditControlImpl.get_PickList: IList;
@@ -828,10 +1088,29 @@ begin
     end;
   end;
 end;
-{$ENDIF}
+
+function TComboEditControlImpl.get_Text: CString;
+begin
+  if _control is TComboEdit then
+    Result := (_control as TComboEdit).Text;
+end;
+
+procedure TComboEditControlImpl.set_Text(const Value: CString);
+begin
+  if _control is TComboEdit then
+  begin
+    var ce := _control as TComboEdit;
+    ce.BeginUpdate;
+    try
+      ce.Text := CStringToString(Value);
+      RefreshItems;
+    finally
+      ce.EndUpdate;
+    end;
+  end;
+end;
 
 { TTextEditControlImpl }
-{$IFDEF EDITCONTROL}
 function TTextEditControlImpl.get_Value: CObject;
 begin
   if _control is TCustomEdit then
@@ -841,14 +1120,120 @@ end;
 procedure TTextEditControlImpl.set_Value(const Value: CObject);
 begin
   var s: string;
-  if (_control is TCustomEdit) and DoFormatItem(Value, - 1, s) then
+  if (_control is TCustomEdit) and DoFormatItem(Value, s) then
   begin
     var ce := _control as TCustomEdit;
     ce.Text := s;
-    ce.SelectAll;
   end;
 end;
-{$ENDIF}
+
+{ TCheckBoxControlImpl }
+function TCheckBoxControlImpl.get_OnChange: TNotifyEvent;
+begin
+  Result := (_control as TCheckBox).OnChange;
+end;
+
+function TCheckBoxControlImpl.get_Value: CObject;
+begin
+  if _control is TCustomEdit then
+    Result := (_control as TCustomEdit).Text;
+end;
+
+procedure TCheckBoxControlImpl.set_OnChange(Value: TNotifyEvent);
+begin
+  (_control as TCheckBox).OnChange := Value;
+end;
+
+procedure TCheckBoxControlImpl.set_Value(const Value: CObject);
+begin
+  var s: string;
+  if (_control is TCustomEdit) and DoFormatItem(Value, s) then
+  begin
+    var ce := _control as TCustomEdit;
+    ce.Text := s;
+  end;
+end;
+
+function TCheckBoxControlImpl.get_IsChecked: IIsChecked;
+begin
+  Interfaces.Supports<IIsChecked>(_control, Result);
+end;
+
+function TDateEditControlImpl.get_Date: CDateTime;
+begin
+  Result := (_control as TDateEdit).Date;
+end;
+
+{ TDateTimeControlImpl }
+function TDateEditControlImpl.get_Value: CObject;
+begin
+  if _control is TCustomEdit then
+    Result := (_control as TCustomEdit).Text;
+end;
+
+procedure TDateEditControlImpl.set_Date(const Value: CDateTime);
+begin
+  (_control as TDateEdit).Date := Value;
+end;
+
+procedure TDateEditControlImpl.set_Value(const Value: CObject);
+begin
+  var s: string;
+  if (_control is TCustomEdit) and DoFormatItem(Value, s) then
+  begin
+    var ce := _control as TCustomEdit;
+    ce.Text := s;
+  end;
+end;
+
+{ TRadioButtonControlImpl }
+function TRadioButtonControlImpl.get_Value: CObject;
+begin
+  if _control is TCustomEdit then
+    Result := (_control as TCustomEdit).Text;
+end;
+
+procedure TRadioButtonControlImpl.set_OnChange(Value: TNotifyEvent);
+begin
+  (_control as TRadioButton).OnChange := Value;
+end;
+
+procedure TRadioButtonControlImpl.set_Value(const Value: CObject);
+begin
+  var s: string;
+  if (_control is TCustomEdit) and DoFormatItem(Value, s) then
+  begin
+    var ce := _control as TCustomEdit;
+    ce.Text := s;
+  end;
+end;
+
+function TRadioButtonControlImpl.get_IsChecked: IIsChecked;
+begin
+  Interfaces.Supports<IIsChecked>(_control, Result);
+end;
+
+function TRadioButtonControlImpl.get_OnChange: TNotifyEvent;
+begin
+  Result := (_control as TRadioButton).OnChange;
+end;
+
+function TRadioButtonControlImpl.get_GroupName: IGroupName;
+begin
+  Interfaces.Supports<IGroupName>(_control, Result);
+end;
+
+{ TImageControlImpl }
+
+function TImageControlImpl.get_ImageIndex: Integer;
+begin
+
+end;
+
+procedure TImageControlImpl.set_ImageIndex(const Value: Integer);
+begin
+
+end;
 
 initialization
   DataControlClassFactory := TDataControlClassFactory.Create;

@@ -61,10 +61,10 @@ type
     procedure set_PickList(const Value: IList);
     function  get_editor: TControl;
 
-    procedure BeginEdit(const Value: CObject);
+    procedure BeginEdit(const Value: CObject; SelectAll: Boolean = True);
     procedure EndEdit;
 
-    function  TryBeginEditWithUserKey(UserKey: CString): Boolean;
+    function  TryBeginEditWithUserKey(const OriginalValue: CObject; const UserKey: CString): Boolean;
 
     function  ParseValue(var AValue: CObject): Boolean;
 

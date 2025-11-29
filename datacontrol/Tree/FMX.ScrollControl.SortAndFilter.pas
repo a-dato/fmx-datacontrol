@@ -143,10 +143,11 @@ begin
 
   if _flatColumn.Column.InfoControlClass <> TInfoControlClass.Custom then
   begin
-    // user can direct assign values to InfoControl in cellloading / cellloaded
-    // we need to call cellloading / cellloaded, therefor we create this infocontrol
-    _filterCell.InfoControl := _flatColumn.CreateInfoControl(_filterCell, _flatColumn.Column.InfoControlClass);
-    _filterCell.InfoControl.Visible := False;
+    // KV: XXX
+//    // user can direct assign values to InfoControl in cellloading / cellloaded
+//    // we need to call cellloading / cellloaded, therefor we create this infocontrol
+//    _filterCell.InfoControl := _flatColumn.CreateInfoControl(_filterCell, _flatColumn.Column.InfoControlClass);
+//    _filterCell.InfoControl.Visible := False;
   end;
 
   _filterRow.Cells[_flatColumn.Index] := _filterCell;
@@ -157,7 +158,8 @@ begin
   inherited;
 
   if _filterCell <> nil then
-    _filterCell.InfoControl.Free;
+    _filterCell.InfoControl.Dispose;
+
   _filterCell := nil;
   _filterRow := nil;
 end;
@@ -174,10 +176,11 @@ begin
   _filterRow := TDCTreeRow.Create(_flatColumn.Column.TreeControl as IRowsControl);
   _filterCell := TDCTreeCell.Create(_filterRow, _flatColumn);
 
-  // user can direct assign values to InfoControl in cellloading / cellloaded
-  // we need to call cellloading / cellloaded, therefor we create this infocontrol
-  _filterCell.InfoControl := DataControlClassFactory.CreateText(nil);
-  _filterCell.InfoControl.Visible := False;
+  // KV: XXX
+  //  // user can direct assign values to InfoControl in cellloading / cellloaded
+  //  // we need to call cellloading / cellloaded, therefor we create this infocontrol
+  //  _filterCell.InfoControl := DataControlClassFactory.CreateText(nil);
+  //  _filterCell.InfoControl.Visible := False;
 
   _filterRow.Cells[_flatColumn.Index] := _filterCell;
 end;
@@ -190,7 +193,7 @@ begin
     _sort := nil;
   end;
 
-  _filterCell.InfoControl.Free;
+  _filterCell.InfoControl.Dispose;
   _filterCell := nil;
   _filterRow := nil;
 

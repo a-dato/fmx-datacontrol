@@ -26,8 +26,8 @@ uses
   System.Collections,
   System.Collections.Generic,
   FMX.ScrollControl.WithRows.Intf,
-  FMX.ScrollControl.Events, ADato.Data.DataModel.intf, FMX.PickList.Intf,
-  FMX.ScrollControl.ControlClasses;
+  FMX.ScrollControl.Events, ADato.Data.DataModel.intf,
+  FMX.ScrollControl.ControlClasses.Intf;
 
 type
   TScrollControlWithEditableCells = class(TScrollControlWithCells, IDataControlEditorHandler)
@@ -199,33 +199,22 @@ type
     _editorHandler: IDataControlEditorHandler;
 
     _cell: IDCTreeCell;
-    {$IFDEF EDITCONTROL}
-    _editor: IEditControl;
-    {$ELSE}
-    _editor: TControl;
-    {$ENDIF}
+    _editor: IDCEditControl;
     _originalValue: CObject;
 
     function  get_Cell: IDCTreeCell;
     function  get_ContainsFocus: Boolean;
     function  get_Modified: Boolean;
-    {$IFDEF EDITCONTROL}
     function  get_DefaultValue: CObject;
     procedure set_DefaultValue(const Value: CObject);
     function  get_Value: CObject; virtual;
     procedure set_Value(const Value: CObject); virtual;
-    {$ELSE}
-    function  get_Value: CObject; virtual; abstract;
-    procedure set_Value(const Value: CObject); virtual; abstract;
-    {$ENDIF}
     function  get_OriginalValue: CObject;
     function  get_PickList: IList; virtual;
     procedure set_PickList(const Value: IList); virtual;
     function  get_Editor: TControl;
 
-    {$IFDEF EDITCONTROL}
-    function  FormatItem(const Item: CObject; ItemIndex: Integer) : CString;
-    {$ENDIF}
+    function  FormatItem(const Item: CObject) : CString;
     function  ParseValue(var AValue: CObject): Boolean;
 
     procedure OnEditorExit(Sender: TObject);
@@ -235,10 +224,10 @@ type
     constructor Create(const EditorHandler: IDataControlEditorHandler; const Cell: IDCTreeCell); reintroduce; virtual;
     destructor Destroy; override;
 
-    procedure BeginEdit(const EditValue: CObject); virtual;
+    procedure BeginEdit(const EditValue: CObject; SelectAll: Boolean); virtual;
     procedure EndEdit; virtual;
 
-    function TryBeginEditWithUserKey(UserKey: CString): Boolean; virtual;
+    function TryBeginEditWithUserKey(const OriginalValue: CObject; const UserKey: CString): Boolean; virtual;
   end;
 
   TDCCustomCellEditor = class(TDCCellEditor)
@@ -264,41 +253,15 @@ type
     procedure OnCheckBoxCellEditorChangeTracking(Sender: TObject);
     procedure OnEditorKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState); override;
   public
-    destructor Destroy; override;
 
-    procedure BeginEdit(const EditValue: CObject); override;
+    procedure BeginEdit(const EditValue: CObject; SelectAll: Boolean = True); override;
   end;
 
   TDCTextCellEditor = class(TDCCellEditor)
-  private
-    {$IFDEF EDITCONTROL}
-    {$ELSE}
-    _Value: CObject;
-    {$ENDIF}
-
-  protected
-    {$IFDEF EDITCONTROL}
-    {$ELSE}
-    function  get_Value: CObject; override;
-    procedure set_Value(const Value: CObject); override;
-
-    procedure OnTextCellEditorChangeTracking(Sender: TObject);
-
-    procedure InternalBeginEdit(const EditValue: CObject);
-    procedure OnEditorKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState); override;
-    {$ENDIF}
-
   public
-    {$IFDEF EDITCONTROL}
     constructor Create(const EditorHandler: IDataControlEditorHandler; const Cell: IDCTreeCell); override;
-    {$ENDIF}
-
-    procedure BeginEdit(const EditValue: CObject); override;
-
-    {$IFDEF EDITCONTROL}
-    {$ELSE}
-    function  TryBeginEditWithUserKey(UserKey: CString): Boolean; override;
-    {$ENDIF}
+    procedure BeginEdit(const EditValue: CObject; SelectAll: Boolean = True); override;
+    function  TryBeginEditWithUserKey(const OriginalValue: CObject; const UserKey: CString): Boolean; override;
   end;
 
   TDCTextCellMultilineEditor = class(TDCCellEditor)
@@ -310,11 +273,9 @@ type
 
     procedure OnTextCellEditorChangeTracking(Sender: TObject);
 
-    procedure InternalBeginEdit(const EditValue: CObject);
-    procedure OnEditorKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState); override;
   public
-    procedure BeginEdit(const EditValue: CObject); override;
-    function  TryBeginEditWithUserKey(UserKey: CString): Boolean; override;
+    procedure BeginEdit(const EditValue: CObject; SelectAll: Boolean = True); override;
+    function  TryBeginEditWithUserKey(const OriginalValue: CObject; const UserKey: CString): Boolean; override;
   end;
 
   TDCCellDateTimeEditor = class(TDCCellEditor)
@@ -329,56 +290,22 @@ type
 
     procedure Dropdown;
   public
-    procedure BeginEdit(const EditValue: CObject); override;
+    procedure BeginEdit(const EditValue: CObject; SelectAll: Boolean = True); override;
     property ValueChanged: Boolean read _ValueChanged write _ValueChanged;
   end;
 
-  TDCCellDropDownEditor = class(TDCCellEditor {$IFNDEF EDITCONTROL}, IPickListSupport{$ENDIF})
-  private
-    {$IFDEF EDITCONTROL}
-    {$ELSE}
-    _PickList: IList;
-    _saveData: Boolean;
-    _Value: CObject;
-    {$ENDIF}
+  TDCCellDropDownEditor = class(TDCCellEditor)
   protected
-    {$IFDEF EDITCONTROL}
-    {$ELSE}
-    function  get_Value: CObject; override;
-    procedure set_Value(const Value: CObject); override;
-    {$ENDIF}
-
-    function  get_PickList: IList;
-    procedure set_PickList(const Value: IList);
-
-    {$IFDEF EDITCONTROL}
-    {$ELSE}
-    procedure OnDropDownEditorClose(Sender: TObject);
-    procedure OnDropDownEditorOpen(Sender: TObject);
-    {$ENDIF}
-
+    function  TryBeginEditWithUserKey(const OriginalValue: CObject; const UserKey: CString): Boolean; override;
     procedure OnEditorKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState); override;
-
     procedure Dropdown;
 
-    {$IFDEF EDITCONTROL}
-    {$ELSE}
-    function PickListSupportsDataItemWithText(const PickList: IList) : Boolean;
-    {$ENDIF}
   public
-    {$IFDEF EDITCONTROL}
     constructor Create(const EditorHandler: IDataControlEditorHandler; const Cell: IDCTreeCell); override;
-    {$ENDIF}
-    procedure BeginEdit(const EditValue: CObject); override;
-
-    {$IFDEF EDITCONTROL}
-    {$ELSE}
-    property PickList: IList read get_PickList write set_PickList;
-    property SaveData: Boolean read _saveData write _saveData;
-    {$ENDIF}
+    procedure BeginEdit(const EditValue: CObject; SelectAll: Boolean = True); override;
   end;
 
-  TDCCellMultiSelectDropDownEditor = class(TDCCellEditor, IPickListSupport)
+  TDCCellMultiSelectDropDownEditor = class(TDCCellEditor)
   private
     _PickList: IList;
     _saveData: Boolean;
@@ -393,7 +320,7 @@ type
 
 //    procedure OnEditorKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState); override;
   public
-    procedure BeginEdit(const EditValue: CObject); override;
+    procedure BeginEdit(const EditValue: CObject; SelectAll: Boolean = True); override;
 
     property PickList: IList read get_PickList write set_PickList;
     property SaveData: Boolean read _saveData write _saveData;
@@ -454,7 +381,7 @@ uses
   {$ENDIF}
   FMX.ControlCalculations,
   ADato.Collections.Specialized,
-  System.Reflection;
+  System.Reflection, FMX.Text, FMX.ScrollControl.ControlClasses;
 
 { TScrollControlWithEditableCells }
 
@@ -664,9 +591,12 @@ begin
       ctrl.Tag := Cell.Row.ViewListIndex;
 
       {$IFNDEF WEBASSEMBLY}
-      if ctrl is TCheckBox then
-        (ctrl as TCheckBox).OnChange := OnPropertyCheckBoxChange else
-        (ctrl as TRadioButton).OnChange := OnPropertyCheckBoxChange;
+      var cb: ICheckBoxControl;
+      var rb: IRadioButtonControl;
+      if Interfaces.Supports<ICheckBoxControl>(ctrl, cb) then
+        cb.OnChange := OnPropertyCheckBoxChange
+      else if Interfaces.Supports<IRadioButtonControl>(ctrl, rb) then
+        rb.OnChange := OnPropertyCheckBoxChange;
       {$ELSE}
       if ctrl is TCheckBox then
         (ctrl as TCheckBox).OnChange := @OnPropertyCheckBoxChange else
@@ -1385,14 +1315,14 @@ begin
     var EditRowEnd := False;
 
     var val := _cellEditor.Value;
-    var cell := _cellEditor.Cell;
 
-    if CObject.Equals(_cellEditor.Value, _cellEditor.OriginalValue) then
+    if CObject.Equals(val, _cellEditor.OriginalValue) then
     begin
       CancelEdit(True);
       Exit(True);
     end;
 
+    var cell := _cellEditor.Cell;
     if not DoCellParsing(cell, True, {var} val) then
     begin
       CancelEdit(True);
@@ -1554,12 +1484,8 @@ begin
       _cellEditor := TDCCellMultiSelectDropDownEditor.Create(self, Cell) else
       _cellEditor := TDCCellDropDownEditor.Create(self, Cell);
 
-    {$IFDEF EDITCONTROL}
     _cellEditor.DefaultValue := StartEditArgs.DefaultValue;
     _cellEditor.PickList := StartEditArgs.PickList;
-    {$ELSE}
-    (_cellEditor as IPickListSupport).PickList := StartEditArgs.PickList;
-    {$ENDIF}
   end
   else if Cell.Column.InfoControlClass = TInfoControlClass.CheckBox then
     _cellEditor := TDCCheckBoxCellEditor.Create(Self, Cell)
@@ -1588,7 +1514,7 @@ begin
     end;
   end;
 
-  if not _CellEditor.TryBeginEditWithUserKey(UserValue) then
+  if (UserValue = nil) or not _CellEditor.TryBeginEditWithUserKey(StartEditArgs.Value, UserValue) then
     _cellEditor.BeginEdit(StartEditArgs.Value);
 end;
 
@@ -2041,7 +1967,7 @@ end;
 
 { TDCCellEditor }
 
-function TDCCellEditor.TryBeginEditWithUserKey(UserKey: CString): Boolean;
+function TDCCellEditor.TryBeginEditWithUserKey(const OriginalValue: CObject; const UserKey: CString): Boolean;
 begin
   Result := False;
 end;
@@ -2057,22 +1983,10 @@ end;
 destructor TDCCellEditor.Destroy;
 begin
   inherited;
-
-  {$IFDEF EDITCONTROL}
   _editor.Dispose;
-  {$ELSE}
-  if (_editor <> nil) and not (csDestroying in _editor.ComponentState) then
-  begin
-    _editor.OnKeyDown := nil;
-    _editor.OnExit := nil;
-
-    // TODO: _editor is already being destroyed at this point
-    FreeAndNil(_editor);
-  end;
-  {$ENDIF}
 end;
 
-procedure TDCCellEditor.BeginEdit(const EditValue: CObject);
+procedure TDCCellEditor.BeginEdit(const EditValue: CObject; SelectAll: Boolean);
 begin
   // ctrl is invisible when no data is set..
   if not _cell.InfoControl.Visible then
@@ -2085,8 +1999,8 @@ begin
 
   _cell.InfoControl.Visible := False;
 
-  {$IFDEF EDITCONTROL}
   _editor.FormatItem := FormatItem;
+
   {$IFNDEF WEBASSEMBLY}
   _editor.OnKeyDown := OnEditorKeyDown;
   _editor.OnExit := OnEditorExit;
@@ -2098,29 +2012,9 @@ begin
   _OriginalValue := EditValue;
   _cell.Control.AddObject(_editor.Control);
   _editor.SetFocus;
-  {$ELSE}
-  // otherwise
-  if not (Self is TDCCellDropDownEditor) then
-  begin
-    {$IFNDEF WEBASSEMBLY}
-    _editor.OnKeyDown := OnEditorKeyDown;
-    _editor.OnExit := OnEditorExit;
-    {$ELSE}
-    _editor.OnKeyDown := @OnEditorKeyDown;
-    _editor.OnExit := @OnEditorExit;
-    {$ENDIF}
-  end;
-
-  _cell.Control.AddObject(_editor);
-
-  _OriginalValue := EditValue;
-  set_Value(EditValue);
-  _editor.SetFocus;
-  {$ENDIF}
 end;
 
-{$IFDEF EDITCONTROL}
-function TDCCellEditor.FormatItem(const Item: CObject; ItemIndex: Integer) : CString;
+function TDCCellEditor.FormatItem(const Item: CObject) : CString;
 begin
   var cellData := Item;
 
@@ -2128,7 +2022,6 @@ begin
     Result := cellData.ToString(True) else
     Result := _cell.Column.GetFormattedValue(_cell, cellData);
 end;
-{$ENDIF}
 
 procedure TDCCellEditor.EndEdit;
 begin
@@ -2147,24 +2040,12 @@ end;
 
 function TDCCellEditor.get_Editor: TControl;
 begin
-  {$IFDEF EDITCONTROL}
   Result := _editor.Control;
-  {$ELSE}
-  Result := _editor;
-  {$ENDIF}
 end;
 
 function TDCCellEditor.get_Modified: Boolean;
 begin
-  {$IFDEF EDITCONTROL}
-  {$ELSE}
-  if Self is TDCCellDateTimeEditor then
-    Result := TDCCellDateTimeEditor(Self).ValueChanged
-  else if Self is TDCCellDropDownEditor then
-    Result := TDCCellDropDownEditor(Self).SaveData
-	else
-    Result := not CObject.Equals(_OriginalValue, get_Value);
-  {$ENDIF}
+  Result := not CObject.Equals(_OriginalValue, get_Value);
 end;
 
 function TDCCellEditor.get_OriginalValue: CObject;
@@ -2174,14 +2055,11 @@ end;
 
 function TDCCellEditor.get_PickList: IList;
 begin
-{$IFDEF EDITCONTROL}
   var ce: IComboEditControl;
   if Interfaces.Supports<IComboEditControl>(_editor, ce) then
     Result := ce.PickList;
-{$ENDIF}
 end;
 
-{$IFDEF EDITCONTROL}
 function TDCCellEditor.get_DefaultValue: CObject;
 begin
   Result := _editor.DefaultValue;
@@ -2196,7 +2074,6 @@ function TDCCellEditor.get_Value: CObject;
 begin
   Result := _editor.Value;
 end;
-{$ENDIF}
 
 procedure TDCCellEditor.OnEditorExit(Sender: TObject);
 begin
@@ -2215,152 +2092,74 @@ end;
 
 procedure TDCCellEditor.set_PickList(const Value: IList);
 begin
-  {$IFDEF EDITCONTROL}
   var ce: IComboEditControl;
   if Interfaces.Supports<IComboEditControl>(_editor, ce) then
     ce.PickList := Value;
-  {$ENDIF}
 end;
 
-{$IFDEF EDITCONTROL}
 procedure TDCCellEditor.set_Value(const Value: CObject);
 begin
   _editor.Value := Value;
 end;
-{$ENDIF}
-
-//procedure TDCCellEditor.set_Value(const Value: CObject);
-//begin
-//  var valueParsed := Value;
-//  ParseValue(valueParsed);
-//end;
 
 { TDCTextCellEditor }
-{$IFDEF EDITCONTROL}
-procedure TDCTextCellEditor.BeginEdit(const EditValue: CObject);
+procedure TDCTextCellEditor.BeginEdit(const EditValue: CObject; SelectAll: Boolean = True);
 begin
   inherited;
   set_Value(EditValue);
-end;
-{$ELSE}
-procedure TDCTextCellEditor.BeginEdit(const EditValue: CObject);
-begin
-  InternalBeginEdit(EditValue);
 
-  var settings: ITextSettings;
-  var ed := TEdit(_editor);
-
-  ed.TextSettings.WordWrap := Interfaces.Supports<ITextSettings>(_cell.InfoControl, settings) and settings.TextSettings.WordWrap;
-  if ed.TextSettings.WordWrap then
+  var ta: ITextActions;
+  if Interfaces.Supports<ITextActions>(_editor, ta) then
   begin
-    // check if only 1 line is needed, or multiple
-    var startWithOneLine := _cell.Control.Width > TextControlWidth(_cell.InfoControl, settings.TextSettings, (_cell.InfoControl as ICaption).Text);
-
-    if startWithOneLine then
-      ed.TextSettings.VertAlign := TTextAlign.Center else
-      ed.TextSettings.VertAlign := TTextAlign.Trailing;
+    if SelectAll then
+      ta.SelectAll else
+      ta.GoToTextEnd;
   end;
-
-  ed.SelectAll;
 end;
-{$ENDIF}
 
-{$IFDEF EDITCONTROL}
 constructor TDCTextCellEditor.Create(const EditorHandler: IDataControlEditorHandler; const Cell: IDCTreeCell);
 begin
   inherited;
   _editor := DataControlClassFactory.CreateEdit(nil);
-end;
-{$ENDIF}
 
-{$IFDEF EDITCONTROL}
-{$ELSE}
-function TDCTextCellEditor.get_Value: CObject;
-begin
-  if _Value <> nil then
-    Result := _Value else
-    Result := TEdit(_editor).Text;
-end;
-{$ENDIF}
+  var cell_Settings: ITextSettings;
+  var edit_Settings: ITextSettings;
 
-{$IFDEF EDITCONTROL}
-{$ELSE}
-procedure TDCTextCellEditor.InternalBeginEdit(const EditValue: CObject);
-begin
-  // TODO: We say here that Owner is nil, but since we add _editor to control it means
-  // when parent control is freed _editor's lifetime is dependant on that control.
-  // So trying to free with _editor.Free fails in destroy.
-  _editor := DataControlClassFactory.CreateEdit(nil);
-  _cell.Control.AddObject(_editor);
-
-  {$IFNDEF WEBASSEMBLY}
-  TEdit(_editor).OnChangeTracking := OnTextCellEditorChangeTracking;
-  {$ELSE}
-  TEdit(_editor).OnChangeTracking := @OnTextCellEditorChangeTracking;
-  {$ENDIF}
-
-  inherited BeginEdit(EditValue);
-end;
-{$ENDIF}
-
-{$IFDEF EDITCONTROL}
-{$ELSE}
-procedure TDCTextCellEditor.OnEditorKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
-begin
-//  if (Key in [vkUp, vkDown]) then
-//  begin
-//    // do nothing at all..
-//  end else
-    inherited;
-end;
-{$ENDIF}
-
-{$IFDEF EDITCONTROL}
-{$ELSE}
-procedure TDCTextCellEditor.OnTextCellEditorChangeTracking(Sender: TObject);
-var
-  text: CObject;
-begin
-  text := TEdit(_editor).Text;
-
-  if ParseValue({var} text) then
-    _Value := text;
-end;
-
-procedure TDCTextCellEditor.set_Value(const Value: CObject);
-begin
-  var val: CObject := Value;
-  if not ParseValue(val) then
-    val := _originalValue;
-
-  TEdit(_editor).Text := CStringToString(val.ToString(True));
-end;
-{$ENDIF}
-
-{$IFDEF EDITCONTROL}
-{$ELSE}
-function TDCTextCellEditor.TryBeginEditWithUserKey(UserKey: CString): Boolean;
-begin
-  Result := UserKey <> nil;
-  if Result then
+  if Interfaces.Supports<ITextSettings>(_cell.InfoControl, cell_settings) and Interfaces.Supports<ITextSettings>(_editor, edit_settings) then
   begin
-    InternalBeginEdit(UserKey);
-    TEdit(_editor).GoToTextEnd;
+    if cell_settings.TextSettings.WordWrap then
+    begin
+      edit_Settings.TextSettings.WordWrap := True;
+
+      // check if only 1 line is needed, or multiple
+      var startWithOneLine := _cell.Control.Width > TextControlWidth(_cell.InfoControl.Control, cell_settings.TextSettings, (_cell.InfoControl as ICaption).Text);
+
+      if startWithOneLine then
+        edit_Settings.TextSettings.VertAlign := TTextAlign.Center else
+        edit_Settings.TextSettings.VertAlign := TTextAlign.Trailing;
+    end;
   end;
 end;
-{$ENDIF}
+
+function TDCTextCellEditor.TryBeginEditWithUserKey(const OriginalValue: CObject; const UserKey: CString): Boolean;
+begin
+  Result := UserKey <> nil;
+
+  if Result then
+  begin
+    BeginEdit(UserKey, False);
+    _originalValue := OriginalValue;
+  end;
+end;
 
 { TDCCellDateTimeEditor }
 
-procedure TDCCellDateTimeEditor.BeginEdit(const EditValue: CObject);
+procedure TDCCellDateTimeEditor.BeginEdit(const EditValue: CObject; SelectAll: Boolean = True);
 begin
-  {$IFDEF EDITCONTROL}
-  {$ELSE}
-  _editor := DataControlClassFactory.CreateDateEdit(nil);
-  _cell.Control.AddObject(_editor);
-
-  _editor.TabStop := false;
-  {$ENDIF}
+//  _editor := DataControlClassFactory.CreateDateEdit(nil);
+//  _cell.Control.AddObject(_editor);
+//
+//  _editor.TabStop := false;
 
   {$IFNDEF WEBASSEMBLY}
   TDateEdit(_editor).OnOpenPicker := OnDateTimeEditorOpen;
@@ -2414,250 +2213,52 @@ begin
 end;
 
 { TDCCellDropDownEditor }
-{$IFDEF EDITCONTROL}
 constructor TDCCellDropDownEditor.Create(const EditorHandler: IDataControlEditorHandler; const Cell: IDCTreeCell);
 begin
   inherited;
   _editor := DataControlClassFactory.CreateComboEdit(nil);
 end;
-{$ENDIF}
 
-procedure TDCCellDropDownEditor.BeginEdit(const EditValue: CObject);
+procedure TDCCellDropDownEditor.BeginEdit(const EditValue: CObject; SelectAll: Boolean = True);
 begin
-  {$IFDEF EDITCONTROL}
   inherited;
   DropDown;
   set_Value(EditValue);
-  {$ELSE}
-  _editor := DataControlClassFactory.CreateComboEdit(nil);
-  _cell.Control.AddObject(_editor);
-
-  var ce := TComboEdit(_editor);
-  ce.DropDownCount := 5;
-  ce.ItemHeight := 20; // For some reason if the ItemHeight is at its default value of 0. The dropdown shows a scrollbar unnecessarily.
-  {$IFNDEF WEBASSEMBLY}
-  ce.OnClosePopup := OnDropDownEditorClose;
-  ce.OnPopup := OnDropDownEditorOpen;
-  ce.OnKeyDown := OnEditorKeyDown;
-  // ce.OnChange := OnDropdownEditorChange;
-  {$ELSE}
-  ce.OnClosePopup := @OnDropDownEditorClose;
-  ce.OnPopup := @OnDropDownEditorOpen;
-  ce.OnKeyDown := @OnEditorKeyDown;
-  //ce.OnChange := @OnDropdownEditorChange;
-  {$ENDIF}
-
-  inherited;
-
-//  var val := CStringToString(_originalValue.ToString(True));
-//  ce.ItemIndex := ce.Items.IndexOf(val);
-
-  Dropdown;
-  {$ENDIF}
 end;
 
-function TDCCellDropDownEditor.get_PickList: IList;
+function TDCCellDropDownEditor.TryBeginEditWithUserKey(const OriginalValue: CObject; const UserKey: CString): Boolean;
 begin
-  {$IFDEF EDITCONTROL}
-  {$ELSE}
-  Result := _PickList;
-  {$ENDIF}
-end;
-
-{$IFDEF EDITCONTROL}
-{$ELSE}
-function TDCCellDropDownEditor.get_Value: CObject;
-begin
-  var ce := TComboEdit(_editor);
-
-  if (_PickList <> nil) and (ce.ItemIndex <> -1) then
+  Result := not CString.IsNullOrEmpty(UserKey);
+  if Result then
   begin
-    if PickListSupportsDataItemWithText(_PickList) then
-    begin
-      var pl_celldata: List<TDataItemWithText> := _PickList as List<TDataItemWithText>;
-      _Value := pl_celldata[ce.ItemIndex].Data;
-    end else
-      _Value := _PickList[ce.ItemIndex];
-  end
-  else
-  begin
-    _Value := ce.text;
-    ParseValue(_Value);
-  end;
+    BeginEdit(OriginalValue, False);
 
-  Result := _Value;
-end;
-{$ENDIF}
-
-{$IFDEF EDITCONTROL}
-{$ELSE}
-procedure TDCCellDropDownEditor.OnDropDownEditorClose(Sender: TObject);
-var
-  Data: CObject;
-begin
-  if _saveData then
-  begin
-    var ce := TComboEdit(_editor);
-
-    if ce.ItemIndex <> -1 then
-      Data := ce.Items[ce.ItemIndex] else
-      Data := nil;
-
-    if ParseValue(Data) then
-      _Value := Data;
+    var ce: IComboEditControl;
+    if Interfaces.Supports<IComboEditControl>(_editor, ce) then
+      ce.Text := UserKey;
   end;
 end;
-{$ENDIF}
-
-{$IFDEF EDITCONTROL}
-{$ELSE}
-procedure TDCCellDropDownEditor.OnDropDownEditorOpen(Sender: TObject);
-begin
-  _editor.SetFocus;
-end;
-{$ENDIF}
 
 procedure TDCCellDropDownEditor.OnEditorKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
 begin
-  {$IFDEF EDITCONTROL}
   _editor.DoKeyDown(Sender, Key, KeyChar, Shift);
   if Key <> 0 then
     inherited;
-  {$ELSE}
-  if Key in [vkUp, vkDown, vkPrior, vkNext, vkHome, vkEnd] then
-  begin
-    var cb := _editor as TComboEdit;
-    case Key of
-      vkUp:     cb.ItemIndex := CMath.Max(0, cb.ItemIndex - 1);
-      vkDown:   cb.ItemIndex := CMath.Min(cb.Items.Count - 1, cb.ItemIndex + 1);
-      vkPrior:  cb.ItemIndex := CMath.Max(0, cb.ItemIndex - 10);
-      vkNext:   cb.ItemIndex := CMath.Min(cb.Items.Count - 1, cb.ItemIndex + 10);
-      vkHome:   cb.ItemIndex := 0;
-      vkEnd:    cb.ItemIndex := cb.Items.Count - 1;
-    end;
-  end else
-    inherited;
-  {$ENDIF}
 end;
 
 procedure TDCCellDropDownEditor.DropDown;
 begin
-  {$IFDEF EDITCONTROL}
   var ce: IComboEditControl;
   if Interfaces.Supports<IComboEditControl>(_editor, ce) then
     ce.DropDown;
-  {$ELSE}
-  var ce := TComboEdit(_editor);
-
-  var newItemWidth: Single := 0;
-
-  var item: string;
-  for item in ce.Items do
-  begin
-    var itemWidth := ce.Canvas.TextWidth(Item);
-    if itemWidth > newItemWidth then
-      newItemWidth := itemWidth;
-  end;
-
-  var comboEditScrollbarPadding := IfThen((ce.Items.Count > ce.DropDownCount), 20, 0);
-  var extraPadding := 10; // Padding to compensate for space between item text and border of dropdown area on the left and right.
-  ce.ItemWidth := CMath.Max(ce.Width, newItemWidth + comboEditScrollbarPadding + extraPadding);
-
-  if not ce.DroppedDown then
-    ce.DropDown;
-  {$ENDIF}
 end;
-
-procedure TDCCellDropDownEditor.set_PickList(const Value: IList);
-begin
-  {$IFDEF EDITCONTROL}
-  {$ELSE}
-  _PickList := Value;
-
-  Assert(_editor = nil); // do we need code below?
-
-  // already editing??
-  if _editor <> nil then
-  begin
-    var ce := TComboEdit(_editor);
-    ce.Clear;
-    var v: CObject;
-    for v in Value do
-      ce.Items.Add(v.ToString);
-  end;
-  {$ENDIF}
-end;
-
-{$IFDEF EDITCONTROL}
-{$ELSE}
-//
-// Delphi does not distinguish between List<CObject> and List<ICellDataItem>
-// Here we do an extra check to if we have a List with ICellDataItem items!
-//
-function TDCCellDropDownEditor.PickListSupportsDataItemWithText(const PickList: IList) : Boolean;
-begin
-  Result := (PickList <> nil) and PickList.InnerType.Equals(&Type.From<TDataItemWithText>);
-end;
-{$ENDIF}
-
-{$IFDEF EDITCONTROL}
-{$ELSE}
-procedure TDCCellDropDownEditor.set_Value(const Value: CObject);
-begin
-  var ce := TComboEdit(_editor);
-
-  if _PickList <> nil then
-  begin
-    ce.Clear;
-
-    if _PickList <> nil then
-    begin
-      if PickListSupportsDataItemWithText(_PickList) then
-      begin
-        var pl_celldata: List<TDataItemWithText> := _PickList as List<TDataItemWithText>;
-        for var cd in pl_celldata do
-          ce.Items.Add(cd.Text);
-
-        ce.ItemIndex := pl_celldata.FindIndex(function(const Item: TDataItemWithText) : Boolean begin
-          Result := CObject.Equals(Item.Data, Value);
-        end);
-      end
-      else
-      begin
-        var i := 0;
-        var n := -1;
-
-        for var o in _PickList do
-        begin
-          var cellData := o;
-          var cellText: CString;
-
-          if _editorHandler.DoCellFormatting(_cell, False, {var} cellData) then
-            celltext := cellData.ToString(True) else
-            celltext := _cell.Column.GetFormattedValue(_cell, cellData);
-
-          ce.Items.Add(celltext);
-
-          if CObject.Equals(o, Value) then
-            n := i;
-
-          inc(i);
-        end;
-
-        ce.ItemIndex := n;
-      end;
-    end;
-  end else
-    ce.Text := CStringToString(Value.ToString(True));
-end;
-{$ENDIF}
 
 { TDCTextCellMultilineEditor }
 
-procedure TDCTextCellMultilineEditor.BeginEdit(const EditValue: CObject);
+procedure TDCTextCellMultilineEditor.BeginEdit(const EditValue: CObject; SelectAll: Boolean = True);
 begin
-  InternalBeginEdit(EditValue);
-  TMemo(_editor).SelectAll;
+//  InternalBeginEdit(EditValue);
+//  TMemo(_editor).SelectAll;
 end;
 
 function TDCTextCellMultilineEditor.get_Value: CObject;
@@ -2666,32 +2267,6 @@ begin
 
   if _Value <> nil then
     Result := _Value;
-end;
-
-procedure TDCTextCellMultilineEditor.InternalBeginEdit(const EditValue: CObject);
-begin
-  {$IFDEF EDITCONTROL}
-  {$ELSE}
-  _editor := DataControlClassFactory.CreateMemo(nil);
-  _cell.Control.AddObject(_editor);
-  {$ENDIF}
-
-  TMemo(_editor).ShowScrollBars := false;
-  {$IFNDEF WEBASSEMBLY}
-  TMemo(_editor).OnChangeTracking := OnTextCellEditorChangeTracking;
-  {$ELSE}
-  TMemo(_editor).OnChangeTracking := @OnTextCellEditorChangeTracking;
-  {$ENDIF}
-  inherited BeginEdit(EditValue);
-end;
-
-procedure TDCTextCellMultilineEditor.OnEditorKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
-begin
-//  if (Key in [vkUp, vkDown]) then
-//  begin
-//    // do nothing at all..
-//  end else
-    inherited;
 end;
 
 procedure TDCTextCellMultilineEditor.OnTextCellEditorChangeTracking(Sender: TObject);
@@ -2713,13 +2288,13 @@ begin
   TMemo(_editor).Text := CStringToString(val.ToString(True));
 end;
 
-function TDCTextCellMultilineEditor.TryBeginEditWithUserKey(UserKey: CString): Boolean;
+function TDCTextCellMultilineEditor.TryBeginEditWithUserKey(const OriginalValue: CObject; const UserKey: CString): Boolean;
 begin
   Result := UserKey <> nil;
   if Result then
   begin
-    InternalBeginEdit(UserKey);
-    TMemo(_editor).GoToTextEnd;
+    BeginEdit(UserKey, False);
+    _originalValue := OriginalValue;
   end;
 end;
 
@@ -2806,12 +2381,9 @@ end;
 
 { TDCCheckBoxCellEditor }
 
-procedure TDCCheckBoxCellEditor.BeginEdit(const EditValue: CObject);
+procedure TDCCheckBoxCellEditor.BeginEdit(const EditValue: CObject; SelectAll: Boolean);
 begin
-  {$IFDEF EDITCONTROL}
-  {$ELSE}
-  _editor := _cell.InfoControl as TStyledControl;
-  {$ENDIF}
+//  _editor := _cell.InfoControl as TStyledControl;
 
   _originalOnChange := TCheckBox(_editor).OnChange;
 
@@ -2820,17 +2392,6 @@ begin
   {$ELSE}
   TCheckBox(_editor).OnChange := @OnCheckBoxCellEditorChangeTracking;
   {$ENDIF}
-  //inherited;
-//
-//  set_Value((_cell.InfoControl as TCheckBox).IsChecked);
-end;
-
-destructor TDCCheckBoxCellEditor.Destroy;
-begin
-  TCheckBox(_editor).OnChange := _originalOnChange;
-  // _editor := nil; // keep it alive in the inherited Destroy
-
-  inherited;
 end;
 
 function TDCCheckBoxCellEditor.get_Value: CObject;
@@ -2846,11 +2407,8 @@ begin
   if ParseValue({var} isChecked) then
     _Value := isChecked;
 
-  {$IFDEF EDITCONTROL}
-  {$ELSE}
-  if Assigned(_originalOnChange) then
-    _originalOnChange(_editor);
-  {$ENDIF}
+//  if Assigned(_originalOnChange) then
+//    _originalOnChange(_editor);
 end;
 
 procedure TDCCheckBoxCellEditor.OnEditorKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
@@ -2871,10 +2429,9 @@ end;
 constructor TDCCustomCellEditor.Create(const EditorHandler: IDataControlEditorHandler; const Cell: IDCTreeCell; const Editor: TControl);
 begin
   inherited Create(EditorHandler, Cell);
-  {$IFDEF EDITCONTROL}
-  {$ELSE}
-  _editor := Editor;
-  {$ENDIF}
+  Assert(False);
+  // KV: XXX
+  //_editor := Editor;
 end;
 
 function TDCCustomCellEditor.get_Value: CObject;
@@ -2889,17 +2446,14 @@ end;
 
 { TDCCellMultiSelectDropDownEditor }
 
-procedure TDCCellMultiSelectDropDownEditor.BeginEdit(const EditValue: CObject);
+procedure TDCCellMultiSelectDropDownEditor.BeginEdit(const EditValue: CObject; SelectAll: Boolean);
 begin
   {$IFNDEF WEBASSEMBLY}
-  {$IFDEF EDITCONTROL}
-  {$ELSE}
-  _editor := TComboMultiBox.Create(nil);
-  Assert(False);
-
-  TComboMultiBox(_editor).SelectedItems := EditValue.AsType<IList>;
-  _cell.Control.AddObject(_editor);
-  {$ENDIF}
+//  _editor := TComboMultiBox.Create(nil);
+//  Assert(False);
+//
+//  TComboMultiBox(_editor).SelectedItems := EditValue.AsType<IList>;
+//  _cell.Control.AddObject(_editor);
 
   inherited;
 

@@ -45,7 +45,8 @@ uses
 
   ADato.Collections.Specialized, System.Collections.Specialized,
   FMX.ScrollControl.WithRows.Intf,
-  FMX.ScrollControl.Events, ADato.Data.DataModel.intf;
+  FMX.ScrollControl.Events, ADato.Data.DataModel.intf,
+  FMX.ScrollControl.ControlClasses.Intf;
 
 type
   TRightLeftScroll = (None, FullLeft, Left, Right, FullRight);
@@ -673,7 +674,7 @@ type
     constructor Create(const AColumn: IDCTreeColumn; const ColumnControl: IColumnsControl);
     destructor Destroy; override;
 
-    function  CreateInfoControl(const Cell: IDCTreeCell; const ControlClassType: TInfoControlClass): TControl;
+    function  CreateInfoControl(const Cell: IDCTreeCell; const ControlClassType: TInfoControlClass): IDCControl;
 
     procedure CreateCellBase(const ShowVertGrid: Boolean; const Cell: IDCTreeCell);
     procedure CreateCellBaseControls(const ShowVertGrid: Boolean; const Cell: IDCTreeCell);
@@ -744,8 +745,8 @@ type
   TDCTreeCell = class(TBaseInterfacedObject, IDCTreeCell)
   protected
     _control: TControl; // can be custom user control, not only TCellControl
-    _infoControl: TControl;
-    _subInfoControl: TControl;
+    _infoControl: IDCControl;
+    _subInfoControl: IDCControl;
     _expandButton: TLayout;
     _customInfoControlBounds: TRectF;
     _customSubInfoControlBounds: TRectF;
@@ -770,12 +771,12 @@ type
     function  get_HideCellInView: Boolean;
     procedure set_HideCellInView(const Value: Boolean);
 
-    function  get_InfoControl: TControl;
-    procedure set_InfoControl(const Value: TControl);
+    function  get_InfoControl: IDCControl;
+    procedure set_InfoControl(const Value: IDCControl);
     function  get_CustomInfoControlBounds: TRectF;
     procedure set_CustomInfoControlBounds(const Value: TRectF);
-    function  get_SubInfoControl: TControl;
-    procedure set_SubInfoControl(const Value: TControl);
+    function  get_SubInfoControl: IDCControl;
+    procedure set_SubInfoControl(const Value: IDCControl);
     function  get_CustomSubInfoControlBounds: TRectF;
     procedure set_CustomSubInfoControlBounds(const Value: TRectF);
 
@@ -913,7 +914,7 @@ type
     procedure ClearMultiSelections; override;
   end;
 
-  TDataControlWaitForRepaintInfo = class(TWaitForRepaintInfo, IDataControlWaitForRepaintInfo)
+  TDataControlWaitForRepaintInfo = class(TWaitForRepaintInfo, IDCControlWaitForRepaintInfo)
   private
     _viewStateFlags: TTreeViewStateFlags;
     _cellSizeUpdates: Dictionary<Integer {FlatColumnIndex}, Single>;
@@ -974,7 +975,6 @@ uses
   Wasm.System.Math,
   Wasm.FMX.Graphics,
   {$ENDIF}
-  FMX.ScrollControl.ControlClasses,
   FMX.ControlCalculations,
   FMX.ScrollControl.Intf, 
   FMX.ScrollControl.SortAndFilter,
@@ -983,8 +983,7 @@ uses
   , app.intf
   , app.PropertyDescriptor.intf
   {$ENDIF}
-  , ADato.FMX.FastControls.Button,
-  ADato.FMX.FastControls.Text;
+  , FMX.ScrollControl.ControlClasses;
 
 
 { TScrollControlWithCells }
@@ -1995,7 +1994,7 @@ begin
   if (_autoMultiSelectColumn <> nil) and (_autoMultiSelectColumn.Visualisation.Visible <> makeVisible) then
   begin
     _autoMultiSelectColumn.Visualisation.Visible := not _autoMultiSelectColumn.Visualisation.Visible;
-    (GetInitializedWaitForRefreshInfo as IDataControlWaitForRepaintInfo).ColumnsChanged;
+    (GetInitializedWaitForRefreshInfo as IDCControlWaitForRepaintInfo).ColumnsChanged;
 
     ColumnVisibilityChanged(_autoMultiSelectColumn, False);
   end;
@@ -2139,7 +2138,7 @@ end;
 
 procedure TScrollControlWithCells.PrepareColumns;
 begin
-  var repaintInfo := (_waitForRepaintInfo as IDataControlWaitForRepaintInfo);
+  var repaintInfo := (_waitForRepaintInfo as IDCControlWaitForRepaintInfo);
   var columnsChanged := ((repaintInfo <> nil) and (TTreeViewState.ColumnsChanged in repaintInfo.ViewStateFlags));
 
   if (_treeLayout = nil) or (_columns.Count = 0) or columnsChanged then
@@ -2157,7 +2156,7 @@ end;
 procedure TScrollControlWithCells.BeforeRealignContent;
 begin
   // sorting / set data item / set current etc..
-  var repaintInfo := (_waitForRepaintInfo as IDataControlWaitForRepaintInfo);
+  var repaintInfo := (_waitForRepaintInfo as IDCControlWaitForRepaintInfo);
   var columnsChanged := ((repaintInfo <> nil) and (TTreeViewState.ColumnsChanged in repaintInfo.ViewStateFlags));
 
   if columnsChanged and (_view <> nil) then
@@ -2175,7 +2174,7 @@ begin
   if _treeLayout = nil then
     Exit;
 
-  (GetInitializedWaitForRefreshInfo as IDataControlWaitForRepaintInfo).ColumnsChanged;
+  (GetInitializedWaitForRefreshInfo as IDCControlWaitForRepaintInfo).ColumnsChanged;
 
   var column: IDCTreeColumn := nil;
   if (e.NewItems <> nil) then
@@ -2223,7 +2222,7 @@ begin
 
   if IsUserChange then
   begin
-    (GetInitializedWaitForRefreshInfo as IDataControlWaitForRepaintInfo).ColumnsChanged;
+    (GetInitializedWaitForRefreshInfo as IDCControlWaitForRepaintInfo).ColumnsChanged;
     DoColumnsChanged(Column);
   end;
 
@@ -2380,7 +2379,7 @@ begin
   if not (TDCTreeOption.MultiSelect in _options) then
   begin
     if _autoMultiSelectColumn <> nil then
-      (GetInitializedWaitForRefreshInfo as IDataControlWaitForRepaintInfo).ColumnsChanged;
+      (GetInitializedWaitForRefreshInfo as IDCControlWaitForRepaintInfo).ColumnsChanged;
 
     _autoMultiSelectColumn := nil;
     Exit;
@@ -3102,72 +3101,72 @@ end;
 
 procedure TScrollControlWithCells.LoadDefaultDataIntoControl(const Cell: IDCTreeCell; const IsSubProp: Boolean);
 begin
-  try
-    var ctrl: TControl;
-    var propName: CString;
-    var infoClass: TInfoControlClass;
-
-    if not IsSubProp then
-    begin
-      ctrl := cell.InfoControl;
-      propName := cell.Column.PropertyName;
-      infoClass := cell.Column.InfoControlClass;
-    end
-    else
-    begin
-      ctrl := Cell.SubInfoControl;
-      propName := cell.Column.SubPropertyName;
-      infoClass := cell.Column.SubInfoControlClass;
-    end;
-
-    var cellValue: CObject;
-    _localCheckSetInDefaultData := False;
-    if ctrl <> nil then
-    begin
-      cellValue := ProvideCellData(cell, propName, IsSubProp);
-
-      if infoClass = TInfoControlClass.Text then
-      begin
-        var cellText: CString;
-        if DoCellFormatting(cell, False, {var} cellValue) then
-          celltext := cellValue.ToString(True) else
-          celltext := cell.Column.GetFormattedValue(cell, cellValue);
-
-        (ctrl as ICaption).Text := CStringToString(celltext);
-      end
-      else if infoClass = TInfoControlClass.CheckBox then
-      begin
-        var b: Boolean;
-        if not cellValue.TryGetValue<Boolean>(b) then
-          b := False;
-        (ctrl as IIsChecked).IsChecked := b;
-        _localCheckSetInDefaultData := True;
-      end;
-
-      {$IFDEF APP_PLATFORM}
-//      Assert(False, ' Code needs checking');
-//      if not CString.IsNullOrEmpty(propName) and not formatApplied and (cellValue <> nil) and (_app <> nil) and (cell.Column.InfoControlClass = TInfoControlClass.Text) then
+//  try
+//    var ctrl: TControl;
+//    var propName: CString;
+//    var infoClass: TInfoControlClass;
+//
+//    if not IsSubProp then
+//    begin
+//      ctrl := cell.InfoControl;
+//      propName := cell.Column.PropertyName;
+//      infoClass := cell.Column.InfoControlClass;
+//    end
+//    else
+//    begin
+//      ctrl := Cell.SubInfoControl;
+//      propName := cell.Column.SubPropertyName;
+//      infoClass := cell.Column.SubInfoControlClass;
+//    end;
+//
+//    var cellValue: CObject;
+//    _localCheckSetInDefaultData := False;
+//    if ctrl <> nil then
+//    begin
+//      cellValue := ProvideCellData(cell, propName, IsSubProp);
+//
+//      if infoClass = TInfoControlClass.Text then
 //      begin
-//        var item_type := GetItemType;
-//        if item_type <> nil then
-//        begin
-//          var prop := item_type.PropertyByName(propName);
-//          var descr: IPropertyDescriptor;
-//          if Interfaces.Supports<IPropertyDescriptor>(prop, descr) and (descr.Formatter <> nil) then
-//          begin
-//            (ctrl as ICaption).Text := CStringToString(descr.Formatter.Format(nil {Context}, cellValue, nil));
-//            Exit;
-//          end;
-//        end;
+//        var cellText: CString;
+//        if DoCellFormatting(cell, False, {var} cellValue) then
+//          celltext := cellValue.ToString(True) else
+//          celltext := cell.Column.GetFormattedValue(cell, cellValue);
+//
+//        (ctrl as ICaption).Text := CStringToString(celltext);
+//      end
+//      else if infoClass = TInfoControlClass.CheckBox then
+//      begin
+//        var b: Boolean;
+//        if not cellValue.TryGetValue<Boolean>(b) then
+//          b := False;
+//        (ctrl as IIsChecked).IsChecked := b;
+//        _localCheckSetInDefaultData := True;
 //      end;
-      {$ENDIF}
-    end;
-
-    if cellValue <> nil then
-      cell.LayoutColumn.ContainsData := TColumnContainsData.Yes;
-  except
-    LoadDefaultDataIntoControl(Cell, IsSubProp);
-  end;
+//
+//      {$IFDEF APP_PLATFORM}
+////      Assert(False, ' Code needs checking');
+////      if not CString.IsNullOrEmpty(propName) and not formatApplied and (cellValue <> nil) and (_app <> nil) and (cell.Column.InfoControlClass = TInfoControlClass.Text) then
+////      begin
+////        var item_type := GetItemType;
+////        if item_type <> nil then
+////        begin
+////          var prop := item_type.PropertyByName(propName);
+////          var descr: IPropertyDescriptor;
+////          if Interfaces.Supports<IPropertyDescriptor>(prop, descr) and (descr.Formatter <> nil) then
+////          begin
+////            (ctrl as ICaption).Text := CStringToString(descr.Formatter.Format(nil {Context}, cellValue, nil));
+////            Exit;
+////          end;
+////        end;
+////      end;
+//      {$ENDIF}
+//    end;
+//
+//    if cellValue <> nil then
+//      cell.LayoutColumn.ContainsData := TColumnContainsData.Yes;
+//  except
+//    LoadDefaultDataIntoControl(Cell, IsSubProp);
+//  end;
 end;
 
 procedure TScrollControlWithCells.MouseMove(Shift: TShiftState; X, Y: Single);
@@ -3195,16 +3194,16 @@ end;
 
 function TScrollControlWithCells.CellHasData(const Cell: IDCTreeCell): Boolean;
 
-  function CheckCtrl(CtrlClass: TInfoControlClass; Ctrl: TControl): Boolean;
+  function CheckCtrl(CtrlClass: TInfoControlClass; const Ctrl: IDCControl): Boolean;
   begin
     if (Ctrl = nil) or not Ctrl.Visible then
       Exit(False);
 
     case CtrlClass of
-      TInfoControlClass.Text: Exit((Cell.InfoControl as ICaption).Text <> '');
-      TInfoControlClass.CheckBox: Exit((Cell.InfoControl as IIsChecked).IsChecked);
-      TInfoControlClass.Button: Exit((Ctrl as TFastButton).ImageIndex <> -1);
-      TInfoControlClass.Glyph: Exit((Ctrl as TGlyph).ImageIndex <> -1);
+      TInfoControlClass.Text: Exit((Ctrl as ICaption).Text <> '');
+      TInfoControlClass.CheckBox: Exit((Ctrl as IIsChecked).IsChecked);
+      TInfoControlClass.Button: Exit((Ctrl as IImageControl).ImageIndex <> -1);
+      TInfoControlClass.Glyph: Exit((Ctrl as IImageControl).ImageIndex <> -1);
     end;
 
     Result := True;
@@ -3262,7 +3261,7 @@ begin
 
   var manualHeight: Single := -1;
 
-  var waitForRepaintInfo := _waitForRepaintInfo as IDataControlWaitForRepaintInfo;
+  var waitForRepaintInfo := _waitForRepaintInfo as IDCControlWaitForRepaintInfo;
 
   var l: List<IDCTreeLayoutColumn>;
   if _reloadForSpecificColumn <> nil then
@@ -3336,22 +3335,22 @@ begin
 
   if Cell.IsHeaderCell or (LayoutColumn.Column.InfoControlClass = TInfoControlClass.Text) then
   begin
-    var txt := Cell.InfoControl as TFastText;
+    var txt := Cell.InfoControl as ITextControl;
 
     var customMargins := 0.0;
-    if (txt.Margins.Left > 0) or (txt.Margins.Right > 0) then
-      customMargins := txt.Margins.Left + txt.Margins.Right;
+    if (Cell.InfoControl.Margins.Left > 0) or (Cell.InfoControl.Margins.Right > 0) then
+      customMargins := Cell.InfoControl.Margins.Left + Cell.InfoControl.Margins.Right;
 
     Result := txt.TextWidthWithPadding + (2*_cellLeftRightPadding) + customMargins;
   end;
 
   if not Cell.IsHeaderCell and (Cell.Column.SubInfoControlClass = TInfoControlClass.Text) then
   begin
-    var subTxt := Cell.SubInfoControl as TFastText;
+    var subTxt := Cell.SubInfoControl as ITextControl;
 
     var customMargins := 0.0;
-    if (subTxt.Margins.Left > 0) or (subTxt.Margins.Right > 0) then
-      customMargins := subTxt.Margins.Left + subTxt.Margins.Right;
+    if (Cell.SubInfoControl.Margins.Left > 0) or (Cell.SubInfoControl.Margins.Right > 0) then
+      customMargins := Cell.SubInfoControl.Margins.Left + Cell.SubInfoControl.Margins.Right;
 
 //    var subWidth := subTxt.TextWidth + (2*_cellTopBottomPadding) + customMargins;
     var subWidth := subTxt.TextWidthWithPadding + (2*_cellLeftRightPadding) + customMargins;
@@ -3376,7 +3375,7 @@ end;
 
 function TScrollControlWithCells.CalculateCellControlHeight(const Cell: IDCTreeCell; GoSub: Boolean): Single;
 begin
-  var ctrl: TControl;
+  var ctrl: IDCControl;
   var infoCtrlClass: TInfoControlClass;
   if not GoSub then begin
     ctrl := Cell.InfoControl;
@@ -3391,7 +3390,7 @@ begin
 
   if infoCtrlClass = TInfoControlClass.Text then
   begin
-    var txt := TFastText(ctrl);
+    var txt := ctrl as ITextControl;
     if Length(txt.Text) = 0 then
       Exit(0);
 
@@ -3399,10 +3398,8 @@ begin
     if cell.Column.CustomWidth > 0 then
       maxWidth := cell.Column.CustomWidth else
       maxWidth := IfThen(cell.Column.WidthMax > 0, cell.Column.WidthMax, -1);
-
-    var calcAsAutoWidth := txt.CalcAsAutoWidth;
     if maxWidth <> -1 then
-      txt.Width := maxWidth;
+      ctrl.Width := maxWidth;
     txt.CalcAsAutoWidth := maxWidth = -1;
 
     Result := txt.TextHeight;
@@ -4674,6 +4671,7 @@ begin
   if not validSub or not validMain then
   begin
     var ctrl := Cell.InfoControl;
+
     if not validMain then
       ctrl := Cell.SubInfoControl;
 
@@ -4682,12 +4680,12 @@ begin
 
     if Cell.IsHeaderCell and validMain then
     begin
-      var txt := TFastText(Cell.InfoControl);
-      if txt.Height < txt.TextHeight then
+      var txt := Cell.InfoControl as ITextControl;
+      if Cell.InfoControl.Height < txt.TextHeight then
       begin
-        txt.Position.Y := CMath.Max(0, (Cell.Control.Height - txt.TextHeight)/2);
-        txt.Padding.Top := 0;
-        txt.Height := txt.TextHeight;
+        Cell.InfoControl.Position.Y := CMath.Max(0, (Cell.Control.Height - txt.TextHeight)/2);
+        Cell.InfoControl.Padding.Top := 0;
+        Cell.InfoControl.Height := txt.TextHeight;
       end;
     end;
 
@@ -4696,10 +4694,10 @@ begin
 
   // if 2 controls are visible in 1 cell
   if (cell.Column.InfoControlClass = TInfoControlClass.Text) then
-    cell.InfoControl.Height := TFastText(cell.InfoControl).TextHeight;
+    cell.InfoControl.Height := (cell.InfoControl as ITextControl).TextHeight;
 
   if (cell.Column.SubInfoControlClass = TInfoControlClass.Text) then
-    cell.SubInfoControl.Height := TFastText(cell.SubInfoControl).TextHeight;
+    cell.SubInfoControl.Height := (cell.SubInfoControl as ITextControl).TextHeight;
 
   var extraHeightPerCtrl := CMath.Max(0, (ctrlHeight - cell.InfoControl.Height - cell.SubInfoControl.Height) / 2);
 
@@ -4708,7 +4706,7 @@ begin
   cell.SubInfoControl.Position.Y := startPosY + extraHeightPerCtrl + cell.InfoControl.Height;
 end;
 
-function TTreeLayoutColumn.CreateInfoControl(const Cell: IDCTreeCell; const ControlClassType: TInfoControlClass): TControl;
+function TTreeLayoutColumn.CreateInfoControl(const Cell: IDCTreeCell; const ControlClassType: TInfoControlClass): IDCControl;
 begin
   Result := nil;
   case ControlClassType of
@@ -4716,42 +4714,48 @@ begin
       Exit;
 
     TInfoControlClass.Text: begin
-      var txt := DataControlClassFactory.CreateText(Cell.Control);
-      txt.MaxWidth := Cell.Column.WidthMax - (Cell.Column.TreeControl.CellLeftRightPadding * 2); // can be 0
-      if (Cell.Column.WidthType <> TDCColumnWidthType.AlignToContent) or (Cell.Column.WidthMax > 0) then
-        txt.Trimming := TTextTrimming.Character else
-        txt.Trimming := TTextTrimming.None;
+      Result := DataControlClassFactory.CreateText(Cell.Control);
 
-      txt.HorzTextAlign := TTextAlign.Leading;
-      txt.VertTextAlign := TTextAlign.Center;
-      txt.WordWrap := False;
-      txt.HitTest := False;
-      txt.Align := TAlignLayout.None;
+      var txt_settings: ITextSettings;
+      if Interfaces.Supports<ITextSettings>(Result, txt_settings) then
+      begin
+        // txt_settings.MaxWidth := Cell.Column.WidthMax - (Cell.Column.TreeControl.CellLeftRightPadding * 2); // can be 0
+        if (Cell.Column.WidthType <> TDCColumnWidthType.AlignToContent) or (Cell.Column.WidthMax > 0) then
+          txt_settings.TextSettings.Trimming := TTextTrimming.Character else
+          txt_settings.TextSettings.Trimming := TTextTrimming.None;
 
-      Result := txt;
+        txt_settings.TextSettings.HorzAlign := TTextAlign.Leading;
+        txt_settings.TextSettings.VertAlign := TTextAlign.Center;
+        txt_settings.TextSettings.WordWrap := False;
+
+//        txt_settings.HitTest := False;
+//        txt_settings.Align := TAlignLayout.None;
+      end;
     end;
 
     TInfoControlClass.CheckBox: begin
-      var check: IIsChecked;
-      if Cell.Column.IsSelectionColumn and _treeControl.RadioInsteadOfCheck  then
-        check := DataControlClassFactory.CreateRadioButton(Cell.Control) else
-        check := DataControlClassFactory.CreateCheckBox(Cell.Control);
 
-      Result := check as TControl;
-      Result.Align := TAlignLayout.None;
-      Result.HitTest := False;
+      if Cell.Column.IsSelectionColumn and _treeControl.RadioInsteadOfCheck  then
+        Result := DataControlClassFactory.CreateRadioButton(Cell.Control) else
+        Result := DataControlClassFactory.CreateCheckBox(Cell.Control);
+
+//      Result := check as TControl;
+//      Result.Align := TAlignLayout.None;
+//      Result.HitTest := False;
     end;
 
     TInfoControlClass.Button: begin
-      var btn := DataControlClassFactory.CreateButton(Cell.Control);
-      btn.Align := TAlignLayout.None;
-      Result := btn;
+      // KV: XXX
+//      var btn := DataControlClassFactory.CreateButton(Cell.Control);
+//      btn.Align := TAlignLayout.None;
+//      Result := btn;
     end;
 
     TInfoControlClass.Glyph: begin
-      var glyph := DataControlClassFactory.CreateGlyph(Cell.Control);
-      glyph.Align := TAlignLayout.None;
-      Result := glyph;
+      // KV: XXX
+//      var glyph := DataControlClassFactory.CreateGlyph(Cell.Control);
+//      glyph.Align := TAlignLayout.None;
+//      Result := glyph;
     end;
   end;
 end;
@@ -4820,11 +4824,10 @@ procedure TTreeLayoutColumn.CreateCellBaseControls(const ShowVertGrid: Boolean; 
 begin
   CreateCellBase(ShowVertGrid, Cell);
 
-  var ctrl: TControl;
+  var ctrl: IDCControl;
   if Cell.IsHeaderCell then
   begin
     ctrl := CreateInfoControl(Cell, TInfoControlClass.Text);
-
     ctrl.Height := (Cell.Row as IDCHeaderRow).ContentControl.Height - _treeControl.HeaderTextTopMargin - _treeControl.HeaderTextBottomMargin;
     ctrl.Position.Y := _treeControl.HeaderTextTopMargin;
   end else
@@ -4832,15 +4835,16 @@ begin
 
   if ctrl <> nil then
   begin
-    Cell.Control.AddObject(ctrl);
+    Cell.Control.AddObject(ctrl.Control);
     Cell.InfoControl := ctrl;
 
-    if not Cell.IsHeaderCell and (Cell.Column.SubInfoControlClass <> TInfoControlClass.Custom) then
-    begin
-      var subCtrl := CreateInfoControl(Cell, Cell.Column.SubInfoControlClass);
-      Cell.Control.AddObject(subCtrl);
-      Cell.SubInfoControl := subCtrl;
-    end;
+    // KV: XXX
+//    if not Cell.IsHeaderCell and (Cell.Column.SubInfoControlClass <> TInfoControlClass.Custom) then
+//    begin
+//      var subCtrl := CreateInfoControl(Cell, Cell.Column.SubInfoControlClass);
+//      Cell.Control.AddObject(subCtrl);
+//      Cell.SubInfoControl := subCtrl;
+//    end;
   end;
 end;
 
@@ -4858,15 +4862,16 @@ begin
      'Column (Sub)InfoControlClass must be "Custom" to assign StyleLookUp');
 
   var styledControl: TStyledControl;
-  if Cell.InfoControl = nil then
-  begin
-    styledControl := TStyledControl.Create(Cell.Control);
-    styledControl.Align := TAlignLayout.Client;
-    styledControl.HitTest := False;
-    Cell.InfoControl := styledControl;
-    Cell.Control.AddObject(styledControl);
-  end else
-    styledControl := Cell.InfoControl as TStyledControl;
+  // KV: XXX
+//  if Cell.InfoControl = nil then
+//  begin
+//    styledControl := TStyledControl.Create(Cell.Control);
+//    styledControl.Align := TAlignLayout.Client;
+//    styledControl.HitTest := False;
+//    Cell.InfoControl := styledControl;
+//    Cell.Control.AddObject(styledControl);
+//  end else
+//    styledControl := Cell.InfoControl as TStyledControl;
 
   styledControl.StyleLookup := StyleLookUp;
 end;
@@ -5512,7 +5517,7 @@ end;
 //  Result := _index;
 //end;
 
-function TDCTreeCell.get_InfoControl: TControl;
+function TDCTreeCell.get_InfoControl: IDCControl;
 begin
   Result := _infoControl;
 end;
@@ -5537,7 +5542,7 @@ begin
   Result := _subData;
 end;
 
-function TDCTreeCell.get_SubInfoControl: TControl;
+function TDCTreeCell.get_SubInfoControl: IDCControl;
 begin
   Result := _subInfoControl;
 end;
@@ -5585,7 +5590,7 @@ begin
   _control.Visible := not Value;
 end;
 
-procedure TDCTreeCell.set_InfoControl(const Value: TControl);
+procedure TDCTreeCell.set_InfoControl(const Value: IDCControl);
 begin
   _infoControl := Value;
 end;
@@ -5606,7 +5611,7 @@ begin
   _subData := Value;
 end;
 
-procedure TDCTreeCell.set_SubInfoControl(const Value: TControl);
+procedure TDCTreeCell.set_SubInfoControl(const Value: IDCControl);
 begin
   _subInfoControl := Value;
 end;

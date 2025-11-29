@@ -39,7 +39,8 @@ uses
   Wasm.System.Types,
   {$ENDIF}
   System_,
-  ADato.ObjectModel.Binders;
+  ADato.ObjectModel.Binders,
+  FMX.ScrollControl.ControlClasses.Intf;
 
 type
   TDateTimeEditOnKeyDownOverride = class(TDateEdit)
@@ -47,7 +48,14 @@ type
     procedure KeyDown(var Key: Word; var KeyChar: System.WideChar; Shift: TShiftState); override;
   end;
 
-  TFastText = class(TLayout, ICaption, ITextSettings)
+  TFastText = class(TLayout, IDCControl, ITextControl, ICaption, ITextSettings)
+  protected
+    _dataControl: IDCControl;
+    function get_DataControl: IDCControl;
+
+  public
+    property DataControl: IDCControl read get_DataControl implements IDCControl;
+
   protected
     _text: string;
     _subText: string;
@@ -101,7 +109,9 @@ type
     function  get_VertTextAlign: TTextAlign;
     procedure set_VertTextAlign(const Value: TTextAlign);
     procedure set_AutoWidth(const Value: Boolean);
+    function  get_CalcAsAutoWidth: Boolean;
     procedure set_CalcAsAutoWidth(const Value: Boolean);
+    function  get_CalcAsAutoHeight: Boolean;
     procedure set_CalcAsAutoHeight(const Value: Boolean);
     function  get_Trimming: TTextTrimming;
     function  get_WordWrap: Boolean;
@@ -155,8 +165,8 @@ type
     property HorzTextAlign: TTextAlign read get_HorzTextAlign write set_HorzTextAlign default TTextAlign.Leading;
 
     property AutoWidth: Boolean read _autoWidth write set_AutoWidth default False;
-    property CalcAsAutoWidth: Boolean read _calcAsAutoWidth write set_CalcAsAutoWidth default False;
-    property CalcAsAutoHeight: Boolean read _calcAsAutoHeight write set_CalcAsAutoHeight default True;
+    property CalcAsAutoWidth: Boolean read get_calcAsAutoWidth write set_CalcAsAutoWidth default False;
+    property CalcAsAutoHeight: Boolean read get_calcAsAutoHeight write set_CalcAsAutoHeight default True;
     property MaxWidth: Single write _maxWidth;
     property UnderlineOnHover: Boolean read _underlineOnHover write _underlineOnHover default False;
 
@@ -195,7 +205,7 @@ uses
   Wasm.System.SysUtils,
   Wasm.System.Math
   {$ENDIF}
-  , ADato.ObjectModel.intf;
+  , ADato.ObjectModel.intf, FMX.ScrollControl.ControlClasses;
 
 { TDateTimeEditOnKeyDownOverride }
 
@@ -283,6 +293,8 @@ constructor TFastText.Create(AOwner: TComponent);
 begin
   inherited;
 
+  _dataControl := TDCControlImpl.Create(Self);
+
   {$IFNDEF WEBASSEMBLY}
   _layout := TTextLayoutManager.DefaultTextLayout.Create;
   {$ELSE}
@@ -299,6 +311,11 @@ begin
   _subTextFontColor := TAlphaColors.Lightslategray;
 
   _calcAsAutoHeight := True;
+end;
+
+function TFastText.get_DataControl: IDCControl;
+begin
+  Result := _dataControl;
 end;
 
 destructor TFastText.Destroy;
@@ -574,6 +591,11 @@ begin
   end;
 end;
 
+function TFastText.get_CalcAsAutoHeight: Boolean;
+begin
+  Result := _calcAsAutoHeight;
+end;
+
 procedure TFastText.set_CalcAsAutoHeight(const Value: Boolean);
 begin
   if _calcAsAutoHeight <> Value then
@@ -581,6 +603,11 @@ begin
     _calcAsAutoHeight := Value;
     RecalcNeeded;
   end;
+end;
+
+function TFastText.get_CalcAsAutoWidth: Boolean;
+begin
+  Result := _calcAsAutoWidth;
 end;
 
 procedure TFastText.set_CalcAsAutoWidth(const Value: Boolean);

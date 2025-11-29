@@ -1540,12 +1540,14 @@ begin
       var txt := DataControlClassFactory.CreateText(Self);
       try
         (txt as ICaption).Text := 'Ag';
-        _rowHeightDefault := TextControlHeight(txt, (txt as ITextSettings).TextSettings, 'Ag') + (2*ROW_CONTENT_MARGIN);
+        // KV: XXX
+        // _rowHeightDefault := TextControlHeight(txt, (txt as ITextSettings).TextSettings, 'Ag') + (2*ROW_CONTENT_MARGIN);
 
         if (_rowHeightMax > 0) and (_rowHeightMax < _rowHeightDefault) then
           _rowHeightDefault := _rowHeightMax;
       finally
-        txt.Free;
+        // KV: XXX
+        // txt.Free;
       end;
     end;
 
