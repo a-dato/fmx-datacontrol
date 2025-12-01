@@ -1863,6 +1863,9 @@ end;
 
 procedure TScrollControlWithEditableCells.SetSingleSelectionIfNotExists;
 begin
+  {$IFDEF SELECT}
+  Exit;
+  {$ENDIF}
 //  if IsNew then
 //    Exit;
 
