@@ -1534,6 +1534,14 @@ begin
     var treeCell := treeRow.Cells[flatColumn.Index];
     var checkBox := treeCell.InfoControl as IIsChecked;
 
+    {$IFDEF SELECT}
+    if _selectionInfo.IsChecked(treeRow.DataIndex) then
+      _selectionInfo.Deselect(treeRow.DataIndex) else
+      _selectionInfo.AddToSelection(treeRow.DataIndex, treeRow.ViewListIndex, treeRow.DataItem);
+
+    DoCellChanged(nil, treeCell);
+    Exit;
+    {$ELSE}
     if checkBox.IsChecked then
     begin
       _selectionInfo.Deselect(treeRow.DataIndex);
@@ -1546,6 +1554,7 @@ begin
       DoCellChanged(nil, treeCell);
       Exit;
     end;
+    {$ENDIF}
   end;
 
   var requestedSelection := _selectionInfo.Clone as ITreeSelectionInfo;
@@ -2825,6 +2834,23 @@ begin
 end;
 
 function TScrollControlWithCells.TrySelectItem(const RequestedSelectionInfo: IRowSelectionInfo; Shift: TShiftState): Boolean;
+
+  procedure UpdateCurrentRowCheckedState;
+  begin
+    _selectionInfo.BeginUpdate;
+    try
+      if _selectionInfo.IsChecked(_selectionInfo.DataIndex) then
+        _selectionInfo.Deselect(_selectionInfo.DataIndex)
+      else
+      begin
+        var row := GetActiveRow;
+        _selectionInfo.AddToSelection(row.DataIndex, row.ViewListIndex, row.DataItem);
+      end;
+    finally
+      _selectionInfo.EndUpdate(not CanRealignContent);
+    end;
+  end;
+
 begin
   Result := False;
   if _treeLayout = nil then
@@ -2834,7 +2860,7 @@ begin
   var requestedSelection := RequestedSelectionInfo as ITreeSelectionInfo;
 
   var rowChange := currentSelection.DataIndex <> requestedSelection.DataIndex;
-  var rowAlreadySelected := not rowChange or currentSelection.IsSelectedA(requestedSelection.DataIndex);
+  var rowAlreadySelected := not rowChange or currentSelection.IsSelected(requestedSelection.DataIndex);
   var clmnChange := currentSelection.SelectedLayoutColumn <> requestedSelection.SelectedLayoutColumn;
   var clmnAlreadySelected := not clmnChange or currentSelection.SelectedLayoutColumns.Contains(requestedSelection.SelectedLayoutColumn);
 
@@ -2862,6 +2888,11 @@ begin
       end;
 
       DoCellSelected(GetActiveCell, _selectionInfo.LastSelectionEventTrigger);
+
+      {$IFDEF SELECT}
+      if (ssCtrl in Shift) and (_selectionInfo.LastSelectionEventTrigger = TSelectionEventTrigger.Click) then
+        UpdateCurrentRowCheckedState;
+      {$ENDIF}
       Exit(True);
     end
     else if not rowChange and not clmnChange then
@@ -2871,6 +2902,12 @@ begin
 
       // nothing special to do
       DoCellSelected(GetActiveCell, _selectionInfo.LastSelectionEventTrigger);
+
+      {$IFDEF SELECT}
+      if (ssCtrl in Shift) and (_selectionInfo.LastSelectionEventTrigger = TSelectionEventTrigger.Click) then
+        UpdateCurrentRowCheckedState;
+      {$ENDIF}
+
       Exit(True);
     end;
   end;
