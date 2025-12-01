@@ -1128,8 +1128,8 @@ end;
 
 function TCheckBoxControlImpl.get_Value: CObject;
 begin
-  if _control is TCustomEdit then
-    Result := (_control as TCustomEdit).Text;
+  if _control is TCheckBox then
+    Result := (_control as TCheckBox).IsChecked;
 end;
 
 procedure TCheckBoxControlImpl.set_OnChange(Value: TNotifyEvent);
@@ -1139,12 +1139,8 @@ end;
 
 procedure TCheckBoxControlImpl.set_Value(const Value: CObject);
 begin
-  var s: string;
-  if (_control is TCustomEdit) and DoFormatItem(Value, s) then
-  begin
-    var ce := _control as TCustomEdit;
-    ce.Text := s;
-  end;
+  if (_control is TCheckBox) then
+    (_control as TCheckBox).IsChecked := Value.GetValue<Boolean>(False);
 end;
 
 function TCheckBoxControlImpl.get_IsChecked: IIsChecked;

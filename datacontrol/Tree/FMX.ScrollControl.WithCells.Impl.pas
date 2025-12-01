@@ -1982,7 +1982,11 @@ begin
     var checkBoxCell := (Row as IDCTreeRow).Cells[selectionCheckBoxColumn.Index];
     var checkBox := checkBoxCell.InfoControl as IIsChecked;
 
+    {$IFDEF SELECT}
+    checkBox.IsChecked := _selectionInfo.IsChecked(Row.DataIndex);
+    {$ELSE}
     checkBox.IsChecked := _selectionInfo.IsSelected(Row.DataIndex);
+    {$ENDIF}
   finally
     dec(_selectionCheckBoxUpdateCount);
   end;
@@ -2830,7 +2834,7 @@ begin
   var requestedSelection := RequestedSelectionInfo as ITreeSelectionInfo;
 
   var rowChange := currentSelection.DataIndex <> requestedSelection.DataIndex;
-  var rowAlreadySelected := not rowChange or currentSelection.IsSelected(requestedSelection.DataIndex);
+  var rowAlreadySelected := not rowChange or currentSelection.IsSelectedA(requestedSelection.DataIndex);
   var clmnChange := currentSelection.SelectedLayoutColumn <> requestedSelection.SelectedLayoutColumn;
   var clmnAlreadySelected := not clmnChange or currentSelection.SelectedLayoutColumns.Contains(requestedSelection.SelectedLayoutColumn);
 
