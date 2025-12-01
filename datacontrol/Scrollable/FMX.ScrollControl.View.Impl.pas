@@ -8,14 +8,12 @@ uses
   System.SysUtils,
   FMX.Layouts,
   FMX.Controls,
-  System.ComponentModel,
   {$ELSE}
   Wasm.System,
   Wasm.System.Classes,
   Wasm.System.SysUtils,
   Wasm.FMX.Layouts,
   Wasm.FMX.Controls,
-  Wasm.System.ComponentModel,
   {$ENDIF}
   System_,
   System.Collections,
@@ -24,6 +22,7 @@ uses
   FMX.ScrollControl.View.Intf,
   FMX.ScrollControl.WithRows.Intf,
 
+  ADato.ComponentModel,
   ADato.Sortable.Intf,
   ADato.Data.DataModel.intf;
 

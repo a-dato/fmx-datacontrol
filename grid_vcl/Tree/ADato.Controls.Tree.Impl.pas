@@ -24,6 +24,7 @@ uses
   System.DragDrop.Intf,
   ADato.Controls.CssControl,
   System.Collections.ObjectModel,
+  ADato.ComponentModel,
   ADato.Collections.Specialized,
   ADato.Data.DataModel.intf,
   ADato.Components.Css.intf,

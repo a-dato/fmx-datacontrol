@@ -10,13 +10,14 @@ uses
   {$IFNDEF WEBASSEMBLY}
   System.Classes,
   System.SysUtils,
-  System.ComponentModel,
   {$ELSE}
-  Wasm.System.ComponentModel,
+  Wasm.System.Classes,
+  Wasm.System.SysUtils,
   {$ENDIF}
   System_,
   System.Collections,
-  
+  //System.ComponentModel,
+  ADato.ComponentModel,
   System.Collections.Generic;
 
 type

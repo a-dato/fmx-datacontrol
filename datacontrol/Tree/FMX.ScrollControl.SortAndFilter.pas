@@ -5,12 +5,11 @@ interface
 uses
   {$IFNDEF WEBASSEMBLY}
   System.Generics.Defaults,
-  {$ELSE}
-  Wasm.System.ComponentModel,
   {$ENDIF}
   System_,
   System.ComponentModel,
   System.Collections.Generic,
+  ADato.ComponentModel,
   FMX.ScrollControl.View.Intf,
   FMX.ScrollControl.WithRows.Intf,
   FMX.ScrollControl.WithCells.Intf,
@@ -143,11 +142,10 @@ begin
 
   if _flatColumn.Column.InfoControlClass <> TInfoControlClass.Custom then
   begin
-    // KV: XXX
-//    // user can direct assign values to InfoControl in cellloading / cellloaded
-//    // we need to call cellloading / cellloaded, therefor we create this infocontrol
-//    _filterCell.InfoControl := _flatColumn.CreateInfoControl(_filterCell, _flatColumn.Column.InfoControlClass);
-//    _filterCell.InfoControl.Visible := False;
+    // user can direct assign values to InfoControl in cellloading / cellloaded
+    // we need to call cellloading / cellloaded, therefor we create this infocontrol
+    _filterCell.InfoControl := _flatColumn.CreateInfoControl(_filterCell, _flatColumn.Column.InfoControlClass);
+    _filterCell.InfoControl.Visible := False;
   end;
 
   _filterRow.Cells[_flatColumn.Index] := _filterCell;
@@ -176,11 +174,10 @@ begin
   _filterRow := TDCTreeRow.Create(_flatColumn.Column.TreeControl as IRowsControl);
   _filterCell := TDCTreeCell.Create(_filterRow, _flatColumn);
 
-  // KV: XXX
-  //  // user can direct assign values to InfoControl in cellloading / cellloaded
-  //  // we need to call cellloading / cellloaded, therefor we create this infocontrol
-  //  _filterCell.InfoControl := DataControlClassFactory.CreateText(nil);
-  //  _filterCell.InfoControl.Visible := False;
+  // user can direct assign values to InfoControl in cellloading / cellloaded
+  // we need to call cellloading / cellloaded, therefor we create this infocontrol
+  _filterCell.InfoControl := DataControlClassFactory.CreateText(nil);
+  _filterCell.InfoControl.Visible := False;
 
   _filterRow.Cells[_flatColumn.Index] := _filterCell;
 end;

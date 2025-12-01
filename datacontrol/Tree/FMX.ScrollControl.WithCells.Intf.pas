@@ -9,13 +9,13 @@ uses
   System.Types,
   System.SysUtils,
   FMX.Controls,
-  FMX.StdCtrls, 
-  FMX.Graphics, 
-  FMX.ImgList, 
+  FMX.StdCtrls,
+  FMX.Graphics,
+  FMX.ImgList,
   FMX.Layouts,
-  System.ComponentModel,
   FMX.ActnList,
   FMX.Objects,
+  FMX.Types,
   {$ELSE}
   Wasm.System.UITypes,
   Wasm.System.Types,
@@ -24,14 +24,15 @@ uses
   Wasm.FMX.StdCtrls,
   Wasm.FMX.Graphics,
   Wasm.FMX.Layouts,
-  Wasm.System.ComponentModel,
+  Wasm.FMX.Types,
   {$ENDIF}
   System_,
   System.Collections.Generic,
   System.Collections,
   System.Collections.Specialized,
   FMX.ScrollControl.WithRows.Intf,
-  FMX.ScrollControl.ControlClasses.Intf;
+  FMX.ScrollControl.ControlClasses.Intf,
+  ADato.ComponentModel;
 
 const
   NO_VALUE = '[no value]';

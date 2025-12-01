@@ -14,11 +14,11 @@ uses
   {$ELSE}
   System.Reflection,
   ADato.TypeCustomization,
-  Wasm.System.ComponentModel,
   {$ENDIF}
   System_,
   System.Collections,
   System.Collections.Generic,
+  ADato.ComponentModel,
   ADato.ObjectModel.intf
   {$IFDEF APP_PLATFORM}
   , App.PropertyDescriptor.intf

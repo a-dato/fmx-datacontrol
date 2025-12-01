@@ -8,7 +8,6 @@ uses
   System.SysUtils,
   System.Classes,
   FMX.Objects,
-  System.ComponentModel,
   System.UITypes,
   System.Types,
   FMX.Graphics,
@@ -17,7 +16,6 @@ uses
   Wasm.System.SysUtils,
   Wasm.System.Classes,
   Wasm.FMX.Objects,
-  Wasm.System.ComponentModel,
   Wasm.System.UITypes,
   Wasm.System.Types,
   {$ENDIF}
@@ -25,6 +23,7 @@ uses
   FMX.ScrollControl.WithRows.Intf,
   System.Collections,
   System.Collections.Generic,
+  ADato.ComponentModel,
   FMX.ScrollControl.Intf,
   FMX.ScrollControl.Impl, ADato.Data.DataModel.intf,
   ADato.ObjectModel.List.intf, ADato.ObjectModel.intf,
@@ -372,7 +371,7 @@ type
 
   TDCRow = class(TBaseInterfacedObject, IDCRow)
   protected
-    [unsafe] _rowsControl: IRowsControl;
+    {$IFNDEF DOTNET}[unsafe]{$ENDIF} _rowsControl: IRowsControl;
     _dataItem: CObject;
     _convertedDataItem: CObject;
     _dataIndex: Integer;
@@ -551,7 +550,8 @@ uses
   {$ENDIF}
   FMX.ScrollControl.ControlClasses,
   FMX.ScrollControl.View.Impl, FMX.ControlCalculations,
-  ADato.TraceEvents.intf, FMX.ScrollControl.SortAndFilter;
+  ADato.TraceEvents.intf, FMX.ScrollControl.SortAndFilter,
+  System.ComponentModel;
 
 
 { TScrollControlWithRows }
@@ -1431,9 +1431,6 @@ begin
   availableHeight := Round(_Content.BoundsRect.Height);
 
   if StartIndex >= (_View.GetViewList.Count) then Exit;
-
-  var vertScrollbarValue := _vertScrollBar.Value;
-  var vertScrollbarViewportSize := _vertScrollBar.ViewportSize;
 
   _View.GetSlowPerformanceRowInfo(StartIndex, dataItem, virtualY);
   Inc(_scrollUpdateCount);

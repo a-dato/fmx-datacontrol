@@ -13,9 +13,9 @@ uses
   Wasm.System.Classes,
   Wasm.FMX.Types,
   Wasm.System.UITypes,
-  Wasm.System.ComponentModel,
   {$ENDIF}
   System_,
+  ADato.ComponentModel,
   FMX.ScrollControl.WithCells.Impl,
   FMX.ScrollControl.WithEditableCells.Intf,
   ADato.ObjectModel.TrackInterfaces,
@@ -279,19 +279,14 @@ type
   end;
 
   TDCCellDateTimeEditor = class(TDCCellEditor)
-  private
-    _ValueChanged: Boolean;
   protected
-    function  get_Value: CObject; override;
-    procedure set_Value(const Value: CObject); override;
-
-    procedure OnDateTimeEditorOpen(Sender: TObject);
-    procedure OnDateTimeEditorChange(Sender: TObject);
+//    procedure OnDateTimeEditorOpen(Sender: TObject);
+//    procedure OnDateTimeEditorChange(Sender: TObject);
 
     procedure Dropdown;
   public
+    constructor Create(const EditorHandler: IDataControlEditorHandler; const Cell: IDCTreeCell); override;
     procedure BeginEdit(const EditValue: CObject; SelectAll: Boolean = True); override;
-    property ValueChanged: Boolean read _ValueChanged write _ValueChanged;
   end;
 
   TDCCellDropDownEditor = class(TDCCellEditor)
@@ -1251,7 +1246,10 @@ begin
       TryDeleteSelectedRows;
   end;
 
-  DoDataItemChangedInternal(GetActiveRow.DataItem); //, GetActiveRow.DataIndex);
+  // If ActiveRow = nil then we are resetting and all rows will be calculated again anyway.
+  var row := GetActiveRow;
+  if row <> nil then
+    DoDataItemChangedInternal(GetActiveRow.DataItem); //, GetActiveRow.DataIndex);
 end;
 
 function TScrollControlWithEditableCells.EditActiveCell(SetFocus: Boolean; const UserValue: CString): Boolean;
@@ -2153,63 +2151,24 @@ begin
 end;
 
 { TDCCellDateTimeEditor }
+constructor TDCCellDateTimeEditor.Create(const EditorHandler: IDataControlEditorHandler; const Cell: IDCTreeCell);
+begin
+  inherited;
+  _editor := DataControlClassFactory.CreateDateEdit(nil);
+end;
 
 procedure TDCCellDateTimeEditor.BeginEdit(const EditValue: CObject; SelectAll: Boolean = True);
 begin
-//  _editor := DataControlClassFactory.CreateDateEdit(nil);
-//  _cell.Control.AddObject(_editor);
-//
-//  _editor.TabStop := false;
-
-  {$IFNDEF WEBASSEMBLY}
-  TDateEdit(_editor).OnOpenPicker := OnDateTimeEditorOpen;
-  TDateEdit(_editor).OnChange := OnDateTimeEditorChange;
-  {$ELSE}
-  TDateEdit(_editor).OnOpenPicker := @OnDateTimeEditorOpen;
-  TDateEdit(_editor).OnChange := @OnDateTimeEditorChange;
-  {$ENDIF}
-
   inherited;
-  Dropdown;
+  DropDown;
+  set_Value(EditValue);
 end;
 
 procedure TDCCellDateTimeEditor.Dropdown;
 begin
-  TDateEdit(_editor).OpenPicker;
-end;
-
-function TDCCellDateTimeEditor.get_Value: CObject;
-begin
-  Result := CDateTime(TDateEdit(_editor).Date);
-end;
-
-procedure TDCCellDateTimeEditor.OnDateTimeEditorChange(Sender: TObject);
-begin
-  _ValueChanged := True;
-end;
-
-procedure TDCCellDateTimeEditor.OnDateTimeEditorOpen(Sender: TObject);
-begin
-  _editor.SetFocus;
-end;
-
-procedure TDCCellDateTimeEditor.set_Value(const Value: CObject);
-var
-  date: CDateTime;
-
-begin
-  if Value = nil then Exit;
-
-  var val: CObject := Value;
-  if not ParseValue(val) then
-    val := _originalValue;
-
-  date := CDateTime(val);
-
-  if date.Ticks = 0 then // Zero date
-    date := CDateTime.Now;
-
-  TDateEdit(_editor).Date:= date;
+  var de: IDateEditControl;
+  if Interfaces.Supports<IDateEditControl>(_editor, de) then
+    de.OpenPicker;
 end;
 
 { TDCCellDropDownEditor }

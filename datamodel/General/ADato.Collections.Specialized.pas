@@ -7,10 +7,6 @@ unit ADato.Collections.Specialized;
 interface
 
 uses
-  {$IFDEF WEBASSEMBLY}
-  Wasm.System,
-  Wasm.System.ComponentModel,
-  {$ENDIF}
   System_,
   System.ComponentModel,
   System.Collections,
@@ -76,7 +72,7 @@ type
   end;
 
   TObservableObject = {$IFDEF DOTNET}public{$ENDIF} class(
-    TSerializableObject,
+    {$IFNDEF WEBASSEMBLY}TSerializableObject,{$ENDIF}
     INotifyPropertyChanged)
 
   protected

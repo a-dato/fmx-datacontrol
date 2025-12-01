@@ -6,15 +6,15 @@ uses
   {$IFNDEF WEBASSEMBLY}
   FMX.Layouts,
   FMX.Controls,
-  System.ComponentModel,
   {$ELSE}
   Wasm.FMX.Layouts,
   Wasm.FMX.Controls,
-  Wasm.System.ComponentModel,
   {$ENDIF}
   System_,
-  System.Collections.Generic, ADato.Sortable.Intf,
+  System.Collections.Generic,
+  ADato.Sortable.Intf,
   ADato.Sortable.Impl,
+  ADato.ComponentModel,
   FMX.ScrollControl.WithRows.Intf,
   System.Collections;
 

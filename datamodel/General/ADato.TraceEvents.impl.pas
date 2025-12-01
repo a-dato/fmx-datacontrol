@@ -18,7 +18,7 @@ uses
 
 type
   IFileTraceItem = interface
-    function get_FormatMessages : Boolean;
+    function get_Options : TTraceOptions;
     function get_GroupName: string;
     function get_ThreadID: TThreadID;
     function get_FullName: string;
@@ -26,7 +26,7 @@ type
     procedure Close(DoDeleteFile: Boolean);
     procedure WriteLine(const Value: string);
 
-    property FormatMessages: Boolean read get_FormatMessages;
+    property Options: TTraceOptions read get_Options;
     property GroupName: string read get_GroupName;
     property ThreadID: TThreadID read get_ThreadID;
     property FullName: string read get_FullName;
@@ -34,14 +34,14 @@ type
 
   TFileTraceItem = class(TInterfacedObject, IFileTraceItem)
   protected
-    _FormatMessages: Boolean;
+    _Options: TTraceOptions;
     _GroupName: string;
     _ThreadID: TThreadID;
     _FullName: string;
     _FileStream: TFileStream;
     _StreamWriter: TStreamWriter;
 
-    function get_FormatMessages: Boolean;
+    function get_Options: TTraceOptions;
     function get_GroupName: string;
     function get_ThreadID: TThreadID;
     function get_FullName: string;
@@ -50,7 +50,7 @@ type
     procedure WriteLine(const Value: string);
 
   public
-    constructor Create(const Group: string; const AFullName: string; FormatMessages: Boolean; const ThreadID: TThreadID);
+    constructor Create(const Group: string; const AFullName: string; AOptions: TTraceOptions; const ThreadID: TThreadID);
     destructor Destroy; override;
   end;
 
@@ -74,7 +74,7 @@ type
 
     function  IsActive(const AGroup: string; const ALevel: TLevel = TLevel.Normal): Boolean; override;
 
-    function  GetTraceItem(const AGroup: string; CreateIfNotExists: Boolean = False; FormatMessages: Boolean = True; PerThreadLogging: Boolean = False) : IFileTraceItem;
+    function  GetTraceItem(const AGroup: string; CreateIfNotExists: Boolean = False; AOptions: TTraceOptions = []; PerThreadLogging: Boolean = False) : IFileTraceItem;
     procedure RemoveTraceItem(const AGroup: string; const DeleteFile: Boolean);
 
     // function  GetFilename: string; override;
@@ -83,7 +83,7 @@ type
     function  GetLevel: TLevel; override;
     procedure SetLevel(const Value: TLevel); override;
 
-    function  StartGroup(const AGroup: string; FormatMessage: Boolean; PerThreadLogging: Boolean = False) : Boolean; override;
+    function  StartGroup(const AGroup: string; AOptions: TTraceOptions; PerThreadLogging: Boolean = False) : Boolean; override;
     function  StopGroup(const AGroup: string) : Boolean; override;
     procedure EndGroupFile(const AGroup: string; const DeleteFile: Boolean = False); override;
 
@@ -95,9 +95,9 @@ type
     procedure StopTimer(const Group: string; const TimerID: string); override;
     procedure StopTimers(const Group: string); override;
   public
-    constructor Create(const AppName: string; const FileName: string = string.Empty; FormatAsJson: Boolean = True);
+    constructor Create(const AppName: string; const FileName: string = string.Empty; AOptions: TTraceOptions = []);
 
-    class procedure StartTrace(const AppName: string; const FileName: string; Options: TTraceOptions);
+    class procedure StartTrace(const AppName: string; const FileName: string; AOptions: TTraceOptions);
     class procedure StopTrace(CleanupTempFile: Boolean = False);
   end;
 
@@ -107,7 +107,7 @@ uses
   System_, System_.Threading, System.IOUtils;
 
 { TEventTraceToFile }
-function TEventTraceToFile.GetTraceItem(const AGroup: string; CreateIfNotExists: Boolean; FormatMessages: Boolean; PerThreadLogging: Boolean) : IFileTraceItem;
+function TEventTraceToFile.GetTraceItem(const AGroup: string; CreateIfNotExists: Boolean; AOptions: TTraceOptions; PerThreadLogging: Boolean) : IFileTraceItem;
 begin
   Lock(FTraceFilenames);
 
@@ -154,7 +154,7 @@ begin
 
     fullName := fullName + '.log';
 
-    Result := TFileTraceItem.Create(AGroup, TPath.Combine(FPath, fullName), FormatMessages, threadID);
+    Result := TFileTraceItem.Create(AGroup, TPath.Combine(FPath, fullName), AOptions, threadID);
     items.Add(Result);
   end;
 end;
@@ -186,11 +186,11 @@ begin
     item.Close(DeleteFile);
 end;
 
-function TEventTraceToFile.StartGroup(const AGroup: string; FormatMessage: Boolean; PerThreadLogging: Boolean = False): Boolean;
+function TEventTraceToFile.StartGroup(const AGroup: string; AOptions: TTraceOptions; PerThreadLogging: Boolean = False): Boolean;
 begin
   if IsActive(AGroup) then
   begin
-    GetTraceItem(AGroup, True, FormatMessage, PerThreadLogging);
+    GetTraceItem(AGroup, True, AOptions, PerThreadLogging);
     Result := True;
   end else
     Result := False;
@@ -212,7 +212,7 @@ begin
   RemoveTraceItem(AGroup, DeleteFile);
 end;
 
-constructor TEventTraceToFile.Create(const AppName: string; const FileName: string = string.Empty; FormatAsJson: Boolean = True);
+constructor TEventTraceToFile.Create(const AppName: string; const FileName: string = string.Empty; AOptions: TTraceOptions = []);
 begin
   FAppName := AppName + '_' + TGUID.NewGuid.ToString.SubString(1, 4).ToLower;
 
@@ -245,7 +245,7 @@ begin
     f := ChangeFileExt(name, '.log');
   end;
 
-  FDefaultTraceItem := TFileTraceItem.Create(f, TPath.Combine(FPath, f), FormatAsJson, NO_THREAD_ID);
+  FDefaultTraceItem := TFileTraceItem.Create(f, TPath.Combine(FPath, f), AOptions, NO_THREAD_ID);
   FTraceFilenames := CDictionary<string {Group name}, List<IFileTraceItem>>.Create;
 
   TraceMessage('General', 'Log started', TLevel.Normal);
@@ -330,10 +330,10 @@ begin
 
 end;
 
-class procedure TEventTraceToFile.StartTrace(const AppName: string; const FileName: string; Options: TTraceOptions);
+class procedure TEventTraceToFile.StartTrace(const AppName: string; const FileName: string; AOptions: TTraceOptions);
 begin
-  EventTracer := TEventTraceToFile.Create(AppName, FileName, TTraceOption.FormatAsJson in Options);
-  EventTracer.WriteToStdOut := TTraceOption.WriteToStdOut in Options;
+  EventTracer := TEventTraceToFile.Create(AppName, FileName, AOptions);
+  EventTracer.WriteToStdOut := TTraceOption.WriteToStdOut in AOptions;
 end;
 
 class procedure TEventTraceToFile.StopTrace(CleanupTempFile: Boolean = False);
@@ -347,17 +347,20 @@ begin
   inherited;
 
   var ti := GetTraceItem(Group);
-  if ti.FormatMessages then
-    ti.WriteLine(FormatTraceMessage(group, AMessage)) else
-    ti.WriteLine(AMessage);
+  if TTraceOption.FormatAsJson in ti.Options then
+    ti.WriteLine(FormatTraceMessage(group, AMessage))
+  else if TTraceOption.AddTimeStamp in ti.Options then
+    ti.WriteLine(string.Format('%s %s', [CDateTime.Now.ToString('s').ToString, AMessage]))
+  else
+    ti.WriteLine(AMessage)
 end;
 
 { TEventTraceToFile.TFileTraceItem }
 
-constructor TFileTraceItem.Create(const Group: string; const AFullName: string; FormatMessages: Boolean; const ThreadID: TThreadID);
+constructor TFileTraceItem.Create(const Group: string; const AFullName: string; AOptions: TTraceOptions; const ThreadID: TThreadID);
 begin
   // File may have {0} in it's name, all files will have the same Tick value
-  _FormatMessages := FormatMessages;
+  _Options := AOptions;
   _GroupName := Group;
   _FullName := AFullName;
   _ThreadID := ThreadID;
@@ -372,9 +375,9 @@ begin
   inherited;
 end;
 
-function TFileTraceItem.get_FormatMessages: Boolean;
+function TFileTraceItem.get_Options: TTraceOptions;
 begin
-  Result := _FormatMessages;
+  Result := _Options;
 end;
 
 function TFileTraceItem.get_FullName: string;

@@ -7,9 +7,12 @@ unit ADato.TraceEvents.intf;
 interface
 
 uses
-  {$IFDEF DELPHI}
+  {$IFNDEF WEBASSEMBLY}
   System.Classes, 
   System.SysUtils,
+  {$ELSE}
+  Wasm.System.Classes,
+  Wasm.System.SysUtils,
   {$ENDIF}
   System_;
 
@@ -22,7 +25,7 @@ const
 
 type
   TLevel = (Normal, Verbose, ExtraVerbose);
-  TTraceOption = (WriteToStdOut, FormatAsJson);
+  TTraceOption = (WriteToStdOut, FormatAsJson, AddTimeStamp);
   TTraceOptions = set of TTraceOption;
 
   IEventTracer = interface
@@ -41,7 +44,7 @@ type
     function  GetWriteToStdOut: Boolean;
     procedure SetWriteToStdOut(const Value: Boolean);
 
-    function  StartGroup(const AGroup: string; FormatMessages: Boolean; PerThreadLogging: Boolean = False) : Boolean;
+    function  StartGroup(const AGroup: string; AOptions: TTraceOptions; PerThreadLogging: Boolean = False) : Boolean;
     function  StopGroup(const AGroup: string) : Boolean;
     procedure EndGroupFile(const AGroup: string; const DeleteFile: Boolean = False);
 
@@ -88,7 +91,7 @@ type
     function  GetWriteToStdOut: Boolean;
     procedure SetWriteToStdOut(const Value: Boolean);
 
-    function  StartGroup(const AGroup: string; FormatMessages: Boolean; PerThreadLogging: Boolean = False) : Boolean; virtual;
+    function  StartGroup(const AGroup: string; AOptions: TTraceOptions; PerThreadLogging: Boolean = False) : Boolean; virtual;
     function  StopGroup(const AGroup: string) : Boolean; virtual;
     procedure EndGroupFile(const AGroup: string; const DeleteFile: Boolean = False); virtual;
 
@@ -242,7 +245,7 @@ begin
 
 end;
 
-function TEmptyEventTracer.StartGroup(const AGroup: string; FormatMessages: Boolean; PerThreadLogging: Boolean = False): Boolean;
+function TEmptyEventTracer.StartGroup(const AGroup: string; AOptions: TTraceOptions; PerThreadLogging: Boolean = False): Boolean;
 begin
   Result := False;
 end;

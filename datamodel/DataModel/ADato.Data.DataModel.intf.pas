@@ -7,14 +7,11 @@ unit ADato.Data.DataModel.intf;
 interface
 
 uses
-  {$IFDEF WEBASSEMBLY}
-  Wasm.System,
-  Wasm.System.ComponentModel,
-  {$ENDIF}
   System_,
   System.Collections,
   System.Collections.Generic,
   System.ComponentModel,
+  ADato.ComponentModel,
   ADato.Parser.intf,
   ADato.InsertPosition;
 

@@ -11,11 +11,11 @@ uses
   System.Types,
   {$ELSE}
   Wasm.FMX.Controls,
-  Wasm.System.ComponentModel,
   Wasm.System.Types,
   {$ENDIF}
   System_,
   System.Collections,
+  ADato.ComponentModel,
   FMX.ScrollControl.WithCells.Intf,
   FMX.ScrollControl.WithRows.Intf, System.Collections.Generic;
 

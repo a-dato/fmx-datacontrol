@@ -89,12 +89,13 @@ type
     function  get_TextControl: ITextControl;
     function  get_TextSettings: ITextSettings;
 
+    procedure Dispose; override;
+    procedure SetFocus;
+
     property Caption: ICaption read get_Caption implements ICaption;
     property TextControl: ITextControl read get_TextControl implements ITextControl;
     property TextActions: ITextActions read get_TextActions implements ITextActions;
     property TextSettings: ITextSettings read get_TextSettings implements ITextSettings;
-
-    procedure SetFocus;
   public
     constructor Create(AControl: TControl);
   end;
@@ -149,6 +150,8 @@ type
 
     function  get_Value: CObject; override;
     procedure set_Value(const Value: CObject); override;
+
+    procedure OpenPicker;
   end;
 
   TRadioButtonControlImpl = class(TEditControlImpl, IRadioButtonControl, IGroupName, IIsChecked)
@@ -266,38 +269,11 @@ type
     property EditControl: IDCEditControl read get_EditControl implements IDCEditControl;
   end;
 
-  IDCControlClassFactory = interface
-    ['{08ADE46F-92EA-4A14-9208-51FD5347C754}']
-    function CreateHeaderRect(const Owner: TComponent): TRectangle;
-    function CreateHeaderCellRect(const Owner: TComponent): TRectangle;
-
-    function IsCustomFactory: Boolean;
-
-    function CreateRowCellRect(const Owner: TComponent): TRectangle;
-    function CreateRowRect(const Owner: TComponent): TRectangle;
-
-    function CreateText(const Owner: TComponent): IDCControl;
-    function CreateButton(const Owner: TComponent): IDCControl;
-    function CreateGlyph(const Owner: TComponent): TGlyph;
-
-    function CreateEdit(const Owner: TComponent): IDCEditControl;
-    function CreateComboEdit(const Owner: TComponent): IDCEditControl;
-    function CreateCheckBox(const Owner: TComponent): IDCEditControl;
-    function CreateRadioButton(const Owner: TComponent): IDCEditControl;
-    function CreateMemo(const Owner: TComponent): IDCEditControl;
-    function CreateDateEdit(const Owner: TComponent): IDateEditControl;
-
-    procedure HandleRowBackground(const RowRect: TRectangle; Alternate: Boolean);
-  end;
-
   TDataControlClassFactory = class(TInterfacedObject, IDCControlClassFactory)
   private
     _isCustomFactory: Boolean;
   public
     constructor Create; reintroduce;
-    {$IFDEF WEBASSEMBLY}
-    class constructor Create;
-    {$ENDIF}
 
     function CreateHeaderRect(const Owner: TComponent): TRectangle; virtual;
     function CreateRowRect(const Owner: TComponent): TRectangle; virtual;
@@ -309,7 +285,7 @@ type
 
     function CreateText(const Owner: TComponent): IDCControl; virtual;
     function CreateButton(const Owner: TComponent): IDCControl; virtual;
-    function CreateGlyph(const Owner: TComponent): TGlyph; virtual;
+    function CreateGlyph(const Owner: TComponent): IDCControl; virtual;
 
     function CreateCheckBox(const Owner: TComponent): IDCEditControl; virtual;
     function CreateRadioButton(const Owner: TComponent): IDCEditControl; virtual;
@@ -354,11 +330,7 @@ begin
   Result := TRectangle.Create(Owner);
 
   Result.HitTest := True;
-  {$IF Defined(DEBUG) and Defined(WEBASSEMBLY)}
-  Result.Fill.Color := TAlphaColors.Red;
-  {$ELSE}
   Result.Fill.Color := DEFAULT_HEADER_BACKGROUND;
-  {$ENDIF}
   Result.Stroke.Color := TAlphaColors.Null;
   Result.Sides := [];
 end;
@@ -422,9 +394,10 @@ begin
   Result := TRadioButtonEditControl.Create(Owner);
 end;
 
-function TDataControlClassFactory.CreateGlyph(const Owner: TComponent): TGlyph;
+function TDataControlClassFactory.CreateGlyph(const Owner: TComponent): IDCControl;
 begin
-  Result := TGlyph.Create(Owner);
+  Assert(False);
+  //Result := TGlyph.Create(Owner);
 end;
 
 function TDataControlClassFactory.CreateHeaderCellRect(const Owner: TComponent): TRectangle;
@@ -432,40 +405,23 @@ begin
   Result := TRectangle.Create(Owner);
 
 //  Result.Fill.Kind := TBrushKind.None;
-  {$IF Defined(DEBUG) and Defined(WEBASSEMBLY)}
-  Result.Fill.Color := TAlphaColors.Yellow;
-  Result.Stroke.Color := TAlphaColors.Yellow;
-  Result.Sides := [TSide.Bottom];
-  {$ELSE}
   Result.Fill.Color := TAlphaColors.Null;
   Result.Stroke.Color := DEFAULT_HEADER_STROKE;
   Result.Sides := [TSide.Bottom];
-  {$ENDIF}
 end;
 
 function TDataControlClassFactory.CreateRowCellRect(const Owner: TComponent): TRectangle;
 begin
   Result := TRectangle.Create(Owner);
-  {$IF Defined(DEBUG) and Defined(WEBASSEMBLY)}
-  Result.Fill.Kind := TBrushKind.Solid;
-  Result.Fill.Color := TAlphaColors.Green;
-  Result.Stroke.Color := TAlphaColors.Green;
-  {$ELSE}
   Result.Fill.Kind := TBrushKind.None;
   Result.Stroke.Color := DEFAULT_CELL_STROKE;
-  {$ENDIF}
 end;
 
 function TDataControlClassFactory.CreateRowRect(const Owner: TComponent): TRectangle;
 begin
   Result := TRectangle.Create(Owner);
-  {$IF Defined(DEBUG) and Defined(WEBASSEMBLY)}
-  Result.Fill.Color := TAlphaColors.Darkslategray;
-  Result.Stroke.Color := TAlphaColors.Darkslategray;
-  {$ELSE}
   Result.Fill.Color := DEFAULT_WHITE_COLOR;
   Result.Stroke.Color := DEFAULT_CELL_STROKE;
-  {$ENDIF}
 end;
 
 function TDataControlClassFactory.CreateText(const Owner: TComponent): IDCControl;
@@ -478,15 +434,9 @@ end;
 procedure TDataControlClassFactory.HandleRowBackground(const RowRect: TRectangle; Alternate: Boolean);
 begin
 //  RowRect.Fill.Kind := TBrushKind.Solid;
-  {$IF Defined(DEBUG) and Defined(WEBASSEMBLY)}
-  if Alternate then
-    RowRect.Fill.Color := TAlphaColors.Cyan else
-    RowRect.Fill.Color := TAlphaColors.Cyan;
-  {$ELSE}
   if Alternate then
     RowRect.Fill.Color := DEFAULT_GREY_COLOR else
     RowRect.Fill.Color := DEFAULT_WHITE_COLOR;
-  {$ENDIF}
 end;
 
 function TDataControlClassFactory.IsCustomFactory: Boolean;
@@ -622,6 +572,12 @@ end;
 function TDCControlImpl.get_TextSettings: ITextSettings;
 begin
   Interfaces.Supports<ITextSettings>(_control, Result);
+end;
+
+procedure TDCControlImpl.Dispose;
+begin
+  inherited;
+  FreeAndNil(_control);
 end;
 
 procedure TDCControlImpl.SetFocus;
@@ -1167,8 +1123,12 @@ end;
 { TDateTimeControlImpl }
 function TDateEditControlImpl.get_Value: CObject;
 begin
-  if _control is TCustomEdit then
-    Result := (_control as TCustomEdit).Text;
+  Result := CDateTime.Create((_control as TDateEdit).Date);
+end;
+
+procedure TDateEditControlImpl.OpenPicker;
+begin
+  (_control as TDateEdit).OpenPicker;
 end;
 
 procedure TDateEditControlImpl.set_Date(const Value: CDateTime);
@@ -1178,12 +1138,9 @@ end;
 
 procedure TDateEditControlImpl.set_Value(const Value: CObject);
 begin
-  var s: string;
-  if (_control is TCustomEdit) and DoFormatItem(Value, s) then
-  begin
-    var ce := _control as TCustomEdit;
-    ce.Text := s;
-  end;
+  var dt: CDateTime;
+  if Value.TryGetValue<CDateTime>(dt) then
+    (_control as TDateEdit).Date := dt.DelphiDateTime;
 end;
 
 { TRadioButtonControlImpl }
@@ -1243,11 +1200,19 @@ initialization
 
   DEFAULT_ROW_SELECTION_ACTIVE_COLOR := TAlphaColor($886A5ACD);
   DEFAULT_ROW_SELECTION_INACTIVE_COLOR := TAlphaColor($88778899);
+  {$IFDEF WEBASSEMBLY}
+  DEFAULT_ROW_HOVER_COLOR := TAlphaColors.Lightgray;
+  {$ELSE}
   DEFAULT_ROW_HOVER_COLOR := TAlphaColor($335B8BCD);
+  {$ENDIF}
 
   DEFAULT_HEADER_BACKGROUND := TAlphaColors.Null;
   DEFAULT_HEADER_STROKE := TAlphaColors.Grey;
+  {$IFDEF WEBASSEMBLY}
+  DEFAULT_CELL_STROKE := TAlphaColors.White;
+  {$ELSE}
   DEFAULT_CELL_STROKE := TAlphaColors.Lightgray;
+  {$ENDIF}
 
 finalization
   DataControlClassFactory := nil;

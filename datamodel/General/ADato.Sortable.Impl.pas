@@ -10,12 +10,10 @@ uses
   {$IFNDEF WEBASSEMBLY}
   System.Collections.Generic.Casting,
   System.Collections.ListInterface.impl,
-  System.ComponentModel,
-  {$ELSE}
-  Wasm.System.ComponentModel,
   {$ENDIF}
   System_,
   System.Collections.Generic,
+  ADato.ComponentModel,
   ADato.Sortable.Intf,
   System.Collections;
 

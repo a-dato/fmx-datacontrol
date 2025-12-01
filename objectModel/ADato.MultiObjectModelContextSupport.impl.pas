@@ -78,12 +78,11 @@ implementation
 
 uses
   {$IFNDEF WEBASSEMBLY}
-  System.SysUtils,
-  System.ComponentModel
+  System.SysUtils
   {$ELSE}
-  Wasm.System.SysUtils,
-  Wasm.System.ComponentModel
+  Wasm.System.SysUtils
   {$ENDIF}
+  , System.ComponentModel
   ;
 
 { TMultiEditableObjectModelContext }
