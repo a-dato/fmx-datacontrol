@@ -173,11 +173,14 @@ type
     _PickList: IList;
     _ItemShowing: TItemShowing;
     _ItemsShowing: IList;
+    _BeforePopup: TComboBeforePopup;
 
     function  get_ItemIndex: Integer;
     procedure set_ItemIndex(const Value: Integer);
     function  get_ItemShowing: TItemShowing;
     procedure set_ItemShowing(const Value: TItemShowing);
+    function  get_BeforePopup: TComboBeforePopup;
+    procedure set_BeforePopup(const Value: TComboBeforePopup);
     function  get_PickList: IList;
     procedure set_PickList(const Value: IList);
     function  get_Text: CString;
@@ -185,16 +188,19 @@ type
     function  get_Value: CObject; override;
     procedure set_Value(const Value: CObject); override;
 
-    function  ActivePickList: IList;
-    procedure DropDown;
-    function  DoItemShowing(const Item: CObject; const Text: string) : Boolean; virtual;
     procedure DoKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState); override;
     procedure DoKeyUp(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState); override;
+
     function  MatchText(const Text: string; const Search: string) : Boolean;
     function  MatchTextIndex(const Text: string; const Search: string) : Integer;
     function  FindBestMatch(const Text: string) : Integer; overload;
     function  FindBestMatch(const Items: List<string>; const Text: string; var Pos: Integer) : Integer; overload;
+
+    function  ActivePickList: IList;
+    procedure DropDown;
+    function  DoItemShowing(const Item: CObject; const Text: string) : Boolean; virtual;
     function  RefreshItems: Boolean;
+    procedure CheckRetrievePicklist;
   end;
 
   TTextEditControl = class(TEdit, IDCEditControl)
@@ -828,6 +834,12 @@ begin
   end;
 end;
 
+procedure TComboEditControlImpl.CheckRetrievePicklist;
+begin
+  if Assigned(_BeforePopup) then
+    _BeforePopup({var} _PickList);
+end;
+
 function TComboEditControlImpl.DoItemShowing(const Item: CObject; const Text: string) : Boolean;
 begin
   if Assigned(_ItemShowing) then
@@ -971,10 +983,17 @@ procedure TComboEditControlImpl.DropDown;
 begin
   if _control is TComboEdit then
   begin
+    CheckRetrievePicklist;
+
     var ce := _control as TComboEdit;
     RefreshItems;
     ce.DropDown;
   end;
+end;
+
+function TComboEditControlImpl.get_BeforePopup: TComboBeforePopup;
+begin
+  Result := _BeforePopup;
 end;
 
 function TComboEditControlImpl.get_ItemIndex: Integer;
@@ -982,6 +1001,11 @@ begin
   if _control is TComboEdit then
     Result := (_control as TComboEdit).ItemIndex else
     Result := -1;
+end;
+
+procedure TComboEditControlImpl.set_BeforePopup(const Value: TComboBeforePopup);
+begin
+  _BeforePopup := Value;
 end;
 
 procedure TComboEditControlImpl.set_ItemIndex(const Value: Integer);
@@ -1023,24 +1047,37 @@ begin
 end;
 
 procedure TComboEditControlImpl.set_Value(const Value: CObject);
+
+  procedure UpdateItemIndex(const Ctrl: TComboEdit; Index: Integer);
+  begin
+    if (Ctrl.ItemIndex <> Index) then
+    begin
+      Ctrl.BeginUpdate;
+      try
+        Ctrl.ItemIndex := Index;
+      finally
+        Ctrl.EndUpdate;
+      end;
+    end;
+  end;
+
 begin
   if _control is TComboEdit then
   begin
     var ce := _control as TComboEdit;
-    var items := ActivePickList;
+    if (Value = nil) then
+    begin
+      UpdateItemIndex(ce, -1);
+      Exit;
+    end;
 
+    CheckRetrievePicklist;
+
+    var items := ActivePickList;
     if items <> nil then
     begin
       var i := items.IndexOf(Value);
-      if i <> ce.ItemIndex then
-      begin
-        ce.BeginUpdate;
-        try
-          ce.ItemIndex := i;
-        finally
-          ce.EndUpdate;
-        end;
-      end;
+      UpdateItemIndex(ce, i);
     end;
   end;
 end;

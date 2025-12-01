@@ -106,8 +106,9 @@ type
     property ImageIndex: Integer read get_ImageIndex write set_ImageIndex;
   end;
 
-  TFormatItem = reference to function(const Item: CObject) : CString;
+  TFormatItem = function(const Item: CObject): CString of object;
   TItemShowing = reference to function(const Item: CObject; const Text: string) : Boolean;
+  TComboBeforePopup = procedure(var APicklist: IList) of object;
 
   // Interface that handles communication between a cell editor inside the tree control
   // and the actual control used for the editing
@@ -156,6 +157,8 @@ type
     procedure set_ItemIndex(const Value: Integer);
     function  get_ItemShowing: TItemShowing;
     procedure set_ItemShowing(const Value: TItemShowing);
+    function  get_BeforePopup: TComboBeforePopup;
+    procedure set_BeforePopup(const Value: TComboBeforePopup);
     function  get_PickList: IList;
     procedure set_PickList(const Value: IList);
     function  get_Text: CString;
@@ -166,6 +169,7 @@ type
 
     property ItemIndex: Integer read get_ItemIndex write set_ItemIndex;
     property ItemShowing: TItemShowing read get_ItemShowing write set_ItemShowing;
+    property BeforePopup: TComboBeforePopup read get_BeforePopup write set_BeforePopup;
     property PickList: IList read get_PickList write set_PickList;
     property Text: CString read get_Text write set_Text;
   end;

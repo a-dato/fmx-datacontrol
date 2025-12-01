@@ -77,9 +77,6 @@ type
     _UpdateCount: Integer;
     _executeTriggers: Boolean;
 
-    _pickList: IList;
-    _funcPickList: TGetPickList;
-
     class var _bindersByClass: Dictionary<TClass, TControlBindingCreator>;
 
     function  get_ObjectModelContext: IObjectModelContext; virtual;
@@ -93,10 +90,6 @@ type
     function  IsChanged: Boolean; virtual;
     function  GetValue: CObject; virtual; abstract;
     procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject); virtual; abstract;
-
-    function  GoWithPicklist: Boolean;
-    function  GetFuncPickList: TGetPickList;
-    procedure SetFuncPickList(const Value: TGetPickList); virtual;
 
     procedure BeginUpdate;
     procedure EndUpdate(FromNotifyModelEvent: Boolean = False); virtual;
@@ -501,14 +494,7 @@ end;
 {$ENDIF}
 
 function TEditControlBinding.GetValue: CObject;
-var
-  o: CObject;
 begin
-  if GoWithPicklist then
-    for o in _pickList do
-      if (o <> nil) and CString.Equals(_Control.Text, CStringToString(o.ToString)) then
-        Exit(o); // for example an IUser
-
   if not TryConvertFromUserFriendlyText({out} Result) then
     Result := StringToCString(_Control.Text);
 end;
@@ -594,11 +580,6 @@ begin
   AtomicIncrement(_UpdateCount);
 end;
 
-procedure TPropertyBinding.SetFuncPickList(const Value: TGetPickList);
-begin
-  _funcPickList := Value;
-end;
-
 class function TPropertyBinding.CreateBindingByControl(const Control: TFMXObject): IPropertyBinding;
 begin
   var creatorFunc: TControlBindingCreator;
@@ -624,24 +605,6 @@ end;
 procedure TPropertyBinding.EndUpdate(FromNotifyModelEvent: Boolean = False);
 begin
   AtomicDecrement(_UpdateCount);
-end;
-
-function TPropertyBinding.GoWithPicklist: Boolean;
-begin
-  if (_pickList <> nil) then
-    Exit(True);
-
-  if Assigned(_funcPickList) then
-  begin
-    _pickList := _funcPickList();
-    Result := (_pickList <> nil) and (_pickList.Count > 0);
-  end else
-    Result := False;
-end;
-
-function TPropertyBinding.GetFuncPickList: TGetPickList;
-begin
-  Result := _funcPickList;
 end;
 
 function TPropertyBinding.get_PropertyInfo: _PropertyInfo;
@@ -861,29 +824,6 @@ begin
   else if (ix >= 0) and (ix < (_picklist.Count - 1)) then
     Result := _picklist[ix];
   {$ELSEIF Defined(DELPHI)}
-  var ix := _Control.ItemIndex;
-  if not GoWithPicklist then
-  if ix <> -1 then
-      Exit(_Control.Items[ix]) else
-      Exit(nil);
-
-  var s: CString;
-
-  if ix <> -1 then
-    s := _Control.Items[ix] else
-    s := nil;
-
-  if GoWithPicklist and (s <> nil) then
-  begin
-    var o: CObject;
-
-    for o in _pickList do
-      if (o <> nil) and CObject.Equals(s, CStringToString(o.ToString)) then
-        Exit(o); // for example an IUser
-  end;
-
-  Result := nil;
-  {$ELSE}
   if _Control.ItemIndex <> -1 then
     Result := _Control.Items[_Control.ItemIndex] else
     Result := nil;
@@ -1836,12 +1776,12 @@ end;
 constructor TComboEditControlBinding.Create(AControl: TComboEdit);
 begin
   inherited Create(AControl);
-  ValidateControl(_Control.OnChangeTracking);
+  ValidateControl(_Control.OnChange);
 
   {$IFDEF DELPHI}
-  _Control.OnChangeTracking := NotifyModel;
+  _Control.OnChange := NotifyModel;
   {$ELSE}
-  (_Control as TComboEdit).OnChangeTracking := @NotifyModel;
+  (_Control as TComboEdit).OnChange := @NotifyModel;
   {$ENDIF}
 end;
 
@@ -1849,35 +1789,18 @@ destructor TComboEditControlBinding.Destroy;
 begin
   {$IFDEF DELPHI}
   if (_Control <> nil) and ([csDestroying] * _Control.ComponentState = []) then
-    _Control.OnChangeTracking := _orgChangeEvent;
+    _Control.OnChange := _orgChangeEvent;
 
   inherited;
   {$ENDIF}
 end;
 
 function TComboEditControlBinding.GetValue: CObject;
-var
-  o: CObject;
-  s: CString;
 begin
   var ix := _Control.ItemIndex;
-  if not GoWithPicklist then
-  begin
   if ix <> -1 then
-      Exit(_Control.Items[ix]) else
-      Exit(nil);
-  end;
-
-  if ix <> -1 then
-    s := _Control.Items[ix] else
-    s := StringToCString(_Control.Text);
-
-  if GoWithPicklist and (s <> nil) then
-      for o in _pickList do
-        if (o <> nil) and CObject.Equals(s, CStringToString(o.ToString)) then
-            Exit(o); // for example an IUser
-
-  Result := nil;
+    Exit(_Control.Items[ix]) else
+    Exit(nil);
 end;
 
 procedure TComboEditControlBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
