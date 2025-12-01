@@ -231,30 +231,15 @@ type
   end;
 
   TDCCustomCellEditor = class(TDCCellEditor)
-  protected
-    _val: CObject;
-
-    function  get_Value: CObject; override;
-    procedure set_Value(const Value: CObject); override;
   public
     constructor Create(const EditorHandler: IDataControlEditorHandler; const Cell: IDCTreeCell; const Editor: TControl); reintroduce;
   end;
 
   TDCCheckBoxCellEditor = class(TDCCellEditor)
-  protected
-    _Value: CObject;
-//    _standAloneCheckbox: Boolean;
-
-    _originalOnChange: TNotifyEvent;
-
-    function  get_Value: CObject; override;
-    procedure set_Value(const Value: CObject); override;
-
-    procedure OnCheckBoxCellEditorChangeTracking(Sender: TObject);
-    procedure OnEditorKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState); override;
   public
-
+    constructor Create(const EditorHandler: IDataControlEditorHandler; const Cell: IDCTreeCell); override;
     procedure BeginEdit(const EditValue: CObject; SelectAll: Boolean = True); override;
+    function  TryBeginEditWithUserKey(const OriginalValue: CObject; const UserKey: CString): Boolean; override;
   end;
 
   TDCTextCellEditor = class(TDCCellEditor)
@@ -264,18 +249,9 @@ type
     function  TryBeginEditWithUserKey(const OriginalValue: CObject; const UserKey: CString): Boolean; override;
   end;
 
-  TDCTextCellMultilineEditor = class(TDCCellEditor)
-  protected
-    _Value: CObject;
-
-    function  get_Value: CObject; override;
-    procedure set_Value(const Value: CObject); override;
-
-    procedure OnTextCellEditorChangeTracking(Sender: TObject);
-
+  TDCTextCellMultilineEditor = class(TDCTextCellEditor)
   public
-    procedure BeginEdit(const EditValue: CObject; SelectAll: Boolean = True); override;
-    function  TryBeginEditWithUserKey(const OriginalValue: CObject; const UserKey: CString): Boolean; override;
+
   end;
 
   TDCCellDateTimeEditor = class(TDCCellEditor)
@@ -540,7 +516,7 @@ begin
     end;
 
     {$IFNDEF WEBASSEMBLY}
-    if KeyChar.IsLetterOrDigit then
+    if KeyChar.IsLetterOrDigit or (KeyChar = ' ') then
     begin
       if CanEditCell(GetActiveCell) then
       begin
@@ -2212,51 +2188,6 @@ begin
     ce.DropDown;
 end;
 
-{ TDCTextCellMultilineEditor }
-
-procedure TDCTextCellMultilineEditor.BeginEdit(const EditValue: CObject; SelectAll: Boolean = True);
-begin
-//  InternalBeginEdit(EditValue);
-//  TMemo(_editor).SelectAll;
-end;
-
-function TDCTextCellMultilineEditor.get_Value: CObject;
-begin
-  Result := TMemo(_editor).Text;
-
-  if _Value <> nil then
-    Result := _Value;
-end;
-
-procedure TDCTextCellMultilineEditor.OnTextCellEditorChangeTracking(Sender: TObject);
-var
-  text: CObject;
-begin
-  text := TMemo(_editor).Text;
-
-  if ParseValue(text) then
-    _Value := text;
-end;
-
-procedure TDCTextCellMultilineEditor.set_Value(const Value: CObject);
-begin
-  var val: CObject := Value;
-  if not ParseValue(val) then
-    val := _originalValue;
-
-  TMemo(_editor).Text := CStringToString(val.ToString(True));
-end;
-
-function TDCTextCellMultilineEditor.TryBeginEditWithUserKey(const OriginalValue: CObject; const UserKey: CString): Boolean;
-begin
-  Result := UserKey <> nil;
-  if Result then
-  begin
-    BeginEdit(UserKey, False);
-    _originalValue := OriginalValue;
-  end;
-end;
-
 { TObjectListModelItemChangedDelegate }
 
 procedure TObjectListModelItemChangedDelegate.Added(const Value: CObject; const Index: Integer);
@@ -2339,50 +2270,29 @@ begin
 end;
 
 { TDCCheckBoxCellEditor }
+constructor TDCCheckBoxCellEditor.Create(const EditorHandler: IDataControlEditorHandler; const Cell: IDCTreeCell);
+begin
+  inherited;
+  _editor := DataControlClassFactory.CreateCheckBox(nil);
+end;
 
 procedure TDCCheckBoxCellEditor.BeginEdit(const EditValue: CObject; SelectAll: Boolean);
 begin
-//  _editor := _cell.InfoControl as TStyledControl;
-
-  _originalOnChange := TCheckBox(_editor).OnChange;
-
-  {$IFNDEF WEBASSEMBLY}
-  TCheckBox(_editor).OnChange := OnCheckBoxCellEditorChangeTracking;
-  {$ELSE}
-  TCheckBox(_editor).OnChange := @OnCheckBoxCellEditorChangeTracking;
-  {$ENDIF}
+  inherited;
+  set_Value(EditValue);
 end;
 
-function TDCCheckBoxCellEditor.get_Value: CObject;
+function TDCCheckBoxCellEditor.TryBeginEditWithUserKey(const OriginalValue: CObject; const UserKey: CString): Boolean;
 begin
-  if _Value <> nil then
-    Result := _Value else
-    Result := TCheckBox(_editor).IsChecked;
+  Result := UserKey = ' ';
+
+  var b: Boolean;
+  if Result and OriginalValue.TryGetValue<Boolean>(b) then
+  begin
+    BeginEdit(not b, False);
+    _originalValue := OriginalValue;
+  end;
 end;
-
-procedure TDCCheckBoxCellEditor.OnCheckBoxCellEditorChangeTracking(Sender: TObject);
-begin
-  var isChecked: CObject := TCheckBox(_editor).IsChecked;
-  if ParseValue({var} isChecked) then
-    _Value := isChecked;
-
-//  if Assigned(_originalOnChange) then
-//    _originalOnChange(_editor);
-end;
-
-procedure TDCCheckBoxCellEditor.OnEditorKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
-begin
-  if Key = vkSpace then
-    (_editor as IISChecked).IsChecked := not (_editor as IISChecked).IsChecked
-  else
-    inherited;
-end;
-
-procedure TDCCheckBoxCellEditor.set_Value(const Value: CObject);
-begin
-  (_editor as TCheckBox).IsChecked := (Value <> nil) and Value.AsType<Boolean>;
-end;
-
 { TDCCustomCellEditor }
 
 constructor TDCCustomCellEditor.Create(const EditorHandler: IDataControlEditorHandler; const Cell: IDCTreeCell; const Editor: TControl);
@@ -2391,16 +2301,6 @@ begin
   Assert(False);
   // KV: XXX
   //_editor := Editor;
-end;
-
-function TDCCustomCellEditor.get_Value: CObject;
-begin
-  Result := _val;
-end;
-
-procedure TDCCustomCellEditor.set_Value(const Value: CObject);
-begin
-  _val := Value;
 end;
 
 { TDCCellMultiSelectDropDownEditor }
