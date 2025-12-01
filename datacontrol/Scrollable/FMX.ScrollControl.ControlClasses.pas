@@ -879,6 +879,8 @@ end;
 
 function TComboEditControlImpl.RefreshItems: Boolean;
 begin
+  Result := False; // Drop down did not change
+
   if _control is TComboEdit then
   begin
     var ce := _control as TComboEdit;
@@ -900,22 +902,20 @@ begin
         end;
       end;
 
-      var itemUpdateNeeded := False;
-
       if items.Count = ce.Items.Count then
       begin
         for var n := 0 to ce.Items.Count - 1 do
         begin
           if items[n] <> ce.Items[n] then
           begin
-            itemUpdateNeeded := True;
+            Result := True; // Cntents changed
             break;
           end;
         end;
       end else
-        itemUpdateNeeded := True;
+        Result := True;
 
-      if itemUpdateNeeded then
+      if Result then
       begin
         ce.BeginUpdate;
         try
