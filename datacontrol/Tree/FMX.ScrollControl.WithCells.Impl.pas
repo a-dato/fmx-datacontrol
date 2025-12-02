@@ -2839,7 +2839,7 @@ function TScrollControlWithCells.TrySelectItem(const RequestedSelectionInfo: IRo
   begin
     _selectionInfo.BeginUpdate;
     try
-      if _selectionInfo.IsChecked(_selectionInfo.DataIndex) then
+      if {$IFDEF SELECT}_selectionInfo.IsChecked(_selectionInfo.DataIndex){$ELSE}_selectionInfo.IsSelected(_selectionInfo.DataIndex){$ENDIF} then
         _selectionInfo.Deselect(_selectionInfo.DataIndex)
       else
       begin

@@ -100,7 +100,6 @@ type
     function  CanSelect(const DataIndex: Integer): Boolean;
     function  HasSelection: Boolean;
     {$IFDEF SELECT}
-    function  IsSelectedA(const DataIndex: Integer): Boolean;
     function  IsChecked(const DataIndex: Integer): Boolean;
     {$ENDIF}
     function  IsSelected(const DataIndex: Integer): Boolean;
