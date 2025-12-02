@@ -159,6 +159,8 @@ type
     procedure set_ItemShowing(const Value: TItemShowing);
     function  get_BeforePopup: TComboBeforePopup;
     procedure set_BeforePopup(const Value: TComboBeforePopup);
+    function  get_FormatItem: TFormatItem;
+    procedure set_FormatItem(const Value: TFormatItem);
     function  get_PickList: IList;
     procedure set_PickList(const Value: IList);
     function  get_Text: CString;
@@ -170,6 +172,7 @@ type
     property ItemIndex: Integer read get_ItemIndex write set_ItemIndex;
     property ItemShowing: TItemShowing read get_ItemShowing write set_ItemShowing;
     property BeforePopup: TComboBeforePopup read get_BeforePopup write set_BeforePopup;
+    property FormatItem: TFormatItem read get_FormatItem write set_FormatItem;
     property PickList: IList read get_PickList write set_PickList;
     property Text: CString read get_Text write set_Text;
   end;

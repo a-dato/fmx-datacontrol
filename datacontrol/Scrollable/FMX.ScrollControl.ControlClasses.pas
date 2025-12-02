@@ -177,6 +177,7 @@ type
 
     function  get_ItemIndex: Integer;
     procedure set_ItemIndex(const Value: Integer);
+    function  get_ItemCount: Integer;
     function  get_ItemShowing: TItemShowing;
     procedure set_ItemShowing(const Value: TItemShowing);
     function  get_BeforePopup: TComboBeforePopup;
@@ -187,6 +188,10 @@ type
     procedure set_Text(const Value: CString);
     function  get_Value: CObject; override;
     procedure set_Value(const Value: CObject); override;
+
+    function  ComboListItem(const Index: Integer): string;
+    procedure ComboClear;
+    procedure ComboAdd(const str: CString);
 
     procedure DoKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState); override;
     procedure DoKeyUp(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState); override;
@@ -327,7 +332,7 @@ uses
   Wasm.System.SysUtils,
   Wasm.System.Types
   {$ENDIF}
-  , ADato.FMX.FastControls.Text;
+  , ADato.FMX.FastControls.Text, FMX.ListBox;
 
 { TDataControlClassFactory }
 
@@ -795,42 +800,43 @@ end;
 { TComboEditControlImpl }
 procedure TComboEditControlImpl.DoKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
 begin
-  if (Key in [vkUp, vkDown, vkPrior, vkNext, vkHome, vkEnd]) and (_control is TComboEdit) then
+  if (Key in [vkUp, vkDown, vkPrior, vkNext, vkHome, vkEnd]) and ((_control is TComboEdit) or (_control is TComboBox)) then
   begin
-    var ce := _control as TComboEdit;
-
+    var ix: Integer := get_ItemIndex;
     case Key of
       vkUp:
       begin
-        ce.ItemIndex := CMath.Max(0, ce.ItemIndex - 1);
+        ix := CMath.Max(0, ix - 1);
         Key := 0;
       end;
       vkDown:
       begin
-        ce.ItemIndex := CMath.Min(ce.Items.Count - 1, ce.ItemIndex + 1);
+        ix := CMath.Min(get_ItemCount - 1, ix + 1);
         Key := 0;
       end;
       vkPrior:
       begin
-        ce.ItemIndex := CMath.Max(0, ce.ItemIndex - 10);
+        ix := CMath.Max(0, ix - 10);
         Key := 0;
       end;
       vkNext:
       begin
-        ce.ItemIndex := CMath.Min(ce.Items.Count - 1, ce.ItemIndex + 10);
+        ix := CMath.Min(get_ItemCount - 1, ix + 10);
         Key := 0;
       end;
       vkHome:
       begin
-        ce.ItemIndex := 0;
+        ix := 0;
         Key := 0;
       end;
       vkEnd:
       begin
-        ce.ItemIndex := ce.Items.Count - 1;
+        ix := get_ItemCount - 1;
         Key := 0;
       end;
     end;
+
+    set_ItemIndex(ix);
   end;
 end;
 
@@ -889,13 +895,38 @@ begin
   end;
 end;
 
+procedure TComboEditControlImpl.ComboAdd(const str: CString);
+begin
+  if _control is TComboEdit then
+    (_control as TComboEdit).Items.Add(str)
+  else if _control is TComboBox then
+    (_control as TComboBox).Items.Add(str);
+end;
+
+procedure TComboEditControlImpl.ComboClear;
+begin
+  if _control is TComboEdit then
+    (_control as TComboEdit).Clear
+  else if _control is TComboBox then
+    (_control as TComboBox).Clear;
+end;
+
+function TComboEditControlImpl.ComboListItem(const Index: Integer): string;
+begin
+  if _control is TComboEdit then
+    Result := (_control as TComboEdit).Items[Index]
+  else if _control is TComboBox then
+    Result := (_control as TComboBox).Items[Index]
+  else
+    Result := '';
+end;
+
 function TComboEditControlImpl.RefreshItems: Boolean;
 begin
   Result := False; // Drop down did not change
 
-  if _control is TComboEdit then
+  if (_control is TComboEdit) or (_control is TComboBox) then
   begin
-    var ce := _control as TComboEdit;
     if _PickList <> nil then
     begin
       var itemsShowing: List<CObject> := CList<CObject>.Create(_PickList.Count);
@@ -914,11 +945,11 @@ begin
         end;
       end;
 
-      if items.Count = ce.Items.Count then
+      if items.Count = get_ItemCount then
       begin
-        for var n := 0 to ce.Items.Count - 1 do
+        for var n := 0 to get_ItemCount - 1 do
         begin
-          if items[n] <> ce.Items[n] then
+          if items[n] <> ComboListItem(n) then
           begin
             Result := True; // Cntents changed
             break;
@@ -929,32 +960,36 @@ begin
 
       if Result then
       begin
-        ce.BeginUpdate;
+        _control.BeginUpdate;
         try
-          var text := ce.Text;
+          var text := get_Text;
 
-          ce.Clear;
-          ce.ItemIndex := -1;
+          ComboClear;
+          set_ItemIndex(-1);
 
-          if items.Count = 0 then
-            ce.Items.Add('')
+          if (items.Count = 0) and (_control is TComboEdit) then
+            ComboAdd('')
 
           else
           begin
             for var s in items do
-              ce.Items.Add(s);
+              ComboAdd(s);
 
-            var pos: Integer;
-            var match_index := FindBestMatch(items, text, {var} pos);
-            if match_index <> -1 then
+            if (_control is TComboEdit) then
             begin
-              ce.ItemIndex := match_index;
-              ce.SelStart := pos + Length(text);
-              ce.SelLength := Length(items[match_index]) - ce.SelStart;
+              var ce := _control as TComboEdit;
+              var pos: Integer;
+              var match_index := FindBestMatch(items, text, {var} pos);
+              if match_index <> -1 then
+              begin
+                set_ItemIndex(match_index);
+                ce.SelStart := pos + Length(text);
+                ce.SelLength := Length(items[match_index]) - ce.SelStart;
+              end;
             end;
           end;
         finally
-          ce.EndUpdate;
+          _control.EndUpdate;
         end;
 
         if itemsShowing.Count <> _PickList.Count then
@@ -981,14 +1016,18 @@ end;
 
 procedure TComboEditControlImpl.DropDown;
 begin
+  CheckRetrievePicklist;
+  RefreshItems;
   if _control is TComboEdit then
   begin
-    CheckRetrievePicklist;
-
     var ce := _control as TComboEdit;
-    RefreshItems;
     ce.DropDown;
-  end;
+  end
+  else if _control is TComboBox then
+  begin
+    var ce := _control as TComboEdit;
+    ce.DropDown;
+  end
 end;
 
 function TComboEditControlImpl.get_BeforePopup: TComboBeforePopup;
@@ -996,10 +1035,23 @@ begin
   Result := _BeforePopup;
 end;
 
+function TComboEditControlImpl.get_ItemCount: Integer;
+begin
+  if _control is TComboEdit then
+    Result := (_control as TComboEdit).Count
+  else if _control is TComboBox then
+    Result := (_control as TComboBox).Count
+  else
+    Result := 0;
+end;
+
 function TComboEditControlImpl.get_ItemIndex: Integer;
 begin
   if _control is TComboEdit then
-    Result := (_control as TComboEdit).ItemIndex else
+    Result := (_control as TComboEdit).ItemIndex
+  else if _control is TComboBox then
+    Result := (_control as TComboBox).ItemIndex
+  else
     Result := -1;
 end;
 
@@ -1011,7 +1063,9 @@ end;
 procedure TComboEditControlImpl.set_ItemIndex(const Value: Integer);
 begin
   if _control is TComboEdit then
-    (_control as TComboEdit).ItemIndex := Value;
+    (_control as TComboEdit).ItemIndex := Value
+  else if _control is TComboBox then
+    (_control as TComboBox).ItemIndex := Value;
 end;
 
 function TComboEditControlImpl.get_ItemShowing: TItemShowing;
@@ -1031,12 +1085,11 @@ end;
 
 function TComboEditControlImpl.get_Value: CObject;
 begin
-  if _control is TComboEdit then
+  if (_control is TComboEdit) or (_control is TComboBox) then
   begin
-    var ce := _control as TComboEdit;
     var items := ActivePickList;
-    if (items <> nil) and (ce.ItemIndex >= 0) and (ce.ItemIndex < items.Count) then
-      Result := items[ce.ItemIndex] else
+    if (items <> nil) and (get_ItemIndex >= 0) and (get_ItemIndex < items.Count) then
+      Result := items[get_ItemIndex] else
       Result := _DefaultValue;
   end;
 end;
@@ -1048,13 +1101,13 @@ end;
 
 procedure TComboEditControlImpl.set_Value(const Value: CObject);
 
-  procedure UpdateItemIndex(const Ctrl: TComboEdit; Index: Integer);
+  procedure UpdateItemIndex(const Ctrl: TControl; Index: Integer);
   begin
-    if (Ctrl.ItemIndex <> Index) then
+    if (get_ItemIndex <> Index) then
     begin
       Ctrl.BeginUpdate;
       try
-        Ctrl.ItemIndex := Index;
+        set_ItemIndex(Index);
       finally
         Ctrl.EndUpdate;
       end;
@@ -1062,22 +1115,22 @@ procedure TComboEditControlImpl.set_Value(const Value: CObject);
   end;
 
 begin
-  if _control is TComboEdit then
+  if (_control is TComboEdit) or (_control is TComboBox) then
   begin
-    var ce := _control as TComboEdit;
     if (Value = nil) then
     begin
-      UpdateItemIndex(ce, -1);
+      UpdateItemIndex(_control, -1);
       Exit;
     end;
 
     CheckRetrievePicklist;
+    RefreshItems;
 
     var items := ActivePickList;
     if items <> nil then
     begin
       var i := items.IndexOf(Value);
-      UpdateItemIndex(ce, i);
+      UpdateItemIndex(_control, i);
     end;
   end;
 end;
@@ -1085,7 +1138,9 @@ end;
 function TComboEditControlImpl.get_Text: CString;
 begin
   if _control is TComboEdit then
-    Result := (_control as TComboEdit).Text;
+    Result := (_control as TComboEdit).Text
+  else if _control is TComboBox then
+    Result := (_control as TComboBox).Text;
 end;
 
 procedure TComboEditControlImpl.set_Text(const Value: CString);
@@ -1097,6 +1152,17 @@ begin
     try
       ce.Text := CStringToString(Value);
       RefreshItems;
+    finally
+      ce.EndUpdate;
+    end;
+  end
+  else if _control is TComboBox then
+  begin
+    var ce := _control as TComboBox;
+    ce.BeginUpdate;
+    try
+      RefreshItems;
+      ce.itemIndex := ce.Items.IndexOf(Value);
     finally
       ce.EndUpdate;
     end;

@@ -2834,7 +2834,7 @@ begin
   var requestedSelection := RequestedSelectionInfo as ITreeSelectionInfo;
 
   var rowChange := currentSelection.DataIndex <> requestedSelection.DataIndex;
-  var rowAlreadySelected := not rowChange or currentSelection.IsSelectedA(requestedSelection.DataIndex);
+  var rowAlreadySelected := not rowChange or currentSelection.IsSelected(requestedSelection.DataIndex);
   var clmnChange := currentSelection.SelectedLayoutColumn <> requestedSelection.SelectedLayoutColumn;
   var clmnAlreadySelected := not clmnChange or currentSelection.SelectedLayoutColumns.Contains(requestedSelection.SelectedLayoutColumn);
 

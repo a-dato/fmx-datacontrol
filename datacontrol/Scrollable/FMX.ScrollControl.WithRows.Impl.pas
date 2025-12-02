@@ -484,7 +484,7 @@ type
     function  CanSelect(const DataIndex: Integer): Boolean;
     function  HasSelection: Boolean;
     {$IFDEF SELECT}
-    function  IsSelectedA(const DataIndex: Integer): Boolean;
+    function  IsSelected(const DataIndex: Integer): Boolean;
     function  IsChecked(const DataIndex: Integer): Boolean;
     {$ELSE}
     function  IsSelected(const DataIndex: Integer): Boolean;
@@ -762,7 +762,7 @@ begin
       Exit;
 
     var row := GetRowByLocalY(Y - _content.Position.Y);
-    if (row <> nil) and not _selectionInfo.IsSelectedA(row.DataIndex) then
+    if (row <> nil) and not _selectionInfo.IsSelected(row.DataIndex) then
       _dragObject := ConvertToDataItem(row.DataItem)
     else
       row := GetActiveRow;
@@ -1160,7 +1160,7 @@ begin
 
   var ix := _view.GetViewListIndex(DataItem);
   var dataIndex := _view.GetDataIndex(ix);
-  if (dataIndex = -1) or _selectionInfo.IsSelectedA(dataIndex) then
+  if (dataIndex = -1) or _selectionInfo.IsSelected(dataIndex) then
     Exit;
 
   // for example when items are reset (set to nil) and after that this Select Item is called.
@@ -1181,7 +1181,7 @@ begin
   var dataIndex := _view.GetDataIndex(ix);
   if dataIndex = -1 then Exit;
 
-  if _selectionInfo.IsSelectedA(dataIndex) then
+  if _selectionInfo.IsSelected(dataIndex) then
     _selectionInfo.Deselect(dataIndex);
 end;
 
@@ -1198,7 +1198,7 @@ begin
   var dataIndex := _view.GetDataIndex(ix);
   if dataIndex = -1 then Exit;
 
-  if not _selectionInfo.IsSelectedA(dataIndex) then
+  if not _selectionInfo.IsSelected(dataIndex) then
     _selectionInfo.AddToSelection(dataIndex, ix, Item) else
     _selectionInfo.Deselect(dataIndex);
 end;
@@ -2702,7 +2702,7 @@ begin
   end
   else if (ssCtrl in Shift) and (_selectionInfo.LastSelectionEventTrigger = TSelectionEventTrigger.Click) then
   begin
-    if (TDCTreeOption.MultiSelect in _options) and not _selectionInfo.IsSelectedA(Row.DataIndex) then
+    if (TDCTreeOption.MultiSelect in _options) and not _selectionInfo.IsSelected(Row.DataIndex) then
       _selectionInfo.AddToSelection(Row.DataIndex, Row.ViewListIndex, Row.DataItem) else
       _selectionInfo.Deselect(Row.DataIndex);
   end
@@ -2727,7 +2727,7 @@ begin
   end
   else if (TDCTreeOption.KeepMultiSelectOnSelect in _options) or ((TDCTreeOption.MultiSelect in _options) and (ssCtrl in Shift) and (_selectionInfo.LastSelectionEventTrigger = TSelectionEventTrigger.Click)) then
   begin
-    if not _selectionInfo.IsSelectedA(Row.DataIndex) then
+    if not _selectionInfo.IsSelected(Row.DataIndex) then
       _selectionInfo.AddToSelection(Row.DataIndex, Row.ViewListIndex, Row.DataItem) else
       _selectionInfo.Deselect(Row.DataIndex);
   end
@@ -2755,7 +2755,7 @@ begin
   Result := False;
   if _view = nil then Exit;
 
-  Result := _selectionInfo.IsSelectedA(DataIndex);
+  Result := _selectionInfo.IsSelected(DataIndex);
 end;
 
 procedure TScrollControlWithRows.DoViewLoadingStart(const startY, StopY: Single; preferedReferenceIndex: Integer = -1);
@@ -3518,7 +3518,7 @@ end;
 
 procedure TDCRow.UpdateSelectionVisibility(const SelectionInfo: IRowSelectionInfo; OwnerIsFocused: Boolean);
 begin
-  var isSelected := SelectionInfo.IsSelectedA(get_DataIndex);
+  var isSelected := SelectionInfo.IsSelected(get_DataIndex);
   if not isSelected then
   begin
     FreeAndNil(_selectionRect);
@@ -3845,7 +3845,7 @@ begin
 end;
 
 {$IFDEF SELECT}
-function TRowSelectionInfo.IsSelectedA(const DataIndex: Integer): Boolean;
+function TRowSelectionInfo.IsSelected(const DataIndex: Integer): Boolean;
 begin
   Result := (_lastSelectedDataIndex = DataIndex) or (_multiSelection.ContainsKey(DataIndex));
 end;
