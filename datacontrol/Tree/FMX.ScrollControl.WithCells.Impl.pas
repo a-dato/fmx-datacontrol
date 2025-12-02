@@ -2781,6 +2781,8 @@ end;
 function TScrollControlWithCells.CreateDummyRowForChanging(const FromSelectionInfo: IRowSelectionInfo): IDCRow;
 begin
   var treeRow := inherited as IDCTreeRow;
+  if treeRow = nil then Exit;
+
   var flatColumnIx := (FromSelectionInfo as ITreeSelectionInfo).SelectedLayoutColumn;
 
   if (flatColumnIx <> -1) then
@@ -2921,7 +2923,9 @@ begin
   CheckCorrectColumnSelection(currentSelection, GetActiveRow as IDCTreeRow);
 
   var dummyOldRow := CreateDummyRowForChanging(currentSelection) as IDCTreeRow;
-  var oldCell := dummyOldRow.Cells[currentSelection.SelectedLayoutColumn];
+  var oldCell: IDCTreeCell;
+  if dummyOldRow <> nil then
+    oldCell := dummyOldRow.Cells[currentSelection.SelectedLayoutColumn];
 
   // new activecell
   if requestedSelection.SelectedLayoutColumn = -1 then

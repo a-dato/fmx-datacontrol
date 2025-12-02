@@ -1479,6 +1479,9 @@ end;
 
 function TScrollControlWithRows.CreateDummyRowForChanging(const FromSelectionInfo: IRowSelectionInfo): IDCRow;
 begin
+  if FromSelectionInfo.DataIndex = -1 then
+    Exit;
+
   Result := DoCreateNewRow;
   Result.DataItem := FromSelectionInfo.DataItem;
   Result.DataIndex := FromSelectionInfo.DataIndex;

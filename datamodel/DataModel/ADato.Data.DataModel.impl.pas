@@ -3902,7 +3902,9 @@ begin
 
   repeat
     {$IFDEF DEBUG}
-    var s: string := CStringToString(dataModelRow.Data.ToString);
+    var s: string;
+    if (dataModelRow.Data <> nil) then
+      s := CStringToString(dataModelRow.Data.ToString);
     {$ENDIF}
 
     rowProps := GetRowProperties(dataModelRow);
