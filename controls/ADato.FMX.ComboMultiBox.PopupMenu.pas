@@ -105,7 +105,7 @@ begin
 
   DataControl := TDataControl.Create(Self);
   DataControl.Align := TAlignLayout.Client;
-  DataControl.Options := [TDCTreeOption.MultiSelect, TDCTreeOption.KeepMultiSelectOnSelect];
+  DataControl.Options := [TDCTreeOption.MultiSelect, TDCTreeOption.KeepCurrentSelection];
   DataControl.RowHeightFixed := 26;
   DataControl.AllowNoneSelected := True;
   DataControl.CellSelected := TreeCellSelected;
