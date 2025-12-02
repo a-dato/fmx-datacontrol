@@ -41,7 +41,7 @@ uses
   System_,
   System.Collections,
   System.Collections.Generic,
-  FMX.ScrollControl.ControlClasses.Intf;
+  FMX.ScrollControl.ControlClasses.Intf, ADato.FMX.FastControls.Button;
 
 type
   TDCControlImpl = class(TBaseInterfacedObject, IDCControl, ITextControl, ICaption, ITextActions, ITextSettings)
@@ -280,6 +280,16 @@ type
     property EditControl: IDCEditControl read get_EditControl implements IDCEditControl;
   end;
 
+  TGlyphControl = class(TGlyph, IDCControl)
+  protected
+    _dcControl: IDCControl;
+    function  get_DCControl: IDCControl;
+
+  public
+    constructor Create(AOwner: TComponent); override;
+    property DCControl: IDCControl read get_DCControl implements IDCControl;
+  end;
+
   TDataControlClassFactory = class(TInterfacedObject, IDCControlClassFactory)
   private
     _isCustomFactory: Boolean;
@@ -371,7 +381,7 @@ end;
 
 function TDataControlClassFactory.CreateButton(const Owner: TComponent): IDCControl;
 begin
-  // ult := TFastButton.Create(Owner);
+   Result := TFastButton.Create(Owner);
 end;
 
 function TDataControlClassFactory.CreateCheckBox(const Owner: TComponent): IDCEditControl;
@@ -407,8 +417,7 @@ end;
 
 function TDataControlClassFactory.CreateGlyph(const Owner: TComponent): IDCControl;
 begin
-  Assert(False);
-  //Result := TGlyph.Create(Owner);
+   Result := TGlyphControl.Create(Owner);
 end;
 
 function TDataControlClassFactory.CreateHeaderCellRect(const Owner: TComponent): TRectangle;
@@ -1289,6 +1298,19 @@ end;
 procedure TImageControlImpl.set_ImageIndex(const Value: Integer);
 begin
 
+end;
+
+{ TGlyphControl }
+
+constructor TGlyphControl.Create(AOwner: TComponent);
+begin
+  inherited;
+  _dcControl := TDCControlImpl.Create(Self);
+end;
+
+function TGlyphControl.get_DCControl: IDCControl;
+begin
+  Result := _dcControl;
 end;
 
 initialization
