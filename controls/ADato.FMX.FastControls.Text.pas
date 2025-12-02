@@ -50,11 +50,11 @@ type
 
   TFastText = class(TLayout, IDCControl, ITextControl, ICaption, ITextSettings)
   protected
-    _dataControl: IDCControl;
-    function get_DataControl: IDCControl;
+    _dcControl: IDCControl;
+    function get_DCControl: IDCControl;
 
   public
-    property DataControl: IDCControl read get_DataControl implements IDCControl;
+    property DCControl: IDCControl read get_DCControl implements IDCControl;
 
   protected
     _text: string;
@@ -293,7 +293,7 @@ constructor TFastText.Create(AOwner: TComponent);
 begin
   inherited;
 
-  _dataControl := TDCControlImpl.Create(Self);
+  _dcControl := TDCControlImpl.Create(Self);
 
   {$IFNDEF WEBASSEMBLY}
   _layout := TTextLayoutManager.DefaultTextLayout.Create;
@@ -313,9 +313,9 @@ begin
   _calcAsAutoHeight := True;
 end;
 
-function TFastText.get_DataControl: IDCControl;
+function TFastText.get_DCControl: IDCControl;
 begin
-  Result := _dataControl;
+  Result := _dcControl;
 end;
 
 destructor TFastText.Destroy;

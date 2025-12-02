@@ -2725,14 +2725,14 @@ begin
 
     _selectionInfo.AddToSelection(Row.DataIndex, Row.ViewListIndex, Row.DataItem);
   end
-  else if (TDCTreeOption.KeepMultiSelectOnSelect in _options) or ((TDCTreeOption.MultiSelect in _options) and (ssCtrl in Shift) and (_selectionInfo.LastSelectionEventTrigger = TSelectionEventTrigger.Click)) then
+  else if (TDCTreeOption.KeepCurrentSelection in _options) or ((TDCTreeOption.MultiSelect in _options) and (ssCtrl in Shift) and (_selectionInfo.LastSelectionEventTrigger = TSelectionEventTrigger.Click)) then
   begin
-    if not _selectionInfo.IsSelectedA(Row.DataIndex) then
+    if not _selectionInfo.IsSelected(Row.DataIndex) then
       _selectionInfo.AddToSelection(Row.DataIndex, Row.ViewListIndex, Row.DataItem) else
       _selectionInfo.Deselect(Row.DataIndex);
   end
   else
-    _selectionInfo.UpdateSingleSelection(Row.DataIndex, Row.ViewListIndex, Row.DataItem);
+    _selectionInfo.UpdateSingleSelection(Row.DataIndex, Row.ViewListIndex, Row.DataItem, TDCTreeOption.KeepCurrentSelection in _options);
   {$ENDIF}
 end;
 
