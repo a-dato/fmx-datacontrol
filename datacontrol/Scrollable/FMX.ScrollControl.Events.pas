@@ -17,7 +17,8 @@ uses
   System.Collections,
   ADato.ComponentModel,
   FMX.ScrollControl.WithCells.Intf,
-  FMX.ScrollControl.WithRows.Intf, System.Collections.Generic;
+  FMX.ScrollControl.WithRows.Intf, System.Collections.Generic,
+  FMX.ScrollControl.ControlClasses.Intf;
 
 type
   TDataControlEventRegistration = class
@@ -68,7 +69,7 @@ type
     constructor Create(const ACell: IDCTreeCell; ShowVertGrid, AIsFastScrolling, APerformanceModeWhileScrolling: Boolean); reintroduce;
 
     function AssignCellStyleLookUp(const StyleLookUp: CString): TStyledControl;
-    function AssignCellCustomInfoControl(const Control: TControl): TControl;
+    function AssignCellCustomInfoControl(const Control: IDCControl): IDCControl;
 
     property IsFastScrolling: Boolean read _IsFastScrolling;
     property CalculateCellAfterScrolling: Boolean read _calculateRowCellAfterScrolling write _calculateRowCellAfterScrolling;
@@ -442,7 +443,7 @@ end;
 
 { DCCellLoadEventArgs }
 
-function DCCellLoadEventArgs.AssignCellCustomInfoControl(const Control: TControl): TControl;
+function DCCellLoadEventArgs.AssignCellCustomInfoControl(const Control: IDCControl): IDCControl;
 begin
   if Control = nil then
   begin
@@ -452,23 +453,22 @@ begin
     Exit(nil);
   end;
 
-  // KV: XXX
-//  _cell.LayoutColumn.CreateCellBase(_showVertGrid, _cell);
-//  _cell.Control.AddObject(Control);
-//  _cell.InfoControl := Control;
-//  _cell.InfoControl.Visible := True;
+  _cell.LayoutColumn.CreateCellBase(_showVertGrid, _cell);
+  _cell.Control.AddObject(Control.Control);
+  _cell.InfoControl := Control;
+  _cell.InfoControl.Visible := True;
 
-//  var h := _cell.InfoControl.Height + 2*_cell.Column.TreeControl.CellTopBottomPadding;
-//  if _cell.Control.Height < h then
-//    _cell.Control.Height := h;
-//
-//  Result := _cell.InfoControl;
+  var h := _cell.InfoControl.Height + 2*_cell.Column.TreeControl.CellTopBottomPadding;
+  if _cell.Control.Height < h then
+    _cell.Control.Height := h;
+
+  Result := _cell.InfoControl;
 end;
 
 function DCCellLoadEventArgs.AssignCellStyleLookUp(const StyleLookUp: CString): TStyledControl;
 begin
   _cell.LayoutColumn.CreateCellStyleControl(StyleLookUp, _showVertGrid, _cell);
-  Result := _cell.InfoControl as TStyledControl;
+  Result := _cell.InfoControl.Control as TStyledControl;
 end;
 
 constructor DCCellLoadEventArgs.Create(const ACell: IDCTreeCell; ShowVertGrid, AIsFastScrolling, APerformanceModeWhileScrolling: Boolean);

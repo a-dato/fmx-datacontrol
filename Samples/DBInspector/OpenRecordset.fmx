@@ -45,8 +45,8 @@ object OpenRecordSetFrame: TOpenRecordSetFrame
           Size.PlatformDefault = False
           StyleLookup = 'MyMemostyle'
           TabOrder = 1
-          Viewport.Width = 850.000000000000000000
-          Viewport.Height = 51.000000000000000000
+          Viewport.Width = 846.000000000000000000
+          Viewport.Height = 47.000000000000000000
         end
         object lblExecutionLog: TLabel
           Align = Contents
@@ -79,8 +79,8 @@ object OpenRecordSetFrame: TOpenRecordSetFrame
         Size.PlatformDefault = False
         StyleLookup = 'MyMemostyle'
         TabOrder = 2
-        Viewport.Width = 781.000000000000000000
-        Viewport.Height = 45.000000000000000000
+        Viewport.Width = 777.000000000000000000
+        Viewport.Height = 41.000000000000000000
       end
       object lblCellEditor: TLabel
         Align = Client
@@ -148,6 +148,8 @@ object OpenRecordSetFrame: TOpenRecordSetFrame
           RowHeightDefault = 24.000000000000000000
           HeaderHeight = 24.000000000000000000
           AutoExtraColumnSizeMax = -1.000000000000000000
+          CellTopBottomPadding = 5.000000000000000000
+          CellLeftRightPadding = 5.000000000000000000
           CellSelected = DataGridCellSelected
           EditRowEnd = DataGridEditRowEnd
           EditCellStart = DataGridEditCellStart
@@ -265,8 +267,8 @@ object OpenRecordSetFrame: TOpenRecordSetFrame
         Size.Height = 80.000000000000000000
         Size.PlatformDefault = False
         TabOrder = 0
-        Viewport.Width = 850.000000000000000000
-        Viewport.Height = 80.000000000000000000
+        Viewport.Width = 846.000000000000000000
+        Viewport.Height = 76.000000000000000000
       end
       object splitSqlSourcePanel: TSplitter
         Align = Top

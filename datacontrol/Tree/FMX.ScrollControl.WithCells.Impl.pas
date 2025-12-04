@@ -1534,6 +1534,14 @@ begin
     var treeCell := treeRow.Cells[flatColumn.Index];
     var checkBox := treeCell.InfoControl as IIsChecked;
 
+    {$IFDEF SELECT}
+    if _selectionInfo.IsChecked(treeRow.DataIndex) then
+      _selectionInfo.Deselect(treeRow.DataIndex) else
+      _selectionInfo.AddToSelection(treeRow.DataIndex, treeRow.ViewListIndex, treeRow.DataItem);
+
+    DoCellChanged(nil, treeCell);
+    Exit;
+    {$ELSE}
     if checkBox.IsChecked then
     begin
       _selectionInfo.Deselect(treeRow.DataIndex);
@@ -1546,6 +1554,7 @@ begin
       DoCellChanged(nil, treeCell);
       Exit;
     end;
+    {$ENDIF}
   end;
 
   var requestedSelection := _selectionInfo.Clone as ITreeSelectionInfo;
@@ -1982,7 +1991,11 @@ begin
     var checkBoxCell := (Row as IDCTreeRow).Cells[selectionCheckBoxColumn.Index];
     var checkBox := checkBoxCell.InfoControl as IIsChecked;
 
+    {$IFDEF SELECT}
+    checkBox.IsChecked := _selectionInfo.IsChecked(Row.DataIndex);
+    {$ELSE}
     checkBox.IsChecked := _selectionInfo.IsSelected(Row.DataIndex);
+    {$ENDIF}
   finally
     dec(_selectionCheckBoxUpdateCount);
   end;
@@ -2768,6 +2781,8 @@ end;
 function TScrollControlWithCells.CreateDummyRowForChanging(const FromSelectionInfo: IRowSelectionInfo): IDCRow;
 begin
   var treeRow := inherited as IDCTreeRow;
+  if treeRow = nil then Exit;
+
   var flatColumnIx := (FromSelectionInfo as ITreeSelectionInfo).SelectedLayoutColumn;
 
   if (flatColumnIx <> -1) then
@@ -2821,6 +2836,23 @@ begin
 end;
 
 function TScrollControlWithCells.TrySelectItem(const RequestedSelectionInfo: IRowSelectionInfo; Shift: TShiftState): Boolean;
+
+  procedure UpdateCurrentRowCheckedState;
+  begin
+    _selectionInfo.BeginUpdate;
+    try
+      if {$IFDEF SELECT}_selectionInfo.IsChecked(_selectionInfo.DataIndex){$ELSE}_selectionInfo.IsSelected(_selectionInfo.DataIndex){$ENDIF} then
+        _selectionInfo.Deselect(_selectionInfo.DataIndex)
+      else
+      begin
+        var row := GetActiveRow;
+        _selectionInfo.AddToSelection(row.DataIndex, row.ViewListIndex, row.DataItem);
+      end;
+    finally
+      _selectionInfo.EndUpdate(not CanRealignContent);
+    end;
+  end;
+
 begin
   Result := False;
   if _treeLayout = nil then
@@ -2858,6 +2890,11 @@ begin
       end;
 
       DoCellSelected(GetActiveCell, _selectionInfo.LastSelectionEventTrigger);
+
+      {$IFDEF SELECT}
+      if (ssCtrl in Shift) and (_selectionInfo.LastSelectionEventTrigger = TSelectionEventTrigger.Click) then
+        UpdateCurrentRowCheckedState;
+      {$ENDIF}
       Exit(True);
     end
     else if not rowChange and not clmnChange then
@@ -2867,6 +2904,12 @@ begin
 
       // nothing special to do
       DoCellSelected(GetActiveCell, _selectionInfo.LastSelectionEventTrigger);
+
+      {$IFDEF SELECT}
+      if (ssCtrl in Shift) and (_selectionInfo.LastSelectionEventTrigger = TSelectionEventTrigger.Click) then
+        UpdateCurrentRowCheckedState;
+      {$ENDIF}
+
       Exit(True);
     end;
   end;
@@ -2880,7 +2923,9 @@ begin
   CheckCorrectColumnSelection(currentSelection, GetActiveRow as IDCTreeRow);
 
   var dummyOldRow := CreateDummyRowForChanging(currentSelection) as IDCTreeRow;
-  var oldCell := dummyOldRow.Cells[currentSelection.SelectedLayoutColumn];
+  var oldCell: IDCTreeCell;
+  if dummyOldRow <> nil then
+    oldCell := dummyOldRow.Cells[currentSelection.SelectedLayoutColumn];
 
   // new activecell
   if requestedSelection.SelectedLayoutColumn = -1 then

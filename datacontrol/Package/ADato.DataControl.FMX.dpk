@@ -23,6 +23,7 @@ package ADato.DataControl.FMX;
 {$WRITEABLECONST OFF}
 {$MINENUMSIZE 1}
 {$IMAGEBASE $400000}
+{$DEFINE SELECT}
 {$DEFINE DEBUG}
 {$DEFINE TS2}
 {$ENDIF IMPLICITBUILDING}
@@ -58,6 +59,7 @@ contains
   FMX.ScrollControl.WithCells.PopupMenu in '..\Tree\FMX.ScrollControl.WithCells.PopupMenu.pas',
   FMX.ScrollControl.DataControl.Impl in '..\Tree\FMX.ScrollControl.DataControl.Impl.pas',
   FMX.ScrollControl.DataControl.Binders in '..\Tree\FMX.ScrollControl.DataControl.Binders.pas',
-  FMX.PickList.Intf in '..\Scrollable\FMX.PickList.Intf.pas';
+  FMX.PickList.Intf in '..\Scrollable\FMX.PickList.Intf.pas',
+  FMX.ScrollControl.ControlClasses.Intf in '..\Scrollable\FMX.ScrollControl.ControlClasses.Intf.pas';
 
 end.

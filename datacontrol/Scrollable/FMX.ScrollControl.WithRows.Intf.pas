@@ -99,7 +99,11 @@ type
 
     function  CanSelect(const DataIndex: Integer): Boolean;
     function  HasSelection: Boolean;
+    {$IFDEF SELECT}
+    function  IsChecked(const DataIndex: Integer): Boolean;
+    {$ENDIF}
     function  IsSelected(const DataIndex: Integer): Boolean;
+
     function  GetSelectionInfo(const DataIndex: Integer): IRowSelectionInfo;
 
     function  SelectedRowCount: Integer;
@@ -114,7 +118,7 @@ type
 
     procedure UpdateLastSelection(const DataIndex, ViewListIndex: Integer; const DataItem: CObject);
 
-    procedure UpdateSingleSelection(const DataIndex, ViewListIndex: Integer; const DataItem: CObject);
+    procedure UpdateSingleSelection(const DataIndex, ViewListIndex: Integer; const DataItem: CObject; KeepCurrentSelection: Boolean);
     procedure AddToSelection(const DataIndex, ViewListIndex: Integer; const DataItem: CObject);
     procedure Deselect(const DataIndex: Integer);
     procedure SelectedRowClicked(const DataIndex: Integer);
@@ -250,7 +254,7 @@ type
     TreeOption_HideHoverEffect,
     TreeOption_ReadOnly,
     TreeOption_MultiSelect,
-    TreeOption_KeepMultiSelectOnSelect,
+    TreeOption_KeepCurrentSelection,
     TreeOption_AllowColumnUpdates,
     TreeOption_AllowAddNewRows,
     TreeOption_AllowDeleteRows
@@ -286,7 +290,7 @@ type
     HideHoverEffect: TDCTreeOptionFlag = TreeOption_HideHoverEffect;
     ReadOnly: TDCTreeOptionFlag = TreeOption_ReadOnly;
     MultiSelect: TDCTreeOptionFlag = TreeOption_MultiSelect;
-    KeepMultiSelectOnSelect: TDCTreeOptionFlag = TreeOption_KeepMultiSelectOnSelect;
+    KeepCurrentSelection: TDCTreeOptionFlag = TreeOption_KeepCurrentSelection;
     AllowColumnUpdates: TDCTreeOptionFlag = TreeOption_AllowColumnUpdates;
     AllowAddNewRows: TDCTreeOptionFlag = TreeOption_AllowAddNewRows;
     AllowDeleteRows: TDCTreeOptionFlag = TreeOption_AllowDeleteRows;

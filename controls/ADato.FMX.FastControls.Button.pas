@@ -32,7 +32,7 @@ uses
   Wasm.FMX.Graphics,
   Wasm.System.ImageList,
   {$ENDIF}
-  System_, ADato.FMX.FastControls.Text;
+  System_, ADato.FMX.FastControls.Text, FMX.ScrollControl.ControlClasses.Intf;
 
 type
   TButtonType = (None, Positive, Negative, Circle, Emphasized);
@@ -50,7 +50,13 @@ type
     function IsEmpty: Boolean;
   end;
 
-  TADatoClickLayout = class(TLayout, ICaption)
+  TADatoClickLayout = class(TLayout, ICaption, IDCControl)
+  protected
+    _dcControl: IDCControl;
+    function get_DCControl: IDCControl;
+
+  public
+    property DCControl: IDCControl read get_DCControl implements IDCControl;
   protected
     _polygon: TPolygon;
     _innerBounds: TRectF;
@@ -322,7 +328,7 @@ uses
   Wasm.System.Math,
   Wasm.System.Actions,
   Wasm.FMX.Controls
-  {$ENDIF};
+  {$ENDIF}, FMX.ScrollControl.ControlClasses;
 
 { TADatoClickLayout }
 
@@ -562,6 +568,9 @@ end;
 constructor TADatoClickLayout.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
+
+  _dcControl := TDCControlImpl.Create(Self);
+
   _imageIndex := -1;
   EnableExecuteAction := True;
 
@@ -582,6 +591,11 @@ begin
   end;
 
   inherited;
+end;
+
+function TADatoClickLayout.get_DCControl: IDCControl;
+begin
+  Result := _dcControl;
 end;
 
 function TADatoClickLayout.get_ImageName: string;

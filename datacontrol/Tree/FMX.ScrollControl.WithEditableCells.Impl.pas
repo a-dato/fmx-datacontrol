@@ -848,6 +848,20 @@ begin
 
   inherited;
 
+  {$IFDEF SELECT}
+  if Shift * [ssShift, ssCtrl] = [] then
+  begin
+    // check if row change came through if it was needed
+    var newCell := GetActiveCell;
+    if (newCell <> nil) and (newCell.Row = clickedRow) and not newCell.Column.ReadOnly then
+    begin
+      if not newCell.Column.IsSelectionColumn and (newCell.Column.InfoControlClass = TInfoControlClass.CheckBox) then
+        (newCell.InfoControl as IIsChecked).IsChecked := not (newCell.InfoControl as IIsChecked).IsChecked
+      else if ((ssDouble in Shift) or (crrntCell = newCell)) and not _editingInfo.CellIsEditing then
+        StartEditCell(newCell, nil {keep cell data value});
+    end;
+  end;
+  {$ELSE}
   // check if row change came through if it was needed
   var newCell := GetActiveCell;
   if (newCell <> nil) and (newCell.Row = clickedRow) and not newCell.Column.ReadOnly then
@@ -862,6 +876,7 @@ begin
     else if ((ssDouble in Shift) or (crrntCell = newCell)) and not _editingInfo.CellIsEditing then
       StartEditCell(newCell, nil {keep cell data value});
   end;
+  {$ENDIF}
 end;
 
 function TScrollControlWithEditableCells.LoadDefaultPickListForCell(const Cell: IDCTreeCell; const CellValue: CObject) : IList;
@@ -1524,7 +1539,7 @@ begin
 
     _selectionInfo.BeginUpdate;
     try
-      _selectionInfo.UpdateSingleSelection(_editingInfo.EditItemDataIndex, ix, _editingInfo.EditItem);
+      _selectionInfo.UpdateSingleSelection(_editingInfo.EditItemDataIndex, ix, _editingInfo.EditItem, TDCTreeOption.KeepCurrentSelection in _Options);
     finally
       _selectionInfo.EndUpdate(True);
     end;
@@ -1863,6 +1878,9 @@ end;
 
 procedure TScrollControlWithEditableCells.SetSingleSelectionIfNotExists;
 begin
+  {$IFDEF SELECT}
+  Exit;
+  {$ENDIF}
 //  if IsNew then
 //    Exit;
 

@@ -199,14 +199,11 @@ type
     function  IsChanged: Boolean;
     function  GetValue: CObject;
     procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
-    function  GetFuncPickList: TGetPickList;
-    procedure SetFuncPickList(const Value: TGetPickList);
 
     property ObjectModelContext: IObjectModelContext read get_ObjectModelContext write set_ObjectModelContext;
     property PropertyInfo: _PropertyInfo read get_PropertyInfo write set_PropertyInfo;
 
     property ExecuteTriggers: Boolean read get_ExecuteTriggers write set_ExecuteTriggers;
-    property FuncPickList: TGetPickList read GetFuncPickList write SetFuncPickList;
   end;
 
 implementation
