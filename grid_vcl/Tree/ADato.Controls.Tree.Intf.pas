@@ -1794,6 +1794,8 @@ type
     procedure set_ShowSortMenu(const Value: Boolean);
     function  get_ShowFilterMenu: Boolean;
     procedure set_ShowFilterMenu(const Value: Boolean);
+    function  get_ShowTextFilter: Boolean;
+    procedure set_ShowTextFilter(const Value: Boolean);
     function  get_Tag: CObject;
     procedure set_Tag(const Value: CObject);
     function  get_TabStops: CString;
@@ -1896,6 +1898,10 @@ type
     property ShowFilterMenu: Boolean
       read {$IFDEF DELPHI}get_ShowFilterMenu{$ENDIF}
       write {$IFDEF DELPHI}set_ShowFilterMenu{$ENDIF};
+
+    property ShowTextFilter: Boolean
+      read {$IFDEF DELPHI}get_ShowTextFilter{$ENDIF}
+      write {$IFDEF DELPHI}set_ShowTextFilter{$ENDIF};
 
     property Tag: CObject
       read {$IFDEF DELPHI}get_Tag{$ENDIF}

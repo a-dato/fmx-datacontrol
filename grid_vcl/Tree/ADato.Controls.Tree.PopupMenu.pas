@@ -42,7 +42,7 @@ type
   {$M-}
 
   TfrmPopupMenu = class(TForm)
-    pnlFilterOptions: TPanel;
+    pnlFilterItems: TPanel;
     OuterPanel: TPanel;
     pnlMenuItems: TPanel;
     pnlImages: TPanel;
@@ -54,17 +54,20 @@ type
     UpdateColumnsButton: TImage;
     HideColumnButton: TImage;
     pnlTreeControl: TPanel;
-    pnlSearchText: TPanel;
+    pnlFilterText: TPanel;
     SearchEditor: TButtonedEdit;
     ApplicationEvents1: TApplicationEvents;
     ClearAllButton: TImage;
     ClearFilterButton: TImage;
     btnUseFilter: TButton;
+    pnlSplitter: TPanel;
+    chkSelectAll: TCheckBox;
     procedure ApplicationEvents1Deactivate(Sender: TObject);
     procedure ApplicationEvents1Idle(Sender: TObject; var Done: Boolean);
     procedure btnOKClick(Sender: TObject);
     procedure btnUseFilterClick(Sender: TObject);
     procedure Button2Click(Sender: TObject);
+    procedure chkSelectAllClick(Sender: TObject);
     procedure FormDeactivate(Sender: TObject);
     procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
     procedure FormShow(Sender: TObject);
@@ -75,6 +78,8 @@ type
     procedure lblSortAscendingClick(Sender: TObject);
     procedure lblSortDescendingClick(Sender: TObject);
     procedure SearchEditorChange(Sender: TObject);
+    procedure SearchEditorKeyDown(Sender: TObject; var Key: Word; Shift:
+        TShiftState);
     procedure TreeControlCellImageClicked(const Sender: TObject; e:
         CellImageClickedEventArgs);
 
@@ -102,14 +107,16 @@ type
     _Result: Integer;
     _searchUpdated: Integer;
     _selectionChanged: Boolean;
-    _ShowFilterOptions: Boolean;
+    _ShowFilterItems: Boolean;
+    _ShowFilterText: Boolean;
     _ShowSortOptions: Boolean;
     _TreeControl: TObject; // TTreeControl;
     _UpdateCount: Integer;
 
     function  get_FilterText: CString;
     procedure set_FilterText(const Value: CString);
-    procedure set_ShowFilterOptions(const Value: Boolean);
+    procedure set_ShowFilterItems(const Value: Boolean);
+    procedure set_ShowFilterText(const Value: Boolean);
     procedure set_ShowSortOptions(const Value: Boolean);
     function  get_ShowHideColumnOption: Boolean;
     procedure set_ShowHideColumnOption(const Value: Boolean);
@@ -149,9 +156,13 @@ type
       read  _Items
       write set_Items;
 
-    property ShowFilterOptions: Boolean
-      read  _ShowFilterOptions
-      write set_ShowFilterOptions;
+    property ShowFilterItems: Boolean
+      read  _ShowFilterItems
+      write set_ShowFilterItems;
+
+    property ShowFilterText: Boolean
+      read  _ShowFilterText
+      write set_ShowFilterText;
 
     property ShowSortOptions: Boolean
       read  _ShowSortOptions
@@ -238,7 +249,8 @@ var
 begin
   inherited;
   _Result := Cancelled;
-  _ShowFilterOptions := True;
+  _ShowFilterItems := True;
+  _ShowFilterText := True;
   _ShowSortOptions := True;
 
   lblSortAscending := THighLightLabel.Create(Self);
@@ -331,11 +343,21 @@ begin
   SetVisible(HideColumnButton, lblHideColumn);
   SetVisible(UpdateColumnsButton, lblUpdateColumns);
 
+  pnlFilterItems.Visible := _ShowFilterItems;
+  pnlFilterText.Visible := _ShowFilterText or _ShowFilterItems;
+  btnUseFilter.Visible := _ShowFilterText;
+
+  pnlSplitter.Visible := pnlFilterText.Visible or pnlFilterItems.Visible;
+  chkSelectAll.Visible := pnlFilterItems.Visible;
+
   pnlMenuItems.Height := visibleCount * (lblSortAscending.Height + lblSortAscending.Margins.Top + lblSortAscending.Margins.Bottom);
 
   h := pnlMenuItems.Height;
-  if pnlFilterOptions.Visible then
-    h := h + pnlFilterOptions.Height;
+  if pnlFilterText.Visible then
+    h := h + pnlFilterText.Height + pnlFilterText.Margins.Top + pnlFilterText.Margins.Bottom;
+
+  if pnlFilterItems.Visible then
+    h := h + pnlFilterItems.Height;
   Height := h;
 end;
 
@@ -355,7 +377,9 @@ begin
   if (_SearchUpdated <> 0) and ((Environment.TickCount - _SearchUpdated) > 200) then
   begin
     _SearchUpdated := 0;
-    LoadItems(_Items);
+
+    if _Items <> nil then
+      LoadItems(_Items);
   end;
 end;
 
@@ -375,6 +399,40 @@ procedure TfrmPopupMenu.Button2Click(Sender: TObject);
 begin
   _Result := Cancelled;
   Close;
+end;
+
+procedure TfrmPopupMenu.chkSelectAllClick(Sender: TObject);
+begin
+  if _UpdateCount > 0 then
+    Exit;
+
+  inc(_UpdateCount);
+  try
+    _selectionChanged := True;
+
+    var hasSelected := False;
+    var hasUnselected := False;
+
+    var item: IFilterItem;
+    for item in _Items do
+    begin
+      if item.Checked then
+        hasSelected := True else
+        hasUnselected := True;
+
+      if hasSelected and hasUnselected then
+        break;
+    end;
+
+    for item in _Items do
+      item.Checked := hasUnselected and not hasSelected;
+
+    chkSelectAll.Checked := hasUnselected and not hasSelected;
+
+    (_TreeControl as TTreeControl).RefreshControl([TreeState.DataChanged]);
+  finally
+    dec(_UpdateCount);
+  end;
 end;
 
 procedure TfrmPopupMenu.Close;
@@ -428,6 +486,8 @@ var
   kv: KeyValuePair<CObject, CString>;
 
 begin
+  if Data = nil then Exit;
+
   _Items := CList<IFilterItem>.Create(Data.Count);
 
   _selectionChanged := False;
@@ -458,23 +518,33 @@ end;
 
 procedure TfrmPopupMenu.LoadItems(const Items: List<IFilterItem>);
 begin
-  var filtered: List<IFilterItem>;
+  inc(_UpdateCount);
+  try
+    var filtered: List<IFilterItem>;
+    var selectionCount := 0;
 
-  if SearchEditor.Text = '' then
-    filtered := Items
-
-  else
-  begin
-    filtered := CList<IFilterItem>.Create();
+    filtered := CList<IFilterItem>.Create(Items.Count);
     var search: CString := string(SearchEditor.Text).ToLower;
     for var item in Items do
     begin
-      if item.Checked or item.Caption.ToLower.Contains(search) then
+      if item.Checked then
+        inc(selectionCount);
+
+      if item.Checked or CString.IsNullOrEmpty(search) or item.Caption.ToLower.Contains(search) then
         filtered.Add(item);
     end;
-  end;
 
-  (_TreeControl as TTreeControl).DataList := filtered as IList;
+    if selectionCount = filtered.Count then
+      chkSelectAll.State := cbChecked
+    else if selectionCount > 0 then
+      chkSelectAll.State := cbGrayed
+    else
+      chkSelectAll.State := cbUnchecked;
+
+    (_TreeControl as TTreeControl).DataList := filtered as IList;
+  finally
+    dec(_UpdateCount);
+  end;
 end;
 
 function TfrmPopupMenu.get_FilterText: CString;
@@ -494,12 +564,20 @@ begin
   end;
 end;
 
-procedure TfrmPopupMenu.set_ShowFilterOptions(const Value: Boolean);
+procedure TfrmPopupMenu.set_ShowFilterItems(const Value: Boolean);
 begin
-  if  _ShowFilterOptions <> Value then
+  if  _ShowFilterItems <> Value then
   begin
-    _ShowFilterOptions := Value;
-    pnlFilterOptions.Visible := Value;
+    _ShowFilterItems := Value;
+    RealignMenuItems;
+  end;
+end;
+
+procedure TfrmPopupMenu.set_ShowFilterText(const Value: Boolean);
+begin
+  if  _ShowFilterText <> Value then
+  begin
+    _ShowFilterText := Value;
     RealignMenuItems;
   end;
 end;
@@ -525,8 +603,8 @@ begin
     _ShowSortOptions := Value;
     lblSortAscending.Visible := Value;
     lblSortDescending.Visible := Value;
-    lblClearColumnFilter.Visible := Value or _ShowFilterOptions;
-    lblClearAllFilters.Visible := Value or _ShowFilterOptions;
+    lblClearColumnFilter.Visible := Value or _ShowFilterItems;
+    lblClearAllFilters.Visible := Value or _ShowFilterItems;
 
     RealignMenuItems;
   end;
@@ -597,9 +675,21 @@ begin
   _searchUpdated := Environment.TickCount;
 end;
 
+procedure TfrmPopupMenu.SearchEditorKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+begin
+  if Key = Keys.Return then
+  begin
+    if _ShowFilterText then
+      _Result := FilterFullText else
+      _Result := Filtered;
+    Close;
+  end;
+end;
+
 procedure TfrmPopupMenu.TreeControlCellImageClicked(const Sender: TObject; e: CellImageClickedEventArgs);
 begin
   _selectionChanged := True;
+  _searchUpdated := Environment.TickCount;
 end;
 
 { TFilterItem }

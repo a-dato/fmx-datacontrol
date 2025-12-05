@@ -609,7 +609,13 @@ end;
 
 procedure CastTo_Enum(Inst: PTypedInstance; const Value: CObject; out Obj);
 begin
-  Value.AsType<TValue>.ExtractRawData(@Obj);
+  var vt := Value.AsType<TValue>;
+
+  // Check type compatability, allow casts from Integer to Enums
+  if (vt.TypeInfo <> Inst.TypeInfo) and (vt.TypeInfo.Kind <> tkInteger) then
+    raise InvalidCastException.Create(CString.Format('Cannot cast ''{0}'' to enum ''{1}''', vt.TypeInfo.Name, Inst.TypeInfo.Name));
+
+  vt.ExtractRawData(@Obj);
 end;
 
 // DynArray

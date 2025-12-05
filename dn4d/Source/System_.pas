@@ -380,7 +380,10 @@ type
     class function  Concat({no const} str0, str1, str2: CString): CString; overload; static;
     class function  Concat({no const} str0, str1, str2, str3: CString): CString; overload; static;
     class function  Concat(const Values: array of CString): CString; overload; static;
-    function        Contains(const Value: CString): Boolean;
+    function        Contains(const Value: CString): Boolean; overload;
+    function        Contains(const Value: CString; comparisonType: StringComparisonFlag): Boolean; overload;
+    function        Contains(const Value: string): Boolean; overload;
+    function        Contains(const Value: string; comparisonType: StringComparisonFlag): Boolean; overload;
     class function  Empty: CString; static;
     function        Equals(const value: CString): Boolean; overload;
     function        Equals(const value: string): Boolean; overload;
@@ -392,7 +395,8 @@ type
     class function  Equals(const a: CString; b: string; comparisonType: StringComparisonFlag): Boolean; overload; static;
     function        GetHashCode: Integer;
     function        IndexOf(const AChar: SystemChar): Integer; overload;
-    function        IndexOf(const AChar: SystemString): Integer; overload;
+    function        IndexOf(const Value: SystemString): Integer; overload;
+    function        IndexOf(const Value: SystemString; comparisonType: StringComparisonFlag): Integer; overload;
     function        IndexOf(const Value: CString; startIndex: Integer) : Integer; overload;
     function        IndexOf(const Value: CString; comparisonType: StringComparisonFlag): Integer; overload;
     function        IndexOf(const Value: CString; startIndex: Integer; count: Integer; comparisonType: StringComparisonFlag): Integer; overload;
@@ -1144,6 +1148,7 @@ type
     constructor Create(Year, Month, Day, Hour, Minute, Second, MilliSecond: Integer); overload;
     constructor Create(Year, Month, Day: Integer; const TimeOfDay: CTimeSpan); overload;
     constructor Create(DelphDateTime: TDateTime); overload;
+    constructor Create(DelphDateTime: TDateTime; kind: DateTimeKind); overload;
 
     function Equals(const value: CDateTime): Boolean;
 
@@ -7189,6 +7194,21 @@ begin
   Result := (self.IndexOf(Value, StringComparison.Ordinal) >= 0);
 end;
 
+function CString.Contains(const Value: CString; comparisonType: StringComparisonFlag): Boolean;
+begin
+  Result := (self.IndexOf(Value, comparisonType) >= 0);
+end;
+
+function CString.Contains(const Value: string): Boolean;
+begin
+  Result := (self.IndexOf(Value, StringComparison.Ordinal) >= 0);
+end;
+
+function CString.Contains(const Value: string; comparisonType: StringComparisonFlag): Boolean;
+begin
+  Result := (self.IndexOf(Value, comparisonType) >= 0);
+end;
+
 function CString.get_Capacity: Integer;
 begin
   Result := _intf.Capacity;
@@ -7645,10 +7665,18 @@ begin
   Result := Pos(AChar, _value) - 1;
 end;
 
-function CString.IndexOf(const AChar: SystemString): Integer;
+function CString.IndexOf(const Value: SystemString; comparisonType: StringComparisonFlag): Integer;
 begin
   CheckNullReference;
-  Result := Pos(AChar, _value) - 1;
+  if comparisonType in [StringComparison.CurrentCultureIgnoreCase, StringComparison.InvariantCultureIgnoreCase, StringComparison.OrdinalIgnoreCase] then
+    Result := Pos(Value.ToLower, ToLower._value) - 1 else
+    Result := Pos(Value, _value) - 1;
+end;
+
+function CString.IndexOf(const Value: SystemString): Integer;
+begin
+  CheckNullReference;
+  Result := Pos(Value, _value) - 1;
 end;
 
 function CString.IndexOf(const Value: CString; startIndex: Integer) : Integer;
@@ -7670,7 +7698,10 @@ begin
       raise ArgumentOutOfRangeException.Create('startIndex', Environment.GetResourceString('ArgumentOutOfRange_Index'));
   if ((count < 0) or (startIndex > (self.Length - count))) then
       raise ArgumentOutOfRangeException.Create('count', Environment.GetResourceString('ArgumentOutOfRange_Count'));
-  Result := PosEx(Value, _value, startIndex + 1) - 1;
+
+  if comparisonType in [StringComparison.CurrentCultureIgnoreCase, StringComparison.InvariantCultureIgnoreCase, StringComparison.OrdinalIgnoreCase] then
+    Result := PosEx(Value.ToLower, ToLower._value, startIndex + 1) - 1 else
+    Result := PosEx(Value, _value, startIndex + 1) - 1;
 end;
 
 function CString.IndexOfAny(const anyOf: array of SystemChar) : Integer;
@@ -12646,6 +12677,11 @@ end;
 constructor CDateTime.Create(DelphDateTime: TDateTime);
 begin
   self._value := DelphiDateToTicks(DelphDateTime);
+end;
+
+constructor CDateTime.Create(DelphDateTime: TDateTime; kind: DateTimeKind);
+begin
+  Create(DelphiDateToTicks(DelphDateTime), kind);
 end;
 
 class function CDateTime.AbsoluteDays(year, month, day: Integer): Integer;
