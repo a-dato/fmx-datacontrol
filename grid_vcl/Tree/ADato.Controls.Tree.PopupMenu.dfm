@@ -30,22 +30,22 @@ object frmPopupMenu: TfrmPopupMenu
     BevelOuter = bvNone
     ParentColor = True
     TabOrder = 0
-    ExplicitHeight = 346
-    object pnlFilterOptions: TPanel
+    object pnlFilterItems: TPanel
       Left = 0
-      Top = 78
+      Top = 72
       Width = 196
-      Height = 273
+      Height = 279
       Margins.Left = 6
       Align = alClient
       BevelOuter = bvNone
       BorderWidth = 2
       ParentColor = True
       TabOrder = 0
-      ExplicitHeight = 264
+      ExplicitTop = 104
+      ExplicitHeight = 247
       object pnlButtons: TPanel
         Left = 2
-        Top = 246
+        Top = 252
         Width = 192
         Height = 25
         Margins.Top = 30
@@ -54,7 +54,7 @@ object frmPopupMenu: TfrmPopupMenu
         BevelOuter = bvNone
         ParentColor = True
         TabOrder = 0
-        ExplicitTop = 245
+        ExplicitTop = 220
         object btnOK: TButton
           Left = 15
           Top = 3
@@ -78,66 +78,23 @@ object frmPopupMenu: TfrmPopupMenu
       end
       object pnlTreeControl: TPanel
         Left = 2
-        Top = 28
+        Top = 2
         Width = 192
-        Height = 218
+        Height = 250
         Align = alClient
         BevelOuter = bvNone
         Caption = 'pnlTreeControl'
         ParentColor = True
         ShowCaption = False
         TabOrder = 1
-        ExplicitHeight = 207
-      end
-      object pnlSearchText: TPanel
-        AlignWithMargins = True
-        Left = 3
-        Top = 5
-        Width = 191
-        Height = 20
-        Margins.Left = 1
-        Margins.Right = 0
-        Align = alTop
-        BevelEdges = [beBottom]
-        BevelOuter = bvNone
-        ParentColor = True
-        TabOrder = 2
-        object SearchEditor: TButtonedEdit
-          Left = 0
-          Top = 0
-          Width = 127
-          Height = 20
-          Margins.Top = 0
-          Margins.Right = 0
-          Margins.Bottom = 0
-          Align = alClient
-          LeftButton.DisabledImageIndex = 21
-          LeftButton.Hint = 'Go'
-          ParentColor = True
-          RightButton.Hint = 'Search options'
-          TabOrder = 0
-          TextHint = 'Filter text'
-          OnChange = SearchEditorChange
-          ExplicitHeight = 21
-        end
-        object btnUseFilter: TButton
-          Left = 127
-          Top = 0
-          Width = 64
-          Height = 20
-          Hint = 'Use filter text to filter data inside this column'
-          Align = alRight
-          Caption = 'Use filter'
-          TabOrder = 1
-          OnClick = btnUseFilterClick
-        end
+        ExplicitHeight = 218
       end
     end
     object pnlMenuItems: TPanel
       Left = 0
       Top = 0
       Width = 196
-      Height = 78
+      Height = 44
       Margins.Top = 30
       Align = alTop
       AutoSize = True
@@ -146,6 +103,78 @@ object frmPopupMenu: TfrmPopupMenu
       Padding.Bottom = 3
       ParentColor = True
       TabOrder = 1
+    end
+    object pnlFilterText: TPanel
+      AlignWithMargins = True
+      Left = 1
+      Top = 49
+      Width = 195
+      Height = 20
+      Margins.Left = 1
+      Margins.Right = 0
+      Align = alTop
+      BevelEdges = [beBottom]
+      BevelOuter = bvNone
+      ParentColor = True
+      TabOrder = 2
+      ExplicitTop = 81
+      object SearchEditor: TButtonedEdit
+        Left = 23
+        Top = 0
+        Width = 108
+        Height = 20
+        Margins.Top = 0
+        Margins.Right = 0
+        Margins.Bottom = 0
+        Align = alClient
+        LeftButton.DisabledImageIndex = 21
+        LeftButton.Hint = 'Go'
+        ParentColor = True
+        RightButton.Hint = 'Search options'
+        TabOrder = 0
+        TextHint = 'Filter text'
+        OnChange = SearchEditorChange
+        OnKeyDown = SearchEditorKeyDown
+        ExplicitLeft = 0
+        ExplicitWidth = 131
+        ExplicitHeight = 21
+      end
+      object btnUseFilter: TButton
+        Left = 131
+        Top = 0
+        Width = 64
+        Height = 20
+        Hint = 'Use filter text to filter data inside this column'
+        Align = alRight
+        Caption = 'Use filter'
+        TabOrder = 1
+        OnClick = btnUseFilterClick
+      end
+      object chkSelectAll: TCheckBox
+        AlignWithMargins = True
+        Left = 2
+        Top = 0
+        Width = 18
+        Height = 20
+        Margins.Left = 2
+        Margins.Top = 0
+        Margins.Bottom = 0
+        Align = alLeft
+        TabOrder = 2
+        OnClick = chkSelectAllClick
+        ExplicitLeft = 0
+      end
+    end
+    object pnlSplitter: TPanel
+      Left = 0
+      Top = 44
+      Width = 196
+      Height = 2
+      Align = alTop
+      Caption = 'pnlSplitter'
+      ParentColor = True
+      ShowCaption = False
+      TabOrder = 3
     end
   end
   object pnlImages: TPanel
@@ -160,7 +189,6 @@ object frmPopupMenu: TfrmPopupMenu
     Color = 14803425
     ParentBackground = False
     TabOrder = 1
-    ExplicitHeight = 346
     object SortA_to_ZButton: TImage
       AlignWithMargins = True
       Left = 6

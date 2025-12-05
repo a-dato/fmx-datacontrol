@@ -192,7 +192,6 @@
         <DCCReference Include="..\Tree\FMX.ScrollControl.WithCells.PopupMenu.pas"/>
         <DCCReference Include="..\Tree\FMX.ScrollControl.DataControl.Impl.pas"/>
         <DCCReference Include="..\Tree\FMX.ScrollControl.DataControl.Binders.pas"/>
-        <DCCReference Include="..\Scrollable\FMX.PickList.Intf.pas"/>
         <DCCReference Include="..\Scrollable\FMX.ScrollControl.ControlClasses.Intf.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>

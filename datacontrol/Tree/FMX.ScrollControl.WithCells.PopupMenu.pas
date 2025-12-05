@@ -109,6 +109,7 @@ type
 
     _PopupResult: TPopupResult;
     _dataControl: TDataControl;
+    _data: Dictionary<CObject, CString>;
 
     [unsafe] _LayoutColumn: IDCTreeLayoutColumn;
 
@@ -142,7 +143,7 @@ implementation
 
 uses
   FMX.ScrollControl.SortAndFilter,
-  FMX.ScrollControl.WithRows.Intf, FMX.PickList.Intf;
+  FMX.ScrollControl.WithRows.Intf;
 
 {$R *.fmx}
 
@@ -227,26 +228,13 @@ begin
   if _dataControl <> nil then
     Exit;
 
-//  if _FilterBorder <> nil then
-//  begin
-//    _EbSearch.Text := '';
-//    exit;
-//  end;
-//
-//  _FilterBorder := TLayout.Create(filterlist);
-//  _FilterBorder.Align := TAlignLayout.Top;
-//  _FilterBorder.Height := 37;
-//
-//  filterlist.AddObject(_FilterBorder);
-
   _dataControl := TDataControl.Create(Self);
   _dataControl.Align := TAlignLayout.Client;
-  _dataControl.Options := [TDCTreeOption.MultiSelect];
+  _dataControl.Options := [TDCTreeOption.MultiSelect, TDCTreeOption.KeepCurrentSelection];
   _dataControl.RowHeightFixed := 26;
   _dataControl.AllowNoneSelected := True;
   _dataControl.CellSelected := TreeCellSelected;
   _dataControl.CellFormatting := TreeCellFormatting;
-  _dataControl.ItemType := &Type.From<TDataItemWithText>;
 
   filterlist.AddObject(_dataControl);
 
@@ -257,7 +245,7 @@ begin
   _dataControl.Columns.Add(column1);
 
   var column2: IDCTreeColumn := TDCTreeColumn.Create;
-  column2.PropertyName := 'Text';
+  column2.PropertyName := '[object]';
   column2.Visualisation.ReadOnly := True;
   column2.WidthSettings.WidthType := TDCColumnWidthType.Percentage;
   column2.WidthSettings.Width := 100;
@@ -272,39 +260,24 @@ end;
 
 procedure TfrmFMXPopupMenuDataControl.LoadFilterItems(const Data: Dictionary<CObject, CString>; const Comparer: IComparer<CObject>; const Selected: List<CObject>; CompareText: Boolean);
 begin
-  var items: List<TDataItemWithText> := CList<TDataItemWithText>.Create(Data.Count);
-
-  var selected_items: List<TDataItemWithText>;
-  if Selected <> nil then
-    selected_items := CList<TDataItemWithText>.Create(Selected.Count);
-
-  var item: TDataItemWithText;
-  var kv: KeyValuePair<CObject, CString>;
-
-  for kv in Data do
-  begin
-    item := TDataItemWithText.Create(kv.Key, kv.Value);
-    items.Add(item);
-
-    if (Selected <> nil) and (Selected.Contains(kv.Key) or (CObject.Equals(kv.Key, NO_VALUE_KEY) and Selected.Contains(nil))) then
-      selected_items.Add(item);
-  end;
+  _data := Data;
+  var items: List<CObject> := CList<CObject>.Create(Data.Keys);
 
   items.Sort(
-      function (const x, y: TDataItemWithText): Integer
+      function (const x, y: CObject): Integer
       begin
-        if Comparer <> nil then
-          Result := Comparer.Compare(x.Data, y.Data)
+        if (Comparer <> nil) then
+          Result := Comparer.Compare(x, y)
         else if CompareText then
-          Result := CString.Compare(x.Text, y.Text)
+          Result := CString.Compare(Data[x], Data[y])
         else
-          Result := CObject.Compare(x.Data, y.Data);
+          Result := CObject.Compare(x, y);
       end);
 
   _dataControl.DataList := items as IList;
 
-  if selected_items <> nil then
-    _dataControl.AssignSelection(selected_items as IList);
+  if Selected <> nil then
+    _dataControl.AssignSelection(Selected as IList);
 end;
 
 function TfrmFMXPopupMenuDataControl.get_LayoutColumn: IDCTreeLayoutColumn;
@@ -314,17 +287,7 @@ end;
 
 function TfrmFMXPopupMenuDataControl.get_SelectedItems: List<CObject>;
 begin
-  var selected := _dataControl.SelectedItems<TDataItemWithText>;
-  if (selected = nil) or (selected.Count = 0) or (selected.Count = _dataControl.DataList.Count) then
-    Exit(nil);
-
-  Result := CList<CObject>.Create(selected.Count);
-  for var f in selected do
-  begin
-    if CObject.Equals(f.Data, NO_VALUE_KEY) then
-      Result.Add(nil) else
-      Result.Add(f.Data);
-  end;
+  Result := _dataControl.SelectedItems;
 end;
 
 procedure TfrmFMXPopupMenuDataControl.SetAllowClearColumnFilter(Value: Boolean);
@@ -445,11 +408,18 @@ begin
   if e.Cell.IsHeaderCell then
     Exit;
 
-  if (e.Value = nil) or (e.Value.GetType.IsDateTime and CDateTime(e.Value).Equals(CDateTime.MinValue)) then
+  var s: CString;
+  if _data.TryGetValue(e.value, s) then
   begin
-    e.Value := 'no value';
+    e.Value := s;
     e.FormattingApplied := True;
   end;
+
+//  if (e.Value = nil) or (e.Value.GetType.IsDateTime and CDateTime(e.Value).Equals(CDateTime.MinValue)) then
+//  begin
+//    e.Value := 'no value';
+//    e.FormattingApplied := True;
+//  end;
 end;
 
 end.

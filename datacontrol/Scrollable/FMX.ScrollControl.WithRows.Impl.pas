@@ -2621,25 +2621,36 @@ begin
   try
     _selectionInfo.ClearAllSelections;
 
-    if (not (TreeOption_MultiSelect in _options)) or (SelectedItems.Count = 1) then
+    var item: CObject;
+    for item in SelectedItems do
     begin
-      var viewListIndex := _view.GetViewListIndex(SelectedItems[0]);
+      var viewListIndex := _view.GetViewListIndex(item);
       var dataIndex := _view.GetDataIndex(viewListIndex);
 
       if dataIndex <> -1 then
-        _selectionInfo.UpdateSingleSelection(dataIndex, viewListIndex, SelectedItems[0], TDCTreeOption.KeepCurrentSelection in _Options);
-    end else
-    begin
-      var item: CObject;
-      for item in SelectedItems do
-      begin
-        var viewListIndex := _view.GetViewListIndex(item);
-        var dataIndex := _view.GetDataIndex(viewListIndex);
-
-        if dataIndex <> -1 then
-          _selectionInfo.AddToSelection(dataIndex, viewListIndex, item);
-      end;
+        _selectionInfo.AddToSelection(dataIndex, viewListIndex, item);
     end;
+
+
+//    if (not (TreeOption_MultiSelect in _options)) or (SelectedItems.Count = 1) then
+//    begin
+//      var viewListIndex := _view.GetViewListIndex(SelectedItems[0]);
+//      var dataIndex := _view.GetDataIndex(viewListIndex);
+//
+//      if dataIndex <> -1 then
+//        _selectionInfo.UpdateSingleSelection(dataIndex, viewListIndex, SelectedItems[0], TDCTreeOption.KeepCurrentSelection in _Options);
+//    end else
+//    begin
+//      var item: CObject;
+//      for item in SelectedItems do
+//      begin
+//        var viewListIndex := _view.GetViewListIndex(item);
+//        var dataIndex := _view.GetDataIndex(viewListIndex);
+//
+//        if dataIndex <> -1 then
+//          _selectionInfo.AddToSelection(dataIndex, viewListIndex, item);
+//      end;
+//    end;
   finally
     _selectionInfo.EndUpdate;
   end;

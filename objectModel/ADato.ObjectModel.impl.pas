@@ -357,12 +357,30 @@ end;
 
 procedure TObjectModelContext.PropertyNotifyBindings(const AProperty: IObjectModelProperty);
 begin
+  {$IFDEF DEBUG}
+  try
+    var value: CObject;
+    if _Context <> nil then
+      value := AProperty.GetValue(_Context, []) else
+      value := nil;
+
+    AProperty.NotifyBindings(_Context, value, False);
+  except
+    var v2: CObject;
+    if _Context <> nil then
+      v2 := AProperty.GetValue(_Context, []) else
+      v2 := nil;
+
+    AProperty.NotifyBindings(_Context, v2, False);
+  end;
+  {$ELSE}
   var value: CObject;
   if _Context <> nil then
     value := AProperty.GetValue(_Context, []) else
     value := nil;
 
   AProperty.NotifyBindings(_Context, value, False);
+  {$ENDIF}
 end;
 
 procedure TObjectModelContext.set_Context(const Value: CObject);

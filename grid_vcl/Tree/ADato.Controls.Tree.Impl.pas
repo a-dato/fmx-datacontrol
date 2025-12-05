@@ -679,6 +679,7 @@ type
     _Sort           : SortType;
     _ShowSortMenu   : Boolean;
     _ShowFilterMenu : Boolean;
+    _ShowTextFilter : Boolean;
     _css            : ICssHelper;
     _cssSortAscending   : ICssHelper;
     _cssSortDescending  : ICssHelper;
@@ -728,6 +729,8 @@ type
     procedure set_ShowSortMenu(const Value: Boolean);
     function  get_ShowFilterMenu: Boolean;
     procedure set_ShowFilterMenu(const Value: Boolean);
+    function  get_ShowTextFilter: Boolean;
+    procedure set_ShowTextFilter(const Value: Boolean);
     function  get_Tag: CObject;
     procedure set_Tag(const Value: CObject);
     function  get_TabStops: CString; virtual;
@@ -810,6 +813,10 @@ type
     property ShowFilterMenu: Boolean
       read get_ShowFilterMenu
       write set_ShowFilterMenu;
+
+    property ShowTextFilter: Boolean
+      read get_ShowTextFilter
+      write set_ShowTextFilter;
 
     property Sort: SortType
       read get_Sort
@@ -8823,7 +8830,7 @@ begin
     begin
       // column := _Layout.FlatColumns[_Layout.ColumnToFlatIndex(columnIndex)];
       column := _Layout.Columns[columnIndex];
-      if column.Column.ShowSortMenu or column.Column.ShowFilterMenu or column.Column.AllowHide then
+      if column.Column.ShowSortMenu or column.Column.ShowFilterMenu or column.Column.ShowTextFilter or column.Column.AllowHide then
         ShowHeaderPopupMenu(location, column);
     end;
   end else
@@ -9237,13 +9244,14 @@ begin
   end;
 
   popupMenu := TfrmPopupMenu.Create(Self);
-  popupMenu.ShowFilterOptions := showFilter;
+  popupMenu.ShowFilterText := Column.Column.ShowTextFilter;
+  popupMenu.ShowFilterItems := showFilter;
   popupMenu.ShowSortOptions := Column.Column.ShowSortMenu;
   popupMenu.ShowUpdateColumnsOption := TreeOption.AllowColumnUpdates in _Options;
   popupMenu.ShowHideColumnOption := Column.Column.AllowHide;
   popupMenu.OnClose := HeaderPopupMenu_Closed;
 
-  if showFilter then
+  if showFilter or Column.Column.ShowTextFilter then
   try
     // Get active filter for this column
     filter := GetColumnFilter(column);
@@ -9254,16 +9262,18 @@ begin
                                 filter.Values {Holds current selection},
                                 filter.ShowEmptyValues,
                                 filter.LayoutColumn.Column.Sort = SortType.DisplayText);
+
       popupMenu.FilterText := filter.FilterText;
       popupMenu.AllowClearColumnFilter := True;
     end
     else
     begin
       popupMenu.LoadItemsFrom(dataValues, comparer, nil, False, False);
+      popupMenu.FilterText := '';
       popupMenu.AllowClearColumnFilter := False;
     end;
   except
-    popupMenu.ShowFilterOptions := False;
+    popupMenu.ShowFilterItems := False;
   end;
 
   popupMenu.Left := Location.X;
@@ -9937,6 +9947,7 @@ var
     column.ReadOnly := readonly;
     column.ShowSortMenu := True;
     column.ShowFilterMenu := True;
+    column.ShowTextFilter := True;
     column.Sort := asortType;
     column.Header.CssClass := StringToCString(headerCssClass);
     column.CssImage.CssClass := StringToCString(imageCssClass);
@@ -10190,6 +10201,7 @@ begin
     _sort := _src.Sort;
     _ShowSortMenu := _src.ShowSortMenu;
     _ShowFilterMenu := _src.ShowFilterMenu;
+    _ShowTextFilter := _src.ShowTextFilter;
     _ReadOnly := _src.ReadOnly;
     _PropertyName := _src.PropertyName;
     _Tag := _src.Tag;
@@ -10407,9 +10419,19 @@ begin
   Result := _ShowSortMenu;
 end;
 
+function TTreeColumn.get_ShowTextFilter: Boolean;
+begin
+  Result := _ShowTextFilter
+end;
+
 procedure TTreeColumn.set_ShowSortMenu(const Value: Boolean);
 begin
   _ShowSortMenu := Value;
+end;
+
+procedure TTreeColumn.set_ShowTextFilter(const Value: Boolean);
+begin
+  _ShowTextFilter := Value;
 end;
 
 function TTreeColumn.get_ShowFilterMenu: Boolean;
@@ -11136,14 +11158,16 @@ end;
 
 procedure TTreeFilterDescription.set_FilterType(const Value: FilterType);
 begin
-  if _FilterType <> Value then
-  begin
-    _FilterType := Value;
+  _FilterType := Value;
 
-    if _FilterType = FilterType.List then
-      _FilterText := nil else
-      _Values := nil;
-  end;
+//  if _FilterType <> Value then
+//  begin
+//    _FilterType := Value;
+//
+//    if _FilterType = FilterType.List then
+//      _FilterText := nil else
+//      _Values := nil;
+//  end;
 end;
 
 function TTreeFilterDescription.get_Values: List<CObject>;
@@ -13296,9 +13320,11 @@ var
     Result := TextData.ToLower.Contains(TextToFind);
   end;
 
-  function TryMatch(const SearchObj: CObject; const Filter: ITreeFilterDescription): Boolean;
+  function TryMatch(const DataItem: CObject; const SearchObj: CObject; const Filter: ITreeFilterDescription): Boolean;
   begin
-    if Filter.FilterType <> FilterType.List then
+    if (Filter.FilterType = FilterType.Comparer) and (Filter.Comparer <> nil) then
+      Result := Filter.Comparer.Compare(DataItem, Filter.FilterText) = 0
+    else if Filter.FilterType <> FilterType.List then
       Result := (SearchObj <> nil) and MatchText(SearchObj.ToString, Filter.FilterText) // Full text search
     else if Filter.Comparer <> nil then
       Result := Filter.Values.BinarySearch(SearchObj, Filter.Comparer) >= 0
@@ -13493,8 +13519,9 @@ begin
         // This was required to implement filtering on resources/skills from My Activities
         SortType.RowSorter, SortType.Comparer:
         begin
-          if (filtersArr[i] <> nil) and (filtersArr[i].Comparer <> nil) and not TreeRowList.IsNew(source[n]) then
-            match := filtersArr[i].Comparer.Compare(source[n], nil) = 0 else
+          if (filtersArr[i] <> nil) and not TreeRowList.IsNew(source[n]) then
+            match := TryMatch(source[n], nil, filtersArr[i]) else
+            // match := filtersArr[i].Comparer.Compare(source[n], nil) = 0 else
             match := True;
 
           if useArrayKeys then
@@ -13547,13 +13574,13 @@ begin
           if (filtersArr[i] <> nil) then
           begin
             if datalist = nil then
-              match := TryMatch(searchObj, filtersArr[i])
+              match := TryMatch(source[n], searchObj, filtersArr[i])
             else
               for searchObj in datalist do
               begin
                 if (srtType = SortType.DisplayText) and (formattedData <> nil) then
-                  match := TryMatch(searchObj.ToString, filtersArr[i]) else
-                  match := TryMatch(searchObj, filtersArr[i]);
+                  match := TryMatch(source[n], searchObj.ToString, filtersArr[i]) else
+                  match := TryMatch(source[n], searchObj, filtersArr[i]);
 
                 if match then
                   break;
