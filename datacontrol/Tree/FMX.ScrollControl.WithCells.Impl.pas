@@ -3242,7 +3242,7 @@ end;
 
 function TScrollControlWithCells.CellHasData(const Cell: IDCTreeCell): Boolean;
 
-  function CheckCtrl(CtrlClass: TInfoControlClass; const Ctrl: IDCControl): Boolean;
+  function CheckCtrl(CtrlClass: TInfoControlClass; const Ctrl: TControl): Boolean;
   begin
     if (Ctrl = nil) or not Ctrl.Visible then
       Exit(False);
@@ -3259,9 +3259,9 @@ function TScrollControlWithCells.CellHasData(const Cell: IDCTreeCell): Boolean;
 
 begin
   // heavy method.. DON'T use if it is not needed!!
-  Result := CheckCtrl(cell.Column.InfoControlClass, cell.InfoControl);
+  Result := CheckCtrl(cell.Column.InfoControlClass, cell.InfoControl.Control);
   if not Result then
-    Result := CheckCtrl(cell.Column.SubInfoControlClass, cell.SubInfoControl);
+    Result := CheckCtrl(cell.Column.SubInfoControlClass, cell.SubInfoControl.Control);
 end;
 
 procedure TScrollControlWithCells.PrepareCellControls(const Cell: IDCTreeCell);

@@ -50,13 +50,18 @@ type
     function IsEmpty: Boolean;
   end;
 
-  TADatoClickLayout = class(TLayout, ICaption, IDCControl)
+  TADatoClickLayout = class(TLayout, ICaption, IDCControl, IImageControl)
   protected
     _dcControl: IDCControl;
+    _imageControl: IImageControl;
+
     function get_DCControl: IDCControl;
+    function get_ImageControl: IImageControl;
 
   public
     property DCControl: IDCControl read get_DCControl implements IDCControl;
+    property ImageControl: IImageControl read get_ImageControl implements IImageControl;
+
   protected
     _polygon: TPolygon;
     _innerBounds: TRectF;
@@ -570,6 +575,7 @@ begin
   inherited Create(AOwner);
 
   _dcControl := TDCControlImpl.Create(Self);
+  _imageControl := TImageControlImpl.Create(Self);
 
   _imageIndex := -1;
   EnableExecuteAction := True;
@@ -596,6 +602,11 @@ end;
 function TADatoClickLayout.get_DCControl: IDCControl;
 begin
   Result := _dcControl;
+end;
+
+function TADatoClickLayout.get_ImageControl: IImageControl;
+begin
+  Result := _imageControl;
 end;
 
 function TADatoClickLayout.get_ImageName: string;
