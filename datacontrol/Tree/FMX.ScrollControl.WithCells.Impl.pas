@@ -3242,7 +3242,7 @@ end;
 
 function TScrollControlWithCells.CellHasData(const Cell: IDCTreeCell): Boolean;
 
-  function CheckCtrl(CtrlClass: TInfoControlClass; const Ctrl: TControl): Boolean;
+  function CheckCtrl(CtrlClass: TInfoControlClass; const Ctrl: IDCControl): Boolean;
   begin
     if (Ctrl = nil) or not Ctrl.Visible then
       Exit(False);
@@ -3250,8 +3250,13 @@ function TScrollControlWithCells.CellHasData(const Cell: IDCTreeCell): Boolean;
     case CtrlClass of
       TInfoControlClass.Text: Exit((Ctrl as ICaption).Text <> '');
       TInfoControlClass.CheckBox: Exit((Ctrl as IIsChecked).IsChecked);
-      TInfoControlClass.Button: Exit((Ctrl as IImageControl).ImageIndex <> -1);
-      TInfoControlClass.Glyph: Exit((Ctrl as IImageControl).ImageIndex <> -1);
+      TInfoControlClass.Button, TInfoControlClass.Glyph:
+      begin
+        var imgCtrl: IImageControl;
+        if interfaces.Supports<IImageControl>(Ctrl, imgCtrl) then
+          Exit(imgCtrl.ImageIndex <> -1) else
+          Exit(False);
+      end;
     end;
 
     Result := True;
@@ -3259,9 +3264,9 @@ function TScrollControlWithCells.CellHasData(const Cell: IDCTreeCell): Boolean;
 
 begin
   // heavy method.. DON'T use if it is not needed!!
-  Result := CheckCtrl(cell.Column.InfoControlClass, cell.InfoControl.Control);
+  Result := CheckCtrl(cell.Column.InfoControlClass, cell.InfoControl);
   if not Result then
-    Result := CheckCtrl(cell.Column.SubInfoControlClass, cell.SubInfoControl.Control);
+    Result := CheckCtrl(cell.Column.SubInfoControlClass, cell.SubInfoControl);
 end;
 
 procedure TScrollControlWithCells.PrepareCellControls(const Cell: IDCTreeCell);

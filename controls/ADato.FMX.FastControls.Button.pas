@@ -52,7 +52,6 @@ type
 
   TADatoClickLayout = class(TLayout, ICaption, IDCControl, IImageControl)
   protected
-    _dcControl: IDCControl;
     _imageControl: IImageControl;
 
     function get_DCControl: IDCControl;
@@ -574,7 +573,6 @@ constructor TADatoClickLayout.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
 
-  _dcControl := TDCControlImpl.Create(Self);
   _imageControl := TImageControlImpl.Create(Self);
 
   _imageIndex := -1;
@@ -601,7 +599,7 @@ end;
 
 function TADatoClickLayout.get_DCControl: IDCControl;
 begin
-  Result := _dcControl;
+  Result := _imageControl as IDCControl;
 end;
 
 function TADatoClickLayout.get_ImageControl: IImageControl;
