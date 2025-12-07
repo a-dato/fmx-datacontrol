@@ -483,9 +483,7 @@ type
 
     function  CanSelect(const DataIndex: Integer): Boolean;
     function  HasSelection: Boolean;
-    {$IFDEF SELECT}
     function  IsChecked(const DataIndex: Integer): Boolean;
-    {$ENDIF}
     function  IsSelected(const DataIndex: Integer): Boolean;
     function  GetSelectionInfo(const DataIndex: Integer): IRowSelectionInfo;
     function  SelectedRowCount: Integer;
@@ -2695,7 +2693,6 @@ begin
     Exit;
   end;
 
-  {$IFDEF SELECT}
   if (TDCTreeOption.MultiSelect in _options) and (ssShift in Shift) then
   begin
     var lastSelectedIndex := _selectionInfo.ViewListIndex;
@@ -2719,32 +2716,6 @@ begin
       _selectionInfo.Deselect(Row.DataIndex);
   end else
     _selectionInfo.UpdateSingleSelection(Row.DataIndex, Row.ViewListIndex, Row.DataItem, TDCTreeOption.KeepCurrentSelection in _Options);
-  {$ELSE}
-  if (TDCTreeOption.MultiSelect in _options) and (ssShift in Shift) then
-  begin
-    var lastSelectedIndex := _selectionInfo.ViewListIndex;
-
-    var viewListIndex := lastSelectedIndex;
-    while viewListIndex <> Row.ViewListIndex do
-    begin
-      _selectionInfo.AddToSelection(_view.GetDataIndex(viewListIndex), viewListIndex, _view.GetViewList[viewListIndex]);
-
-      if lastSelectedIndex < Row.ViewListIndex then
-        inc(ViewListIndex) else
-        dec(ViewListIndex);
-    end;
-
-    _selectionInfo.AddToSelection(Row.DataIndex, Row.ViewListIndex, Row.DataItem);
-  end
-  else if (TDCTreeOption.KeepCurrentSelection in _options) or ((TDCTreeOption.MultiSelect in _options) and (ssCtrl in Shift) and (_selectionInfo.LastSelectionEventTrigger = TSelectionEventTrigger.Click)) then
-  begin
-    if not _selectionInfo.IsSelected(Row.DataIndex) then
-      _selectionInfo.AddToSelection(Row.DataIndex, Row.ViewListIndex, Row.DataItem) else
-      _selectionInfo.Deselect(Row.DataIndex);
-  end
-  else
-    _selectionInfo.UpdateSingleSelection(Row.DataIndex, Row.ViewListIndex, Row.DataItem, TDCTreeOption.KeepCurrentSelection in _options);
-  {$ENDIF}
 end;
 
 procedure TScrollControlWithRows.InternalSetCurrent(const Index: Integer; const EventTrigger: TSelectionEventTrigger; Shift: TShiftState; SortOrFilterChanged: Boolean = False);
@@ -3855,12 +3826,10 @@ begin
   Result := (_lastSelectedDataItem <> nil) or get_IsMultiSelection;
 end;
 
-{$IFDEF SELECT}
 function TRowSelectionInfo.IsChecked(const DataIndex: Integer): Boolean;
 begin
   Result := _multiSelection.ContainsKey(DataIndex);
 end;
-{$ENDIF}
 
 function TRowSelectionInfo.IsSelected(const DataIndex: Integer): Boolean;
 begin
@@ -3910,21 +3879,21 @@ end;
 
 procedure TRowSelectionInfo.Deselect(const DataIndex: Integer);
 begin
-  {$IFDEF SELECT}
-  {$ELSE}
-  if (_multiSelection.Count <= 1) or not _multiSelection.ContainsKey(DataIndex) then
-  begin
-    if (_rowsControl <> nil {not a clone}) and (_rowsControl.AllowNoneSelected or not _rowsControl.HasViewRows) then
-    begin
-      if _multiSelection.ContainsKey(DataIndex) then
-        _multiSelection.Remove(DataIndex);
-
-      UpdateLastSelection(-1, -1, nil);
-    end;
-
-    Exit;
-  end;
-  {$ENDIF}
+//  {$IFDEF SELECT}
+//  {$ELSE}
+//  if (_multiSelection.Count <= 1) or not _multiSelection.ContainsKey(DataIndex) then
+//  begin
+//    if (_rowsControl <> nil {not a clone}) and (_rowsControl.AllowNoneSelected or not _rowsControl.HasViewRows) then
+//    begin
+//      if _multiSelection.ContainsKey(DataIndex) then
+//        _multiSelection.Remove(DataIndex);
+//
+//      UpdateLastSelection(-1, -1, nil);
+//    end;
+//
+//    Exit;
+//  end;
+//  {$ENDIF}
 
   // UpdateLastSelection triggers DoSelectionInfoChanged
   // therefore works with Update locks
