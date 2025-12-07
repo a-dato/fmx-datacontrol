@@ -99,9 +99,7 @@ type
 
     function  CanSelect(const DataIndex: Integer): Boolean;
     function  HasSelection: Boolean;
-    {$IFDEF SELECT}
     function  IsChecked(const DataIndex: Integer): Boolean;
-    {$ENDIF}
     function  IsSelected(const DataIndex: Integer): Boolean;
 
     function  GetSelectionInfo(const DataIndex: Integer): IRowSelectionInfo;

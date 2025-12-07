@@ -26,6 +26,10 @@ type
     function  RowIsEditing: Boolean;
     function  CellIsEditing: Boolean;
 
+    procedure BeginEndEditCell;
+    procedure EndEndEditCell;
+    function  InsideEndEditCell: Boolean;
+
     function  IsNew: Boolean;
 
     procedure StartRowEdit(DataIndex: Integer; const EditItem: CObject; IsNew: Boolean);

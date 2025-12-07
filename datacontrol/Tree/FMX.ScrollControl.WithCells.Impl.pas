@@ -1534,27 +1534,12 @@ begin
     var treeCell := treeRow.Cells[flatColumn.Index];
     var checkBox := treeCell.InfoControl as IIsChecked;
 
-    {$IFDEF SELECT}
     if _selectionInfo.IsChecked(treeRow.DataIndex) then
       _selectionInfo.Deselect(treeRow.DataIndex) else
       _selectionInfo.AddToSelection(treeRow.DataIndex, treeRow.ViewListIndex, treeRow.DataItem);
 
     DoCellChanged(nil, treeCell);
     Exit;
-    {$ELSE}
-    if checkBox.IsChecked then
-    begin
-      _selectionInfo.Deselect(treeRow.DataIndex);
-      DoCellChanged(nil, treeCell);
-      Exit;
-    end
-    else if (TreeOption_MultiSelect in _options) then
-    begin
-      _selectionInfo.AddToSelection(treeRow.DataIndex, treeRow.ViewListIndex, treeRow.DataItem);
-      DoCellChanged(nil, treeCell);
-      Exit;
-    end;
-    {$ENDIF}
   end;
 
   var requestedSelection := _selectionInfo.Clone as ITreeSelectionInfo;
@@ -1991,11 +1976,7 @@ begin
     var checkBoxCell := (Row as IDCTreeRow).Cells[selectionCheckBoxColumn.Index];
     var checkBox := checkBoxCell.InfoControl as IIsChecked;
 
-    {$IFDEF SELECT}
     checkBox.IsChecked := _selectionInfo.IsChecked(Row.DataIndex);
-    {$ELSE}
-    checkBox.IsChecked := _selectionInfo.IsSelected(Row.DataIndex);
-    {$ENDIF}
   finally
     dec(_selectionCheckBoxUpdateCount);
   end;
@@ -2841,7 +2822,7 @@ function TScrollControlWithCells.TrySelectItem(const RequestedSelectionInfo: IRo
   begin
     _selectionInfo.BeginUpdate;
     try
-      if {$IFDEF SELECT}_selectionInfo.IsChecked(_selectionInfo.DataIndex){$ELSE}_selectionInfo.IsSelected(_selectionInfo.DataIndex){$ENDIF} then
+      if _selectionInfo.IsChecked(_selectionInfo.DataIndex) then
         _selectionInfo.Deselect(_selectionInfo.DataIndex)
       else
       begin
@@ -2891,10 +2872,9 @@ begin
 
       DoCellSelected(GetActiveCell, _selectionInfo.LastSelectionEventTrigger);
 
-      {$IFDEF SELECT}
       if (ssCtrl in Shift) and (_selectionInfo.LastSelectionEventTrigger = TSelectionEventTrigger.Click) then
         UpdateCurrentRowCheckedState;
-      {$ENDIF}
+
       Exit(True);
     end
     else if not rowChange and not clmnChange then
@@ -2905,10 +2885,8 @@ begin
       // nothing special to do
       DoCellSelected(GetActiveCell, _selectionInfo.LastSelectionEventTrigger);
 
-      {$IFDEF SELECT}
       if (ssCtrl in Shift) and (_selectionInfo.LastSelectionEventTrigger = TSelectionEventTrigger.Click) then
         UpdateCurrentRowCheckedState;
-      {$ENDIF}
 
       Exit(True);
     end;

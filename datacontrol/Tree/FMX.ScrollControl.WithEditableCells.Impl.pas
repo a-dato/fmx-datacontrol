@@ -174,6 +174,11 @@ type
 
     _editItem: CObject;
     _isNew: Boolean;
+    _endEditCellCount: Integer;
+
+    procedure BeginEndEditCell;
+    procedure EndEndEditCell;
+    function  InsideEndEditCell: Boolean;
 
     function  get_EditItem: CObject;
     procedure set_EditItem(const Value: CObject);
@@ -848,7 +853,6 @@ begin
 
   inherited;
 
-  {$IFDEF SELECT}
   if Shift * [ssShift, ssCtrl] = [] then
   begin
     // check if row change came through if it was needed
@@ -861,22 +865,6 @@ begin
         StartEditCell(newCell, nil {keep cell data value});
     end;
   end;
-  {$ELSE}
-  // check if row change came through if it was needed
-  var newCell := GetActiveCell;
-  if (newCell <> nil) and (newCell.Row = clickedRow) and not newCell.Column.ReadOnly then
-  begin
-    if not newCell.Column.IsSelectionColumn and (newCell.Column.InfoControlClass = TInfoControlClass.CheckBox) then
-    begin
-      if (ssShift in Shift) or (ssCtrl in Shift) then
-        Exit; // do nothing
-
-      (newCell.InfoControl as IIsChecked).IsChecked := not (newCell.InfoControl as IIsChecked).IsChecked;
-    end
-    else if ((ssDouble in Shift) or (crrntCell = newCell)) and not _editingInfo.CellIsEditing then
-      StartEditCell(newCell, nil {keep cell data value});
-  end;
-  {$ENDIF}
 end;
 
 function TScrollControlWithEditableCells.LoadDefaultPickListForCell(const Cell: IDCTreeCell; const CellValue: CObject) : IList;
@@ -1299,65 +1287,70 @@ end;
 function TScrollControlWithEditableCells.EndEditCell: Boolean;
 begin
   // stop cell editing
-  if _editingInfo.CellIsEditing then
+  if _editingInfo.CellIsEditing and not _editingInfo.InsideEndEditCell then
   begin
-    var EditRowEnd := False;
+    _editingInfo.BeginEndEditCell;
+    try
+      var EditRowEnd := False;
 
-    var val := _cellEditor.Value;
+      var val := _cellEditor.Value;
 
-    if CObject.Equals(val, _cellEditor.OriginalValue) then
-    begin
-      CancelEdit(True);
-      Exit(True);
-    end;
+      if CObject.Equals(val, _cellEditor.OriginalValue) then
+      begin
+        CancelEdit(True);
+        Exit(True);
+      end;
 
-    var cell := _cellEditor.Cell;
-    if not DoCellParsing(cell, True, {var} val) then
-    begin
-      CancelEdit(True);
-      Exit(False);
-    end;
-//     else _cellEditor.Value := val;
-
-    if Assigned(_editCellEnd) then
-    begin
-      var endEditArgs: DCEndEditEventArgs;
-      AutoObject.Guard(DCEndEditEventArgs.Create(cell, val, _cellEditor.Editor, _editingInfo.EditItem), endEditArgs);
-      endEditArgs.EndRowEdit := False;
-
-      _editCellEnd(Self, endEditArgs);
-
-      if endEditArgs.Accept then
-        val := endEditArgs.Value else
+      var cell := _cellEditor.Cell;
+      if not DoCellParsing(cell, True, {var} val) then
+      begin
+        CancelEdit(True);
         Exit(False);
+      end;
+  //     else _cellEditor.Value := val;
 
-      EditRowEnd := endEditArgs.EndRowEdit;
+      if Assigned(_editCellEnd) then
+      begin
+        var endEditArgs: DCEndEditEventArgs;
+        AutoObject.Guard(DCEndEditEventArgs.Create(cell, val, _cellEditor.Editor, _editingInfo.EditItem), endEditArgs);
+        endEditArgs.EndRowEdit := False;
+
+        _editCellEnd(Self, endEditArgs);
+
+        if endEditArgs.Accept then
+          val := endEditArgs.Value else
+          Exit(False);
+
+        EditRowEnd := endEditArgs.EndRowEdit;
+      end;
+
+      SetCellData(cell, val);
+
+      var isDataItemChange := CString.Equals(cell.Column.PropertyName, COLUMN_SHOW_DEFAULT_OBJECT_TEXT);
+
+      if not isDataItemChange then
+      begin
+        // KV: 24/01/2025
+        // Update the actual contents of the cell after the data in the cell has changed
+        LoadDefaultDataIntoControl(cell, False);
+      end;
+
+      _editingInfo.CellEditingFinished;
+
+      var row := cell.Row as IDCTreeRow;
+      HideEditor;
+
+      // reset width of the cell
+      if row.ContentCellSizes.ContainsKey(cell.Index) then
+        row.ContentCellSizes.Remove(cell.Index);
+
+      DoDataItemChangedInternal(row.DataItem);
+
+      if EditRowEnd then
+        Exit(DoEditRowEnd(row));
+    finally
+      _editingInfo.EndEndEditCell;
     end;
-
-    SetCellData(cell, val);
-
-    var isDataItemChange := CString.Equals(cell.Column.PropertyName, COLUMN_SHOW_DEFAULT_OBJECT_TEXT);
-
-    if not isDataItemChange then
-    begin
-      // KV: 24/01/2025
-      // Update the actual contents of the cell after the data in the cell has changed
-      LoadDefaultDataIntoControl(cell, False);
-    end;
-
-    _editingInfo.CellEditingFinished;
-
-    var row := cell.Row as IDCTreeRow;
-    HideEditor;
-
-    // reset width of the cell
-    if row.ContentCellSizes.ContainsKey(cell.Index) then
-      row.ContentCellSizes.Remove(cell.Index);
-
-    DoDataItemChangedInternal(row.DataItem);
-
-    if EditRowEnd then
-      Exit(DoEditRowEnd(row));
   end;
 
   Result := True;
@@ -1878,18 +1871,13 @@ end;
 
 procedure TScrollControlWithEditableCells.SetSingleSelectionIfNotExists;
 begin
-  {$IFDEF SELECT}
-  Exit;
-  {$ENDIF}
-//  if IsNew then
+// Code dissabled to fix SELECT
+//  if _selectionInfo.HasSelection and IsEdit then
 //    Exit;
-
-  if _selectionInfo.HasSelection and IsEdit then
-    Exit;
-
-  Assert(not IsEdit);
-
-  inherited;
+//
+//  Assert(not IsEdit);
+//
+//  inherited;
 end;
 
 { TTreeEditingInfo }
@@ -1898,6 +1886,21 @@ constructor TTreeEditingInfo.Create;
 begin
   _dataIndex := -1;
   _flatColumnIndex := -1;
+end;
+
+procedure TTreeEditingInfo.BeginEndEditCell;
+begin
+  inc(_endEditCellCount);
+end;
+
+procedure TTreeEditingInfo.EndEndEditCell;
+begin
+  dec(_endEditCellCount);
+end;
+
+function TTreeEditingInfo.InsideEndEditCell: Boolean;
+begin
+  Result := _endEditCellCount > 0;
 end;
 
 function TTreeEditingInfo.get_EditItem: CObject;
@@ -1912,6 +1915,7 @@ end;
 
 procedure TTreeEditingInfo.CellEditingFinished;
 begin
+  Assert(_endEditCellCount > 0);
   _flatColumnIndex := -1;
 end;
 

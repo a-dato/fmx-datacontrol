@@ -118,6 +118,8 @@ type
     function  DoFormatItem(const Item: CObject; out Value: string) : Boolean; virtual;
     procedure DoKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState); virtual;
     procedure DoKeyUp(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState); virtual;
+  public
+    constructor Create(AControl: TControl);
   end;
 
   TImageControlImpl = class(TDCControlImpl, IImageControl)
@@ -541,7 +543,6 @@ end;
 constructor TDCControlImpl.Create(AControl: TControl);
 begin
   _control := AControl;
-  // _control.OnKeyUp := DoKeyUp;
 end;
 
 function TDCControlImpl.get_Padding: TBounds;
@@ -741,6 +742,15 @@ begin
 end;
 
 { TEditControlImpl }
+constructor TEditControlImpl.Create(AControl: TControl);
+begin
+  inherited;
+//  {$IFDEF DEBUG}
+//  AControl.OnKeyDown := DoKeyDown;
+//  AControl.OnKeyUp := DoKeyUp;
+//  {$ENDIF}
+end;
+
 procedure TEditControlImpl.Dispose;
 begin
   inherited;
