@@ -76,6 +76,7 @@ type
 
     procedure UpdateColumnCheck(const DataIndex: Integer; const Column: IDCTreeColumn; IsChecked: Boolean); overload;
     procedure DoCellCheckChangedByUser(const Cell: IDCTreeCell); overload;
+    procedure OnHeaderMouseUp(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Single); override;
 
     procedure OnViewChanged(Sender: TObject; e: EventArgs); override;
 
@@ -113,11 +114,11 @@ type
 
     function  LoadDefaultPickListForCell(const Cell: IDCTreeCell; const CellValue: CObject) : IList;
     procedure StartEditCell(const Cell: IDCTreeCell; const UserValue: CString);
-    function  EndEditCell: Boolean;
+    function  EndEditCell(out ChangeUpdatedSort: Boolean): Boolean;
     procedure SafeForcedEndEdit;
 
     function  DoEditRowStart(const ARow: IDCTreeRow; var DataItem: CObject; IsNew: Boolean) : Boolean;
-    function  DoEditRowEnd(const ARow: IDCTreeRow): Boolean;
+    function  DoEditRowEnd(const ARow: IDCTreeRow; out ChangeUpdatedSort: Boolean): Boolean;
     function  DoCellParsing(const Cell: IDCTreeCell; IsCheckOnEndEdit: Boolean; var AValue: CObject): Boolean;
 
     function  DoAddingNew(out NewObject: CObject) : Boolean;
@@ -446,7 +447,10 @@ begin
     if not _editingInfo.CellIsEditing then
       StartEditCell(GetActiveCell, nil {keep cell data value})
     else if Key = vkReturn then
-      EndEditCell;
+    begin
+      var changeUpdatedSort: Boolean;
+      EndEditCell({out} changeUpdatedSort);
+    end;
 
     Key := 0;
   end
@@ -658,16 +662,8 @@ procedure TScrollControlWithEditableCells.OnViewChanged(Sender: TObject; e: Even
 begin
   if not IsNew and _editingInfo.RowIsEditing then
   begin
-    // before datamodel realy EndEdit, it calls OnViewChanged
-    // we cannot know if the DataModel is still in Edit mode or not by asking the EditFlags..
-    // doesn't matter on ViewChange we simply want to stop editing
-    if _editingInfo.CellIsEditing then
-      EndEditCell;
-
-    // EndCellEdit can already execute EndRowEdit!!
-    // therefor ask if RowIsEditing again
-    if _editingInfo.RowIsEditing then
-      DoEditRowEnd(GetActiveRow as IDCTreeRow);
+    if _updateCount = 0 then
+      EndEditFromExternal;
 
     Exit;
   end;
@@ -677,16 +673,20 @@ end;
 
 procedure TScrollControlWithEditableCells.OnEditorExit;
 begin
-  {$IFDEF DEBUG}
-  // KV: Dissabled to fix F2 | Down arrow | F2
-  {$ELSE}
+  // JvA: turned back on for the following situation:
+  // Edit a cell in a project, than hit Save..
+  // This is (for know) the only point were the tree knows we are going out of edit mode
+
+//  {$IFDEF DEBUG}
+//  // KV: Dissabled to fix F2 | Down arrow | F2
+//  {$ELSE}
   // windows wants to clear the focus control after this point
   // therefor we need a little time untill we can EndEdit and free the editor
   TThread.ForceQueue(nil, procedure
   begin
     SafeForcedEndEdit;
   end);
-  {$ENDIF}
+//  {$ENDIF}
 end;
 
 procedure TScrollControlWithEditableCells.OnEditorKeyDown(var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
@@ -705,10 +705,14 @@ begin
 
     Key := 0;
   end
-  else if (Key in [vkUp, vkDown]) and EndEditCell then
+  else if (Key in [vkUp, vkDown]) then
   begin
+    var changeUpdatedSort: Boolean;
+    if not EndEditCell({out} changeUpdatedSort) or changeUpdatedSort then
+      Exit;
+
     var crr := Self.Current;
-    if not DoEditRowEnd(GetActiveRow as IDCTreeRow) then
+    if not DoEditRowEnd(GetActiveRow as IDCTreeRow, {out} changeUpdatedSort) or changeUpdatedSort then
       Exit;
 
     if Key = vkUp then
@@ -718,6 +722,17 @@ begin
     Self.SetFocus;
     Key := 0;
   end;
+end;
+
+procedure TScrollControlWithEditableCells.OnHeaderMouseUp(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Single);
+begin
+  if (Button = TMouseButton.mbLeft) and not _fullHeaderClick then
+    Exit;
+
+  if _editingInfo.RowIsEditing then
+    EndEditFromExternal;
+
+  inherited;
 end;
 
 procedure TScrollControlWithEditableCells.set_Model(const Value: IObjectListModel);
@@ -931,6 +946,7 @@ function TScrollControlWithEditableCells.TryAddRow(const Position: InsertPositio
 begin
   Assert(not _editingInfo.RowIsEditing);
 
+
   var em: IEditableModel;
   if (_model <> nil) and interfaces.Supports<IEditableModel>(_model, em) and em.CanAdd then
   begin
@@ -947,6 +963,11 @@ begin
   var newItem: CObject := nil;
   if not DoAddingNew({out} newItem) then
     Exit(False);
+
+  // clear all sorts!!
+  ClearTreeSorts;
+  UpdateHeaderRowControls;
+  ForceImmeditiateRealignContent;
 
   if newItem = nil then
   begin
@@ -1284,8 +1305,10 @@ begin
     Result := _cellEditor.Value;
 end;
 
-function TScrollControlWithEditableCells.EndEditCell: Boolean;
+function TScrollControlWithEditableCells.EndEditCell(out ChangeUpdatedSort: Boolean): Boolean;
 begin
+  {out} ChangeUpdatedSort := False;
+
   // stop cell editing
   if _editingInfo.CellIsEditing and not _editingInfo.InsideEndEditCell then
   begin
@@ -1347,7 +1370,7 @@ begin
       DoDataItemChangedInternal(row.DataItem);
 
       if EditRowEnd then
-        Exit(DoEditRowEnd(row));
+        Exit(DoEditRowEnd(row, {out} ChangeUpdatedSort));
     finally
       _editingInfo.EndEndEditCell;
     end;
@@ -1396,8 +1419,13 @@ begin
   if _editingInfo.CellIsEditing then
     SafeForcedEndEdit;
 
+  // EndCellEdit can already execute EndRowEdit!!
+  // therefor ask if RowIsEditing again
   if _editingInfo.RowIsEditing then
-    DoEditRowEnd(crrCell.Row as IDCTreeRow);
+  begin
+    var changeUpdatedSort: Boolean;
+    DoEditRowEnd(crrCell.Row as IDCTreeRow, changeUpdatedSort);
+  end;
 end;
 
 procedure TScrollControlWithEditableCells.FollowCheckThroughChildren(const Cell: IDCTreeCell);
@@ -1576,13 +1604,17 @@ function TScrollControlWithEditableCells.DoCellCanChange(const OldCell, NewCell:
 begin
   if _editingInfo.RowIsEditing then
   begin
-    if not EndEditCell then
+    var changeUpdatedSort: Boolean;
+    if not EndEditCell({out} changeUpdatedSort) or changeUpdatedSort then
       Exit(False);
 
     // stop row editing
     var goToNewRow := (NewCell = nil) or (OldCell.Row.DataIndex <> NewCell.Row.DataIndex);
-    if goToNewRow and not DoEditRowEnd(OldCell.Row as IDCTreeRow) then
-      Exit(False);
+    if goToNewRow then
+    begin
+      if not DoEditRowEnd(OldCell.Row as IDCTreeRow, {out} changeUpdatedSort) or changeUpdatedSort then
+        Exit(False);
+    end;
   end;
 
   Result := inherited;
@@ -1688,7 +1720,7 @@ begin
     Result := True;
 end;
 
-function TScrollControlWithEditableCells.DoEditRowEnd(const ARow: IDCTreeRow): Boolean;
+function TScrollControlWithEditableCells.DoEditRowEnd(const ARow: IDCTreeRow; out ChangeUpdatedSort: Boolean): Boolean;
 var
   rowEditArgs: DCRowEditEventArgs;
 
@@ -1750,11 +1782,13 @@ begin
     // it can be that the EditRowStart is activated by user event that triggers this EditRowEnd
     // for excample by clicking a checkbox on a next row or inserting a new row by "INSERT"
     // therefor we have to wait a little
-    TThread.ForceQueue(nil, procedure
-    begin
-      if not IsEditOrNew then
-        DoDataItemChanged(editItem, dataIndex);
-    end);
+//    TThread.ForceQueue(nil, procedure
+//    begin
+//      if not IsEditOrNew then
+//        DoDataItemChanged(editItem, dataIndex);
+//    end);
+
+    DoDataItemChanged(ARow.ViewListIndex, editItem, {out} ChangeUpdatedSort);
   end;
 end;
 
@@ -1801,7 +1835,8 @@ end;
 procedure TScrollControlWithEditableCells.SafeForcedEndEdit;
 begin
   try
-    if not EndEditCell then
+    var changeUpdatedSort: Boolean;
+    if not EndEditCell({out} changeUpdatedSort) then
       CancelEdit(True);
   except
     on e: Exception do
@@ -1915,7 +1950,7 @@ end;
 
 procedure TTreeEditingInfo.CellEditingFinished;
 begin
-  Assert(_endEditCellCount > 0);
+//  Assert(_endEditCellCount > 0);
   _flatColumnIndex := -1;
 end;
 

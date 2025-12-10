@@ -174,9 +174,11 @@ type
     _autoMultiSelectColumn: IDCTreeCheckboxColumn;
     _localCheckSetInDefaultData: Boolean;
 
-//    _fullRepositionCellsNeeded: Boolean;
-
     procedure FastColumnAlignAfterColumnChange;
+
+    procedure ClearTreeSorts;
+    procedure ClearTreeFilters;
+    procedure UpdateHeaderRowControls;
 
     function  DoCreateNewRow: IDCRow; override;
     function  DoCreateNewCell(const ARow: IDCRow; const LayoutColumn: IDCTreeLayoutColumn): IDCTreeCell; virtual;
@@ -205,7 +207,7 @@ type
 
     procedure UserClicked(Button: TMouseButton; Shift: TShiftState; const X, Y: Single); override;
     procedure OnHeaderClick(Sender: TObject);
-    procedure OnHeaderMouseUp(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Single);
+    procedure OnHeaderMouseUp(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Single); virtual;
     procedure DataModelViewRowPropertiesChanged(Sender: TObject; Args: RowPropertiesChangedEventArgs); override;
 
     procedure MouseMove(Shift: TShiftState; X, Y: Single); override;
@@ -1668,15 +1670,9 @@ begin
     FlatColumn.ActiveSort.ToggleDirection;
 
   AddSortDescription(FlatColumn.ActiveSort, ClearOtherSort);
+  UpdateHeaderRowControls;
 
-  // update all header cells, because other sorts can be turned of (their image should be hidden)
-  if _headerRow <> nil then
-  begin
-    var headerCell: IDCTreeCell;
-    for headerCell in _headerRow.Cells.Values do
-      headerCell.LayoutColumn.UpdateCellControlsByRow(headerCell);
-  end;
-
+  ExecuteAfterRealignOnly(False);
 end;
 
 procedure TScrollControlWithCells.UpdateColumnFilter(const Column: IDCTreeColumn; const FilterText: CString; const FilterValues: List<CObject>);
@@ -1914,35 +1910,55 @@ begin
 
     TfrmFMXPopupMenuDataControl.TPopupResult.ptClearSortAndFilter:
     begin
-      var sorts := _view.GetSortDescriptions;
-      if (sorts <> nil) and (sorts.Count > 0) then
-      begin
-        var sortIx: Integer;
-        for sortIx := sorts.Count - 1 downto 0 do
-          if Interfaces.Supports<ITreeSortDescription>(sorts[sortIx])  then
-            sorts.RemoveAt(sortIx);
-      end;
-
-      var filters := _view.GetFilterDescriptions;
-      if (filters <> nil) and (filters.Count > 0) then
-      begin
-        var filterIx: Integer;
-        for filterIx := filters.Count - 1 downto 0 do
-          if Interfaces.Supports<ITreeFilterDescription>(filters[filterIx])  then
-            filters.RemoveAt(filterIx);
-      end;
-
-      GetInitializedWaitForRefreshInfo.SortDescriptions := sorts;
-      GetInitializedWaitForRefreshInfo.FilterDescriptions := filters;
-
-      var cell: IDCTreeCell;
-      for cell in _headerRow.Cells.Values do
-        cell.LayoutColumn.UpdateCellControlsByRow(cell);
+      ClearTreeSorts;
+      ClearTreeFilters;
+      UpdateHeaderRowControls;
     end;
   end;
   {$ELSE}
   raise NotImplementedException.Create('procedure TScrollControlWithCells.HeaderPopupMenu_Closed(Sender: TObject; var Action: TCloseAction)');
   {$ENDIF}
+end;
+
+procedure TScrollControlWithCells.ClearTreeSorts;
+begin
+  var sorts := _view.GetSortDescriptions;
+  if (sorts <> nil) and (sorts.Count > 0) then
+  begin
+    var sortIx: Integer;
+    for sortIx := sorts.Count - 1 downto 0 do
+      if Interfaces.Supports<ITreeSortDescription>(sorts[sortIx])  then
+        sorts.RemoveAt(sortIx);
+  end;
+
+  GetInitializedWaitForRefreshInfo.SortDescriptions := sorts;
+end;
+
+procedure TScrollControlWithCells.ClearTreeFilters;
+begin
+  var filters := _view.GetFilterDescriptions;
+  if (filters <> nil) and (filters.Count > 0) then
+  begin
+    var filterIx: Integer;
+    for filterIx := filters.Count - 1 downto 0 do
+      if Interfaces.Supports<ITreeFilterDescription>(filters[filterIx])  then
+        filters.RemoveAt(filterIx);
+  end;
+
+  GetInitializedWaitForRefreshInfo.FilterDescriptions := filters;
+end;
+
+procedure TScrollControlWithCells.UpdateHeaderRowControls;
+begin
+  if _headerRow = nil then
+    Exit;
+
+  // update all header cells, because other sorts can be turned of (their image should be hidden)
+  var headerCell: IDCTreeCell;
+  for headerCell in _headerRow.Cells.Values do
+    headerCell.LayoutColumn.UpdateCellControlsByRow(headerCell);
+
+  _headerRow.ContentCellSizes.Clear;
 end;
 
 procedure TScrollControlWithCells.FastColumnAlignAfterColumnChange;
@@ -4896,7 +4912,7 @@ begin
     Cell.InfoControl := TDCControlImpl.Create(styledControl);
     Cell.Control.AddObject(styledControl);
   end else
-    styledControl := Cell.InfoControl as TStyledControl;
+    styledControl := Cell.InfoControl.Control as TStyledControl;
 
   styledControl.StyleLookup := StyleLookUp;
 end;
