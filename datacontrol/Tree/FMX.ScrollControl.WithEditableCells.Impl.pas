@@ -673,6 +673,10 @@ end;
 
 procedure TScrollControlWithEditableCells.OnEditorExit;
 begin
+  // JvA: turned back on for the following situation:
+  // Edit a cell in a project, than hit Save..
+  // This is (for know) the only point were the tree knows we are going out of edit mode
+
 //  {$IFDEF DEBUG}
 //  // KV: Dissabled to fix F2 | Down arrow | F2
 //  {$ELSE}
