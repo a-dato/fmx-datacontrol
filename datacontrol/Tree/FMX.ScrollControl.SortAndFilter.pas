@@ -26,6 +26,7 @@ type
 
   public
     constructor Create(const Column: IDCTreeLayoutColumn; OnGetSortCellData: TOnGetSortCellData); reintroduce;
+    destructor Destroy; override;
 
     procedure SortBegin; override;
     procedure SortCompleted; override;
@@ -126,6 +127,12 @@ begin
   _flatColumn := Column;
   _loadSortableValueInternal := True;
   _onGetSortCellData := OnGetSortCellData;
+end;
+
+destructor TTreeSortDescription.Destroy;
+begin
+
+  inherited;
 end;
 
 function TTreeSortDescription.GetSortableValue(const AObject: CObject): CObject;
