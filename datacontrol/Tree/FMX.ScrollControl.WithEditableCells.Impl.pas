@@ -1906,7 +1906,7 @@ end;
 
 procedure TScrollControlWithEditableCells.SetSingleSelectionIfNotExists;
 begin
-// Code dissabled to fix SELECT
+//  // in case of editing we already have selected an item and we know for sure we can skip this procedure
 //  if _selectionInfo.HasSelection and IsEdit then
 //    Exit;
 //

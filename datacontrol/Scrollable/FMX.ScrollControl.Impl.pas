@@ -124,8 +124,6 @@ type
     _content: TControl;
     _updateCount: Integer;
 
-    _totalDataHeight: Single;
-
     _realignContentTime: Int64;
     _paintTime: Int64;
 
@@ -890,7 +888,6 @@ begin
   _paintTime := -1;
 
   BeginUpdate;
-  _totalDataHeight := _content.Height;
 end;
 
 procedure TScrollControl.RealignFinished;
