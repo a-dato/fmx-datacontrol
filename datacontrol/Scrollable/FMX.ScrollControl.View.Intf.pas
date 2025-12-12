@@ -90,6 +90,8 @@ type
     procedure RecalcSortedRows;
     function  GetViewList: IList;
 
+    function  SortChangedForItem(const ViewListIndex: Integer): Boolean;
+
     procedure StartEdit(const EditItem: CObject);
     procedure EndEdit;
 

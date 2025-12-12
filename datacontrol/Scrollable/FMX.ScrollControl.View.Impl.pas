@@ -54,13 +54,14 @@ type
     function  get_OriginalData: IList;
 
     procedure DataModelViewChanged(Sender: TObject; e: EventArgs);
-//    procedure OnViewChangedArgs(const Sender: TObject; const e: EventArgs);
     procedure OnViewChanged;
 
     function  GetNewActiveRow: IDCRow;
     procedure AddNewRowToActiveRows(const Row: IDCRow; const Index: Integer = -1);
     procedure UpdateViewIndexFromIndex(const Index: Integer);
     procedure UpdatePerformanceIndexIndicators;
+
+    function  SortChangedForItem(const ViewListIndex: Integer): Boolean;
 
   public
     constructor Create(const DataList: IList; DoCreateNewRow: TDoCreateNewRow; AOnViewChanged: EventHandlerProc; const ItemType: &Type); reintroduce; overload;
@@ -141,7 +142,7 @@ uses
   Wasm.FMX.Objects,
   Wasm.FMX.Types,
   {$ENDIF}
-  ADato.Sortable.Impl;
+  ADato.Sortable.Impl, System.Generics.Defaults, ADato.Data.DataModel.impl;
 
 { TDataViewList }
 
@@ -595,6 +596,30 @@ begin
   Result.DataIndex := GetDataIndex(ViewListIndex);
 
   AddNewRowToActiveRows(Result, ViewPortIndex);
+end;
+
+function TDataViewList.SortChangedForItem(const ViewListIndex: Integer): Boolean;
+begin
+  if _dataModelView <> nil then
+  begin
+    var cmp: IComparer<IDataRowView> := DataRowViewComparer.Create(_dataModelView.DataModel, GetSortDescriptions, False);
+
+    if ViewListIndex > 0 then
+    begin
+      var int := cmp.Compare(_dataModelView.Rows[ViewListIndex - 1], _dataModelView.Rows[ViewListIndex]);
+      Result := int > 0;
+    end;
+
+    if ViewListIndex < _dataModelView.Rows.Count - 1 then
+    begin
+      var int := cmp.Compare(_dataModelView.Rows[ViewListIndex], _dataModelView.Rows[ViewListIndex + 1]);
+      Result := int > 0;
+    end;
+  end
+  else if _comparer <> nil then
+  begin
+  end;
+
 end;
 
 function TDataViewList.IsFirstAlign: Boolean;

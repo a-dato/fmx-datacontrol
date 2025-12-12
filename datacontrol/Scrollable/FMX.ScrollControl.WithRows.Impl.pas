@@ -294,7 +294,7 @@ type
     procedure AddFilterDescription(const Filter: IListFilterDescription; const ClearOtherFlters: Boolean);
 
     procedure DoDataItemChangedInternal(const DataItem: CObject); virtual;
-    procedure DoDataItemChanged(const DataItem: CObject; const DataIndex: Integer);
+    procedure DoDataItemChanged(const CurrentViewListIndex: Integer; const DataItem: CObject; out ChangeUpdatedSort: Boolean);
 
     function  VisibleRows: List<IDCRow>;
 
@@ -628,20 +628,32 @@ begin
   Result := TDCRow.Create(Self);
 end;
 
-procedure TScrollControlWithRows.DoDataItemChanged(const DataItem: CObject; const DataIndex: Integer);
+procedure TScrollControlWithRows.DoDataItemChanged(const CurrentViewListIndex: Integer; const DataItem: CObject; out ChangeUpdatedSort: Boolean);
 begin
-  OnSelectionInfoChanged;
-//  var dataIndexActive := _view.FastPerformanceDataIndexIsActive(DataIndex);
-//
-//  var viewListindex := _view.GetViewListIndex(DataItem);
-//  if (viewListIndex = -1) and not dataIndexActive then
-//    Exit;
-//
-//  // clear all from this point,
-//  // because as well row height as cell widths can be changed
-//
-//  DoDataItemChangedInternal(DataItem);
-//  ResetView(viewListindex, viewListindex <> -1 {only if still exists});
+  // datamodelView already Recalcs sorted rows in the DataModel.EndEdit
+  if not ViewIsDataModelView then
+  begin
+    inc(_updateCount); // make sure to ignore OnViewChanged
+    try
+      _view.RecalcSortedRows;
+    finally
+      dec(_updateCount);
+    end;
+  end;
+
+  var newViewListIndex := _view.GetViewListIndex(DataItem);
+
+  ChangeUpdatedSort := CurrentViewListIndex <> newViewListIndex;
+  if not ChangeUpdatedSort then
+  begin
+    OnSelectionInfoChanged;
+    Exit;
+  end;
+
+  // sorting changed due to user change
+  // reset view from lowest viewlistIndex
+  ResetView(CMath.Min(CurrentViewListIndex, newViewListIndex), False);
+  GetInitializedWaitForRefreshInfo.DataItem := DataItem;
 end;
 
 procedure TScrollControlWithRows.DoDataItemChangedInternal(const DataItem: CObject);
@@ -795,18 +807,18 @@ end;
 
 procedure TScrollControlWithRows.DoRealignContent;
 begin
+  {$IFDEF DEBUG}
   if (Self.Name = 'TreeControl') or (Self.Name = 'GanttChart') then
   begin
     inc(_logIx);
 
-    {$IFDEF DEBUG}
     _stopwatch1.Reset;
     _stopwatch2.Reset;
     _stopwatch3.Reset;
-    {$ENDIF}
 
     Log('START OF ' + _logIx.ToString);
   end;
+  {$ENDIF}
 
   var goMaster := TryStartMasterSynchronizer(True);
   try
@@ -2464,6 +2476,8 @@ begin
     Exit;
 
   ResetAndRealign;
+//  RefreshControl(True);
+
 end;
 
 procedure TScrollControlWithRows.PrepareView;
@@ -2579,7 +2593,7 @@ begin
 
   inc(_scrollUpdateCount);
   try
-    _totalDataHeight := _totalDataHeight + _scrollbarMaxChangeSinceViewLoading;
+    _totalDataHeight := _view.TotalDataHeight(get_rowHeightDefault);
     CalculateScrollBarMax;
 
     // check if _scrollbarMaxChangeSinceViewLoading is postive or negative
@@ -2818,9 +2832,11 @@ begin
   if _view = nil then
     Exit;
 
+  {$IFDEF DEBUG}
   Log('RealignContent val: ' + _vertScrollBar.Value.ToString);
   Log('RealignContent vp: ' + _vertScrollBar.ViewportSize.ToString);
   Log('RealignContent max: ' + _vertScrollBar.Max.ToString);
+  {$ENDIF}
 
   try       
     var startY := _vertScrollBar.Value;
@@ -3412,6 +3428,10 @@ begin
     for filterDescription in _view.GetFilterDescriptions do
       if not ClearOtherFlters or not Interfaces.Supports<ITreeFilterDescription>(filterDescription) {external sort} then
         filters.Add(filterDescription);
+
+    // clear here already, to free existing sorts
+    if ClearOtherFlters then
+      _view.GetFilterDescriptions.Clear;
   end;
 
   GetInitializedWaitForRefreshInfo.FilterDescriptions := filters;
@@ -3448,6 +3468,10 @@ begin
     for sortDescription in _view.GetSortDescriptions do
       if not ClearOtherSort or not Interfaces.Supports<ITreeSortDescription>(sortDescription) {external sort} then
         sorts.Add(sortDescription);
+
+    // clear here already, to free existing sorts
+    if ClearOtherSort then
+      _view.GetSortDescriptions.Clear;
   end;
 
   GetInitializedWaitForRefreshInfo.SortDescriptions := sorts;
