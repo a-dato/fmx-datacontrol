@@ -11383,7 +11383,7 @@ begin
         begin
           var values := enum.Values;
           SetLength(Result, Length(values));
-          for var i in values do
+          for var i := 0 to High(values) do
             Result[i] := values[i];
         end;
       end
