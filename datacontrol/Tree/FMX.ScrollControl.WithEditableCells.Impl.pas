@@ -1779,6 +1779,10 @@ begin
     _view.EndEdit;
     _editingInfo.RowEditingFinished;
 
+//    {$IFDEF DEBUG}
+//    GetInitializedWaitForRefreshInfo.SortDescriptions := _view.GetSortDescriptions;
+//    {$ENDIF}
+
     // it can be that the EditRowStart is activated by user event that triggers this EditRowEnd
     // for excample by clicking a checkbox on a next row or inserting a new row by "INSERT"
     // therefor we have to wait a little

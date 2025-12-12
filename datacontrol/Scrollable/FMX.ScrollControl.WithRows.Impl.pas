@@ -806,18 +806,18 @@ end;
 
 procedure TScrollControlWithRows.DoRealignContent;
 begin
+  {$IFDEF DEBUG}
   if (Self.Name = 'TreeControl') or (Self.Name = 'GanttChart') then
   begin
     inc(_logIx);
 
-    {$IFDEF DEBUG}
     _stopwatch1.Reset;
     _stopwatch2.Reset;
     _stopwatch3.Reset;
-    {$ENDIF}
 
     Log('START OF ' + _logIx.ToString);
   end;
+  {$ENDIF}
 
   var goMaster := TryStartMasterSynchronizer(True);
   try
@@ -2848,9 +2848,11 @@ begin
   if _view = nil then
     Exit;
 
+  {$IFDEF DEBUG}
   Log('RealignContent val: ' + _vertScrollBar.Value.ToString);
   Log('RealignContent vp: ' + _vertScrollBar.ViewportSize.ToString);
   Log('RealignContent max: ' + _vertScrollBar.Max.ToString);
+  {$ENDIF}
 
   try       
     var startY := _vertScrollBar.Value;

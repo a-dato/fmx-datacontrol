@@ -121,7 +121,7 @@ class function TAppObjects.CreateCompanyList: List<ICompany>;
 begin
   Result := CList<ICompany>.Create;
 
-  for var i := 0 to 4 do
+  for var i := 0 to 0 do
   begin
     var c: ICompany := TCompany.Create;
     c.Name := 'Company ' + i.ToString;

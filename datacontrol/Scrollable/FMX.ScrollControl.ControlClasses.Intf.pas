@@ -125,6 +125,7 @@ type
     procedure set_OnKeyDown(const Value: TKeyEvent);
 
     procedure DoKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
+    procedure DoKeyUp(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
 
     property OnChange: TNotifyEvent read get_OnChange write set_OnChange;
     property OnKeyDown: TKeyEvent read get_OnKeyDown write set_OnKeyDown;
