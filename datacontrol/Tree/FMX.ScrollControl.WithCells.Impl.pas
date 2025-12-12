@@ -3441,6 +3441,10 @@ begin
   else begin
     if Cell.ExpandButton <> nil then
       Result := Result + Cell.ExpandButton.Width + _cellLeftRightPadding;
+
+    // give a little extra space to editable AlignToContent columns
+    if not Cell.Column.ReadOnly and not (TDCTreeOption.ReadOnly in _options) then
+      Result := Result + 10;
   end;
 end;
 
