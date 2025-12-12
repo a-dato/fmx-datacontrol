@@ -49,6 +49,9 @@ type
     _isFirstAlign: Boolean;
     _isCustomDataList: Boolean;
 
+    _totalValidDataHeight: Single;
+    _totalValidHeightCount: Integer;
+
     _performanceVar_activeStartViewListIndex, _performanceVar_activeStopViewListIndex: Integer;
 
     function  get_OriginalData: IList;
@@ -62,6 +65,10 @@ type
     procedure UpdatePerformanceIndexIndicators;
 
     function  SortChangedForItem(const ViewListIndex: Integer): Boolean;
+
+    function  GetTotalDataHeight: Single;
+    procedure RemoveFromTotalHeight(const ViewListIndex: Integer);
+    procedure AddToTotalHeight(const ViewListIndex: Integer);
 
   public
     constructor Create(const DataList: IList; DoCreateNewRow: TDoCreateNewRow; AOnViewChanged: EventHandlerProc; const ItemType: &Type); reintroduce; overload;
@@ -522,6 +529,25 @@ begin
     Result := _dataModelView.SortDescriptions;
 end;
 
+function TDataViewList.GetTotalDataHeight: Single;
+begin
+  if _totalValidDataHeight = -1 then
+  begin
+    var ix: Integer;
+    for ix := 0 to High(_viewRowHeights) do
+    begin
+      var height := _viewRowHeights[ix].GetCalculatedHeight;
+      if height > 0 then
+      begin
+        _totalValidDataHeight := _totalValidDataHeight + height;
+        inc(_totalValidHeightCount);
+      end;
+    end;
+  end;
+
+  Result := _totalValidDataHeight;
+end;
+
 function TDataViewList.GetViewList: IList;
 begin
   if _comparer <> nil then
@@ -640,10 +666,38 @@ begin
   Result := False;
 end;
 
+procedure TDataViewList.RemoveFromTotalHeight(const ViewListIndex: Integer);
+begin
+  var rec := _viewRowHeights[ViewListIndex];
+
+  var orgHeight := rec.GetCalculatedHeight;
+  if orgHeight > 0 then
+  begin
+    _totalValidDataHeight := GetTotalDataHeight - orgHeight;
+    dec(_totalValidHeightCount);
+  end;
+end;
+
+procedure TDataViewList.AddToTotalHeight(const ViewListIndex: Integer);
+begin
+  var rec := _viewRowHeights[ViewListIndex];
+
+  var newHeight := rec.GetCalculatedHeight;
+  if newHeight > 0 then
+  begin
+    _totalValidDataHeight := GetTotalDataHeight + newHeight;
+    inc(_totalValidHeightCount);
+  end;
+end;
+
 function TDataViewList.NotifyRowControlsNeedReload(const Row: IDCRow; DoForceReload: Boolean): TRowInfoRecord;
 begin
+  RemoveFromTotalHeight(Row.ViewListIndex);
+
   Result := _viewRowHeights[Row.ViewListIndex].UpdateForceReloadAfterScrolling(DoForceReload);
   _viewRowHeights[Row.ViewListIndex] := Result;
+
+  AddToTotalHeight(Row.ViewListIndex);
 end;
 
 function TDataViewList.InsertNewRowABove: IDCRow;
@@ -851,7 +905,10 @@ end;
 procedure TDataViewList.ClearViewRecInfo(const FromViewListIndex: Integer; ClearOneRowOnly: Boolean);
 begin
   if ClearOneRowOnly and (FromViewListIndex >= 0) then
-    _viewRowHeights[FromViewListIndex] := TRowInfoRecord.Null
+  begin
+    RemoveFromTotalHeight(FromViewListIndex);
+    _viewRowHeights[FromViewListIndex] := TRowInfoRecord.Null;
+  end
   else begin
     var startClearIndex := CMath.Max(0, FromViewListIndex);
     SetLength(_viewRowHeights, GetViewList.Count);
@@ -859,12 +916,22 @@ begin
     var ix: Integer;
     for ix := startClearIndex to GetViewList.Count - 1 do
       _viewRowHeights[ix] := TRowInfoRecord.Null;
+
+    if startClearIndex = 0 then
+      _totalValidDataHeight := 0 else
+      _totalValidDataHeight := -1; // needs to recalculate all
+
+    _totalValidHeightCount := 0;
   end;
 end;
 
 procedure TDataViewList.RowLoaded(const Row: IDCRow; const NeedsResize: Boolean);
 begin
+  RemoveFromTotalHeight(Row.ViewListIndex);
+
   _viewRowHeights[Row.ViewListIndex] := _viewRowHeights[Row.ViewListIndex].AfterCellsApplies(Row.Control.Height, NeedsResize);
+
+  AddToTotalHeight(Row.ViewListIndex);
 end;
 
 function TDataViewList.RowLoadedInfo(const ViewListIndex: Integer): TRowInfoRecord;
@@ -986,18 +1053,20 @@ end;
 
 function TDataViewList.TotalDataHeight(DefaultRowHeight: Single): Single;
 begin
-  var rowsWithValidHeights: Integer := 0;
-  var totalAbsoluteHeight := 0.0;
+//  var rowsWithValidHeights: Integer := 0;
+//  var totalAbsoluteHeight := 0.0;
+//
+//  var value: TRowInfoRecord;
+//  for value in _viewRowHeights do
+//    if not value.ControlNeedsResizeSoft then
+//    begin
+//      totalAbsoluteHeight := totalAbsoluteHeight + value.GetCalculatedHeight;
+//      inc(rowsWithValidHeights);
+//    end;
+//
+//  Result := totalAbsoluteHeight + (DefaultRowHeight * (ViewCount - rowsWithValidHeights));
 
-  var value: TRowInfoRecord;
-  for value in _viewRowHeights do
-    if not value.ControlNeedsResizeSoft then
-    begin
-      totalAbsoluteHeight := totalAbsoluteHeight + value.GetCalculatedHeight;
-      inc(rowsWithValidHeights);
-    end;
-
-  Result := totalAbsoluteHeight + (DefaultRowHeight * (ViewCount - rowsWithValidHeights));
+  Result := _totalValidDataHeight + (DefaultRowHeight * (ViewCount - _totalValidHeightCount))
 end;
 
 procedure TDataViewList.ApplyFilter(const Filters: List<IListFilterDescription>);

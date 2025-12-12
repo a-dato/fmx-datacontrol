@@ -118,6 +118,7 @@ type
 
     function  GetBitmap(const Images: TCustomImageList; const BitmapSize: TSize; const BitmapIndex: Integer): TBitmap; virtual;
     function  ConvertedBounds(const OrgBounds: TRectF; ConvertLeft, ConvertRight: Boolean; SpaceOver: Single = 0): TRectF;
+    procedure KeyUp(var Key: Word; var KeyChar: WideChar; Shift: TShiftState); override;
 
     property Polygon: TPolygon read get_Polygon;
     property InnerBounds: TRectF read _innerBounds;
@@ -359,6 +360,14 @@ end;
 function TADatoClickLayout.HasText: Boolean;
 begin
   Result := (Length(GetText) > 0) and ((_config.ImagePosition <> TImagePosition.Center) or not HasImage);
+end;
+
+procedure TADatoClickLayout.KeyUp(var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
+begin
+  inherited;
+
+  if (Key = vkReturn) and Assigned(OnClick) then
+    OnClick(Self);
 end;
 
 procedure TADatoClickLayout.Calculate;

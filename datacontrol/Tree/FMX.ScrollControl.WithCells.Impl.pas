@@ -213,7 +213,7 @@ type
     procedure MouseMove(Shift: TShiftState; X, Y: Single); override;
     procedure UpdateHorzScrollbar;
 
-    function  CellHasData(const Cell: IDCTreeCell): Boolean;
+    function  GetCellControlData(const Cell: IDCTreeCell): CObject;
 
     procedure UpdateHoverRect(MousePos: TPointF); override;
     function  ScrollPerformanceShouldHideColumns(const FlatIndex: Integer): Boolean;
@@ -431,6 +431,8 @@ type
     _ignoreHeightByRowCalculation: Boolean;
     _format: CString;
 
+    _horzAlign: TDCTextAlign;
+
     function  get_Visible: Boolean;
     procedure set_Visible(const Value: Boolean);
     function  get_Frozen: Boolean;
@@ -451,11 +453,13 @@ type
     procedure set_IgnoreHeightByRowCalculation(const Value: Boolean);
     function  get_Format: CString;
     procedure set_Format(const Value: CString);
+    function  get_HorzAlign: TDCTextAlign;
+    procedure set_HorzAlign(const Value: TDCTextAlign);
 
     function Clone: IDCColumnVisualisation; virtual;
+
   public
     constructor Create; reintroduce;
-
     procedure Assign(const Source: IBaseInterface); reintroduce; overload; virtual;
 
   published
@@ -469,6 +473,7 @@ type
     property HideGrid: Boolean read get_HideGrid write set_HideGrid;
     property IgnoreHeightByRowCalculation: Boolean read get_IgnoreHeightByRowCalculation write set_IgnoreHeightByRowCalculation;
     property Format: CString read get_Format write set_Format;
+    property HorzAlign: TDCTextAlign read get_HorzAlign write set_HorzAlign;
 
   end;
 
@@ -652,6 +657,7 @@ type
 
     _hideColumnInView: Boolean;
     _containsData: TColumnContainsData;
+    _calculatedHorzAlign: TTextAlign;
 
     {$IFNDEF WEBASSEMBLY}[weak]{$ENDIF} _activeFilter: ITreeFilterDescription;
     {$IFNDEF WEBASSEMBLY}[weak]{$ENDIF} _activeSort: IListSortDescription;
@@ -671,7 +677,7 @@ type
     function  get_HideColumnInView: Boolean;
     procedure set_HideColumnInView(const Value: Boolean);
     function  get_ContainsData: TColumnContainsData;
-    procedure set_ContainsData(const Value: TColumnContainsData);
+    function  get_CalculatedHorzAlign: TTextAlign;
 
   public
     constructor Create(const AColumn: IDCTreeColumn; const ColumnControl: IColumnsControl);
@@ -685,6 +691,7 @@ type
 
     procedure UpdateCellControlsByRow(const Cell: IDCTreeCell);
     procedure UpdateCellControlsPositions(const Cell: IDCTreeCell; ForceIsValid: Boolean = False);
+    procedure UpdateColumnContainsData(const ContainsData: TColumnContainsData; const CellDataExample: CObject);
   end;
 
   TExpandButton = class(TLayout)
@@ -915,6 +922,8 @@ type
 
     procedure Clear; override;
     procedure ClearMultiSelections; override;
+
+    function ColumnIsSelected(const ClmnIndex: Integer): Boolean;
   end;
 
   TDataControlWaitForRepaintInfo = class(TWaitForRepaintInfo, IDCControlWaitForRepaintInfo)
@@ -986,7 +995,7 @@ uses
   , app.intf
   , app.PropertyDescriptor.intf
   {$ENDIF}
-  , FMX.ScrollControl.ControlClasses;
+  , FMX.ScrollControl.ControlClasses, System.Generics.Collections;
 
 
 { TScrollControlWithCells }
@@ -998,7 +1007,7 @@ begin
   for clmn in currentClmns do
     if clmn.ContainsData = TColumnContainsData.Unknown then
     begin
-      clmn.ContainsData := TColumnContainsData.No;
+      clmn.UpdateColumnContainsData(TColumnContainsData.No, nil);
       _treeLayout.ForceRecalc;
     end;
 
@@ -1383,7 +1392,9 @@ begin
     _treeLayout := nil;
 
     _defaultColumnsGenerated := False;
-  end;
+  end
+  else if _treeLayout <> nil then
+    _treeLayout.ResetColumnDataAvailability(False);
 
   inherited;
 end;
@@ -1540,6 +1551,13 @@ begin
       _selectionInfo.Deselect(treeRow.DataIndex) else
       _selectionInfo.AddToSelection(treeRow.DataIndex, treeRow.ViewListIndex, treeRow.DataItem);
 
+    _selectionInfo.BeginUpdate;
+    try
+      (_selectionInfo as ITreeSelectionInfo).SelectedLayoutColumn := flatColumn.Index;
+    finally
+      _selectionInfo.EndUpdate(True {ignore events});
+    end;
+
     DoCellChanged(nil, treeCell);
     Exit;
   end;
@@ -1568,6 +1586,8 @@ end;
 
 procedure TScrollControlWithCells.VisualizeRowSelection(const Row: IDCRow);
 begin
+  CheckCorrectColumnSelection(_selectionInfo as ITreeSelectionInfo, nil);
+
   inherited;
   UpdateSelectionCheckboxes(Row);
 end;
@@ -3204,8 +3224,9 @@ begin
       {$ENDIF}
     end;
 
-    if cellValue <> nil then
-      cell.LayoutColumn.ContainsData := TColumnContainsData.Yes;
+    if (cellValue <> nil) then
+      cell.LayoutColumn.UpdateColumnContainsData(TColumnContainsData.Yes, cell.Data);
+
   except
     LoadDefaultDataIntoControl(Cell, IsSubProp);
   end;
@@ -3234,32 +3255,31 @@ begin
   Result := not (TDCTreeOption.MultiSelect in  _options) and not AllowNoneSelected;
 end;
 
-function TScrollControlWithCells.CellHasData(const Cell: IDCTreeCell): Boolean;
+function TScrollControlWithCells.GetCellControlData(const Cell: IDCTreeCell): CObject;
 
-  function CheckCtrl(CtrlClass: TInfoControlClass; const Ctrl: IDCControl): Boolean;
+  function CheckCtrl(CtrlClass: TInfoControlClass; const Ctrl: IDCControl): CObject;
   begin
+    Result := nil;
     if (Ctrl = nil) or not Ctrl.Visible then
-      Exit(False);
+      Exit;
 
     case CtrlClass of
-      TInfoControlClass.Text: Exit((Ctrl as ICaption).Text <> '');
+      TInfoControlClass.Text: Exit((Ctrl as ICaption).Text);
       TInfoControlClass.CheckBox: Exit((Ctrl as IIsChecked).IsChecked);
       TInfoControlClass.Button, TInfoControlClass.Glyph:
       begin
         var imgCtrl: IImageControl;
         if interfaces.Supports<IImageControl>(Ctrl, imgCtrl) then
-          Exit(imgCtrl.ImageIndex <> -1) else
-          Exit(False);
+          Exit(imgCtrl.ImageIndex) else
+          Exit(nil);
       end;
     end;
-
-    Result := True;
   end;
 
 begin
   // heavy method.. DON'T use if it is not needed!!
   Result := CheckCtrl(cell.Column.InfoControlClass, cell.InfoControl);
-  if not Result then
+  if Result = nil then
     Result := CheckCtrl(cell.Column.SubInfoControlClass, cell.SubInfoControl);
 end;
 
@@ -3287,7 +3307,7 @@ begin
   if Cell.Column.IsSelectionColumn then
   begin
     Cell.InfoControl.Visible := _selectionInfo.CanSelect(Cell.Row.DataIndex);
-    Cell.LayoutColumn.ContainsData := TColumnContainsData.Yes;
+    Cell.LayoutColumn.UpdateColumnContainsData(TColumnContainsData.Yes, Cell.Data {True / False});
   end
   else if LoadDefaultData and (not ScrollControlIsFastScrolling or not PerformanceModeWhileScrolling) then
   begin
@@ -3348,8 +3368,12 @@ begin
 
     Cell.PerformanceModeWhileScrolling := performanceModeWhileScrolling;
 
-    if (flatColumn.ContainsData = TColumnContainsData.Unknown) and CellHasData(cell) then
-      flatColumn.ContainsData := TColumnContainsData.Yes;
+    if (flatColumn.ContainsData = TColumnContainsData.Unknown) then
+    begin
+      var ctrlData := GetCellControlData(Cell);
+      if ctrlData <> nil then
+        flatColumn.UpdateColumnContainsData(TColumnContainsData.Yes, ctrlData)
+    end;
   end;
 
   if manualHeight <> -1 then
@@ -3417,6 +3441,10 @@ begin
   else begin
     if Cell.ExpandButton <> nil then
       Result := Result + Cell.ExpandButton.Width + _cellLeftRightPadding;
+
+    // give a little extra space to editable AlignToContent columns
+    if not Cell.Column.ReadOnly and not (TDCTreeOption.ReadOnly in _options) then
+      Result := Result + 10;
   end;
 end;
 
@@ -4515,6 +4543,7 @@ begin
   _treeControl := ColumnControl;
   _index := -1;
   _containsData := TColumnContainsData.Unknown;
+  _calculatedHorzAlign := TTextAlign.Leading;
 
   _hideColumnInView := not AColumn.Visible;
 end;
@@ -4601,6 +4630,32 @@ begin
   end;
 end;
 
+procedure TTreeLayoutColumn.UpdateColumnContainsData(const ContainsData: TColumnContainsData; const CellDataExample: CObject);
+begin
+  if _containsData = ContainsData then
+    Exit;
+
+  _containsData := ContainsData;
+
+  if (_containsData = TColumnContainsData.Yes) then
+  begin
+    case _column.Visualisation.HorzAlign of
+      TDCTextAlign.Leading: _calculatedHorzAlign := TTextAlign.Leading;
+      TDCTextAlign.Center: _calculatedHorzAlign := TTextAlign.Center;
+      TDCTextAlign.Trailing: _calculatedHorzAlign := TTextAlign.Trailing;
+
+      else {TDCTextAlign.Default} begin
+        if CellDataExample = nil then
+          _calculatedHorzAlign := TTextAlign.Leading
+        else if CellDataExample.IsDateTime or CellDataExample.IsNumeric then
+          _calculatedHorzAlign := TTextAlign.Trailing
+        else
+          _calculatedHorzAlign := TTextAlign.Leading;
+      end;
+    end;
+  end;
+end;
+
 procedure TTreeLayoutColumn.UpdateCellControlsPositions(const Cell: IDCTreeCell; ForceIsValid: Boolean = False);
 begin
   Assert(not _HideColumnInView);
@@ -4653,6 +4708,7 @@ begin
   if validMain and (Cell.Column.InfoControlClass = TInfoControlClass.Text) then
   begin
     validMain := ForceIsValid or (Length((Cell.InfoControl as ICaption).Text) > 0);
+    (Cell.InfoControl as ITextSettings).TextSettings.HorzAlign := Cell.LayoutColumn.CalculatedHorzAlign;
     Cell.InfoControl.Visible := validMain; // not neccessary, but for performance...
   end;
 
@@ -4660,6 +4716,7 @@ begin
   if validSub and (Cell.Column.SubInfoControlClass = TInfoControlClass.Text) then
   begin
     validSub := ForceIsValid or (Length((Cell.SubInfoControl as ICaption).Text) > 0);
+    (Cell.SubInfoControl as ITextSettings).TextSettings.HorzAlign := Cell.LayoutColumn.CalculatedHorzAlign;
     Cell.SubInfoControl.Visible := validSub; // not neccessary, but for performance...
   end;
 
@@ -4937,6 +4994,11 @@ begin
   Result := _containsData;
 end;
 
+function TTreeLayoutColumn.get_CalculatedHorzAlign: TTextAlign;
+begin
+  Result := _calculatedHorzAlign;
+end;
+
 function TTreeLayoutColumn.get_HideColumnInView: Boolean;
 begin
   Result := _HideColumnInView;
@@ -4970,11 +5032,6 @@ end;
 procedure TTreeLayoutColumn.set_ActiveSort(const Value: IListSortDescription);
 begin
   _activeSort := Value;
-end;
-
-procedure TTreeLayoutColumn.set_ContainsData(const Value: TColumnContainsData);
-begin
-  _containsData := Value;
 end;
 
 //procedure TTreeLayoutColumn.set_CustomHidden(const Value: Boolean);
@@ -5441,7 +5498,7 @@ begin
   begin
     if not OnlyForInsertedRows or (lyClmn.ContainsData = TColumnContainsData.No) then
     begin
-      lyClmn.ContainsData := TColumnContainsData.Unknown;
+      lyClmn.UpdateColumnContainsData(TColumnContainsData.Unknown, nil);
 
       if lyClmn.Column.Visualisation.HideWhenEmpty then
         recalcNeeded := True;
@@ -5756,7 +5813,7 @@ end;
 
 procedure TDCTreeCell.UpdateSelectionVisibility(const RowIsSelected: Boolean; const SelectionInfo: ITreeSelectionInfo; OwnerIsFocused: Boolean);
 begin
-  if not RowIsSelected or not SelectionInfo.SelectedLayoutColumns.Contains(get_LayoutColumn.Index) then
+  if not RowIsSelected or not SelectionInfo.ColumnIsSelected(get_LayoutColumn.Index) then
   begin
     FreeAndNil(_selectionRect);
     Exit;
@@ -5954,6 +6011,11 @@ begin
 
   _SelectedLayoutColumns.Clear;
   _SelectedLayoutColumns.Add(_lastSelectedLayoutColumn);
+end;
+
+function TTreeSelectionInfo.ColumnIsSelected(const ClmnIndex: Integer): Boolean;
+begin
+  Result := (get_SelectedLayoutColumn = ClmnIndex) or _SelectedLayoutColumns.Contains(ClmnIndex);
 end;
 
 function TTreeSelectionInfo.Clone: IRowSelectionInfo;
@@ -6267,6 +6329,7 @@ begin
     _hideGrid := _src.HideGrid;
     _ignoreHeightByRowCalculation := _src.IgnoreHeightByRowCalculation;
     _format := _src.Format;
+    _horzAlign := _src.HorzAlign;
   end;
 end;
 
@@ -6283,11 +6346,17 @@ begin
 
   _visible := True;
   _selectable := True;
+  _horzAlign := TDCTextAlign.Default;
 end;
 
 function TDCColumnVisualisation.get_Format: CString;
 begin
   Result := _format;
+end;
+
+function TDCColumnVisualisation.get_HorzAlign: TDCTextAlign;
+begin
+  Result := _horzAlign;
 end;
 
 function TDCColumnVisualisation.get_Frozen: Boolean;
@@ -6338,6 +6407,11 @@ end;
 procedure TDCColumnVisualisation.set_Format(const Value: CString);
 begin
   _format := Value;
+end;
+
+procedure TDCColumnVisualisation.set_HorzAlign(const Value: TDCTextAlign);
+begin
+  _horzAlign := Value;
 end;
 
 procedure TDCColumnVisualisation.set_Frozen(const Value: Boolean);
