@@ -1200,20 +1200,6 @@ begin
 end;
 
 procedure TComboEditControlImpl.set_Value(const Value: CObject);
-
-  procedure UpdateItemIndex(const Ctrl: TControl; Index: Integer);
-  begin
-    if (get_ItemIndex <> Index) then
-    begin
-      Ctrl.BeginUpdate;
-      try
-        set_ItemIndex(Index);
-      finally
-        Ctrl.EndUpdate;
-      end;
-    end;
-  end;
-
 begin
   var items := ActivePickList;
   var idx: Integer;
