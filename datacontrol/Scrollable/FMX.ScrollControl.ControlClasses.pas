@@ -451,9 +451,11 @@ end;
 
 function TDataControlClassFactory.CreateText(const Owner: TComponent): IDCControl;
 begin
-  Result := TFastText.Create(Owner);
-//  Result.VertTextAlign := TTextAlign.Center;
-//  Result.CalcAsAutoWidth := True;
+  var ctrl := TFastText.Create(Owner);
+  ctrl.VertTextAlign := TTextAlign.Center;
+  ctrl.CalcAsAutoWidth := True;
+
+  Result := ctrl;
 end;
 
 procedure TDataControlClassFactory.HandleRowBackground(const RowRect: TRectangle; Alternate: Boolean);

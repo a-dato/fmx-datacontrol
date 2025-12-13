@@ -109,6 +109,8 @@ type
     property Indent: Single read get_Indent write set_Indent;
   end;
 
+  TDCTextAlign = (Default, Leading, Center, Trailing);
+
   IDCColumnVisualisation = interface(IBaseInterface)
     ['{6517C7BC-2590-4194-A3EA-288136A7635C}']
     function  get_Visible: Boolean;
@@ -131,6 +133,8 @@ type
     procedure set_IgnoreHeightByRowCalculation(const Value: Boolean);
     function  get_Format: CString;
     procedure set_Format(const Value: CString);
+    function  get_HorzAlign: TDCTextAlign;
+    procedure set_HorzAlign(const Value: TDCTextAlign);
 
     function  Clone: IDCColumnVisualisation;
 
@@ -144,6 +148,7 @@ type
     property HideGrid: Boolean read get_HideGrid write set_HideGrid;
     property IgnoreHeightByRowCalculation: Boolean read get_IgnoreHeightByRowCalculation write set_IgnoreHeightByRowCalculation;
     property Format: CString read get_Format write set_Format;
+    property HorzAlign: TDCTextAlign read get_HorzAlign write set_HorzAlign;
   end;
 
   IDCTreeColumn = interface;
@@ -379,7 +384,7 @@ type
     function  get_HideColumnInView: Boolean;
     procedure set_HideColumnInView(const Value: Boolean);
     function  get_ContainsData: TColumnContainsData;
-    procedure set_ContainsData(const Value: TColumnContainsData);
+    function  get_CalculatedHorzAlign: TTextAlign;
 
     function  get_ActiveFilter: ITreeFilterDescription;
     procedure set_ActiveFilter(const Value: ITreeFilterDescription);
@@ -393,6 +398,7 @@ type
 
     procedure UpdateCellControlsByRow(const Cell: IDCTreeCell);
     procedure UpdateCellControlsPositions(const Cell: IDCTreeCell; ForceIsValid: Boolean = False);
+    procedure UpdateColumnContainsData(const ContainsData: TColumnContainsData; const CellDataExample: CObject);
 
     property Column: IDCTreeColumn read get_Column;
     property Index: Integer read get_Index write set_Index;
@@ -400,7 +406,8 @@ type
     property Width: Single read get_Width write set_Width;
     property HideColumnInView: Boolean read get_HideColumnInView write set_HideColumnInView;  // calculated in AfterRealignContent
 
-    property ContainsData: TColumnContainsData read get_ContainsData write set_ContainsData;
+    property ContainsData: TColumnContainsData read get_ContainsData;
+    property CalculatedHorzAlign: TTextAlign read get_CalculatedHorzAlign;
 
     property ActiveFilter: ITreeFilterDescription read get_ActiveFilter write set_ActiveFilter;
     property ActiveSort: IListSortDescription read get_ActiveSort write set_ActiveSort;
@@ -451,6 +458,8 @@ type
     function  get_SelectedLayoutColumn: Integer;
     procedure set_SelectedLayoutColumn(const Value: Integer);
     function  get_SelectedLayoutColumns: List<Integer>;
+
+    function ColumnIsSelected(const ClmnIndex: Integer): Boolean;
 
     property SelectedLayoutColumns: List<Integer> read get_SelectedLayoutColumns;
     property SelectedLayoutColumn: Integer read get_SelectedLayoutColumn write set_SelectedLayoutColumn;

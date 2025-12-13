@@ -62,8 +62,8 @@ type
 
   // editor behaviour
   protected
-    _tempCachedEditingColumnCustomWidth: Single;
-    procedure UpdateMinColumnWidthOnShowEditor(const Cell: IDCTreeCell; const MinColumnWidth: Single);
+//    _tempCachedEditingColumnCustomWidth: Single;
+//    procedure UpdateMinColumnWidthOnShowEditor(const Cell: IDCTreeCell; const MinColumnWidth: Single);
     procedure ResetColumnWidthOnHideEditor(const Column: IDCTreeColumn);
 
   // checkbox behaviour
@@ -366,7 +366,7 @@ constructor TScrollControlWithEditableCells.Create(AOwner: TComponent);
 begin
   inherited;
   _editingInfo := TTreeEditingInfo.Create;
-  _tempCachedEditingColumnCustomWidth := -1;
+//  _tempCachedEditingColumnCustomWidth := -1;
 end;
 
 function TScrollControlWithEditableCells.CheckedItemsInColumn(const Column: IDCTreeColumn): List<CObject>;
@@ -783,25 +783,25 @@ begin
     UpdateColumnCheck(ix, Column, IsChecked);
 end;
 
-procedure TScrollControlWithEditableCells.UpdateMinColumnWidthOnShowEditor(const Cell: IDCTreeCell; const MinColumnWidth: Single);
-begin
-  if (Cell.COlumn.InfoControlClass <> TInfoControlClass.CheckBox) and (Cell.LayoutColumn.Width < MinColumnWidth) then
-  begin
-    _tempCachedEditingColumnCustomWidth := Cell.Column.CustomWidth;
-    Cell.Column.CustomWidth := MinColumnWidth;
-
-    FastColumnAlignAfterColumnChange;
-  end else
-    _tempCachedEditingColumnCustomWidth := -1;
-end;
+//procedure TScrollControlWithEditableCells.UpdateMinColumnWidthOnShowEditor(const Cell: IDCTreeCell; const MinColumnWidth: Single);
+//begin
+//  if (Cell.COlumn.InfoControlClass <> TInfoControlClass.CheckBox) and (Cell.LayoutColumn.Width < MinColumnWidth) then
+////  begin
+////    _tempCachedEditingColumnCustomWidth := Cell.Column.CustomWidth;
+////    Cell.Column.CustomWidth := MinColumnWidth;
+////
+//    FastColumnAlignAfterColumnChange;
+////  end else
+////    _tempCachedEditingColumnCustomWidth := -1;
+//end;
 
 procedure TScrollControlWithEditableCells.ResetColumnWidthOnHideEditor(const Column: IDCTreeColumn);
 begin
-  if not SameValue(_tempCachedEditingColumnCustomWidth, Column.CustomWidth) then
-  begin
-    Column.CustomWidth := _tempCachedEditingColumnCustomWidth;
-    _tempCachedEditingColumnCustomWidth := -1;
-  end;
+//  if not SameValue(_tempCachedEditingColumnCustomWidth, Column.CustomWidth) then
+//  begin
+//    Column.CustomWidth := _tempCachedEditingColumnCustomWidth;
+//    _tempCachedEditingColumnCustomWidth := -1;
+//  end;
 
   FastColumnAlignAfterColumnChange;
 end;
@@ -1479,7 +1479,7 @@ var
 begin
   Assert(_cellEditor = nil);
 
-  UpdateMinColumnWidthOnShowEditor(Cell, startEditArgs.MinEditorWidth);
+//  UpdateMinColumnWidthOnShowEditor(Cell, startEditArgs.MinEditorWidth);
 
   // checkboxes are special case, for they are already visualized in DataControl.Static
   // all other controls can be shown as plain text while not editing
@@ -1779,10 +1779,6 @@ begin
     _view.EndEdit;
     _editingInfo.RowEditingFinished;
 
-//    {$IFDEF DEBUG}
-//    GetInitializedWaitForRefreshInfo.SortDescriptions := _view.GetSortDescriptions;
-//    {$ENDIF}
-
     // it can be that the EditRowStart is activated by user event that triggers this EditRowEnd
     // for excample by clicking a checkbox on a next row or inserting a new row by "INSERT"
     // therefor we have to wait a little
@@ -1910,7 +1906,7 @@ end;
 
 procedure TScrollControlWithEditableCells.SetSingleSelectionIfNotExists;
 begin
-// Code dissabled to fix SELECT
+//  // in case of editing we already have selected an item and we know for sure we can skip this procedure
 //  if _selectionInfo.HasSelection and IsEdit then
 //    Exit;
 //
