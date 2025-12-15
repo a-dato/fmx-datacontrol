@@ -113,6 +113,8 @@ type
     procedure set_OnChange(Value: TNotifyEvent); virtual;
     function  get_OnKeyDown: TKeyEvent;
     procedure set_OnKeyDown(const Value: TKeyEvent);
+    function  get_ShowClearButton: Boolean;
+    procedure set_ShowClearButton(const Value: Boolean);
 
     procedure Dispose; override;
     function  DoFormatItem(const Item: CObject; out Value: string) : Boolean; virtual;
@@ -799,9 +801,22 @@ begin
 end;
 
 
+function TEditControlImpl.get_ShowClearButton: Boolean;
+begin
+  var ccCtrl: IClearableControl;
+  Result := interfaces.Supports<IClearableControl>(_control, ccCtrl) and ccCtrl.ShowClearButton;
+end;
+
 function TEditControlImpl.get_DefaultValue: CObject;
 begin
   Result := _DefaultValue;
+end;
+
+procedure TEditControlImpl.set_ShowClearButton(const Value: Boolean);
+begin
+  var ccCtrl: IClearableControl;
+  if interfaces.Supports<IClearableControl>(_control, ccCtrl) then
+    ccCtrl.ShowClearButton := Value;
 end;
 
 procedure TEditControlImpl.set_DefaultValue(const Value: CObject);
@@ -1114,6 +1129,8 @@ end;
 procedure TComboEditControlImpl.set_ItemIndex(const Value: Integer);
 begin
   (_control as TComboEdit).ItemIndex := Value;
+  if Value = -1 then
+    (_control as TComboEdit).Text := '';
 end;
 
 function TComboEditControlImpl.get_FilterItem: TFilterItem;

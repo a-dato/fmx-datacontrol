@@ -64,6 +64,8 @@ type
     function  get_PickList: IList;
     procedure set_PickList(const Value: IList);
     function  get_editor: TControl;
+    function  get_UserCanClear: Boolean;
+    procedure set_UserCanClear(const Value: Boolean);
 
     procedure BeginEdit(const Value: CObject; SelectAll: Boolean = True);
     procedure EndEdit;
@@ -80,6 +82,7 @@ type
     property OriginalValue: CObject read get_OriginalValue;
     property Editor: TControl read get_editor;
     property PickList: IList read get_PickList write set_PickList;
+    property UserCanClear: Boolean read get_UserCanClear write set_UserCanClear;
   end;
 
 implementation
