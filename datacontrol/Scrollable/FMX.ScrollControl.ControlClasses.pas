@@ -173,7 +173,6 @@ type
   TComboEditControlImpl = class(TEditControlImpl, IComboEditControl)
   protected
     _autoFilter: Boolean;
-    _currentText: string;
     _PickList: IList;
     _itemsLoaded: Boolean;
     _filterItem: TFilterItem;
@@ -211,7 +210,8 @@ type
     function  FindBestMatch(const Items: List<string>; const Text: string; var Pos: Integer) : Integer; overload;
 
     function  ActivePickList: IList;
-    procedure DropDown;
+    function  IsFiltered: Boolean;
+    procedure DropDown; virtual;
     function  DoFilterItem(const Item: CObject; const ItemText, Filter: string) : Boolean; virtual;
     function  RefreshItems: Boolean;
     procedure DoBeforePopup;
@@ -227,6 +227,8 @@ type
     function  ComboIsDroppedDown : Boolean; override;
     procedure ComboClear; override;
     procedure ComboAdd(const str: string); override;
+
+    procedure DropDown; override;
   end;
 
   TTextEditControl = class(TEdit, IDCEditControl)
@@ -840,8 +842,6 @@ end;
 { TComboEditControlImpl }
 procedure TComboEditControlImpl.DoKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
 begin
-  _currentText := get_Text;
-
   if (Key = vkBack) and (_control is TComboEdit) then
   begin
     var ce := _control as TComboEdit;
@@ -854,6 +854,8 @@ begin
     ce.Text := txt;
     ce.CaretPosition := pos - 1;
     Key := 0;
+    if IsFiltered then
+      RefreshItems;
     Exit;
   end;
 
@@ -900,7 +902,7 @@ end;
 
 function TComboEditControlImpl.DoFilterItem(const Item: CObject; const ItemText, Filter: string) : Boolean;
 begin
-  if ItemText = '' then
+  if Filter = '' then
     Result := True
   else if _autoFilter then
     Result := ItemText.ToLower.Contains(Filter.ToLower)
@@ -1006,6 +1008,7 @@ end;
 procedure TComboEditControlImpl.ComboClear;
 begin
   (_control as TComboEdit).Clear;
+  (_control as TComboEdit).ItemIndex := -1;
 end;
 
 function TComboEditControlImpl.RefreshItems: Boolean;
@@ -1018,7 +1021,7 @@ begin
     Exit;
 
   var items: List<string>;
-  if not _itemsLoaded or _autoFilter or Assigned(_filterItem) then
+  if not _itemsLoaded or IsFiltered then
   begin
     _itemsLoaded := True;
     var itemsShowing := CList<CObject>.Create(_PickList.Count);
@@ -1061,7 +1064,7 @@ end;
 
 procedure TComboEditControlImpl.DoKeyUp(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
 begin
-  if not (Key in [vkBack, vkDelete]) and (_currentText <> get_Text) then
+  if CharInSet(KeyChar, [' ', 'a'..'z', 'A'..'Z', '0'..'9']) then
     RefreshItems;
 end;
 
@@ -1075,16 +1078,7 @@ end;
 procedure TComboEditControlImpl.DropDown;
 begin
   RefreshItems;
-  if _control is TComboEdit then
-  begin
-    var ce := _control as TComboEdit;
-    ce.DropDown;
-  end
-  else if _control is TComboBox then
-  begin
-    var ce := _control as TComboBox;
-    ce.DropDown;
-  end
+  (_control as TComboEdit).DropDown;
 end;
 
 function TComboEditControlImpl.get_AutoFilter: Boolean;
@@ -1145,6 +1139,11 @@ begin
     Result := _DefaultValue;
 end;
 
+function TComboEditControlImpl.IsFiltered: Boolean;
+begin
+  Result := _autoFilter or Assigned(_filterItem);
+end;
+
 procedure TComboEditControlImpl.set_PickList(const Value: IList);
 begin
   _PickList := Value;
@@ -1184,25 +1183,6 @@ begin
     ComboAdd(s);
     set_ItemIndex(0);
   end;
-
-//  if (_control is TComboEdit) or (_control is TComboBox) then
-//  begin
-//    if (Value = nil) then
-//    begin
-//      UpdateItemIndex(_control, -1);
-//      Exit;
-//    end;
-//
-//    CheckRetrievePicklist;
-//    RefreshItems;
-//
-//    var items := ActivePickList;
-//    if items <> nil then
-//    begin
-//      var i := items.IndexOf(Value);
-//      UpdateItemIndex(_control, i);
-//    end;
-//  end;
 end;
 
 function TComboEditControlImpl.get_Text: CString;
@@ -1414,6 +1394,12 @@ begin
     for var s in strings do
       Result.Add(s);
   end;
+end;
+
+procedure TComboBoxControlImpl.DropDown;
+begin
+  RefreshItems;
+  (_control as TComboBox).DropDown;
 end;
 
 initialization
