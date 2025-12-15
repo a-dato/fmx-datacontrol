@@ -107,7 +107,7 @@ type
   end;
 
   TFormatItem = function(const Item: CObject): CString of object;
-  TItemShowing = reference to function(const Item: CObject; const Text: string) : Boolean;
+  TFilterItem = function(const Item: CObject; const ItemText, Filter: string) : Boolean of object;
   TComboBeforePopup = procedure(var APicklist: IList) of object;
 
   // Interface that handles communication between a cell editor inside the tree control
@@ -154,10 +154,12 @@ type
 
   IComboEditControl = interface
     ['{0A5E499C-31BB-42B8-BDD5-16EFA661C377}']
+    function  get_AutoFilter: Boolean;
+    procedure set_AutoFilter(const Value: Boolean);
     function  get_ItemIndex: Integer;
     procedure set_ItemIndex(const Value: Integer);
-    function  get_ItemShowing: TItemShowing;
-    procedure set_ItemShowing(const Value: TItemShowing);
+    function  get_FilterItem: TFilterItem;
+    procedure set_FilterItem(const Value: TFilterItem);
     function  get_BeforePopup: TComboBeforePopup;
     procedure set_BeforePopup(const Value: TComboBeforePopup);
     function  get_FormatItem: TFormatItem;
@@ -171,8 +173,9 @@ type
     procedure DropDown;
 
     property ItemIndex: Integer read get_ItemIndex write set_ItemIndex;
-    property ItemShowing: TItemShowing read get_ItemShowing write set_ItemShowing;
     property BeforePopup: TComboBeforePopup read get_BeforePopup write set_BeforePopup;
+    property AutoFilter: Boolean read get_AutoFilter write set_AutoFilter;
+    property FilterItem: TFilterItem read get_FilterItem write set_FilterItem;
     property FormatItem: TFormatItem read get_FormatItem write set_FormatItem;
     property PickList: IList read get_PickList write set_PickList;
     property Text: CString read get_Text write set_Text;
