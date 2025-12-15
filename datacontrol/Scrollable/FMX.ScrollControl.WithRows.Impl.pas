@@ -147,7 +147,7 @@ type
     _resetViewRec: TResetViewRec;
     _canDragDrop: Boolean;
     _dragObject: CObject;
-    _newLoadedTreeRows: List<IDCRow>;
+//    _newLoadedTreeRows: List<IDCRow>;
 
     _tryFindNewSelectionInDataModel: Boolean;
     _mustShowSelectionInRealign: Boolean;
@@ -610,6 +610,8 @@ destructor TScrollControlWithRows.Destroy;
 begin
 //  AtomicIncrement(_viewChangedIndex);
 
+//  _newLoadedTreeRows := nil;
+
   // remove events
   if _model <> nil then
     set_Model(nil)
@@ -617,7 +619,6 @@ begin
     set_DataModelView(nil)
   else
     set_DataList(nil);
-
 
   inherited;
 end;
@@ -2038,7 +2039,7 @@ end;
 
 procedure TScrollControlWithRows.InnerInitRow(const Row: IDCRow; RowHeightNeedsRecalc: Boolean = False);
 begin
-  _newLoadedTreeRows.Add(Row);
+//  _newLoadedTreeRows.Add(Row);
 end;
 
 procedure TScrollControlWithRows.InitRow(const Row: IDCRow; const IsAboveRefRow: Boolean = False);
@@ -2446,29 +2447,7 @@ end;
 
 procedure TScrollControlWithRows.OnViewChanged(Sender: TObject; e: EventArgs);
 begin
-//  var wasDone := (_ignoreNextViewChanged <> nil) and (_ignoreNextViewChanged = e);
-//
-//  if (_rowHeightSynchronizer <> nil) then
-//  begin
-//    _ignoreNextViewChanged := e;
-//    _rowHeightSynchronizer._ignoreNextViewChanged := e;
-//  end;
-//
-//  if wasDone and not HasInternalSelectCount then
-//    Exit;
-
-  if HasUpdateCount then
-    Exit;
-
-//  if (_rowHeightSynchronizer <> nil) and not IsMasterSynchronizer then
-//  begin
-//    if not SyncIsMasterSynchronizer then
-//      RefreshControl(True);
-//
-//    Exit;
-//  end;
-
-  if not CanRealignContent then
+  if HasUpdateCount or not CanRealignContent then
     Exit;
 
   ResetAndRequestRealign;
@@ -2962,9 +2941,9 @@ begin
 //  if (_view <> nil) and isRealStart then
 //    _totalDataHeight := _view.TotalDataHeight(get_rowHeightDefault);
 
-  _newLoadedTreeRows := CList<IDCRow>.Create;
-  if (_rowHeightSynchronizer <> nil) then
-    _rowHeightSynchronizer._newLoadedTreeRows := CList<IDCRow>.Create;
+//  _newLoadedTreeRows := CList<IDCRow>.Create;
+//  if (_rowHeightSynchronizer <> nil) then
+//    _rowHeightSynchronizer._newLoadedTreeRows := CList<IDCRow>.Create;
 end;
 
 procedure TScrollControlWithRows.RealignFinished;
@@ -3049,7 +3028,7 @@ end;
 
 procedure TScrollControlWithRows.ResetAndRequestRealign(FromIndex: Integer = -1);
 begin
-  var goMaster := TryStartMasterSynchronizer;
+  var goMaster := TryStartMasterSynchronizer(True);
   try
     ResetView(FromIndex);
   finally

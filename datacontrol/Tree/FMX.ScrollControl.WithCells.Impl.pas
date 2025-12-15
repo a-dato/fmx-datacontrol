@@ -2188,12 +2188,14 @@ end;
 
 procedure TScrollControlWithCells.BeforeRealignContent;
 begin
-  // sorting / set data item / set current etc..
-  var repaintInfo := (_waitForRepaintInfo as IDCControlWaitForRepaintInfo);
-  var columnsChanged := ((repaintInfo <> nil) and (TTreeViewState.ColumnsChanged in repaintInfo.ViewStateFlags));
-
-  if columnsChanged and (_view <> nil) then
-    _view.ResetView; // clear all controls
+  var repaintInfo: IDCControlWaitForRepaintInfo;
+  if Interfaces.Supports<IDCControlWaitForRepaintInfo>(_waitForRepaintInfo, repaintInfo) then
+  begin
+    // sorting / set data item / set current etc..
+    var columnsChanged := ((repaintInfo <> nil) and (TTreeViewState.ColumnsChanged in repaintInfo.ViewStateFlags));
+    if columnsChanged and (_view <> nil) then
+      _view.ResetView; // clear all controls
+  end;
 
   PrepareColumns;
 
@@ -2537,17 +2539,8 @@ end;
 
 destructor TScrollControlWithCells.Destroy;
 begin
-  _view := nil;
   _headerRow := nil;
   _treeLayout := nil;
-
-//  for var clmnIx := _columns.Count - 1 downto 0 do
-//  begin
-//    var clmn := TDCTreeColumn(_columns[clmnIx]);
-//    clmn.Free;
-//  end;
-//
-//  _columns := nil;
 
   inherited;
 end;
@@ -3328,8 +3321,6 @@ begin
 
   var manualHeight: Single := -1;
 
-  var waitForRepaintInfo := _waitForRepaintInfo as IDCControlWaitForRepaintInfo;
-
   var l: List<IDCTreeLayoutColumn>;
   if _reloadForSpecificColumn <> nil then
   begin
@@ -3395,9 +3386,20 @@ begin
 
   if not Cell.IsHeaderCell and (LayoutColumn.Column.InfoControlClass <> TInfoControlClass.Text) and (LayoutColumn.Column.SubInfoControlClass <> TInfoControlClass.Text) then
   begin
-    if Cell.Control <> nil then
-      Result := Cell.Control.Width else
-      Result := 35;
+    Result := 0;
+    if Cell.InfoControl <> nil then
+      Result := Cell.InfoControl.Width + (2*_cellLeftRightPadding);
+
+    if Cell.SubInfoControl <> nil then
+      Result := CMath.Max(Result, Cell.SubInfoControl.Width + (2*_cellLeftRightPadding));
+
+    if Result = 0 then
+    begin
+      if Cell.Control <> nil then
+        Result := Cell.Control.Width else
+        Result := 35;
+    end;
+
     Exit;
   end;
 
@@ -3474,10 +3476,19 @@ begin
       maxWidth := cell.Column.CustomWidth else
       maxWidth := IfThen(cell.Column.WidthMax > 0, cell.Column.WidthMax, -1);
     if maxWidth <> -1 then
-      ctrl.Width := maxWidth;
-    txt.CalcAsAutoWidth := maxWidth = -1;
+    begin
+      var orgWidth := ctrl.Width;
+      try
+        ctrl.Width := maxWidth;
+        txt.CalcAsAutoWidth := False;
 
-    Result := txt.TextHeight;
+        Result := txt.TextHeight;
+      finally
+        ctrl.Width := orgWidth;
+        txt.CalcAsAutoWidth := True;
+      end;
+    end else
+      Result := txt.TextHeight;
   end else
     Result := ctrl.Height;
 end;
