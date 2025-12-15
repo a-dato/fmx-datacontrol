@@ -202,6 +202,7 @@ type
     Value         : CObject;
     DefaultValue  : CObject;
     MultilineEdit : Boolean;  // True - show Multiline editor
+    UserCanClear  : Boolean;
     Editor        : TControl; // Custom user editor
     MinEditorWidth: Single;
 

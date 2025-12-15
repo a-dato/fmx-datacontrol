@@ -219,6 +219,8 @@ type
     function  get_PickList: IList; virtual;
     procedure set_PickList(const Value: IList); virtual;
     function  get_Editor: TControl;
+    function  get_UserCanClear: Boolean;
+    procedure set_UserCanClear(const Value: Boolean);
 
     function  FormatItem(const Item: CObject) : CString;
     function  ParseValue(var AValue: CObject): Boolean;
@@ -1496,6 +1498,7 @@ begin
 
     _cellEditor.DefaultValue := StartEditArgs.DefaultValue;
     _cellEditor.PickList := StartEditArgs.PickList;
+    _cellEditor.UserCanClear := StartEditArgs.UserCanClear;
   end
   else if Cell.Column.InfoControlClass = TInfoControlClass.CheckBox then
     _cellEditor := TDCCheckBoxCellEditor.Create(Self, Cell)
@@ -1522,6 +1525,8 @@ begin
         _cellEditor := TDCTextCellMultilineEditor.Create(self, Cell) else
         _cellEditor := TDCTextCellEditor.Create(self, Cell);
     end;
+
+    _cellEditor.UserCanClear := StartEditArgs.UserCanClear;
   end;
 
   if (UserValue = nil) or not _CellEditor.TryBeginEditWithUserKey(StartEditArgs.Value, UserValue) then
@@ -2091,6 +2096,11 @@ begin
     Result := ce.PickList;
 end;
 
+function TDCCellEditor.get_UserCanClear: Boolean;
+begin
+  Result := _editor.ShowClearButton;
+end;
+
 function TDCCellEditor.get_DefaultValue: CObject;
 begin
   Result := _editor.DefaultValue;
@@ -2126,6 +2136,11 @@ begin
   var ce: IComboEditControl;
   if Interfaces.Supports<IComboEditControl>(_editor, ce) then
     ce.PickList := Value;
+end;
+
+procedure TDCCellEditor.set_UserCanClear(const Value: Boolean);
+begin
+  _editor.ShowClearButton := Value;
 end;
 
 procedure TDCCellEditor.set_Value(const Value: CObject);
