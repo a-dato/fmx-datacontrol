@@ -1749,7 +1749,7 @@ procedure TScrollControlWithCells.UpdateSelectedColumn(const Column: Integer);
 begin
   _selectionInfo.BeginUpdate;
   try
-    _selectionInfo.ClearAllSelections;
+//    _selectionInfo.ClearAllSelections;
     (_selectionInfo as ITreeSelectionInfo).SelectedLayoutColumn := Column;
   finally
     _selectionInfo.EndUpdate;
