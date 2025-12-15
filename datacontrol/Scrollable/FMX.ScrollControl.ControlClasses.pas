@@ -347,7 +347,7 @@ uses
   Wasm.System.SysUtils,
   Wasm.System.Types
   {$ENDIF}
-  , ADato.FMX.FastControls.Text, FMX.ListBox;
+  , ADato.FMX.FastControls.Text, FMX.ListBox, ADato.TraceEvents.intf;
 
 { TDataControlClassFactory }
 
@@ -979,10 +979,13 @@ begin
   if _PickList = nil then
     Exit;
 
-  var items: List<string> := ComboItems;
-  if items = nil then
+  var items: List<string>;
+  if not _itemsLoaded then
   begin
     _itemsLoaded := True;
+
+    ComboClear;
+    _ItemsShowing := nil;
 
     items := CList<string>.Create(_PickList.Count);
 
@@ -996,7 +999,8 @@ begin
           ComboAdd(s);
         end;
     end;
-  end;
+  end else
+    items := ComboItems;
 
   if (_control is TComboEdit) then
   begin
@@ -1097,7 +1101,11 @@ end;
 
 procedure TComboEditControlImpl.DoKeyUp(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
 begin
+  EventTracer.TraceMessage('COMBO', get_Text);
+
   inherited;
+
+  EventTracer.TraceMessage('COMBO', get_Text);
 
   if (key = vkBack) and (get_Text.Length = 1) then
   begin
@@ -1118,7 +1126,6 @@ end;
 
 procedure TComboEditControlImpl.DropDown;
 begin
-  DoBeforePopup;
   RefreshItems;
   if _control is TComboEdit then
   begin
@@ -1127,7 +1134,7 @@ begin
   end
   else if _control is TComboBox then
   begin
-    var ce := _control as TComboEdit;
+    var ce := _control as TComboBox;
     ce.DropDown;
   end
 end;
@@ -1202,30 +1209,17 @@ begin
 end;
 
 procedure TComboEditControlImpl.set_Value(const Value: CObject);
-
-  procedure UpdateItemIndex(const Ctrl: TControl; Index: Integer);
-  begin
-    if (get_ItemIndex <> Index) then
-    begin
-      Ctrl.BeginUpdate;
-      try
-        set_ItemIndex(Index);
-      finally
-        Ctrl.EndUpdate;
-      end;
-    end;
-  end;
-
 begin
   var items := ActivePickList;
   var idx: Integer;
 
   if (Value <> nil) and (Items <> nil) then
-    idx := items.IndexOf(Value) else
+  begin
+    idx := items.IndexOf(Value);
+    if idx = get_ItemIndex then
+      Exit;
+  end else
     idx := -1;
-
-  if idx = get_ItemIndex then
-    Exit;
 
   if _itemsLoaded then
   begin

@@ -782,32 +782,32 @@ begin
   var descriptor: IPropertyDescriptor;
   if (Button = TMouseButton.mbLeft) and TryGetPropertyDescriptor(descriptor) and (descriptor.Picklist <> nil) then
   begin
-    if _picklist = nil then
-    begin
-      var items := descriptor.Picklist.Items(nil);
-      if not items.TryGetValue<IList>(_picklist) then
-        Exit;
-    end;
-
-    _control.BeginUpdate;
-    try
-      _control.Items.Clear;
-      var formatter := descriptor.Formatter;
-
-      var item: CObject;
-      for item in _picklist do
-      begin
-        var s: CString;
-        if formatter <> nil then
-          s := formatter.Format(get_ObjectModelContext.Context, item, nil) else
-          s := item.ToString();
-
-        if not CString.IsNullOrEmpty(s) then
-          _control.Items.Add(s);
-      end;
-    finally
-      _control.EndUpdate;
-    end;
+//    if _picklist = nil then
+//    begin
+//      var items := descriptor.Picklist.Items(nil);
+//      if not items.TryGetValue<IList>(_picklist) then
+//        Exit;
+//    end;
+//
+//    _control.BeginUpdate;
+//    try
+//      _control.Items.Clear;
+//      var formatter := descriptor.Formatter;
+//
+//      var item: CObject;
+//      for item in _picklist do
+//      begin
+//        var s: CString;
+//        if formatter <> nil then
+//          s := formatter.Format(get_ObjectModelContext.Context, item, nil) else
+//          s := item.ToString();
+//
+//        if not CString.IsNullOrEmpty(s) then
+//          _control.Items.Add(s);
+//      end;
+//    finally
+//      _control.EndUpdate;
+//    end;
   end;
 end;
 {$ENDIF}
@@ -816,13 +816,13 @@ function TComboBoxControlBinding.GetValue: CObject;
 begin
   {$IFDEF APP_PLATFORM}
   var ix := _control.ItemIndex;
-  if _picklist = nil then
-  begin
-    if ix <> -1 then
-      Exit(_control.Items[ix]);
-  end
-  else if (ix >= 0) and (ix < (_picklist.Count - 1)) then
-    Result := _picklist[ix];
+//  if _picklist = nil then
+//  begin
+//    if ix <> -1 then
+//      Exit(_control.Items[ix]);
+//  end
+//  else if (ix >= 0) and (ix < (_picklist.Count - 1)) then
+//    Result := _picklist[ix];
   {$ELSEIF Defined(DELPHI)}
   if _Control.ItemIndex <> -1 then
     Result := _Control.Items[_Control.ItemIndex] else
