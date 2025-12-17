@@ -47,7 +47,6 @@ type
     procedure UserClicked(Button: TMouseButton; Shift: TShiftState; const X, Y: Single); override;
 
     procedure ResetView(const FromViewListIndex: Integer = -1; ClearOneRowOnly: Boolean = False); override;
-    procedure SetSingleSelectionIfNotExists; override;
     procedure InternalSetCurrent(const Index: Integer; const EventTrigger: TSelectionEventTrigger; Shift: TShiftState; SortOrFilterChanged: Boolean = False); override;
 
     function  CanRealignContent: Boolean; override;
@@ -140,6 +139,8 @@ type
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
 
+    function  BeginEdit: Boolean;
+    function  EndEdit: Boolean;
     function  IsEdit: Boolean;
     function  IsNew: Boolean;
     function  IsEditOrNew: Boolean;
@@ -222,20 +223,20 @@ type
     function  get_UserCanClear: Boolean;
     procedure set_UserCanClear(const Value: Boolean);
 
+    procedure BeginEdit(const EditValue: CObject; SelectAll: Boolean); virtual;
+    procedure EndEdit; virtual;
+
     function  FormatItem(const Item: CObject) : CString;
     function  ParseValue(var AValue: CObject): Boolean;
 
     procedure OnEditorExit(Sender: TObject);
     procedure OnEditorKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState); virtual;
 
+    function TryBeginEditWithUserKey(const OriginalValue: CObject; const UserKey: CString): Boolean; virtual;
+
   public
     constructor Create(const EditorHandler: IDataControlEditorHandler; const Cell: IDCTreeCell); reintroduce; virtual;
     destructor Destroy; override;
-
-    procedure BeginEdit(const EditValue: CObject; SelectAll: Boolean); virtual;
-    procedure EndEdit; virtual;
-
-    function TryBeginEditWithUserKey(const OriginalValue: CObject; const UserKey: CString): Boolean; virtual;
   end;
 
   TDCCustomCellEditor = class(TDCCellEditor)
@@ -286,14 +287,10 @@ type
 
   TDCCellMultiSelectDropDownEditor = class(TDCCellEditor)
   private
-    _PickList: IList;
     _saveData: Boolean;
   protected
     function  get_Value: CObject; override;
     procedure set_Value(const Value: CObject); override;
-
-    function  get_PickList: IList;
-    procedure set_PickList(const Value: IList);
 
     procedure Dropdown;
 
@@ -301,7 +298,6 @@ type
   public
     procedure BeginEdit(const EditValue: CObject; SelectAll: Boolean = True); override;
 
-    property PickList: IList read get_PickList write set_PickList;
     property SaveData: Boolean read _saveData write _saveData;
   end;
 
@@ -1312,7 +1308,7 @@ begin
   {out} ChangeUpdatedSort := False;
 
   // stop cell editing
-  if _editingInfo.CellIsEditing and not _editingInfo.InsideEndEditCell then
+  if (_editingInfo <> nil) and _editingInfo.CellIsEditing and not _editingInfo.InsideEndEditCell then
   begin
     _editingInfo.BeginEndEditCell;
     try
@@ -1578,6 +1574,34 @@ begin
   end;
 
   inherited;
+end;
+
+function TScrollControlWithEditableCells.BeginEdit: Boolean;
+begin
+  Result := False;
+  var cell := GetActiveCell;
+  // row can be in edit mode already, but cell should not be in edit mode yet
+  if (cell = nil) or not CanEditCell(cell) or _editingInfo.RowIsEditing then
+    Exit;
+  _selectionInfo.ClearMultiSelections;
+  var dataItem := Self.DataItem;
+  var isNew := False;
+  Result := DoEditRowStart(Cell.Row as IDCTreeRow, {var} dataItem, isNew);
+end;
+
+function TScrollControlWithEditableCells.EndEdit: Boolean;
+begin
+  if (_editingInfo <> nil) and _editingInfo.RowIsEditing then
+  begin
+    var changeUpdatedSort: Boolean;
+    if not EndEditCell({out} changeUpdatedSort) or changeUpdatedSort then
+      Exit(False);
+
+    if not DoEditRowEnd(GetActiveCell.Row as IDCTreeRow, {out} changeUpdatedSort) then
+      Exit(False);
+  end;
+
+  Exit(True);
 end;
 
 function TScrollControlWithEditableCells.IsEdit: Boolean;
@@ -1907,17 +1931,6 @@ begin
       raise EConvertError.Create(msg);
     end;
   end;
-end;
-
-procedure TScrollControlWithEditableCells.SetSingleSelectionIfNotExists;
-begin
-//  // in case of editing we already have selected an item and we know for sure we can skip this procedure
-//  if _selectionInfo.HasSelection and IsEdit then
-//    Exit;
-//
-//  Assert(not IsEdit);
-//
-//  inherited;
 end;
 
 { TTreeEditingInfo }
@@ -2399,21 +2412,11 @@ begin
   {$ENDIF}
 end;
 
-function TDCCellMultiSelectDropDownEditor.get_PickList: IList;
-begin
-  Result := _PickList;
-end;
-
 function TDCCellMultiSelectDropDownEditor.get_Value: CObject;
 begin
   {$IFNDEF WEBASSEMBLY}
   Result := TComboMultiBox(_editor).SelectedItems;
   {$ENDIF}
-end;
-
-procedure TDCCellMultiSelectDropDownEditor.set_PickList(const Value: IList);
-begin
-  _PickList := Value;
 end;
 
 procedure TDCCellMultiSelectDropDownEditor.set_Value(const Value: CObject);

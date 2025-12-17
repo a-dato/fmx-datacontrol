@@ -32,9 +32,11 @@ type
     Button9: TButton;
     Button1: TButton;
     DataControl1: TDataControl;
+    Button3: TButton;
     procedure acCollapseExecute(Sender: TObject);
     procedure acExpandExecute(Sender: TObject);
     procedure Button2Click(Sender: TObject);
+    procedure Button3Click(Sender: TObject);
     procedure Button8Click(Sender: TObject);
     procedure Button9Click(Sender: TObject);
     procedure DataControl1RowAdding(const Sender: TObject; e: DCAddingNewEventArgs);
@@ -86,6 +88,12 @@ begin
   DataControl1.Model := model;
 end;
 
+procedure TForm1.Button3Click(Sender: TObject);
+begin
+  var model := DataControl1.Model;
+  DataControl1.DataItem := model.Context[4];
+end;
+
 procedure TForm1.Button8Click(Sender: TObject);
 begin
   var model: IObjectListModel := TObjectListModel<ICompany>.Create;
@@ -94,6 +102,7 @@ begin
   var bind := TPropertyBinding.CreateBindingByControl(edNameByBinding);
   model.ObjectModelContext.Bind('Name', bind);
 
+  model.ObjectContext := model.Context[4];
   DataControl1.Model := model;
 end;
 
