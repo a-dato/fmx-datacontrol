@@ -292,6 +292,12 @@ end;
 
 procedure TComboMultiBox.set_SelectedItems(const Value: IList);
 begin
+  if (Value = nil) or (Value.Count = 0) then
+  begin
+    _popupMenu.DataControl.ClearSelections;
+    Exit;
+  end;
+
   if _popupMenu.DataControl.DataList = nil then
   begin
     if Assigned(_beforeDropDown) then
@@ -301,9 +307,7 @@ begin
       raise Exception.Create('Datalist needs to be set first');
   end;
 
-  if (Value <> nil) and (Value.Count > 0) then
-    _popupMenu.DataControl.AssignSelection(Value) else
-    _popupMenu.DataControl.ClearSelections;
+  _popupMenu.DataControl.AssignSelection(Value);
 end;
 
 end.

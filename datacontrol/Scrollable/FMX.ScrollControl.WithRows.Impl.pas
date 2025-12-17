@@ -1313,6 +1313,9 @@ end;
 
 procedure TScrollControlWithRows.ClearSelections;
 begin
+  if not _selectionInfo.HasSelection then
+    Exit;
+
   _selectionInfo.LastSelectionEventTrigger := TSelectionEventTrigger.External;
   _selectionInfo.BeginUpdate;
   try

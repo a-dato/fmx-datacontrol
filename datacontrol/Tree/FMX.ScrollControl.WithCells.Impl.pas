@@ -3454,16 +3454,23 @@ function TScrollControlWithCells.CalculateCellControlHeight(const Cell: IDCTreeC
 begin
   var ctrl: IDCControl;
   var infoCtrlClass: TInfoControlClass;
+  var bounds: TRectF;
+
   if not GoSub then begin
     ctrl := Cell.InfoControl;
     infoCtrlClass := Cell.Column.InfoControlClass;
+    bounds := Cell.CustomInfoControlBounds;
   end else begin
     ctrl := Cell.SubInfoControl;
     infoCtrlClass := Cell.Column.SubInfoControlClass;
+    bounds := Cell.CustomSubInfoControlBounds;
   end;
 
   if Cell.Column.Visualisation.IgnoreHeightByRowCalculation or (ctrl = nil) or not ctrl.Visible then
     Exit(0);
+
+  if not bounds.IsEmpty then
+    Exit(bounds.Height);
 
   if infoCtrlClass = TInfoControlClass.Text then
   begin
