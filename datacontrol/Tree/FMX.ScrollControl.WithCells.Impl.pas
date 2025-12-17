@@ -92,8 +92,6 @@ type
     procedure GenerateView; override;
     procedure RealignFinished; override;
 
-    procedure set_AllowNoneSelected(const Value: Boolean); override;
-
   // properties
   protected
     _columns: IDCTreeColumnList;
@@ -2022,7 +2020,7 @@ begin
   if (_autoMultiSelectColumn = nil) then
     Exit;
 
-  var makeVisible := _allowNoneSelected {always visible} or _selectionInfo.IsMultiSelection {only visible by 2 or more selected};
+  var makeVisible := _selectionInfo.IsMultiSelection {only visible by 2 or more selected};
   if (_autoMultiSelectColumn <> nil) and (_autoMultiSelectColumn.Visualisation.Visible <> makeVisible) then
   begin
     _autoMultiSelectColumn.Visualisation.Visible := not _autoMultiSelectColumn.Visualisation.Visible;
@@ -2380,12 +2378,6 @@ begin
   var selectedLayoutColumn := (_selectionInfo as ITreeSelectionInfo).SelectedLayoutColumn;
   if (selectedLayoutColumn = -1) or (_treeLayout.LayoutColumns.Count = 0) then Exit;
   Result := _treeLayout.LayoutColumns[selectedLayoutColumn];
-end;
-
-procedure TScrollControlWithCells.set_AllowNoneSelected(const Value: Boolean);
-begin
-  inherited;
-  UpdateMultiSelectColumnVisibility;
 end;
 
 procedure TScrollControlWithCells.HandleMultiSelectOptionChanged;
@@ -3222,7 +3214,7 @@ end;
 
 function TScrollControlWithCells.RadioInsteadOfCheck: Boolean;
 begin
-  Result := not (TDCTreeOption.MultiSelect in  _options) and not AllowNoneSelected;
+  Result := not (TDCTreeOption.MultiSelect in  _options);
 end;
 
 function TScrollControlWithCells.GetCellControlData(const Cell: IDCTreeCell): CObject;
@@ -3431,16 +3423,23 @@ function TScrollControlWithCells.CalculateCellControlHeight(const Cell: IDCTreeC
 begin
   var ctrl: IDCControl;
   var infoCtrlClass: TInfoControlClass;
+  var bounds: TRectF;
+
   if not GoSub then begin
     ctrl := Cell.InfoControl;
     infoCtrlClass := Cell.Column.InfoControlClass;
+    bounds := Cell.CustomInfoControlBounds;
   end else begin
     ctrl := Cell.SubInfoControl;
     infoCtrlClass := Cell.Column.SubInfoControlClass;
+    bounds := Cell.CustomSubInfoControlBounds;
   end;
 
   if Cell.Column.Visualisation.IgnoreHeightByRowCalculation or (ctrl = nil) or not ctrl.Visible then
     Exit(0);
+
+  if not bounds.IsEmpty then
+    Exit(bounds.Height);
 
   if infoCtrlClass = TInfoControlClass.Text then
   begin
@@ -4827,7 +4826,6 @@ begin
     end;
 
     TInfoControlClass.CheckBox: begin
-
       if Cell.Column.IsSelectionColumn and _treeControl.RadioInsteadOfCheck  then
         Result := DataControlClassFactory.CreateRadioButton(Cell.Control) else
         Result := DataControlClassFactory.CreateCheckBox(Cell.Control);

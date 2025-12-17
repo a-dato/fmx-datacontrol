@@ -491,7 +491,9 @@ begin
   if Assigned(_onViewPortPositionChanged) then
     _onViewPortPositionChanged(Self, _oldViewPortPos, newViewPointPos, False);
 
-  _oldViewPortPos := newViewPointPos;
+//  if (Round(_vertScrollBar.Value) mod 78 = 0) then
+//    _oldViewPortPos := newViewPointPos else
+    _oldViewPortPos := newViewPointPos;
 end;
 
 procedure TScrollControl.ForceImmeditiateRealignContent;
@@ -581,6 +583,9 @@ end;
 
 procedure TScrollControl.MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Single);
 begin
+  if Button <> TMouseButton.mbLeft then
+    Exit;
+
   _clickEnable := True;
 
   inherited;
@@ -712,8 +717,8 @@ begin
 
 //  if _mouseWheelDistanceToGo <> 0 then
 //  begin
-    ScrollManualInstant(_mouseWheelDistanceToGo + scrollDIstance);
-    _mouseWheelDistanceToGo := 0;
+  ScrollManualInstant(_mouseWheelDistanceToGo + scrollDIstance);
+  _mouseWheelDistanceToGo := 0;
 //    _mouseWheelSmoothScrollTimer.Enabled := False;
 //  end else
 //    ScrollManualTryAnimated(scrollDistance, False)

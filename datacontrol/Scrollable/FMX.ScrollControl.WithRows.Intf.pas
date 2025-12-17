@@ -49,8 +49,6 @@ type
 
   IRowsControl = interface(IScrollControl)
     ['{DFFB7FC1-1AA5-419B-8125-6106792603B2}']
-    function  get_AllowNoneSelected: Boolean;
-    procedure set_AllowNoneSelected(const Value: Boolean);
     function  get_SelectionType: TSelectionType;
     procedure set_SelectionType(const Value: TSelectionType);
     function  get_rowHeightDefault: Single;
@@ -71,7 +69,6 @@ type
     function  GetDataModel: IDataModel;
     function  HasViewRows: Boolean;
 
-    property AllowNoneSelected: Boolean read get_AllowNoneSelected write set_AllowNoneSelected;
     property SelectionType: TSelectionType read get_SelectionType write set_SelectionType;
     property RowHeightFixed: Single read get_rowHeightFixed write set_RowHeightFixed;
     property RowHeightDefault: Single read get_rowHeightDefault write set_RowHeightDefault;
