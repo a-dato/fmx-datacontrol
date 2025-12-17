@@ -117,7 +117,7 @@ type
     procedure UpdateLastSelection(const DataIndex, ViewListIndex: Integer; const DataItem: CObject);
 
     procedure UpdateSingleSelection(const DataIndex, ViewListIndex: Integer; const DataItem: CObject; KeepCurrentSelection: Boolean);
-    procedure AddToSelection(const DataIndex, ViewListIndex: Integer; const DataItem: CObject);
+    procedure AddToSelection(const DataIndex, ViewListIndex: Integer; const DataItem: CObject; ExpandCurrentSelection: Boolean);
     procedure Deselect(const DataIndex: Integer);
     procedure SelectedRowClicked(const DataIndex: Integer);
 
