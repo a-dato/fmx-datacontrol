@@ -195,7 +195,6 @@ type
 
     function  CreateSelectioninfoInstance: IRowSelectionInfo; override;
     procedure OnSelectionInfoChanged; override;
-    procedure SetSingleSelectionIfNotExists; override;
     procedure VisualizeRowSelection(const Row: IDCRow); override;
     procedure CheckCorrectColumnSelection( const SelectionInfo: ITreeSelectionInfo; const Row: IDCTreeRow);
     procedure UpdateMultiSelectColumnVisibility;
@@ -1749,7 +1748,7 @@ procedure TScrollControlWithCells.UpdateSelectedColumn(const Column: Integer);
 begin
   _selectionInfo.BeginUpdate;
   try
-    _selectionInfo.ClearAllSelections;
+//    _selectionInfo.ClearAllSelections;
     (_selectionInfo as ITreeSelectionInfo).SelectedLayoutColumn := Column;
   finally
     _selectionInfo.EndUpdate;
@@ -2146,26 +2145,6 @@ begin
     treeSelectionInfo.SelectedLayoutColumn := -1;
   finally
     _selectionInfo.EndUpdate(True {ignore events});
-  end;
-end;
-
-procedure TScrollControlWithCells.SetSingleSelectionIfNotExists;
-begin
-  if (_selectionType <> TSelectionType.CellSelection) or _allowNoneSelected or (_view.ViewCount = 0) then
-  begin
-    inherited;
-    Exit;
-  end;
-
-  var treeSelectionInfo := _selectionInfo as ITreeSelectionInfo;
-  if (treeSelectionInfo.SelectedLayoutColumn = 0) then
-    SetColumnSelectionIfNoneExists;
-
-  _selectionInfo.BeginUpdate;
-  Try
-    inherited;
-  finally
-    _selectionInfo.EndUpdate;
   end;
 end;
 

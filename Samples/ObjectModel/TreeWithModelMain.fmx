@@ -47,6 +47,14 @@ object Form1: TForm1
       TextSettings.Trimming = None
       OnClick = Button8Click
     end
+    object Button3: TButton
+      Position.X = 608.000000000000000000
+      Position.Y = 8.000000000000000000
+      TabOrder = 3
+      Text = 'Button3'
+      TextSettings.Trimming = None
+      OnClick = Button3Click
+    end
   end
   object Layout2: TLayout
     Align = Right
@@ -99,6 +107,8 @@ object Form1: TForm1
     RowHeightDefault = 30.000000000000000000
     HeaderHeight = 24.000000000000000000
     AutoExtraColumnSizeMax = -1.000000000000000000
+    CellTopBottomPadding = 5.000000000000000000
+    CellLeftRightPadding = 5.000000000000000000
     Columns_ = 
       '<Columns><Item type="TDCTreeColumn"><Caption>Name</Caption><Prop' +
       'ertyName>Name</PropertyName><InfoControlClass>Text</InfoControlC' +
@@ -107,12 +117,14 @@ object Form1: TForm1
       'ings><Visualisation><Visible>True</Visible><Frozen>False</Frozen' +
       '><ReadOnly>False</ReadOnly><Selectable>True</Selectable><AllowRe' +
       'size>False</AllowResize><AllowHide>False</AllowHide><HideWhenEmp' +
-      'ty>False</HideWhenEmpty></Visualisation><SortAndFilter><Sort>Non' +
-      'e</Sort><ShowSortMenu>False</ShowSortMenu><ShowFilterMenu>False<' +
-      '/ShowFilterMenu></SortAndFilter><SubControlSettings><SubInfoCont' +
-      'rolClass>Custom</SubInfoControlClass></SubControlSettings><Hiera' +
-      'rchy><ShowHierarchy>False</ShowHierarchy><Indent>0</Indent></Hie' +
-      'rarchy></Item></Columns>'#13#10
+      'ty>False</HideWhenEmpty><HideGrid>False</HideGrid><IgnoreHeightB' +
+      'yRowCalculation>False</IgnoreHeightByRowCalculation><HorzAlign>D' +
+      'efault</HorzAlign></Visualisation><SortAndFilter><Sort>None</Sor' +
+      't><ShowSortMenu>False</ShowSortMenu><ShowFilterMenu>False</ShowF' +
+      'ilterMenu></SortAndFilter><SubControlSettings><SubInfoControlCla' +
+      'ss>Custom</SubInfoControlClass></SubControlSettings><Hierarchy><' +
+      'ShowHierarchy>False</ShowHierarchy><Indent>0</Indent></Hierarchy' +
+      '></Item></Columns>'#13#10
   end
   object ActionList1: TActionList
     Left = 427

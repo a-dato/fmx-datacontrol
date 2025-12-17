@@ -210,7 +210,6 @@ type
     
     procedure OnSelectionInfoChanged; virtual;
     function  CreateSelectioninfoInstance: IRowSelectionInfo; virtual;
-    procedure SetSingleSelectionIfNotExists; virtual;
     procedure InternalSetCurrent(const Index: Integer; const EventTrigger: TSelectionEventTrigger; Shift: TShiftState; SortOrFilterChanged: Boolean = False); virtual;
     function  TrySelectItem(const RequestedSelectionInfo: IRowSelectionInfo; Shift: TShiftState): Boolean; virtual;
     procedure ScrollSelectedIntoView(const RequestedSelectionInfo: IRowSelectionInfo);
@@ -1087,8 +1086,10 @@ begin
     {$ENDIF}
   end;
 
+  {$IFDEF KV_OBSOLETE}
   if ViewIsDataModelView and (GetDataModelView.CurrencyManager.Current <> -1) and (_view.ActiveViewRows.Count > 0) then
     InternalSetCurrent(GetDataModelView.CurrencyManager.Current, TSelectionEventTrigger.External, []);
+  {$ENDIF}
 
   RefreshControl(True);
 end;
@@ -1627,7 +1628,10 @@ begin
       {$ENDIF}
 
       Self.Current := GetDataModelView.CurrencyManager.Current;
-    end;
+    end
+    else if _model <> nil then
+      // Set current position, if any
+      GetInitializedWaitForRefreshInfo.DataItem := _model.ObjectContext;
   end else
     _dataModelView := nil;
 
@@ -2665,8 +2669,6 @@ begin
   finally
     _selectionInfo.EndUpdate;
   end;
-
-  SetSingleSelectionIfNotExists;
 end;
 
 procedure TScrollControlWithRows.UpdateYPositionRows;
@@ -2912,8 +2914,6 @@ begin
 
         DoViewLoadingFinished;
       end;
-
-      SetSingleSelectionIfNotExists;
     finally
       StopMasterSynchronizer(goMaster);
     end;
@@ -3244,46 +3244,6 @@ begin
     inherited;
 
   UpdateRowHeightSynchronizerScrollbar;
-end;
-
-procedure TScrollControlWithRows.SetSingleSelectionIfNotExists;
-begin
-  if _allowNoneSelected or (_view = nil) or (_view.ViewCount = 0) then
-    Exit;
-
-  var viewListIndex := 0;
-  if _selectionInfo.HasSelection then
-  begin
-    viewListIndex := _view.GetViewListIndex(_selectionInfo.DataItem);
-    if (viewListIndex <> -1) and (viewListIndex = _selectionInfo.ViewListIndex) then
-    begin
-      if (_waitForRepaintInfo = nil) or (_view.GetActiveRowIfExists(viewListIndex) <> nil {in current viewport}) then
-        Exit; // nothing to do
-
-//      // if filtered, scroll to new pos...
-//      if not (TTreeRowState.FilterChanged in _waitForRepaintInfo.RowStateFlags) and not (TTreeRowState.RowChanged in _waitForRepaintInfo.RowStateFlags) then
-//        Exit; // current selection is still valid
-    end;
-
-    if viewListIndex = -1 then
-      viewListIndex := CMath.Min(_selectionInfo.ViewListIndex, _view.ViewCount - 1);
-  end
-  else if ViewIsDataModelView then
-    viewListIndex := CMath.Max(0, GetDataModelView.CurrencyManager.Current);
-
-  viewListIndex := GetSelectableViewIndex(viewListIndex, True);
-  if viewListIndex = -1 then
-  begin
-    viewListIndex := GetSelectableViewIndex(0, True);
-    if viewListIndex = -1 then
-      Exit;
-  end;
-
-  _selectionInfo.LastSelectionEventTrigger := TSelectionEventTrigger.Internal;
-
-  var requestedSelection := _selectionInfo.Clone;
-  requestedSelection.UpdateLastSelection(_view.GetDataIndex(viewListIndex), viewListIndex, _view.GetViewList[viewListIndex]);
-  TrySelectItem(requestedSelection, []);
 end;
 
 procedure TScrollControlWithRows.set_SelectionType(const Value: TSelectionType);
