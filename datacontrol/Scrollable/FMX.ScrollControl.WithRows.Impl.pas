@@ -2231,7 +2231,7 @@ begin
         if (rowBottom.VirtualYPosition + rowBottom.Height > _vertScrollBar.Value + _vertScrollBar.ViewportSize) and (_view.ActiveViewRows.Count > 1) then
           rowBottom := _view.ActiveViewRows[_view.ActiveViewRows.Count - 2];
 
-        InternalSetCurrent(rowBottom.ViewListIndex, TSelectionEventTrigger.Key, Shift);
+        InternalSetCurrent(rowBottom.ViewListIndex + 1, TSelectionEventTrigger.Key, Shift);
       end;
 
       Key := 0;
@@ -2865,11 +2865,12 @@ begin
           AlignRowsFromReferenceToBottom(referenceRow, _mustShowSelectionInRealign, False, {var} spaceLeftToBottom);
 
           var spaceToFill: Single := referenceRow.VirtualYPosition-startY;
+
+          AlignRowsAboveReference(referenceRow, {var} spaceToFill);
+
           if realignBottomTop then
             spaceToFill := spaceToFill + spaceLeftToBottom else
             spaceToFill := spaceToFill + CMath.Max(0, spaceLeftToBottom);
-
-          AlignRowsAboveReference(referenceRow, {var} spaceToFill);
 
           if _mustShowSelectionInRealign then
             AlignRowsFromReferenceToBottom(referenceRow, False, True, {var} spaceToFill);
