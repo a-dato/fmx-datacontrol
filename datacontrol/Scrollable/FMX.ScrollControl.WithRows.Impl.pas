@@ -67,7 +67,6 @@ type
     _rowHeightDefault: Single;
     _rowHeightMax: Single;
     _options: TDCTreeOptions;
-    _allowNoneSelected: Boolean;
 
     // events
     {$IFNDEF WEBASSEMBLY}
@@ -81,10 +80,6 @@ type
     function  get_SelectionType: TSelectionType;
     procedure set_SelectionType(const Value: TSelectionType);
     procedure set_Options(const Value: TDCTreeOptions);
-    {$IFNDEF WEBASSEMBLY}
-    function  get_AllowNoneSelected: Boolean;
-    {$ENDIF}
-    procedure set_AllowNoneSelected(const Value: Boolean); virtual;
     function  get_NotSelectableItems: IList;
     procedure set_NotSelectableItems(const Value: IList);
     procedure set_RowHeightMax(const Value: Single);
@@ -352,7 +347,6 @@ type
     // designer properties & events
     property SelectionType: TSelectionType read get_SelectionType write set_SelectionType default RowSelection;
     property Options: TDCTreeOptions read _options write set_Options;
-    property AllowNoneSelected: Boolean read _allowNoneSelected write set_AllowNoneSelected default False;
     property CanDragDrop: Boolean read _canDragDrop write _canDragDrop default False;
 
     property RowHeightFixed: Single read get_rowHeightFixed write set_RowHeightFixed;
@@ -1212,13 +1206,6 @@ begin
     _selectionInfo.Deselect(dataIndex);
 end;
 
-{$IFNDEF WEBASSEMBLY}
-function TScrollControlWithRows.get_AllowNoneSelected: Boolean;
-begin
-  Result := _allowNoneSelected;
-end;
-{$ENDIF}
-
 function TScrollControlWithRows.get_Current: Integer;
 begin
   Result := _selectionInfo.ViewListIndex;
@@ -1323,8 +1310,7 @@ begin
     var cln := _selectionInfo.Clone;
     _selectionInfo.ClearMultiSelections;
 
-    if _allowNoneSelected then
-      _selectionInfo.UpdateLastSelection(-1, -1, nil);
+    _selectionInfo.UpdateLastSelection(-1, -1, nil);
   finally
     _selectionInfo.EndUpdate;
   end;
@@ -2702,7 +2688,7 @@ procedure TScrollControlWithRows.InternalDoSelectRow(const Row: IDCRow; Shift: T
 begin
   if CObject.Equals(get_DataItem, Row.DataItem) and ((ssCtrl in Shift) = (_selectionInfo.SelectedRowCount > 1)) and (_selectionInfo.ViewListIndex = Row.ViewListIndex {insert before and than go down}) then
   begin
-    if _allowNoneSelected or (_selectionInfo.SelectedRowCount > 1) then
+    if (_selectionInfo.SelectedRowCount > 1) then
       _selectionInfo.Deselect(Row.DataIndex);
 
     Exit;
@@ -3279,14 +3265,6 @@ begin
   end;
 end;
 
-procedure TScrollControlWithRows.set_AllowNoneSelected(const Value: Boolean);
-begin
-  _allowNoneSelected := Value;
-
-  if not _allowNoneSelected and (_selectionInfo.ViewListIndex = -1) then
-    RefreshControl(True);
-end;
-
 procedure TScrollControlWithRows.set_Current(const Value: Integer);
 begin
   if (_selectionInfo = nil) or (_selectionInfo.ViewListIndex <> Value) then
@@ -3833,22 +3811,6 @@ end;
 
 procedure TRowSelectionInfo.Deselect(const DataIndex: Integer);
 begin
-//  {$IFDEF SELECT}
-//  {$ELSE}
-//  if (_multiSelection.Count <= 1) or not _multiSelection.ContainsKey(DataIndex) then
-//  begin
-//    if (_rowsControl <> nil {not a clone}) and (_rowsControl.AllowNoneSelected or not _rowsControl.HasViewRows) then
-//    begin
-//      if _multiSelection.ContainsKey(DataIndex) then
-//        _multiSelection.Remove(DataIndex);
-//
-//      UpdateLastSelection(-1, -1, nil);
-//    end;
-//
-//    Exit;
-//  end;
-//  {$ENDIF}
-
   // UpdateLastSelection triggers DoSelectionInfoChanged
   // therefore works with Update locks
   BeginUpdate;

@@ -3224,7 +3224,7 @@ end;
 
 function TScrollControlWithCells.RadioInsteadOfCheck: Boolean;
 begin
-  Result := not (TDCTreeOption.MultiSelect in  _options) and not AllowNoneSelected;
+  Result := not (TDCTreeOption.MultiSelect in  _options);
 end;
 
 function TScrollControlWithCells.GetCellControlData(const Cell: IDCTreeCell): CObject;
@@ -4836,7 +4836,6 @@ begin
     end;
 
     TInfoControlClass.CheckBox: begin
-
       if Cell.Column.IsSelectionColumn and _treeControl.RadioInsteadOfCheck  then
         Result := DataControlClassFactory.CreateRadioButton(Cell.Control) else
         Result := DataControlClassFactory.CreateCheckBox(Cell.Control);

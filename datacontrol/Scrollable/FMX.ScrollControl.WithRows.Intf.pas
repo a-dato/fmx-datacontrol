@@ -71,7 +71,6 @@ type
     function  GetDataModel: IDataModel;
     function  HasViewRows: Boolean;
 
-    property AllowNoneSelected: Boolean read get_AllowNoneSelected write set_AllowNoneSelected;
     property SelectionType: TSelectionType read get_SelectionType write set_SelectionType;
     property RowHeightFixed: Single read get_rowHeightFixed write set_RowHeightFixed;
     property RowHeightDefault: Single read get_rowHeightDefault write set_RowHeightDefault;
