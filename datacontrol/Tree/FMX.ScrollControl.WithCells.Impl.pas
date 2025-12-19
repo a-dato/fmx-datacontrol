@@ -1546,7 +1546,7 @@ begin
 
     if _selectionInfo.IsChecked(treeRow.DataIndex) then
       _selectionInfo.Deselect(treeRow.DataIndex) else
-      _selectionInfo.AddToSelection(treeRow.DataIndex, treeRow.ViewListIndex, treeRow.DataItem);
+      _selectionInfo.AddToSelection(treeRow.DataIndex, treeRow.ViewListIndex, treeRow.DataItem, ssCtrl in Shift {Expand selection});
 
     _selectionInfo.BeginUpdate;
     try
@@ -2831,7 +2831,7 @@ function TScrollControlWithCells.TrySelectItem(const RequestedSelectionInfo: IRo
       else
       begin
         var row := GetActiveRow;
-        _selectionInfo.AddToSelection(row.DataIndex, row.ViewListIndex, row.DataItem);
+        _selectionInfo.AddToSelection(row.DataIndex, row.ViewListIndex, row.DataItem, False);
       end;
     finally
       _selectionInfo.EndUpdate(not CanRealignContent);
@@ -3166,10 +3166,8 @@ begin
       end
       else if infoClass = TInfoControlClass.CheckBox then
       begin
-        var b: Boolean;
-        if not cellValue.TryGetValue<Boolean>(b) then
-          b := False;
-        (ctrl as IIsChecked).IsChecked := b;
+        DoCellFormatting(cell, False, {var} cellValue);
+        (ctrl as IIsChecked).IsChecked := cellValue.GetValue<Boolean>(False);
         _localCheckSetInDefaultData := True;
       end;
 

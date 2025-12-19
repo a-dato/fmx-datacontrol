@@ -469,7 +469,7 @@ type
     function  SelectionType: TSelectionType;
 
     procedure UpdateSingleSelection(const DataIndex, ViewListIndex: Integer; const DataItem: CObject; KeepCurrentSelection: Boolean);
-    procedure AddToSelection(const DataIndex, ViewListIndex: Integer; const DataItem: CObject);
+    procedure AddToSelection(const DataIndex, ViewListIndex: Integer; const DataItem: CObject; ExpandCurrentSelection: Boolean);
     procedure Deselect(const DataIndex: Integer);
     procedure SelectedRowClicked(const DataIndex: Integer);
 
@@ -1197,7 +1197,7 @@ begin
   if ClearOtherSelections then
     ClearSelections;
 
-  _selectionInfo.AddToSelection(dataIndex, ix, DataItem);
+  _selectionInfo.AddToSelection(dataIndex, ix, DataItem, False);
 end;
 
 procedure TScrollControlWithRows.DeselectItem(const DataItem: CObject);
@@ -1226,7 +1226,7 @@ begin
   if dataIndex = -1 then Exit;
 
   if not _selectionInfo.IsSelected(dataIndex) then
-    _selectionInfo.AddToSelection(dataIndex, ix, Item) else
+    _selectionInfo.AddToSelection(dataIndex, ix, Item, False) else
     _selectionInfo.Deselect(dataIndex);
 end;
 
@@ -2689,7 +2689,7 @@ begin
       var dataIndex := _view.GetDataIndex(viewListIndex);
 
       if dataIndex <> -1 then
-        _selectionInfo.AddToSelection(dataIndex, viewListIndex, item);
+        _selectionInfo.AddToSelection(dataIndex, viewListIndex, item, False);
     end;
 
 
@@ -2761,19 +2761,19 @@ begin
     var viewListIndex := lastSelectedIndex;
     while viewListIndex <> Row.ViewListIndex do
     begin
-      _selectionInfo.AddToSelection(_view.GetDataIndex(viewListIndex), viewListIndex, _view.GetViewList[viewListIndex]);
+      _selectionInfo.AddToSelection(_view.GetDataIndex(viewListIndex), viewListIndex, _view.GetViewList[viewListIndex], False);
 
       if lastSelectedIndex < Row.ViewListIndex then
         inc(ViewListIndex) else
         dec(ViewListIndex);
     end;
 
-    _selectionInfo.AddToSelection(Row.DataIndex, Row.ViewListIndex, Row.DataItem);
+    _selectionInfo.AddToSelection(Row.DataIndex, Row.ViewListIndex, Row.DataItem, False);
   end
   else if (ssCtrl in Shift) and (_selectionInfo.LastSelectionEventTrigger = TSelectionEventTrigger.Click) then
   begin
     if not _selectionInfo.IsChecked(Row.DataIndex) then
-      _selectionInfo.AddToSelection(Row.DataIndex, Row.ViewListIndex, Row.DataItem) else
+      _selectionInfo.AddToSelection(Row.DataIndex, Row.ViewListIndex, Row.DataItem, True {ExpandCurrentSelection}) else
       _selectionInfo.Deselect(Row.DataIndex);
   end else
     _selectionInfo.UpdateSingleSelection(Row.DataIndex, Row.ViewListIndex, Row.DataItem, TDCTreeOption.KeepCurrentSelection in _Options);
@@ -3217,12 +3217,12 @@ begin
       var list := _view.GetViewList;
       var viewIndex: Integer;
       for viewIndex := 0 to list.Count - 1 do
-        _selectionInfo.AddToSelection(_view.GetDataIndex(viewIndex), viewIndex, list[viewIndex]);
+        _selectionInfo.AddToSelection(_view.GetDataIndex(viewIndex), viewIndex, list[viewIndex], False);
     end;
 
     // keep current selected item
     if cln.DataIndex <> -1 then
-      _selectionInfo.AddToSelection(cln.DataIndex, cln.ViewListIndex, cln.DataItem);
+      _selectionInfo.AddToSelection(cln.DataIndex, cln.ViewListIndex, cln.DataItem, False);
   finally
     _selectionInfo.EndUpdate;
   end;
@@ -3927,22 +3927,25 @@ begin
   UpdateLastSelection(DataIndex, ViewListIndex, DataItem);
 end;
 
-procedure TRowSelectionInfo.AddToSelection(const DataIndex, ViewListIndex: Integer; const DataItem: CObject);
+procedure TRowSelectionInfo.AddToSelection(const DataIndex, ViewListIndex: Integer; const DataItem: CObject; ExpandCurrentSelection: Boolean);
 begin
   if not CanSelect(DataIndex) then
     Exit;
 
   BeginUpdate;
   try
-    // add single selection if needed
-    var prevInfo: IRowSelectionInfo := nil;
-    if (_lastSelectedViewListIndex <> -1) {and not _multiSelection.ContainsKey(_lastSelectedDataIndex)} then
-      prevInfo := Clone;
+    if ExpandCurrentSelection then
+    begin
+      // add single selection if needed
+      var prevInfo: IRowSelectionInfo := nil;
+      if (_lastSelectedViewListIndex <> -1) {and not _multiSelection.ContainsKey(_lastSelectedDataIndex)} then
+        prevInfo := Clone;
+
+      if prevInfo <> nil then
+        _multiSelection[prevInfo.DataIndex] := prevInfo;
+    end;
 
     UpdateLastSelection(DataIndex, ViewListIndex, DataItem);
-
-    if prevInfo <> nil then
-      _multiSelection[prevInfo.DataIndex] := prevInfo;
 
     var info: IRowSelectionInfo := CreateInstance as IRowSelectionInfo;
     info.UpdateSingleSelection(DataIndex, ViewListIndex, DataItem, False);
