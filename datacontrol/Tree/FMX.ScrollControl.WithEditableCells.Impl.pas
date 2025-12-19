@@ -2291,7 +2291,7 @@ end;
 
 procedure TObjectListModelItemChangedDelegate.SetItemInCurrentView(const DataItem: CObject);
 begin
-  if (_UpdateCount <> 0) then
+  if (_UpdateCount <> 0) or (_Owner.View = nil) then
     Exit;
 
   if _Owner.View.HasCustomDataList then

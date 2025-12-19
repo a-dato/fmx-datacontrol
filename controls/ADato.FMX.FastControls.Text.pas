@@ -64,7 +64,6 @@ type
     _settings: TTextSettings;
     _style: TStyledSettings;
     _autoWidth: Boolean;
-    _calcAsAutoWidth: Boolean;
     _calcAsAutoHeight: Boolean;
     _underlineOnHover: Boolean;
 
@@ -76,7 +75,7 @@ type
     _textBounds: TRectF;
     _subTextBounds: TRectF;
     _onChange: TNotifyEvent;
-    _maxWidth: Single;
+    _maxWidth: Integer;
 
     _subTextFontSize: Single;
     _subTextFontColor: TAlphaColor;
@@ -109,8 +108,8 @@ type
     function  get_VertTextAlign: TTextAlign;
     procedure set_VertTextAlign(const Value: TTextAlign);
     procedure set_AutoWidth(const Value: Boolean);
-    function  get_CalcAsAutoWidth: Boolean;
-    procedure set_CalcAsAutoWidth(const Value: Boolean);
+    function  get_MaxWidth: Integer;
+    procedure set_MaxWidth(const Value: Integer);
     function  get_CalcAsAutoHeight: Boolean;
     procedure set_CalcAsAutoHeight(const Value: Boolean);
     function  get_Trimming: TTextTrimming;
@@ -119,9 +118,11 @@ type
 
   protected
     procedure DoPaint; override;
-//    procedure Painting; override;
     procedure DoResized; override;
     function  GetDefaultSize: TSizeF; override;
+
+    function DoSetSize(const ASize: TControlSize; const NewPlatformDefault: Boolean; ANewWidth, ANewHeight: Single;
+      var ALastWidth, ALastHeight: Single): Boolean; override;
 
     procedure Calculate; virtual;
     procedure RecalcNeeded;
@@ -141,7 +142,6 @@ type
     destructor Destroy; override;
 
     procedure Paint; override;
-//    procedure PrepareForPaint; override;
     procedure RecalcOpacity; override;
 
     function HasText: Boolean;
@@ -165,9 +165,8 @@ type
     property HorzTextAlign: TTextAlign read get_HorzTextAlign write set_HorzTextAlign default TTextAlign.Leading;
 
     property AutoWidth: Boolean read _autoWidth write set_AutoWidth default False;
-    property CalcAsAutoWidth: Boolean read get_calcAsAutoWidth write set_CalcAsAutoWidth default False;
+    property MaxWidth: Integer read get_MaxWidth write set_MaxWidth default 0;
     property CalcAsAutoHeight: Boolean read get_calcAsAutoHeight write set_CalcAsAutoHeight default True;
-    property MaxWidth: Single write _maxWidth;
     property UnderlineOnHover: Boolean read _underlineOnHover write _underlineOnHover default False;
 
     property HitTest {$IFNDEF WEBASSEMBLY}default False{$ENDIF};
@@ -205,7 +204,7 @@ uses
   Wasm.System.SysUtils,
   Wasm.System.Math
   {$ENDIF}
-  , ADato.ObjectModel.intf, FMX.ScrollControl.ControlClasses;
+  , ADato.ObjectModel.intf, FMX.ScrollControl.ControlClasses, FMX.Skia;
 
 { TDateTimeEditOnKeyDownOverride }
 
@@ -236,15 +235,15 @@ begin
     cv := TCanvasManager.MeasureCanvas;
 
   cv.Font.Size := _settings.Font.Size;
-
   _subTextlayout.BeginUpdate;
   try
     _subTextlayout.Text := _subText;
     _subTextlayout.LayoutCanvas := cv;
     _subTextlayout.TopLeft := PointF(0,0);
     _subTextlayout.MaxSize := PointF(maxWidth, maxHeight);
-    _subTextlayout.HorizontalAlign := _settings.HorzAlign;
-    _subTextlayout.VerticalAlign := _settings.VertAlign;
+    // MUST BE LEADING: italic trailing aligned will give non-italic width back
+    _subTextlayout.HorizontalAlign := TTextAlign.Leading;
+    _subTextlayout.VerticalAlign := TTextAlign.Leading;
     _subTextlayout.WordWrap := get_WordWrap;
     _subTextlayout.Trimming := get_Trimming;
     _subTextlayout.Font := _settings.Font;
@@ -269,15 +268,15 @@ begin
     _recalcNeededWithOwnCanvas := False;
 
   cv.Font.Size := _settings.Font.Size;
-
   _layout.BeginUpdate;
   try
     _layout.Text := GetText;
     _layout.LayoutCanvas := cv;
     _layout.TopLeft := PointF(0,0);
     _layout.MaxSize := PointF(maxWidth, maxHeight);
-    _layout.HorizontalAlign := _settings.HorzAlign;
-    _layout.VerticalAlign := _settings.VertAlign;
+    // MUST BE LEADING: italic trailing aligned will give non-italic width back
+    _layout.HorizontalAlign := TTextAlign.Leading;
+    _layout.VerticalAlign := TTextAlign.Leading; //_settings.VertAlign;
     _layout.WordWrap := get_WordWrap;
     _layout.Trimming := get_Trimming;
     _layout.Font := _settings.Font;
@@ -287,6 +286,10 @@ begin
   end;
 
   _textBounds := _layout.TextRect;
+
+  // bad code, but neccesssary.. SKIA does not calculate italic fonts right..
+  if GlobalUseSkia and (TFontStyle.fsItalic in _layout.Font.Style) then
+    _textBounds := RectF(_textBounds.Left, _textBounds.Top, _textBounds.Right + 3, _textBounds.Bottom);
 end;
 
 constructor TFastText.Create(AOwner: TComponent);
@@ -336,28 +339,59 @@ begin
     _layout.TopLeft := (Self.Parent as TControl).LocalToAbsolute({TPointF.Create(0, 0}TPointF.Create(0, 15));
   {$ENDIF}
 
-//  Self.Canvas.Fill.Color := TALphaColors.Purple;
-//  Self.Canvas.FillRect(RectF(0,0,Width,Height), 0.2);
 
   inherited;
 
   if not _ignoreDefaultPaint then
   begin
+    var xPos := 0.0;
+    var yPos := 0.0;
+    case get_HorzTextAlign of
+      TTextAlign.Center: xPos := (Self.Width - _textBounds.Width) / 2;
+      TTextAlign.Leading: xPos := Padding.Left;
+      TTextAlign.Trailing: xPos := Self.Width - _textBounds.Width - Padding.Right;
+    end;
+
+    var totHeight := _textBounds.Height;
+    if Length(_subText) > 0 then
+      totHeight := totHeight + _subTextBounds.Height;
+
+    case get_VertTextAlign of
+      TTextAlign.Center: yPos := (Self.Height - totHeight) / 2;
+      TTextAlign.Leading: yPos := Padding.Top;
+      TTextAlign.Trailing: yPos := Self.Height - totHeight - Padding.Bottom;
+    end;
+
+    {$IFDEF DEBUG}
+    Self.Canvas.Fill.Color := TALphaColors.Purple;
+    Self.Canvas.FillRect(RectF(xPos, yPos, xPos +_textBounds.Width, yPos+_textBounds.Height), 0.2);
+
+  //  Self.Canvas.Fill.Color := TALphaColors.MoneyGreen;
+  //  Self.Canvas.FillRect(RectF(0, 0, Self.Width, Self.Height), 0.2);
+    {$ENDIF}
+
     _layout.Opacity := AbsoluteOpacity;
-    if (TextWidthWithPadding > Self.Width) then
-      _layout.MaxSize := PointF(Self.Width - (TextWidthWithPadding - TextWidth), _layout.MaxSize.Y);
-    if (TextHeightWithPadding > Self.Height) then
-      _layout.MaxSize := PointF(_layout.MaxSize.X, Self.Height - (TextHeightWithPadding - TextHeight));
+    _layout.TopLeft := PointF(xPos, yPos);
 
     _layout.RenderLayout(Canvas);
 
     if Length(_subText) > 0 then
     begin
+      case get_HorzTextAlign of
+        TTextAlign.Center: xPos := (Self.Width - _subTextBounds.Width) / 2;
+        TTextAlign.Leading: xPos := Padding.Left;
+        TTextAlign.Trailing: xPos := Self.Width - _subTextBounds.Width - Padding.Right;
+      end;
+
+      case get_VertTextAlign of
+        TTextAlign.Center: yPos := ((Self.Height - totHeight) / 2) + _subTextBounds.Height;
+        TTextAlign.Leading: yPos := Padding.Top + _textBounds.Height;
+        TTextAlign.Trailing: yPos := Self.Height - _textBounds.Height - Padding.Bottom;
+      end;
+
       _subTextlayout.Opacity := AbsoluteOpacity;
-      if (_subTextlayout.TextWidth > Self.Width) then
-        _subTextlayout.MaxSize := PointF(Self.Width, _subTextlayout.MaxSize.Y);
-      if (_subTextlayout.TextHeight > Self.Height) then
-        _subTextlayout.MaxSize := PointF(_subTextlayout.MaxSize.X, _subTextlayout.MaxSize.Y);
+      _subTextlayout.TopLeft := PointF(xPos, yPos);
+
       _subTextlayout.RenderLayout(Canvas);
     end;
   end;
@@ -365,9 +399,7 @@ begin
   if _hover and _underlineOnHover and not _mouseIsDown then
   begin
     Canvas.Stroke.Color := _layout.Color;
-
-    var rect := _layout.TextRect;
-    Canvas.DrawLine(PointF(rect.Left, rect.Bottom), PointF(rect.Right, rect.Bottom), AbsoluteOpacity);
+    Canvas.DrawLine(PointF(_textBounds.Left, _textBounds.Bottom), PointF(_textBounds.Right, _textBounds.Bottom), AbsoluteOpacity);
   end;
 end;
 
@@ -375,6 +407,14 @@ procedure TFastText.DoResized;
 begin
   inherited;
   RecalcNeeded;
+end;
+
+function TFastText.DoSetSize(const ASize: TControlSize;
+  const NewPlatformDefault: Boolean; ANewWidth, ANewHeight: Single;
+  var ALastWidth, ALastHeight: Single): Boolean;
+begin
+  inherited;
+  Repaint;
 end;
 
 procedure TFastText.Paint;
@@ -419,6 +459,11 @@ end;
 function TFastText.get_HorzTextAlign: TTextAlign;
 begin
   Result := _settings.HorzAlign;
+end;
+
+function TFastText.get_MaxWidth: Integer;
+begin
+  Result := _maxWidth;
 end;
 
 function TFastText.get_Style: TFontStyles;
@@ -513,7 +558,8 @@ begin
 
   _recalcNeeded := False;
 
-  var maxWidth := IfThen(_autoWidth or _calcAsAutoWidth, 9999, IfThen(_maxWidth > 0, _maxWidth, Self.Width - Padding.Left - Padding.Right - _internalLeftPadding - _internalRightPadding));
+//  var internalWidth := Self.Width - Padding.Left - Padding.Right - _internalLeftPadding - _internalRightPadding;
+  var maxWidth := IfThen(_maxWidth > 0, _maxWidth, 9999 {IfThen(_autoWidth, 9999, internalWidth)});
   var maxHeight := IfThen(get_WordWrap or _calcAsAutoHeight, 9999, Self.Height - Padding.Top - Padding.Bottom);
 
   CalculateSubText(maxWidth, maxHeight);
@@ -522,30 +568,30 @@ begin
   if _autoWidth then
     Self.Width := TextWidthWithPadding;
 
-  var subTextHeightSubstraction := CMath.Max(_subTextBounds.Height + SUBTEXT_NEGATIVE_MARGIN, 0);
-
-  _layout.BeginUpdate;
-  try
-    _layout.TopLeft := PointF(Self.Padding.Left + _internalLeftPadding, Self.Padding.Top);
-    _layout.MaxSize := PointF(
-      Self.Width - Self.Padding.Left - Self.Padding.Right - _internalLeftPadding - _internalRightPadding,
-      Self.Height - Self.Padding.Top - Self.Padding.Bottom - subTextHeightSubstraction);
-  finally
-    _layout.EndUpdate;
-  end;
-
-  if _subTextlayout <> nil then
-  begin
-    _subTextlayout.BeginUpdate;
-    try
-      _subTextlayout.TopLeft := PointF(Self.Padding.Left + _internalLeftPadding, Self.Padding.Top + subTextHeightSubstraction);
-      _subTextlayout.MaxSize := PointF(
-        Self.Width - Self.Padding.Left - Self.Padding.Right - _internalLeftPadding - _internalRightPadding,
-        Self.Height - Self.Padding.Top - Self.Padding.Bottom - subTextHeightSubstraction);
-    finally
-      _subTextlayout.EndUpdate;
-    end;
-  end;
+//  var subTextHeightSubstraction := CMath.Max(_subTextBounds.Height + SUBTEXT_NEGATIVE_MARGIN, 0);
+//
+//  _layout.BeginUpdate;
+//  try
+//    _layout.TopLeft := PointF(Self.Padding.Left + _internalLeftPadding, Self.Padding.Top);
+//    _layout.MaxSize := PointF(
+//      Self.Width - Self.Padding.Left - Self.Padding.Right - _internalLeftPadding - _internalRightPadding,
+//      Self.Height - Self.Padding.Top - Self.Padding.Bottom - subTextHeightSubstraction);
+//  finally
+//    _layout.EndUpdate;
+//  end;
+//
+//  if _subTextlayout <> nil then
+//  begin
+//    _subTextlayout.BeginUpdate;
+//    try
+//      _subTextlayout.TopLeft := PointF(Self.Padding.Left + _internalLeftPadding, Self.Padding.Top + subTextHeightSubstraction);
+//      _subTextlayout.MaxSize := PointF(
+//        Self.Width - Self.Padding.Left - Self.Padding.Right - _internalLeftPadding - _internalRightPadding,
+//        Self.Height - Self.Padding.Top - Self.Padding.Bottom - subTextHeightSubstraction);
+//    finally
+//      _subTextlayout.EndUpdate;
+//    end;
+//  end;
 end;
 
 procedure TFastText.SetStyledSettings(const Value: TStyledSettings);
@@ -605,25 +651,20 @@ begin
   end;
 end;
 
-function TFastText.get_CalcAsAutoWidth: Boolean;
-begin
-  Result := _calcAsAutoWidth;
-end;
-
-procedure TFastText.set_CalcAsAutoWidth(const Value: Boolean);
-begin
-  if _calcAsAutoWidth <> Value then
-  begin
-    _calcAsAutoWidth := Value;
-    RecalcNeeded;
-  end;
-end;
-
 procedure TFastText.set_HorzTextAlign(const Value: TTextAlign);
 begin
   if _settings.HorzAlign <> Value then
   begin
     _settings.HorzAlign := Value;
+    RecalcNeeded;
+  end;
+end;
+
+procedure TFastText.set_MaxWidth(const Value: Integer);
+begin
+  if _maxWidth <> Value then
+  begin
+    _maxWidth := Value;
     RecalcNeeded;
   end;
 end;

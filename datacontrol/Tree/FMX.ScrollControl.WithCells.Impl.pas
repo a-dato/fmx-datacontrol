@@ -2048,6 +2048,10 @@ begin
   end;
 
   UpdateMultiSelectColumnVisibility;
+
+  if not _selectionInfo.HasSelection then
+    Exit;
+
   var cell := GetActiveCell;
   if (cell = nil) and _realignContentRequested then
   begin
@@ -2148,8 +2152,8 @@ end;
 
 procedure TScrollControlWithCells.PrepareColumns;
 begin
-  var repaintInfo := (_waitForRepaintInfo as IDCControlWaitForRepaintInfo);
-  var columnsChanged := ((repaintInfo <> nil) and (TTreeViewState.ColumnsChanged in repaintInfo.ViewStateFlags));
+  var repaintInfo: IDCControlWaitForRepaintInfo;
+  var columnsChanged := (Interfaces.Supports<IDCControlWaitForRepaintInfo>(_waitForRepaintInfo, repaintInfo) and (TTreeViewState.ColumnsChanged in repaintInfo.ViewStateFlags));
 
   if (_treeLayout = nil) or (_columns.Count = 0) or columnsChanged then
     InitLayout;
@@ -3396,7 +3400,6 @@ begin
     if (Cell.SubInfoControl.Margins.Left > 0) or (Cell.SubInfoControl.Margins.Right > 0) then
       customMargins := Cell.SubInfoControl.Margins.Left + Cell.SubInfoControl.Margins.Right;
 
-//    var subWidth := subTxt.TextWidth + (2*_cellTopBottomPadding) + customMargins;
     var subWidth := subTxt.TextWidthWithPadding + (2*_cellLeftRightPadding) + customMargins;
 
     Result := CMath.Max(Result, subWidth);
@@ -3449,24 +3452,7 @@ begin
     if Length(txt.Text) = 0 then
       Exit(0);
 
-    var maxWidth: Single;
-    if cell.Column.CustomWidth > 0 then
-      maxWidth := cell.Column.CustomWidth else
-      maxWidth := IfThen(cell.Column.WidthMax > 0, cell.Column.WidthMax, -1);
-    if maxWidth <> -1 then
-    begin
-      var orgWidth := ctrl.Width;
-      try
-        ctrl.Width := maxWidth;
-        txt.CalcAsAutoWidth := False;
-
-        Result := txt.TextHeight;
-      finally
-        ctrl.Width := orgWidth;
-        txt.CalcAsAutoWidth := True;
-      end;
-    end else
-      Result := txt.TextHeight;
+    Result := txt.TextHeight;
   end else
     Result := ctrl.Height;
 end;
@@ -4617,6 +4603,20 @@ begin
     cell.ExpandButton.Free;
     cell.ExpandButton := nil;
   end;
+
+  // max width of text
+  var maxWidth: Single;
+  if cell.Column.CustomWidth > 0 then
+    maxWidth := cell.Column.CustomWidth else
+    maxWidth := IfThen(cell.Column.WidthMax > 0, cell.Column.WidthMax, -1);
+
+  maxWidth := maxWidth - (2*_treeControl.CellLeftRightPadding);
+
+  if Cell.IsHeaderCell or (Cell.Column.InfoControlClass = TInfoControlClass.Text) and (cell.InfoControl <> nil) then
+    (cell.InfoControl as ITextControl).MaxWidth := Trunc(maxWidth); // can be <= 0, in that case there is no maxwidth
+
+  if (Cell.Column.SubInfoControlClass = TInfoControlClass.Text) and (cell.SubInfoControl <> nil) then
+    (cell.SubInfoControl as ITextControl).MaxWidth := Trunc(maxWidth); // can be <= 0, in that case there is no maxwidth
 end;
 
 procedure TTreeLayoutColumn.UpdateColumnContainsData(const ContainsData: TColumnContainsData; const CellDataExample: CObject);
@@ -4662,6 +4662,8 @@ begin
   begin
     var headerCell := Cell as IHeaderCell;
     var startYPos := Cell.Control.Width - CELL_MIN_INDENT - (2*_treeControl.CellLeftRightPadding);
+
+    (headerCell.InfoControl as ITextSettings).TextSettings.HorzAlign := headerCell.LayoutColumn.CalculatedHorzAlign;
 
     if headerCell.FilterControl <> nil then
     begin
@@ -4754,24 +4756,20 @@ begin
     Exit;
 
   var ctrlHeight := cell.Control.Height;
-  var startPosY := 0.0;
 
   var row := (cell.Row as IDCTReeRow);
-//  if (row.InnerRowControl <> nil) and row.InnerRowControl.Visible then
-//  begin
-//    ctrlHeight := ctrlHeight - row.InnerRowControl.Height;
-//    startPosY := startPosY + IfThen(row.PlaceInnerRowAtBottom, 0, row.InnerRowControl.Height);
-//  end;
-
   if not validSub or not validMain then
   begin
     var ctrl := Cell.InfoControl;
-
     if not validMain then
       ctrl := Cell.SubInfoControl;
 
-    ctrl.Height := ctrlHeight - (2*_treeControl.CellTopBottomPadding);
-    ctrl.Position.Y := startPosY + _treeControl.CellTopBottomPadding;
+    if validMain and (cell.Column.InfoControlClass = TInfoControlClass.Text) then
+      ctrl.Height := ctrlHeight - (2*_treeControl.CellTopBottomPadding)
+    else if validSub and (cell.Column.SubInfoControlClass = TInfoControlClass.Text) then
+      ctrl.Height := ctrlHeight - (2*_treeControl.CellTopBottomPadding);
+
+    ctrl.Position.Y := (ctrlHeight - ctrl.Height) / 2;
 
     if Cell.IsHeaderCell and validMain then
     begin
@@ -4797,8 +4795,8 @@ begin
   var extraHeightPerCtrl := CMath.Max(0, (ctrlHeight - cell.InfoControl.Height - cell.SubInfoControl.Height) / 2);
 
   // align in vert center
-  cell.InfoControl.Position.Y := startPosY + extraHeightPerCtrl;
-  cell.SubInfoControl.Position.Y := startPosY + extraHeightPerCtrl + cell.InfoControl.Height;
+  cell.InfoControl.Position.Y := extraHeightPerCtrl;
+  cell.SubInfoControl.Position.Y := extraHeightPerCtrl + cell.InfoControl.Height;
 end;
 
 function TTreeLayoutColumn.CreateInfoControl(const Cell: IDCTreeCell; const ControlClassType: TInfoControlClass): IDCControl;
@@ -5057,8 +5055,8 @@ end;
 procedure TTreeLayoutColumn.set_Width(Value: Single);
 begin
   if Value < 0 then
-  _width := Value else
-  _width := Value;
+    _width := Value else
+    _width := Value;
 end;
 
 { TDCTreeLayout }

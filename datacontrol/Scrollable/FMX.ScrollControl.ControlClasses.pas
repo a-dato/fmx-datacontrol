@@ -412,6 +412,8 @@ end;
 function TDataControlClassFactory.CreateCheckBox(const Owner: TComponent): IDCEditControl;
 begin
   Result := TCheckBoxEditControl.Create(Owner);
+  Result.Width := 16;
+  Result.Height := 16;
 end;
 
 function TDataControlClassFactory.CreateEdit(const Owner: TComponent): IDCEditControl;
@@ -473,7 +475,6 @@ function TDataControlClassFactory.CreateText(const Owner: TComponent): IDCContro
 begin
   var ctrl := TFastText.Create(Owner);
   ctrl.VertTextAlign := TTextAlign.Center;
-  ctrl.CalcAsAutoWidth := True;
 
   Result := ctrl;
 end;

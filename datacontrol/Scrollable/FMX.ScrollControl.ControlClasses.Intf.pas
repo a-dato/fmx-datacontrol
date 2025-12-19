@@ -83,8 +83,10 @@ type
     ['{8C5C0E98-B7DF-45A5-A476-C7E2C382242A}']
     function  get_CalcAsAutoHeight: Boolean;
     procedure set_CalcAsAutoHeight(const Value: Boolean);
-    function  get_CalcAsAutoWidth: Boolean;
-    procedure set_CalcAsAutoWidth(const Value: Boolean);
+//    function  get_CalcAsAutoWidth: Boolean;
+//    procedure set_CalcAsAutoWidth(const Value: Boolean);
+    function  get_MaxWidth: Integer;
+    procedure set_MaxWidth(const Value: Integer);
     function  GetText: string;
     procedure SetText(const Value: string);
 
@@ -94,7 +96,7 @@ type
     function TextWidthWithPadding: Single;
 
     property CalcAsAutoHeight: Boolean read get_CalcAsAutoHeight write set_CalcAsAutoHeight;
-    property CalcAsAutoWidth: Boolean read get_CalcAsAutoWidth write set_CalcAsAutoWidth;
+    property MaxWidth: Integer read get_MaxWidth write set_MaxWidth;
     property Text: string read GetText write SetText;
   end;
 

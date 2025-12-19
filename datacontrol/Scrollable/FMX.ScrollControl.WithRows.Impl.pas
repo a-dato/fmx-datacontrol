@@ -35,6 +35,13 @@ type
   // data
   strict private
     _previousHardAssignedDataModelView: IDataModelView;
+
+    function  TryStartMasterSynchronizer(CheckSyncVisibility: Boolean = False): Boolean;
+    function  TryStartIgnoreMasterSynchronizer(CheckSyncVisibility: Boolean = False): Boolean;
+
+    procedure StopMasterSynchronizer(const DoTry: Boolean = True);
+    procedure StopIgnoreMasterSynchronizer(const DoTry: Boolean = True);
+
   protected
     _dataList: IList;
     _dataModelView: IDataModelView;
@@ -94,8 +101,6 @@ type
     function  IsMasterSynchronizer: Boolean;
     function  SyncIsMasterSynchronizer: Boolean;
     function  MasterSynchronizer: TScrollControlWithRows;
-    function  TryStartMasterSynchronizer(CheckSyncVisibility: Boolean = False): Boolean;
-    procedure StopMasterSynchronizer(const DoTry: Boolean = True);
 
   // public property variables
   private
@@ -134,6 +139,7 @@ type
     _waitForRepaintInfo: IWaitForRepaintInfo;
     _selectionInfo: IRowSelectionInfo;
     _internalSelectCount: Integer;
+    _masterIgnoreIndex: Integer;
     _masterSynchronizerIndex: Integer;
 
     _hoverRect: TRectangle;
@@ -897,9 +903,9 @@ end;
 
 function TScrollControlWithRows.ScrollControlIsFastScrolling: Boolean;
 begin
-  Result := IsScrolling and ScrollingWasActivePreviousRealign;
+  Result := IsScrolling and (_scrollingType = TScrollingType.WithScrollBar) and ScrollingWasActivePreviousRealign;
   if not Result and (_rowHeightSynchronizer <> nil) then
-    Result := _rowHeightSynchronizer.IsScrolling and _rowHeightSynchronizer.ScrollingWasActivePreviousRealign;
+    Result := _rowHeightSynchronizer.IsScrolling and (_rowHeightSynchronizer._scrollingType = TScrollingType.WithScrollBar) and _rowHeightSynchronizer.ScrollingWasActivePreviousRealign;
 end;
 
 procedure TScrollControlWithRows.TriggerFilterOrSortChanged(FilterChanged, SortChanged: Boolean);
@@ -1050,6 +1056,9 @@ end;
 
 procedure TScrollControlWithRows.GenerateView;
 begin
+  if (_view <> nil) or ((_dataList = nil) and (_dataModelView = nil)) then
+    Exit;
+
   inc(_scrollUpdateCount);
   try
     _vertScrollBar.Value := 0;
@@ -1085,7 +1094,21 @@ begin
     InternalSetCurrent(GetDataModelView.CurrencyManager.Current, TSelectionEventTrigger.External, []);
   {$ENDIF}
 
-  RefreshControl(True);
+  if GetDataModelView <> nil then
+  begin
+    {$IFNDEF WEBASSEMBLY}
+    GetDataModelView.CurrencyManager.CurrentRowChanged.Add(DataModelViewRowChanged);
+    GetDataModelView.RowPropertiesChanged.Add(DataModelViewRowPropertiesChanged);
+    {$ELSE}
+    GetDataModelView.CurrencyManager.CurrentRowChanged += DataModelViewRowChanged;
+    GetDataModelView.RowPropertiesChanged += DataModelViewRowPropertiesChanged;
+    {$ENDIF}
+
+    Self.Current := GetDataModelView.CurrencyManager.Current;
+  end
+  else if _model <> nil then
+    // Set current position, if any
+    GetInitializedWaitForRefreshInfo.DataItem := _model.ObjectContext;
 end;
 
 function TScrollControlWithRows.GetActiveRow: IDCRow;
@@ -1262,15 +1285,15 @@ begin
     
   if Result then
   begin
-    // avoid circular loop   
-    var goMaster := TryStartMasterSynchronizer(True);
+    // avoid circular loop
+    var goMaster := TryStartIgnoreMasterSynchronizer(True);
     if not goMaster then
       Exit;
-    
+
     try
       Result := _rowHeightSynchronizer.CanRealignContent;
     finally
-      StopMasterSynchronizer;
+      StopIgnoreMasterSynchronizer;
     end;
   end;
 end;
@@ -1361,30 +1384,26 @@ begin
   Result := (_view <> nil) and (_view.GetSortDescriptions <> nil) and (_view.GetSortDescriptions.Count > 0)
 end;
 
-function TScrollControlWithRows.TryStartMasterSynchronizer(CheckSyncVisibility: Boolean = False): Boolean;
+function TScrollControlWithRows.TryStartIgnoreMasterSynchronizer(CheckSyncVisibility: Boolean): Boolean;
 begin
   if (_rowHeightSynchronizer = nil) or (_rowHeightSynchronizer.IsMasterSynchronizer) then
     Exit(False);
 
   if CheckSyncVisibility and (not ControlEffectiveVisible(_rowHeightSynchronizer) or not ControlEffectiveVisible(Self)) then
     Exit(False);
-    
-  inc(_masterSynchronizerIndex);
+
+  inc(_masterIgnoreIndex);
   Result := True;
-    
+end;
+
+function TScrollControlWithRows.TryStartMasterSynchronizer(CheckSyncVisibility: Boolean = False): Boolean;
+begin
+  Result := TryStartIgnoreMasterSynchronizer(CheckSyncVisibility);
+  if not Result then Exit;
+
+  inc(_masterSynchronizerIndex);
   if _masterSynchronizerIndex = 1 then
   begin
-//  if (_rowHeightSynchronizer <> nil) and not _rowHeightSynchronizer._masterSynchronizerIndex then
-//  begin
-//    if not ControlEffectiveVisible(_rowHeightSynchronizer) then
-//    begin
-//      _rowHeightSynchronizer := nil;
-//      _rowHeightSynchronizer._rowHeightSynchronizer := nil;
-//      Exit;
-//    end;
-
-//    _masterSynchronizerIndex := True;
-
     // let the master take care of the sorting/filtering/current
     if _waitForRepaintInfo = nil then
       _waitForRepaintInfo := _rowHeightSynchronizer._waitForRepaintInfo;
@@ -1395,11 +1414,19 @@ begin
   end;
 end;
 
-procedure TScrollControlWithRows.StopMasterSynchronizer(const DoTry: Boolean = True);
+procedure TScrollControlWithRows.StopIgnoreMasterSynchronizer(const DoTry: Boolean);
 begin
   // keep code in "finally" sections simple
   if not DoTry then
     Exit;
+
+  Dec(_masterIgnoreIndex);
+end;
+
+procedure TScrollControlWithRows.StopMasterSynchronizer(const DoTry: Boolean = True);
+begin
+  StopIgnoreMasterSynchronizer(DoTry);
+  if not DoTry then Exit;
 
   dec(_masterSynchronizerIndex);
   if _masterSynchronizerIndex = 0 then
@@ -1590,34 +1617,25 @@ begin
   if _dataList <> nil then
   begin
     _selectionInfo.Clear;
+    RefreshControl(True);
 
-    inc(_scrollUpdateCount);
-    try
-      _vertScrollBar.Value := 0;
-      _horzScrollbar.Value := 0;
-
-      UpdateRowHeightSynchronizerScrollbar;
-    finally
-      dec(_scrollUpdateCount);
-    end;
-
-    GenerateView;
-
-    if GetDataModelView <> nil then
-    begin
-      {$IFNDEF WEBASSEMBLY}
-      GetDataModelView.CurrencyManager.CurrentRowChanged.Add(DataModelViewRowChanged);
-      GetDataModelView.RowPropertiesChanged.Add(DataModelViewRowPropertiesChanged);
-      {$ELSE}
-      GetDataModelView.CurrencyManager.CurrentRowChanged += DataModelViewRowChanged;
-      GetDataModelView.RowPropertiesChanged += DataModelViewRowPropertiesChanged;
-      {$ENDIF}
-
-      Self.Current := GetDataModelView.CurrencyManager.Current;
-    end
-    else if _model <> nil then
-      // Set current position, if any
-      GetInitializedWaitForRefreshInfo.DataItem := _model.ObjectContext;
+//    GenerateView;
+//
+//    if GetDataModelView <> nil then
+//    begin
+//      {$IFNDEF WEBASSEMBLY}
+//      GetDataModelView.CurrencyManager.CurrentRowChanged.Add(DataModelViewRowChanged);
+//      GetDataModelView.RowPropertiesChanged.Add(DataModelViewRowPropertiesChanged);
+//      {$ELSE}
+//      GetDataModelView.CurrencyManager.CurrentRowChanged += DataModelViewRowChanged;
+//      GetDataModelView.RowPropertiesChanged += DataModelViewRowPropertiesChanged;
+//      {$ENDIF}
+//
+//      Self.Current := GetDataModelView.CurrencyManager.Current;
+//    end
+//    else if _model <> nil then
+//      // Set current position, if any
+//      GetInitializedWaitForRefreshInfo.DataItem := _model.ObjectContext;
   end else
     _dataModelView := nil;
 
@@ -1875,7 +1893,7 @@ end;
 
 procedure TScrollControlWithRows.ModelContextPropertyChanged(const Sender: IObjectModelContext; const Context: CObject; const AProperty: _PropertyInfo);
 begin
-  if not MeOrSynchronizerIsUpdating and not HasUpdateCount then
+  if (_view <> nil) and not MeOrSynchronizerIsUpdating and not HasUpdateCount then
     DoDataItemChangedInternal(Context);
 end;
 
@@ -2320,8 +2338,8 @@ begin
 
     if spaceNeeded > spaceAvailableForChildren then
     begin
-      var scrollBy := CMath.Min(spaceNeeded - spaceAvailableForChildren, virtualYPos - _vertScrollBar.Value);
-      ScrollManualTryAnimated(-Trunc(scrollBy), False);
+      _mouseWheelDistanceToGo := Round(CMath.Min(spaceNeeded - spaceAvailableForChildren, virtualYPos - _vertScrollBar.Value));
+      ScrollManualTryAnimated2; //(-Trunc(scrollBy), False);
     end;
   end;
 end;
@@ -2363,9 +2381,43 @@ begin
 end;
 
 procedure TScrollControlWithRows.OnSelectionInfoChanged;
+
+  procedure ValidateSelectionInfo;
+  begin
+    if (_view = nil) or (_selectionInfo.ViewListIndex <> -1) then
+      Exit;
+
+    if not ViewIsDataModelView and ((_model = nil) or (_model.ObjectContext = nil)) then
+      Exit;
+
+    _selectionInfo.BeginUpdate;
+    try
+      if ViewIsDataModelView then
+      begin
+        var dmv := _dataModelView;
+        if dmv = nil then
+          dmv := (_dataList as IDataModel).DefaultView;
+
+        var drv := dmv.Rows[dmv.CurrencyManager.Current];
+        _selectionInfo.UpdateLastSelection(drv.Row.get_Index, drv.ViewIndex, drv.Row.Data);
+      end else
+      begin
+        var di := _model.ObjectContext;
+        var diIndex := _view.GetViewListIndex(di);
+        var diViewIndex := _view.GetViewListIndex(diIndex);
+
+        _selectionInfo.UpdateLastSelection(diIndex, diViewIndex, di);
+      end;
+    finally
+      _selectionInfo.EndUpdate(True {Ignore events at this point});
+    end;
+  end;
+
 begin
   if SyncIsMasterSynchronizer then
     Exit;
+
+  ValidateSelectionInfo;
 
   AtomicIncrement(_internalSelectCount);
   try
@@ -2625,6 +2677,8 @@ begin
     var item: CObject;
     for item in SelectedItems do
     begin
+      GenerateView;
+
       var viewListIndex := _view.GetViewListIndex(item);
       var dataIndex := _view.GetDataIndex(viewListIndex);
 
@@ -2730,7 +2784,7 @@ end;
 
 function TScrollControlWithRows.IsMasterSynchronizer: Boolean;
 begin
-  Result := _masterSynchronizerIndex > 0;
+  Result := (_masterSynchronizerIndex > 0) or (_masterIgnoreIndex > 0);
 end;
 
 function TScrollControlWithRows.IsSelected(const DataIndex: Integer): Boolean;
@@ -2928,6 +2982,9 @@ begin
   if IsMasterSynchronizer then
     _rowHeightSynchronizer.RealignContentStart;
 
+  if _view = nil then
+    GenerateView;
+
 //  if (_view <> nil) and isRealStart then
 //    _totalDataHeight := _view.TotalDataHeight(get_rowHeightDefault);
 
@@ -3018,11 +3075,11 @@ end;
 
 procedure TScrollControlWithRows.ResetAndRequestRealign(FromIndex: Integer = -1);
 begin
-  var goMaster := TryStartMasterSynchronizer(True);
+  var goMaster := TryStartIgnoreMasterSynchronizer(True);
   try
     ResetView(FromIndex);
   finally
-    StopMasterSynchronizer(goMaster);
+    StopIgnoreMasterSynchronizer(goMaster);
   end;
 
   GetInitializedWaitForRefreshInfo.DataItem := RequestedOrActualDataItem;
@@ -3124,7 +3181,11 @@ begin
     begin
       _mustShowSelectionInRealign := True;
       if _selectionInfo.LastSelectionEventTrigger = TSelectionEventTrigger.External then
-        ScrollManualTryAnimated(Round(yChange), False) else
+      begin
+        _mouseWheelDistanceToGo := Round(yChange);
+        ScrollManualTryAnimated2; //(Round(yChange), False)
+      end
+      else
         ScrollManualInstant(Round(yChange));
     end;
 
@@ -3829,7 +3890,6 @@ begin
 
     _multiSelection.Remove(DataIndex);
     UpdateLastSelection(-1, -1, nil);
-//    DoSelectionInfoChanged;
   finally
     EndUpdate; //(True {do not scroll lastselected into view, because it can be out of view, causing scroll action});
   end;
