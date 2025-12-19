@@ -2402,6 +2402,13 @@ type
 
   ICustomProperty = interface(IBaseInterface)
     ['{19DBB23D-F780-460A-86FE-2934DCF56CF5}']
+    function  get_DisplayName: CString;
+    function  get_ReadOnly: Boolean;
+    function  get_Tag: CObject;
+
+    property DisplayName: CString read get_DisplayName;
+    property ReadOnly: Boolean read get_ReadOnly;
+    property Tag: CObject read get_tag;
   end;
 
   CustomProperty = class(CPropertyInfo, ICustomProperty)
@@ -2420,6 +2427,9 @@ type
     function  get_CanWrite: Boolean; override;
     function  get_Name: CString; override;
     function  get_DisplayName: CString;
+    function  get_ReadOnly: Boolean;
+    function  get_Tag: CObject;
+
     function  GetValue(const obj: CObject; const index: array of CObject): CObject; override;
     procedure SetValue(const obj: CObject; const value: CObject; const index: array of CObject; ExecuteTriggers: Boolean); override;
 
@@ -2433,27 +2443,12 @@ type
     function  GetHashCode: Integer; override;
     function  ToString: CString; override;
 
-    property Name: CString
-      read get_Name;
-
-    property DisplayName: CString
-      read get_DisplayName;
-
-    property IsUserDefined: Boolean
-      read  _IsUserDefined
-      write _IsUserDefined;
-
-    property Tag: CObject
-      read  _tag
-      write _tag;
-
-    property Required: Boolean
-      read _required
-      write _required;
-
-    property ReadOnly: Boolean
-      read _readOnly
-      write _readOnly;
+    property Name: CString read get_Name;
+    property DisplayName: CString read get_DisplayName;
+    property IsUserDefined: Boolean read  _IsUserDefined write _IsUserDefined;
+    property Tag: CObject read  get_Tag write _tag;
+    property Required: Boolean read _required write _required;
+    property ReadOnly: Boolean read get_ReadOnly write _readOnly;
 
     property Trigger: CString
       read  _trigger
@@ -3507,6 +3502,16 @@ end;
 function CustomProperty.get_DisplayName: CString;
 begin
   Result := _displayName;
+end;
+
+function CustomProperty.get_ReadOnly: Boolean;
+begin
+  Result := _readOnly;
+end;
+
+function CustomProperty.get_Tag: CObject;
+begin
+  Result := _Tag;
 end;
 
 function CustomProperty.get_Name: CString;

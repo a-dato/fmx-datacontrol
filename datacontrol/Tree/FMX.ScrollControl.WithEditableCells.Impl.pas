@@ -112,7 +112,7 @@ type
     procedure OnEditorExit;
 
     function  LoadDefaultPickListForCell(const Cell: IDCTreeCell; const CellValue: CObject) : IList;
-    procedure StartEditCell(const Cell: IDCTreeCell; const UserValue: CString);
+    function  StartEditCell(const Cell: IDCTreeCell; CallShowEditor: Boolean; const UserValue: CString) : Boolean;
     function  EndEditCell(out ChangeUpdatedSort: Boolean): Boolean;
     procedure SafeForcedEndEdit;
 
@@ -443,7 +443,7 @@ begin
   if (Key in [vkF2, vkReturn]) and CanEditCell(GetActiveCell) then
   begin
     if not _editingInfo.CellIsEditing then
-      StartEditCell(GetActiveCell, nil {keep cell data value})
+      StartEditCell(GetActiveCell, True, nil {keep cell data value})
     else if Key = vkReturn then
     begin
       var changeUpdatedSort: Boolean;
@@ -491,7 +491,7 @@ begin
   // check delete cell content
   else if ((Key = vkDelete) or (Key = vkBack)) and CanEditCell(GetActiveCell) then
   begin
-    StartEditCell(GetActiveCell, '' {clear cell});
+    StartEditCell(GetActiveCell, True, '' {clear cell});
     Key := 0;
   end
 
@@ -527,7 +527,7 @@ begin
     begin
       if CanEditCell(GetActiveCell) then
       begin
-        StartEditCell(GetActiveCell, KeyChar);
+        StartEditCell(GetActiveCell, True, KeyChar);
         KeyChar := #0;
       end
       else
@@ -594,20 +594,20 @@ begin
   if Cell = nil then
     Exit;
 
-  var item := cell.Row.DataItem;
-  var checkBox := Cell.InfoControl as IIsChecked;
-
-  UpdateColumnCheck(cell.Row.DataIndex, Cell.Column, checkBox.IsChecked);
-
-  if not CString.IsNullOrEmpty(Cell.Column.PropertyName) then
-  begin
-    SetCellData(cell, checkBox.IsChecked);
-
-    if (_model <> nil) and CObject.Equals(item, Cell.Row.DataItem) then
-      _model.ObjectModelContext.UpdatePropertyBindingValues;
-
-//    DoDataItemChangedInternal(item);
-  end;
+//  var item := cell.Row.DataItem;
+//  var checkBox := Cell.InfoControl as IIsChecked;
+//
+//  UpdateColumnCheck(cell.Row.DataIndex, Cell.Column, checkBox.IsChecked);
+//
+//  if not CString.IsNullOrEmpty(Cell.Column.PropertyName) then
+//  begin
+//    SetCellData(cell, checkBox.IsChecked);
+//
+//    if (_model <> nil) and CObject.Equals(item, Cell.Row.DataItem) then
+//      _model.ObjectModelContext.UpdatePropertyBindingValues;
+//
+////    DoDataItemChangedInternal(item);
+//  end;
 
   var checkChangeArgs: DCCheckChangedEventArgs;
   if Assigned(_cellCheckChanged) then
@@ -635,24 +635,33 @@ begin
 
   if TrySelectItem(requestedSelection, []) then
   begin
-    var IHadFocus := Self.IsFocused;
+    // var IHadFocus := Self.IsFocused;
 
-    cell := GetActiveCell;
-    if not CString.IsNullOrEmpty(cell.Column.PropertyName) and not _editingInfo.RowIsEditing then
-    begin
-      var dataItem := Cell.Row.DataItem;
-      if not DoEditRowStart(Cell.Row as IDCTreeRow, {var} dataItem, False) then
-      begin
-        if IHadFocus then
-          Self.SetFocus;
-        Exit;
-      end;
-    end;
+    // var checkBox := cell.InfoControl as IIsChecked;
+    if not CString.IsNullOrEmpty(cell.Column.PropertyName) and not StartEditCell(cell, True, ' ') then
+      Exit;
 
     DoCellCheckChangedByUser(cell);
 
-    if IHadFocus then
-      Self.SetFocus;
+//    if _cellEditor <> nil then
+//      _cellEditor.BeginEdit(checkBox.IsChecked);
+
+
+//    if not CString.IsNullOrEmpty(cell.Column.PropertyName) and not _editingInfo.RowIsEditing then
+//    begin
+//      var dataItem := Cell.Row.DataItem;
+//      if not DoEditRowStart(Cell.Row as IDCTreeRow, {var} dataItem, False) then
+//      begin
+//        if IHadFocus then
+//          Self.SetFocus;
+//        Exit;
+//      end;
+//    end;
+
+    // DoCellCheckChangedByUser(cell);
+
+//    if IHadFocus then
+//      Self.SetFocus;
   end;
 end;
 
@@ -875,7 +884,7 @@ begin
       if not newCell.Column.IsSelectionColumn and (newCell.Column.InfoControlClass = TInfoControlClass.CheckBox) then
         (newCell.InfoControl as IIsChecked).IsChecked := not (newCell.InfoControl as IIsChecked).IsChecked
       else if ((ssDouble in Shift) or (crrntCell = newCell)) and not _editingInfo.CellIsEditing then
-        StartEditCell(newCell, nil {keep cell data value});
+        StartEditCell(newCell, True, nil {keep cell data value});
     end;
   end;
 end;
@@ -907,11 +916,14 @@ begin
   end;
 end;
 
-procedure TScrollControlWithEditableCells.StartEditCell(const Cell: IDCTreeCell; const UserValue: CString);
+function TScrollControlWithEditableCells.StartEditCell(const Cell: IDCTreeCell; CallShowEditor: Boolean; const UserValue: CString) : Boolean;
 begin
   // row can be in edit mode already, but cell should not be in edit mode yet
-  if (Cell = nil) or not CanEditCell(Cell) or _editingInfo.CellIsEditing then
-    Exit;
+  if (Cell = nil) or not CanEditCell(Cell) then
+    Exit(False);
+
+  if _editingInfo.CellIsEditing then
+    Exit(True);
 
   if not _editingInfo.RowIsEditing then
   begin
@@ -920,7 +932,7 @@ begin
     var dataItem := Self.DataItem;
     var isNew := False;
     if not DoEditRowStart(Cell.Row as IDCTreeRow, {var} dataItem, isNew) then
-      Exit;
+      Exit(False);
   end;
 
   var cellValue := Cell.Column.ProvideCellData(cell, cell.Column.PropertyName);
@@ -936,8 +948,12 @@ begin
   if startEditArgs.AllowEditing then
   begin
     _editingInfo.StartCellEdit(Cell.Row.DataIndex, FlatColumnByColumn(Cell.Column).Index);
-    ShowEditor(Cell, startEditArgs, UserValue);
+    if CallShowEditor then
+      ShowEditor(Cell, startEditArgs, UserValue);
+    Exit(True);
   end;
+
+  Exit(False);
 end;
 
 function TScrollControlWithEditableCells.TryAddRow(const Position: InsertPosition): Boolean;
@@ -1254,7 +1270,7 @@ function TScrollControlWithEditableCells.EditActiveCell(SetFocus: Boolean; const
 begin
   var cell := GetActiveCell;
   if (cell <> nil) and CanEditCell(cell) then
-    StartEditCell(cell, UserValue);
+    StartEditCell(cell, True, UserValue);
 
   Result := _cellEditor <> nil;
   if Result and SetFocus then
