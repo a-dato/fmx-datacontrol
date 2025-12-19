@@ -97,8 +97,9 @@ type
 
     function  CalculateRowControlWidth(const ForceRealContentWidth: Boolean): Single; virtual;
     procedure DoViewPortPositionChanged; override;
-               
+
     function  IsMasterSynchronizer: Boolean;
+    function  IgnoreSynchronizer: Boolean;
     function  SyncIsMasterSynchronizer: Boolean;
     function  MasterSynchronizer: TScrollControlWithRows;
 
@@ -1386,7 +1387,7 @@ end;
 
 function TScrollControlWithRows.TryStartIgnoreMasterSynchronizer(CheckSyncVisibility: Boolean): Boolean;
 begin
-  if (_rowHeightSynchronizer = nil) or (_rowHeightSynchronizer.IsMasterSynchronizer) then
+  if (_rowHeightSynchronizer = nil) or _rowHeightSynchronizer.IsMasterSynchronizer or _rowHeightSynchronizer.IgnoreSynchronizer then
     Exit(False);
 
   if CheckSyncVisibility and (not ControlEffectiveVisible(_rowHeightSynchronizer) or not ControlEffectiveVisible(Self)) then
@@ -2053,6 +2054,11 @@ begin
 //  _newLoadedTreeRows.Add(Row);
 end;
 
+function TScrollControlWithRows.IgnoreSynchronizer: Boolean;
+begin
+  Result := _masterIgnoreIndex > 0;
+end;
+
 procedure TScrollControlWithRows.InitRow(const Row: IDCRow; const IsAboveRefRow: Boolean = False);
 begin
   var rowInfo := _view.RowLoadedInfo(Row.ViewListIndex);
@@ -2399,7 +2405,7 @@ procedure TScrollControlWithRows.OnSelectionInfoChanged;
           dmv := (_dataList as IDataModel).DefaultView;
 
         var drv := dmv.Rows[dmv.CurrencyManager.Current];
-        _selectionInfo.UpdateLastSelection(drv.Row.get_Index, drv.ViewIndex, drv.Row.Data);
+        _selectionInfo.UpdateLastSelection(drv.Row.get_Index, drv.ViewIndex, drv);
       end else
       begin
         var di := _model.ObjectContext;
@@ -2784,7 +2790,7 @@ end;
 
 function TScrollControlWithRows.IsMasterSynchronizer: Boolean;
 begin
-  Result := (_masterSynchronizerIndex > 0) or (_masterIgnoreIndex > 0);
+  Result := (_masterSynchronizerIndex > 0);
 end;
 
 function TScrollControlWithRows.IsSelected(const DataIndex: Integer): Boolean;
@@ -2836,7 +2842,7 @@ end;
 
 procedure TScrollControlWithRows.RealignFromSelectionChange;
 begin
-  var goMaster := TryStartMasterSynchronizer;
+  var goMaster := TryStartMasterSynchronizer(True);
   try
     _scrollingType := TScrollingType.Other;
     try

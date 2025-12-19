@@ -18,7 +18,7 @@ uses
   FMX.ImgList,
   FMX.Types,
   FMX.Layouts,
-  FMX.TextLayout, 
+  FMX.TextLayout,
   System.Types,
   {$ELSE}
   Wasm.FMX.Controls,
@@ -121,15 +121,14 @@ type
     procedure DoResized; override;
     function  GetDefaultSize: TSizeF; override;
 
-    function DoSetSize(const ASize: TControlSize; const NewPlatformDefault: Boolean; ANewWidth, ANewHeight: Single;
-      var ALastWidth, ALastHeight: Single): Boolean; override;
-
     procedure Calculate; virtual;
     procedure RecalcNeeded;
     procedure RepaintNeeded;
 
     procedure CalculateText(const MaxWidth, MaxHeight: Single);
     procedure CalculateSubText(const MaxWidth, MaxHeight: Single);
+
+    procedure PrepareTextForPaint(Round: Integer = 0);
 
     procedure DoMouseLeave; override;
     procedure MouseMove(Shift: TShiftState; X, Y: Single); override;
@@ -241,7 +240,6 @@ begin
     _subTextlayout.LayoutCanvas := cv;
     _subTextlayout.TopLeft := PointF(0,0);
     _subTextlayout.MaxSize := PointF(maxWidth, maxHeight);
-    // MUST BE LEADING: italic trailing aligned will give non-italic width back
     _subTextlayout.HorizontalAlign := TTextAlign.Leading;
     _subTextlayout.VerticalAlign := TTextAlign.Leading;
     _subTextlayout.WordWrap := get_WordWrap;
@@ -330,6 +328,60 @@ begin
   inherited;
 end;
 
+procedure TFastText.PrepareTextForPaint(Round: Integer = 0);
+begin
+  var xPos := 0.0;
+  var yPos := 0.0;
+  case get_HorzTextAlign of
+    TTextAlign.Center: xPos := (Self.Width - _textBounds.Width) / 2;
+    TTextAlign.Leading: xPos := Padding.Left;
+    TTextAlign.Trailing: xPos := Self.Width - _textBounds.Width - Padding.Right;
+  end;
+
+  var totHeight := _textBounds.Height;
+  if Length(_subText) > 0 then
+    totHeight := totHeight + _subTextBounds.Height;
+
+  case get_VertTextAlign of
+    TTextAlign.Center: yPos := (Self.Height - totHeight) / 2;
+    TTextAlign.Leading: yPos := Padding.Top;
+    TTextAlign.Trailing: yPos := Self.Height - totHeight - Padding.Bottom;
+  end;
+
+  {$IFDEF DEBUG}
+//    Self.Canvas.Fill.Color := TALphaColors.Purple;
+//    Self.Canvas.FillRect(RectF(xPos, yPos, xPos +_textBounds.Width, yPos+_textBounds.Height), 0.2);
+
+//  Self.Canvas.Fill.Color := TALphaColors.MoneyGreen;
+//  Self.Canvas.FillRect(RectF(0, 0, Self.Width, Self.Height), 0.2);
+  {$ENDIF}
+
+  _layout.Opacity := AbsoluteOpacity;
+  _layout.TopLeft := PointF(xPos, yPos);
+
+  var textW := TextWidthWithPadding;
+  var textH := TextHeightWithPadding;
+  if (textW > Self.Width) or (textH > Self.Height) then
+  begin
+    var w := IfThen(textW > Self.Width, Self.Width - xPos, _layout.MaxSize.X);
+    var h := IfThen(textH > Self.Height, Self.Height - yPos, _layout.MaxSize.Y);
+    _layout.MaxSize := PointF(w, h);
+  end
+  else
+  begin
+    if Round > 0 then
+      Exit;
+
+    if (_layout.MaxSize.X < textW) and (Self.Width - xPos > _layout.MaxSize.X + 1) and ((_maxWidth <= 0) or (_maxWidth > _layout.MaxSize.X)) then
+      _recalcNeeded := True
+    else if (_layout.MaxSize.Y < textH) and (Self.Height - yPos > _layout.MaxSize.Y + 1) then
+      _recalcNeeded := True;
+
+    Calculate;
+    PrepareTextForPaint(1);
+  end;
+end;
+
 procedure TFastText.DoPaint;
 begin
   _waitingForRepaint := False;
@@ -339,50 +391,27 @@ begin
     _layout.TopLeft := (Self.Parent as TControl).LocalToAbsolute({TPointF.Create(0, 0}TPointF.Create(0, 15));
   {$ENDIF}
 
-
   inherited;
 
   if not _ignoreDefaultPaint then
   begin
-    var xPos := 0.0;
-    var yPos := 0.0;
-    case get_HorzTextAlign of
-      TTextAlign.Center: xPos := (Self.Width - _textBounds.Width) / 2;
-      TTextAlign.Leading: xPos := Padding.Left;
-      TTextAlign.Trailing: xPos := Self.Width - _textBounds.Width - Padding.Right;
-    end;
-
-    var totHeight := _textBounds.Height;
-    if Length(_subText) > 0 then
-      totHeight := totHeight + _subTextBounds.Height;
-
-    case get_VertTextAlign of
-      TTextAlign.Center: yPos := (Self.Height - totHeight) / 2;
-      TTextAlign.Leading: yPos := Padding.Top;
-      TTextAlign.Trailing: yPos := Self.Height - totHeight - Padding.Bottom;
-    end;
-
-    {$IFDEF DEBUG}
-    Self.Canvas.Fill.Color := TALphaColors.Purple;
-    Self.Canvas.FillRect(RectF(xPos, yPos, xPos +_textBounds.Width, yPos+_textBounds.Height), 0.2);
-
-  //  Self.Canvas.Fill.Color := TALphaColors.MoneyGreen;
-  //  Self.Canvas.FillRect(RectF(0, 0, Self.Width, Self.Height), 0.2);
-    {$ENDIF}
-
-    _layout.Opacity := AbsoluteOpacity;
-    _layout.TopLeft := PointF(xPos, yPos);
-
+    PrepareTextForPaint;
     _layout.RenderLayout(Canvas);
 
     if Length(_subText) > 0 then
     begin
+      var xPos := 0.0;
       case get_HorzTextAlign of
         TTextAlign.Center: xPos := (Self.Width - _subTextBounds.Width) / 2;
         TTextAlign.Leading: xPos := Padding.Left;
         TTextAlign.Trailing: xPos := Self.Width - _subTextBounds.Width - Padding.Right;
       end;
 
+      var totHeight := _textBounds.Height;
+      if Length(_subText) > 0 then
+        totHeight := totHeight + _subTextBounds.Height;
+
+      var yPos := 0.0;
       case get_VertTextAlign of
         TTextAlign.Center: yPos := ((Self.Height - totHeight) / 2) + _subTextBounds.Height;
         TTextAlign.Leading: yPos := Padding.Top + _textBounds.Height;
@@ -407,14 +436,6 @@ procedure TFastText.DoResized;
 begin
   inherited;
   RecalcNeeded;
-end;
-
-function TFastText.DoSetSize(const ASize: TControlSize;
-  const NewPlatformDefault: Boolean; ANewWidth, ANewHeight: Single;
-  var ALastWidth, ALastHeight: Single): Boolean;
-begin
-  inherited;
-  Repaint;
 end;
 
 procedure TFastText.Paint;
