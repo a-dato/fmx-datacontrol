@@ -80,6 +80,8 @@ type
     _mouseWheelDistanceTotal: Integer;
     _mouseWheelSmoothScrollTimer: TTimer;
 
+    _lastMouseWheel1, _lastMouseWheel2, _lastMouseWheel3: Integer;
+
     procedure MouseWheel(Shift: TShiftState; WheelDelta: Integer; var Handled: Boolean); override;
     procedure MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Single); override;
     procedure MouseMove(Shift: TShiftState; X, Y: Single); override;
@@ -90,6 +92,9 @@ type
 
     function  CanRealignScrollCheck(ForceOnScrollbarEnds: Boolean = False): Boolean;
     function  RealignContentTime: Integer;
+
+    procedure StopScrolling;
+    procedure AfterScrolling; virtual;
 
     procedure WaitForRealignEndedWithoutAnotherScrollTimer(Sender: TObject);
     procedure MouseWheelSmoothScrollingTimer(Sender: TObject);
@@ -149,7 +154,7 @@ type
     procedure RealignFinished; virtual;
 
     procedure DoRealignContent; virtual;
-    function  RealignedButNotPainted: Boolean;
+//    function  RealignedButNotPainted: Boolean;
     procedure BeforePainting; virtual;
 
     procedure SetBasicVertScrollBarValues; virtual;
@@ -162,6 +167,9 @@ type
 
     procedure UpdateScrollbarMargins;
     function  ScrollingWasActivePreviousRealign: Boolean;
+
+    function  IsScrolling: Boolean; virtual;
+    function  IsFastScrolling(ScrollbarOnly: Boolean = False): Boolean; virtual;
 
   protected
     _logs: TStringList;
@@ -217,7 +225,7 @@ implementation
 
 uses
   {$IFNDEF WEBASSEMBLY}
-  System.Math, 
+  System.Math,
   {$ELSE}
   Wasm.System.Math,
   {$ENDIF}
@@ -348,6 +356,19 @@ begin
   CalculateScrollBarMax;
 end;
 
+procedure TScrollControl.AfterScrolling;
+begin
+  _scrollingType := TScrollingType.None;
+
+  var wasEnabled := _checkWaitForRealignTimer.Enabled and (_timerDoRealignRefreshInterval > 0);
+  _timerDoRealignRefreshInterval := 0;
+  _checkWaitForRealignTimer.Enabled := False;
+  StopScrolling;
+
+  if wasEnabled then
+    RefreshControl;
+end;
+
 procedure TScrollControl.BeforePainting;
 begin
   if _realignContentRequested and CanRealignContent then
@@ -397,12 +418,15 @@ begin
     _scrollingType := TScrollingType.WithScrollBar;
     restartAgain := True;
   end else
-    _scrollingType := TScrollingType.None;
+  begin
+    AfterScrolling;
+    Exit;
+  end;
 
   _checkWaitForRealignTimer.Enabled := False;
   _timerDoRealignRefreshInterval := 0;
-
   _timerDoRealignWhenScrollingStopped := False;
+
   DoRealignContent;
 
   if restartAgain then
@@ -474,14 +498,10 @@ begin
   RealignContentStart;
   try
     BeforeRealignContent;
-    try
-      RealignContent;
-      AfterRealignContent;
-    finally
-      RealignFinished;
-    end;
+    RealignContent;
+    AfterRealignContent;
   finally
-    _scrollingType := TScrollingType.None;
+    RealignFinished;
   end;
 
   _scrollStopWatch_scrollbar := TStopwatch.StartNew;
@@ -531,9 +551,42 @@ begin
   Result := _vertScrollBar;
 end;
 
+function TScrollControl.IsFastScrolling(ScrollbarOnly: Boolean = False): Boolean;
+begin
+  if not IsScrolling then
+    Exit(False);
+
+  // check scrollbar change
+  if (_scrollingType = TScrollingType.WithScrollBar) then
+    Exit(ScrollingWasActivePreviousRealign);
+
+  if ScrollbarOnly then
+    Exit(False);
+
+  // finger scroll change (only when boost is active)
+  if _mouseRollingBoostTimer.Enabled then
+    Exit(True);
+
+  // check mouse wheel change
+  if (_lastMouseWheel3 <> 0) {and (_lastMouseWheel3 > Environment.TickCount - 500)} then
+  begin
+    var tick := Environment.TickCount;
+
+    if _lastMouseWheel3 > tick - 500 then
+      Exit(True);
+  end;
+
+  Result := False;
+end;
+
 function TScrollControl.IsInitialized: Boolean;
 begin
   Result := _realignState <> TRealignState.Waiting;
+end;
+
+function TScrollControl.IsScrolling: Boolean;
+begin
+  Result := (_scrollingType <> TScrollingType.None);
 end;
 
 function TScrollControl.MouseScrollingBoostDistance: Single;
@@ -639,7 +692,10 @@ begin
     _scrollStopWatch_mouse_lastMove := TStopwatch.StartNew;
 
     if (yDiffSinceLastMove < -1) or (yDiffSinceLastMove > 1) then
-      ScrollManualInstant(Round(yDiffSinceLastMove - yAlreadyMovedSinceMouseDown));
+    begin
+      var yDiff := Round(yDiffSinceLastMove - yAlreadyMovedSinceMouseDown);
+      ScrollManualInstant(yDiff);
+    end;
   end;
 end;
 
@@ -684,10 +740,16 @@ begin
 
   _mouseRollingBoostDistanceToGo := _mouseRollingBoostDistanceToGo - scrollBy;
 
+  var oldVal := _vertScrollbar.Value;
   ScrollManualInstant(scrollBy);
+  if SameValue(_vertScrollbar.Value, oldVal, 0.5) then
+    _mouseRollingBoostDistanceToGo := 0;
 
   if (_mouseRollingBoostDistanceToGo >= -5) and (_mouseRollingBoostDistanceToGo <= 5) then
+  begin
     _mouseRollingBoostTimer.Enabled := False;
+    AfterScrolling;
+  end;
 end;
 
 procedure TScrollControl.MouseWheel(Shift: TShiftState; WheelDelta: Integer; var Handled: Boolean);
@@ -697,7 +759,7 @@ const
 begin
   inherited;
 
-  if Handled or (_scrollingType <> TScrollingType.None) then
+  if Handled or (_scrollingType = TScrollingType.WithScrollBar) then
     Exit;
 
   var goUp := WheelDelta > 0;
@@ -707,6 +769,13 @@ begin
     Exit;
 
   Handled := True;
+
+  var wasGoUp := _mouseWheelDistanceTotal > 0;
+  if goUp <> wasGoUp then
+  begin
+    _mouseWheelDistanceToGo := 0;
+    _mouseWheelDistanceTotal := 0;
+  end;
 
   // how bigger this number, the more&longer the scrollcontrol keeps scrolling after mousewheel already stopped after a mousewheel boost
   var maxLeftToScroll := 200;
@@ -725,6 +794,10 @@ begin
 
   if not CanRealignContent or not CanRealignScrollCheck then
     Exit;
+
+  _lastMouseWheel3 := _lastMouseWheel2;
+  _lastMouseWheel2 := _lastMouseWheel1;
+  _lastMouseWheel1 := Environment.TickCount;
 
   ScrollManualTryAnimated2;
 end;
@@ -747,7 +820,7 @@ begin
   var posIntTotal := IfThen(wasAbove, _mouseWheelDistanceTotal, -_mouseWheelDistanceTotal);
   var posIntToGo := IfThen(wasAbove, _mouseWheelDistanceToGo, -_mouseWheelDistanceToGo);
 
-  var scrollSpeed := posIntTotal / 4;
+  var scrollSpeed := posIntTotal / 3.5;
   var scrollPart := Round(CMath.Min(scrollSpeed, posIntToGo * 0.7));
 
   // otherwise scrolling looks like its going backwards
@@ -762,13 +835,22 @@ begin
 
   if (wasAbove <> isAbove) or ((_mouseWheelDistanceToGo > -1) and (_mouseWheelDistanceToGo < 1)) or SameValue(scrollPart, 0, 0.5) then
   begin
-//    ScrollManualInstant(IfThen(isAbove, 1, -1));
     _mouseWheelSmoothScrollTimer.Enabled := False;
 
     _mouseWheelDistanceToGo := 0;
     _mouseWheelDistanceTotal := 0;
+
+    AfterScrolling;
   end else
+  begin
+    var oldVal := _vertScrollbar.Value;
     ScrollManualInstant(scrollPart);
+    if SameValue(_vertScrollbar.Value, oldVal, 0.5) then
+    begin
+      _mouseWheelDistanceToGo := 0;
+      _mouseWheelDistanceTotal := 0;
+    end;
+  end;
 end;
 
 procedure TScrollControl.OnContentResized(Sender: TObject);
@@ -827,19 +909,12 @@ procedure TScrollControl.OnScrollBarChange(Sender: TObject);
 begin
   DoViewPortPositionChanged;
 
-  Log('OnScrollBarChange val: ' + _vertScrollBar.Value.ToString);
-  Log('OnScrollBarChange max: ' + _vertScrollBar.Max.ToString);
-
   if _scrollUpdateCount <> 0 then
     Exit;
 
-  // only get's here when scrolling with scrollbar!
-  // otherwise _scrollUpdateCount > 0
-
-  if (_scrollingType = TScrollingType.None) and CanRealignScrollCheck(True {force realign at scrollbar ends}) then
+  if CanRealignScrollCheck(True {force realign at scrollbar ends}) then
   begin
     _scrollingType := TScrollingType.WithScrollBar;
-
     DoRealignContent;
   end;
 
@@ -881,10 +956,10 @@ begin
   Result := CMath.Min(500, Round((_realignContentTime+_paintTime) * 1.1));
 end;
 
-function TScrollControl.RealignedButNotPainted: Boolean;
-begin
-  Result := _paintTime = -1;
-end;
+//function TScrollControl.RealignedButNotPainted: Boolean;
+//begin
+//  Result := _paintTime = -1;
+//end;
 
 procedure TScrollControl.RealignContentStart;
 begin
@@ -894,6 +969,8 @@ begin
   {$ENDIF}
 
   _paintTime := -1;
+
+  StopScrolling;
 
   BeginUpdate;
 end;
@@ -959,17 +1036,17 @@ begin
     end;
   end;
 
-  if CanRealignScrollCheck then
-  begin
+//  if CanRealignScrollCheck then
+//  begin
     if not SameValue(YChange, 0) then
       _scrollingType := TScrollingType.Other;
 
     DoRealignContent;
-  end else
-  begin
-    RestartWaitForRealignTimer;
-    TryStartWaitForRealignTimer;
-  end;
+//  end else
+//  begin
+//    RestartWaitForRealignTimer;
+//    TryStartWaitForRealignTimer;
+//  end;
 end;
 
 //procedure TScrollControl.ScrollManualTryAnimated(YChange: Integer; CumulativeYChangeFromPrevChange: Boolean);
@@ -1060,6 +1137,10 @@ begin
   _vertScrollBar.ViewportSize := _content.Height;
 end;
 
+procedure TScrollControl.StopScrolling;
+begin
+end;
+
 function TScrollControl.TryExecuteMouseScrollBoostOnMouseEventStopped: Boolean;
 begin
   Result := False;
@@ -1075,7 +1156,11 @@ begin
   end;
 
   if _scrollStopWatch_mouse.IsRunning then
-    _scrollStopWatch_mouse.Reset
+  begin
+    _scrollStopWatch_mouse.Reset;
+    if not _mouseRollingBoostTimer.Enabled then
+      AfterScrolling;
+  end;
 end;
 
 function TScrollControl.TryHandleKeyNavigation(var Key: Word; Shift: TShiftState): Boolean;

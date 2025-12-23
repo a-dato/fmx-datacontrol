@@ -41,7 +41,9 @@ uses
   System_,
   System.Collections,
   System.Collections.Generic,
-  FMX.ScrollControl.ControlClasses.Intf, ADato.FMX.FastControls.Button;
+  FMX.ScrollControl.ControlClasses.Intf,
+  ADato.FMX.FastControls.Button,
+  FMX.BufferedLayout;
 
 type
   TDCControlImpl = class(TBaseInterfacedObject, IDCControl, ITextControl, ICaption, ITextActions, ITextSettings)
@@ -313,6 +315,20 @@ type
   public
     constructor Create(AOwner: TComponent); override;
     property DCControl: IDCControl read get_DCControl implements IDCControl;
+  end;
+
+  TRowLayout = class(TBufferedLayout)
+  private
+    function get_Sides: TSides;
+    procedure set_Sides(const Value: TSides);
+  protected
+    procedure DoResized; override;
+  public
+    Rect: TRectangle;
+
+    procedure RecalcSceneBuffer;
+
+    property Sides: TSides read get_Sides write set_Sides;
   end;
 
   TDataControlClassFactory = class(TInterfacedObject, IDCControlClassFactory)
@@ -1418,6 +1434,33 @@ procedure TComboBoxControlImpl.DropDown;
 begin
   RefreshItems;
   (_control as TComboBox).DropDown;
+end;
+
+{ TRowLayout }
+
+procedure TRowLayout.RecalcSceneBuffer;
+begin
+  var w := Self.Width;
+  Self.Width := w - 1;
+  Self.Width := w;
+end;
+
+procedure TRowLayout.DoResized;
+begin
+  inherited;
+
+  Rect.Width := Self.Width;
+  Rect.Height := Self.Height;
+end;
+
+function TRowLayout.get_Sides: TSides;
+begin
+  Result := Rect.Sides;
+end;
+
+procedure TRowLayout.set_Sides(const Value: TSides);
+begin
+  Rect.Sides := Value;
 end;
 
 initialization

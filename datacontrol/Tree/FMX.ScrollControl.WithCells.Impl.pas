@@ -183,6 +183,7 @@ type
 
     procedure BeforeRealignContent; override;
     procedure AfterRealignContent; override;
+    procedure AfterScrolling; override;
 
     procedure PrepareColumns;
     procedure PrepareCellControls(const Cell: IDCTreeCell);
@@ -1123,6 +1124,12 @@ begin
 end;
 {$ENDIF}
 
+procedure TScrollControlWithCells.AfterScrolling;
+begin
+  inherited;
+
+end;
+
 procedure TScrollControlWithCells.AfterRealignContent;
 begin
   inherited;
@@ -1570,7 +1577,7 @@ procedure TScrollControlWithCells.PerformanceRoutineLoadedRow(const Row: IDCRow)
 begin
   inherited;
 
-  var performanceModeNeeded := ScrollControlIsFastScrolling;
+  var performanceModeNeeded := IsFastScrolling;
 
   var cell: IDCTreeCell;
   for cell in (Row as IDCTreeRow).Cells.Values do
@@ -2590,7 +2597,7 @@ procedure TScrollControlWithCells.DoCellLoaded(const Cell: IDCTreeCell; RequestF
 begin
   if Assigned(_CellLoaded) then
   begin
-    var args := DCCellLoadedEventArgs.Create(Cell, TDCTreeOption.ShowVertGrid in  _options, ScrollControlIsFastScrolling, PerformanceModeWhileScrolling);
+    var args := DCCellLoadedEventArgs.Create(Cell, TDCTreeOption.ShowVertGrid in  _options, IsFastScrolling, PerformanceModeWhileScrolling);
     try
       args.RequestValueForSorting := RequestForSort;
       args.OverrideRowHeight := OverrideRowHeight;
@@ -2616,7 +2623,7 @@ begin
 
   if Assigned(_CellLoading) then
   begin
-    var args := DCCellLoadingEventArgs.Create(Cell, TDCTreeOption.ShowVertGrid in  _options, ScrollControlIsFastScrolling, PerformanceModeWhileScrolling);
+    var args := DCCellLoadingEventArgs.Create(Cell, TDCTreeOption.ShowVertGrid in  _options, IsFastScrolling, PerformanceModeWhileScrolling);
     try
       args.RequestValueForSorting := RequestForSort;
       args.OverrideRowHeight := OverrideRowHeight;
@@ -3275,7 +3282,7 @@ begin
     Cell.InfoControl.Visible := _selectionInfo.CanSelect(Cell.Row.DataIndex);
     Cell.LayoutColumn.UpdateColumnContainsData(TColumnContainsData.Yes, Cell.Data {True / False});
   end
-  else if LoadDefaultData and (not ScrollControlIsFastScrolling or not PerformanceModeWhileScrolling) then
+  else if LoadDefaultData and (not IsFastScrolling or not PerformanceModeWhileScrolling) then
   begin
     LoadDefaultDataIntoControl(cell, False);
     if not CString.IsNullOrEmpty(cell.Column.SubPropertyName) then
@@ -3290,7 +3297,7 @@ begin
 
   // if we do horz lines, we do them on cell controls..
   if (TreeOption_ShowVertGrid in _options) then
-    TRectangle(treeRow.Control).Sides := [];
+    TRowlayout(treeRow.Control).Sides := [];
 
   var manualHeight: Single := -1;
 

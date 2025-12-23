@@ -57,7 +57,6 @@ type
     procedure set_RowHeightFixed(const Value: Single);
     function  get_IsPrinting: Boolean;
     procedure set_IsPrinting(const Value: Boolean);
-    function  get_IsScrolling: Boolean;
 
     procedure OnSelectionInfoChanged;
     function  SelectionCount: Integer;
@@ -69,11 +68,13 @@ type
     function  GetDataModel: IDataModel;
     function  HasViewRows: Boolean;
 
+    function IsScrolling: Boolean;
+    function IsFastScrolling(ScrollbarOnly: Boolean = False): Boolean;
+
     property SelectionType: TSelectionType read get_SelectionType write set_SelectionType;
     property RowHeightFixed: Single read get_rowHeightFixed write set_RowHeightFixed;
     property RowHeightDefault: Single read get_rowHeightDefault write set_RowHeightDefault;
     property IsPrinting: Boolean read get_IsPrinting write set_IsPrinting;
-    property IsScrolling: Boolean read get_IsScrolling;
   end;
 
   TDataIndexArray = array of Integer;

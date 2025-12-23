@@ -40,7 +40,7 @@ uses
   {$ENDIF}
   System_,
   ADato.ObjectModel.Binders,
-  FMX.ScrollControl.ControlClasses.Intf;
+  FMX.ScrollControl.ControlClasses.Intf, FMX.BufferedLayout;
 
 type
   TDateTimeEditOnKeyDownOverride = class(TDateEdit)
@@ -203,7 +203,8 @@ uses
   Wasm.System.SysUtils,
   Wasm.System.Math
   {$ENDIF}
-  , ADato.ObjectModel.intf, FMX.ScrollControl.ControlClasses, FMX.Skia;
+  , ADato.ObjectModel.intf, FMX.ScrollControl.ControlClasses, FMX.Skia,
+  System.Math.Vectors;
 
 { TDateTimeEditOnKeyDownOverride }
 
@@ -334,8 +335,8 @@ begin
   var yPos := 0.0;
   case get_HorzTextAlign of
     TTextAlign.Center: xPos := (Self.Width - _textBounds.Width) / 2;
-    TTextAlign.Leading: xPos := Padding.Left;
-    TTextAlign.Trailing: xPos := Self.Width - _textBounds.Width - Padding.Right;
+    TTextAlign.Leading: xPos := Padding.Left + _internalLeftPadding;
+    TTextAlign.Trailing: xPos := Self.Width - _textBounds.Width - Padding.Right - _internalRightPadding;
   end;
 
   var totHeight := _textBounds.Height;
@@ -396,6 +397,7 @@ begin
   if not _ignoreDefaultPaint then
   begin
     PrepareTextForPaint;
+
     _layout.RenderLayout(Canvas);
 
     if Length(_subText) > 0 then

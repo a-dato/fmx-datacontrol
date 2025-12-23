@@ -114,7 +114,6 @@ type
     procedure set_TopRow(const Value: Integer);
     function  get_IsPrinting: Boolean;
     procedure set_IsPrinting(const Value: Boolean);
-    function  get_IsScrolling: Boolean;
     function  get_DataItem: CObject;
     procedure set_DataItem(const Value: CObject);
 
@@ -176,6 +175,9 @@ type
 
     procedure ExecuteAfterRealignOnly(DoBeginUpdate: Boolean);
 
+    function  IsScrolling: Boolean; override;
+    function  IsFastScrolling(ScrollbarOnly: Boolean = False): Boolean; override;
+
   protected
     {$IFDEF DEBUG}
     {$IFNDEF WEBASSEMBLY}
@@ -195,8 +197,7 @@ type
 
     procedure SetBasicVertScrollBarValues; override;
     procedure BeforePainting; override;
-
-    function  ScrollControlIsFastScrolling: Boolean;
+    procedure AfterScrolling; override;
 
     function  DoCreateNewRow: IDCRow; virtual;
     function  CreateRowRect: TRectangle; virtual;
@@ -343,7 +344,6 @@ type
     property Current: Integer read get_Current write set_Current;
     property TopRow: Integer read get_TopRow write set_TopRow;
     property IsPrinting: Boolean read get_IsPrinting write set_IsPrinting;
-    property IsScrolling: Boolean read get_IsScrolling;
     property DataItem: CObject read get_DataItem write set_DataItem;
 
     property View: IDataViewList read get_View;
@@ -875,7 +875,7 @@ begin
   if Assigned(_rowLoaded) then
   begin
     var rowEventArgs: DCRowEventArgs;
-    AutoObject.Guard(DCRowEventArgs.Create(ARow, ScrollControlIsFastScrolling), rowEventArgs);
+    AutoObject.Guard(DCRowEventArgs.Create(ARow, IsFastScrolling), rowEventArgs);
 
     _rowLoaded(Self, rowEventArgs);
   end;
@@ -890,7 +890,7 @@ begin
   if Assigned(_rowAligned) then
   begin
     var rowEventArgs: DCRowEventArgs;
-    AutoObject.Guard(DCRowEventArgs.Create(ARow, ScrollControlIsFastScrolling), rowEventArgs);
+    AutoObject.Guard(DCRowEventArgs.Create(ARow, IsFastScrolling), rowEventArgs);
 
     _rowAligned(Self, rowEventArgs);
 
@@ -900,13 +900,6 @@ begin
   {$ELSE}
   //raise NotImplementedException.Create('procedure TScrollControlWithRows.DoRowAligned(const ARow: IDCRow)');
   {$ENDIF}
-end;
-
-function TScrollControlWithRows.ScrollControlIsFastScrolling: Boolean;
-begin
-  Result := IsScrolling and (_scrollingType = TScrollingType.WithScrollBar) and ScrollingWasActivePreviousRealign;
-  if not Result and (_rowHeightSynchronizer <> nil) then
-    Result := _rowHeightSynchronizer.IsScrolling and (_rowHeightSynchronizer._scrollingType = TScrollingType.WithScrollBar) and _rowHeightSynchronizer.ScrollingWasActivePreviousRealign;
 end;
 
 procedure TScrollControlWithRows.TriggerFilterOrSortChanged(FilterChanged, SortChanged: Boolean);
@@ -1536,11 +1529,19 @@ begin
   Result := _isPrinting;
 end;
 
-function TScrollControlWithRows.get_IsScrolling: Boolean;
+function TScrollControlWithRows.IsScrolling: Boolean;
 begin
-  Result := (_scrollingType <> TScrollingType.None);
-  if not Result and (_rowHeightSynchronizer <> nil) then
-    Result := (_rowHeightSynchronizer._scrollingType <> TScrollingType.None);
+  Result := inherited;
+
+  if not Result and (_rowHeightSynchronizer <> nil) and not IgnoreSynchronizer then
+  begin
+    var iIgnore := TryStartIgnoreMasterSynchronizer(False);
+    try
+      Result := _rowHeightSynchronizer.IsScrolling;
+    finally
+      StopignoreMasterSynchronizer(iIgnore);
+    end;
+  end;
 end;
 
 function TScrollControlWithRows.get_Model: IObjectListModel;
@@ -1949,7 +1950,7 @@ begin
   inherited;
 
   // check if selection in current scrollbar value range!!
-  if _mustShowSelectionInRealign then
+  if _mustShowSelectionInRealign and not IsScrolling then
   begin
     var dummyItem: CObject;
     var virtualYPos: Single;
@@ -2041,8 +2042,6 @@ begin
     _rowHeightSynchronizer.View.ReindexActiveRow(otherRow);
 
     _rowHeightSynchronizer.InitRow(otherRow, False);
-    
-    _rowHeightSynchronizer.PerformanceRoutineLoadedRow(otherRow);
   end;
 
   if otherRow.Height > Row.Height then
@@ -2062,11 +2061,12 @@ end;
 procedure TScrollControlWithRows.InitRow(const Row: IDCRow; const IsAboveRefRow: Boolean = False);
 begin
   var rowInfo := _view.RowLoadedInfo(Row.ViewListIndex);
-  var rowNeedsReload := IsPrinting or Row.IsScrollingIntoView or not rowInfo.InnerCellsAreApplied or (rowInfo.ControlNeedsResizeSoft and (_scrollingType <> TScrollingType.WithScrollBar));
+  var isFastScrollbarScrolling := IsFastScrolling(True);
+  var rowNeedsReload := IsPrinting or Row.IsScrollingIntoView or not rowInfo.InnerCellsAreApplied or (rowInfo.ControlNeedsResizeSoft and not (_scrollingType <> TScrollingType.WithScrollBar));
 
   var oldRowHeight: Single := -1;
 
-  if rowInfo.ReloadAfterScroll and (_scrollingType = TScrollingType.None) then
+  if rowInfo.ReloadAfterScroll and not isFastScrollbarScrolling {(_scrollingType = TScrollingType.None)} then
   begin
     oldRowHeight := _view.GetRowHeight(Row.ViewListIndex);
 
@@ -2081,19 +2081,27 @@ begin
   begin
     if Row.Control = nil then
     begin
+      var ly := TRowLayout.Create(_content);
+      ly.ClipChildren := True;
+      ly.HitTest := False;
+      ly.Align := TAlignLayout.None;
+
       var rect := CreateRowRect;
       rect.ClipChildren := True;
       rect.HitTest := False;
-      rect.Align := TAlignLayout.None;
+      rect.Align := TAlignLayout.Contents;
 
-      Row.Control := rect;
+      ly.AddObject(rect);
+      ly.Rect := rect;
+      rect.SendToBack;
+
+      Row.Control := ly;
 
       _content.AddObject(Row.Control);
 
-      var rr := Row.Control as TRectangle;
       if (TreeOption_ShowHorzGrid in _options) then
-        rr.Sides := [TSide.Bottom] else
-        rr.Sides := [];
+        rect.Sides := [TSide.Bottom] else
+        rect.Sides := [];
     end;
 
     DataControlClassFactory.HandleRowBackground(TRectangle(Row.Control), (TreeOption_AlternatingRowBackground in _options) and not Row.IsOddRow);
@@ -2105,11 +2113,14 @@ begin
 
     InnerInitRow(Row, rowInfo.ControlNeedsResizeSoft);
     DoRowLoaded(Row);
+
+    if not SameValue(oldRowHeight, Row.Control.Height) and (Row.Control.Height = 33) then
+      VisualizeRowSelection(Row);
   end;
 
   PerformanceRoutineLoadedRow(Row);
-
   Row.Control.Width := CalculateRowControlWidth(False);
+
   CreateAndSynchronizeSynchronizerRow(Row);
 
   if rowNeedsReload then
@@ -2169,12 +2180,12 @@ procedure TScrollControlWithRows.UpdateScrollAndSelectionByKey(var Key: Word; Sh
 begin
   if Key in [vkPrior, vkNext] then
   begin
-    // in case the up/down button stays pressed, and the tree is not quick enough to repaint before it recalculates again
-    if RealignedButNotPainted then
-    begin
-      Key := 0;
-      Exit;
-    end;
+//    // in case the up/down button stays pressed, and the tree is not quick enough to repaint before it recalculates again
+//    if RealignedButNotPainted then
+//    begin
+//      Key := 0;
+//      Exit;
+//    end;
 
     if Key = vkPrior then
     begin
@@ -2194,7 +2205,7 @@ begin
           rowZero := _view.ActiveViewRows[1];
 
         // in case the up/down button stays pressed, and the tree is not quick enough to repaint before it recalculates again
-        if not RealignedButNotPainted and CanRealignScrollCheck then
+        if {not RealignedButNotPainted and} CanRealignScrollCheck then
         begin
           Inc(_scrollUpdateCount);
           try
@@ -2208,7 +2219,18 @@ begin
           rowZero := _view.ActiveViewRows[0];
           // check if row is only partly visible
           if (rowZero.VirtualYPosition < _vertScrollBar.Value) and (_view.ActiveViewRows.Count > 1) then
+          begin
             rowZero := _view.ActiveViewRows[1];
+
+            Inc(_scrollUpdateCount);
+            try
+              _vertScrollBar.Value := rowZero.VirtualYPosition;
+            finally
+              dec(_scrollUpdateCount);
+            end;
+
+            DoRealignContent;
+          end;
 
           InternalSetCurrent(rowZero.ViewListIndex, TSelectionEventTrigger.Key, Shift);
         end;
@@ -2239,7 +2261,7 @@ begin
         rowBottom := _view.ActiveViewRows[_view.ActiveViewRows.Count - 2];
 
       // in case the up/down button stays pressed, and the tree is not quick enough to repaint before it recalculates again
-      if not RealignedButNotPainted and CanRealignScrollCheck then
+      if {not RealignedButNotPainted and} CanRealignScrollCheck then
       begin
         Inc(_scrollUpdateCount);
         try
@@ -2253,9 +2275,20 @@ begin
         rowBottom := _view.ActiveViewRows[_view.ActiveViewRows.Count - 1];
         // check if bottomrow is only partly visible
         if (rowBottom.VirtualYPosition + rowBottom.Height > _vertScrollBar.Value + _vertScrollBar.ViewportSize) and (_view.ActiveViewRows.Count > 1) then
+        begin
           rowBottom := _view.ActiveViewRows[_view.ActiveViewRows.Count - 2];
 
-        InternalSetCurrent(rowBottom.ViewListIndex + 1, TSelectionEventTrigger.Key, Shift);
+          Inc(_scrollUpdateCount);
+          try
+            _vertScrollBar.Value := rowBottom.VirtualYPosition + rowBottom.Height - _vertScrollBar.ViewportSize;
+          finally
+            dec(_scrollUpdateCount);
+          end;
+
+          DoRealignContent;
+        end;
+
+        InternalSetCurrent(rowBottom.ViewListIndex {+ 1}, TSelectionEventTrigger.Key, Shift);
       end;
 
       Key := 0;
@@ -2277,7 +2310,7 @@ begin
   if _selectionInfo.ViewListIndex <> rowViewListIndex then
   begin
     // in case the up/down button stays pressed, and the tree is not quick enough to repaint before it recalculates again
-    if not RealignedButNotPainted and CanRealignScrollCheck then
+    if {not RealignedButNotPainted and} CanRealignScrollCheck then
       InternalSetCurrent(rowViewListIndex, TSelectionEventTrigger.Key, Shift);
 
     Key := 0;
@@ -2345,6 +2378,7 @@ begin
     if spaceNeeded > spaceAvailableForChildren then
     begin
       _mouseWheelDistanceToGo := Round(CMath.Min(spaceNeeded - spaceAvailableForChildren, virtualYPos - _vertScrollBar.Value));
+      _mouseWheelDistanceTotal := _mouseWheelDistanceToGo;
       ScrollManualTryAnimated2; //(-Trunc(scrollBy), False);
     end;
   end;
@@ -2788,6 +2822,21 @@ begin
   TrySelectItem(requestedSelection, Shift);
 end;
 
+function TScrollControlWithRows.IsFastScrolling(ScrollbarOnly: Boolean = False): Boolean;
+begin
+  Result := inherited;
+
+  if not Result and (_rowHeightSynchronizer <> nil) and not IgnoreSynchronizer then
+  begin
+    var iIgnore := TryStartIgnoreMasterSynchronizer(False);
+    try
+      Result := _rowHeightSynchronizer.IsFastScrolling(ScrollbarOnly);
+    finally
+      StopignoreMasterSynchronizer(iIgnore);
+    end;
+  end;
+end;
+
 function TScrollControlWithRows.IsMasterSynchronizer: Boolean;
 begin
   Result := (_masterSynchronizerIndex > 0);
@@ -2873,16 +2922,29 @@ begin
   UpdateYPositionRows;
 end;
 
+procedure TScrollControlWithRows.AfterScrolling;
+begin
+  inherited;
+
+  if (_rowHeightSynchronizer <> nil) and not IgnoreSynchronizer and not _rowHeightSynchronizer.IgnoreSynchronizer then
+  begin
+    var goMaster := TryStartIgnoreMasterSynchronizer(False);
+    try
+      _rowHeightSynchronizer.AfterScrolling;
+    finally
+      StopignoreMasterSynchronizer(goMaster);
+    end;
+  end;
+
+  if _view <> nil then
+    for var row in _view.ActiveViewRows do
+      PerformanceRoutineLoadedRow(row);
+end;
+
 procedure TScrollControlWithRows.RealignContent;
 begin
   if _view = nil then
     Exit;
-
-  {$IFDEF DEBUG}
-  Log('RealignContent val: ' + _vertScrollBar.Value.ToString);
-  Log('RealignContent vp: ' + _vertScrollBar.ViewportSize.ToString);
-  Log('RealignContent max: ' + _vertScrollBar.Max.ToString);
-  {$ENDIF}
 
   try       
     var startY := _vertScrollBar.Value;
@@ -3189,6 +3251,7 @@ begin
       if _selectionInfo.LastSelectionEventTrigger = TSelectionEventTrigger.External then
       begin
         _mouseWheelDistanceToGo := Round(yChange);
+        _mouseWheelDistanceTotal := _mouseWheelDistanceToGo;
         ScrollManualTryAnimated2; //(Round(yChange), False)
       end
       else
@@ -3501,13 +3564,16 @@ end;
 procedure TDCRow.UpdateSelectionVisibility(const SelectionInfo: IRowSelectionInfo; OwnerIsFocused: Boolean);
 begin
   var isSelected := SelectionInfo.IsSelected(get_DataIndex);
-  if not isSelected then
+  if isSelected then
+  begin
+    UpdateSelectionRect(OwnerIsFocused);
+    _control.Repaint;
+  end
+  else if _selectionRect <> nil then
   begin
     FreeAndNil(_selectionRect);
-    Exit;
+    TRowLayout(_control).RecalcSceneBuffer;
   end;
-
-  UpdateSelectionRect(OwnerIsFocused);
 end;
 
 procedure TDCRow.ClearRowForReassignment;
@@ -4149,10 +4215,7 @@ begin
 
   _stopwatch0.Stop;
   if not Pause and not SyncIsMasterSynchronizer then
-  begin
-    Log('Stopwatch 0: ' + _stopwatch0.ElapsedMilliseconds.ToString);
     _stopwatch0.Reset;
-  end;
 end;
 
 procedure TScrollControlWithRows.E1(Pause: Boolean);
