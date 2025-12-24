@@ -401,7 +401,7 @@ function TScrollControlWithEditableCells.CheckCanChangeRow: Boolean;
 begin
   // old row can be scrolled out of view. So always work with dummy rows
 
-  var dummyOldRow := CreateDummyRowForChanging(_selectionInfo) as IDCTreeRow;
+  var dummyOldRow := ProvideRowForChanging(_selectionInfo) as IDCTreeRow;
   if dummyOldRow = nil then Exit(True);
 
   var oldCell := dummyOldRow.Cells[(_selectionInfo as ITreeSelectionInfo).SelectedLayoutColumn];
@@ -1741,6 +1741,7 @@ begin
       GetDataModelView.DataModel.BeginEdit(ARow.DataItem.AsType<IDataRowView>.Row);
     end;
 
+    ARow.UseBuffering := False;
     _editingInfo.StartRowEdit(ARow.DataIndex, DataItem, IsNew);
 
     _view.StartEdit(_editingInfo.EditItem);
@@ -1772,6 +1773,8 @@ var
 begin
   if not _editingInfo.RowIsEditing then
     Exit(True); // already done in DoEditCellEnd
+
+  ARow.UseBuffering := True;
 
   Result := True;
   if Assigned(_editRowEnd) then

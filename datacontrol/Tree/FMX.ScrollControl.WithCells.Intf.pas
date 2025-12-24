@@ -570,6 +570,7 @@ type
 //    procedure UpdatePositionAndWidthInnerRowControl;
 
     procedure ResetCells;
+    function  IsDummyRowForChanging: Boolean;
 
     property Cells: Dictionary<Integer {flatColumn.Index}, IDCTreeCell> read get_Cells;
     property ContentCellSizes: Dictionary<Integer {flatColumn.Index}, Single> read get_ContentCellSizes;

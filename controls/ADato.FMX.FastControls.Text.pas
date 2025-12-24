@@ -40,7 +40,7 @@ uses
   {$ENDIF}
   System_,
   ADato.ObjectModel.Binders,
-  FMX.ScrollControl.ControlClasses.Intf, FMX.BufferedLayout;
+  FMX.ScrollControl.ControlClasses.Intf;
 
 type
   TDateTimeEditOnKeyDownOverride = class(TDateEdit)
@@ -349,13 +349,13 @@ begin
     TTextAlign.Trailing: yPos := Self.Height - totHeight - Padding.Bottom;
   end;
 
-  {$IFDEF DEBUG}
-//    Self.Canvas.Fill.Color := TALphaColors.Purple;
-//    Self.Canvas.FillRect(RectF(xPos, yPos, xPos +_textBounds.Width, yPos+_textBounds.Height), 0.2);
-
-//  Self.Canvas.Fill.Color := TALphaColors.MoneyGreen;
+//  {$IFDEF DEBUG}
+//  Self.Canvas.Fill.Color := TALphaColors.Red;
 //  Self.Canvas.FillRect(RectF(0, 0, Self.Width, Self.Height), 0.2);
-  {$ENDIF}
+//
+//  Self.Canvas.Fill.Color := TALphaColors.Purple;
+//  Self.Canvas.FillRect(RectF(xPos, yPos, xPos +_textBounds.Width, yPos+_textBounds.Height), 0.2);
+//  {$ENDIF}
 
   _layout.Opacity := AbsoluteOpacity;
   _layout.TopLeft := PointF(xPos, yPos);
@@ -581,8 +581,8 @@ begin
 
   _recalcNeeded := False;
 
-//  var internalWidth := Self.Width - Padding.Left - Padding.Right - _internalLeftPadding - _internalRightPadding;
-  var maxWidth := IfThen(_maxWidth > 0, _maxWidth, 9999 {IfThen(_autoWidth, 9999, internalWidth)});
+  var maxInternalWidth := _maxWidth - Padding.Left - Padding.Right - _internalLeftPadding - _internalRightPadding;
+  var maxWidth := IfThen(_maxWidth > 0, maxInternalWidth, 9999);
   var maxHeight := IfThen(get_WordWrap or _calcAsAutoHeight, 9999, Self.Height - Padding.Top - Padding.Bottom);
 
   CalculateSubText(maxWidth, maxHeight);
@@ -590,31 +590,6 @@ begin
 
   if _autoWidth then
     Self.Width := TextWidthWithPadding;
-
-//  var subTextHeightSubstraction := CMath.Max(_subTextBounds.Height + SUBTEXT_NEGATIVE_MARGIN, 0);
-//
-//  _layout.BeginUpdate;
-//  try
-//    _layout.TopLeft := PointF(Self.Padding.Left + _internalLeftPadding, Self.Padding.Top);
-//    _layout.MaxSize := PointF(
-//      Self.Width - Self.Padding.Left - Self.Padding.Right - _internalLeftPadding - _internalRightPadding,
-//      Self.Height - Self.Padding.Top - Self.Padding.Bottom - subTextHeightSubstraction);
-//  finally
-//    _layout.EndUpdate;
-//  end;
-//
-//  if _subTextlayout <> nil then
-//  begin
-//    _subTextlayout.BeginUpdate;
-//    try
-//      _subTextlayout.TopLeft := PointF(Self.Padding.Left + _internalLeftPadding, Self.Padding.Top + subTextHeightSubstraction);
-//      _subTextlayout.MaxSize := PointF(
-//        Self.Width - Self.Padding.Left - Self.Padding.Right - _internalLeftPadding - _internalRightPadding,
-//        Self.Height - Self.Padding.Top - Self.Padding.Bottom - subTextHeightSubstraction);
-//    finally
-//      _subTextlayout.EndUpdate;
-//    end;
-//  end;
 end;
 
 procedure TFastText.SetStyledSettings(const Value: TStyledSettings);

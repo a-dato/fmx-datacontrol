@@ -193,6 +193,20 @@ type
     property Text: CString read get_Text write set_Text;
   end;
 
+  IRowLayout = interface
+    ['{C553D374-7432-4700-8C60-849A4F0CF5A8}']
+    function  get_UseBuffering: Boolean;
+    procedure set_UseBuffering(const Value: Boolean);
+    function  get_Sides: TSides;
+    procedure set_Sides(const Value: TSides);
+
+    procedure ResetBuffer;
+    function  Background: TRectangle;
+
+    property UseBuffering: Boolean read get_UseBuffering write set_UseBuffering;
+    property Sides: TSides read get_Sides write set_Sides;
+  end;
+
   IDCControlClassFactory = interface
     ['{08ADE46F-92EA-4A14-9208-51FD5347C754}']
     function CreateHeaderRect(const Owner: TComponent): TRectangle;

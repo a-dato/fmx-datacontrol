@@ -43,7 +43,7 @@ uses
   System.Collections.Generic,
   FMX.ScrollControl.ControlClasses.Intf,
   ADato.FMX.FastControls.Button,
-  FMX.BufferedLayout;
+  ADato.FMX.FastControls.Layout;
 
 type
   TDCControlImpl = class(TBaseInterfacedObject, IDCControl, ITextControl, ICaption, ITextActions, ITextSettings)
@@ -317,18 +317,27 @@ type
     property DCControl: IDCControl read get_DCControl implements IDCControl;
   end;
 
-  TRowLayout = class(TBufferedLayout)
-  private
-    function get_Sides: TSides;
-    procedure set_Sides(const Value: TSides);
+  TRowLayout = class(TAdaptableBufferedLayout, IRowLayout)
   protected
+    _rect: TRectangle;
+//    _useBuffering: Boolean;
+
+//    function  get_UseBuffering: Boolean;
+//    procedure set_UseBuffering(const Value: Boolean);
+    function  get_Sides: TSides;
+    procedure set_Sides(const Value: TSides);
+
     procedure DoResized; override;
   public
-    Rect: TRectangle;
+    constructor Create(AOwner: TComponent; Background: TRectangle); reintroduce;
 
-    procedure RecalcSceneBuffer;
+    procedure Paint; override;
+
+    function  Background: TRectangle;
+//    procedure ResetBuffer;
 
     property Sides: TSides read get_Sides write set_Sides;
+//    property UseBuffering: Boolean read get_UseBuffering write set_UseBuffering default True;
   end;
 
   TDataControlClassFactory = class(TInterfacedObject, IDCControlClassFactory)
@@ -1438,30 +1447,72 @@ end;
 
 { TRowLayout }
 
-procedure TRowLayout.RecalcSceneBuffer;
+function TRowLayout.Background: TRectangle;
 begin
-  var w := Self.Width;
-  Self.Width := w - 1;
-  Self.Width := w;
+  Result := _rect;
+end;
+
+constructor TRowLayout.Create(AOwner: TComponent; Background: TRectangle);
+begin
+  inherited Create(AOwner);
+
+  _rect := Background;
+  _rect.ClipChildren := True;
+  _rect.HitTest := False;
+  _rect.Align := TAlignLayout.Contents;
+  Self.AddObject(Background);
+
+  _rect.SendToBack;
+
+//  _useBuffering := True;
 end;
 
 procedure TRowLayout.DoResized;
 begin
   inherited;
 
-  Rect.Width := Self.Width;
-  Rect.Height := Self.Height;
+  _rect.Width := Self.Width;
+  _rect.Height := Self.Height;
 end;
 
 function TRowLayout.get_Sides: TSides;
 begin
-  Result := Rect.Sides;
+  Result := _rect.Sides;
 end;
+
+//function TRowLayout.get_UseBuffering: Boolean;
+//begin
+//  Result := _useBuffering;
+//end;
+
+procedure TRowLayout.Paint;
+begin
+//  // note that Self.Scene is the original IScene
+//  if not _useBuffering and (Self.Scene.GetUpdateRectsCount > 0) then
+//    ResetBuffer;
+
+  inherited;
+end;
+
+//procedure TRowLayout.ResetBuffer;
+//begin
+//  // looks drastic, but we cannot access any buffer thingies..
+//  // therefor we trigger DoResized
+//
+//  var w := Self.Width;
+//  Self.Width := w - 1;
+//  Self.Width := w;
+//end;
 
 procedure TRowLayout.set_Sides(const Value: TSides);
 begin
-  Rect.Sides := Value;
+  _rect.Sides := Value;
 end;
+
+//procedure TRowLayout.set_UseBuffering(const Value: Boolean);
+//begin
+//  _useBuffering := Value;
+//end;
 
 initialization
   DataControlClassFactory := TDataControlClassFactory.Create;

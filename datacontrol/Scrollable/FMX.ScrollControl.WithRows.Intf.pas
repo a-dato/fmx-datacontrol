@@ -13,7 +13,7 @@ uses
   System.Collections.Generic,
   ADato.ComponentModel,
   ADato.Data.DataModel.intf, 
-  FMX.ScrollControl.Intf;
+  FMX.ScrollControl.Intf, FMX.ScrollControl.ControlClasses.Intf;
 
 type
   TSelectionType = (HideSelection, CellSelection, RowSelection);
@@ -150,6 +150,8 @@ type
     procedure set_Enabled(const Value: Boolean);
     function  get_CustomTag: CObject;
     procedure set_CustomTag(const Value: CObject);
+    function  get_UseBuffering: Boolean;
+    procedure set_UseBuffering(const Value: Boolean);
 
     function  Height: Single;
     function  HasChildren: Boolean;
@@ -161,6 +163,7 @@ type
     function  IsClearedForReassignment: Boolean;
     function  IsScrollingIntoView: Boolean;
 
+    function  ControlAsRowLayout: IRowLayout;
     procedure UpdateSelectionVisibility(const SelectionInfo: IRowSelectionInfo; OwnerIsFocused: Boolean);
 
     property RowsControl: IRowsControl read get_RowsControl;
@@ -173,6 +176,7 @@ type
     property Control: TControl read get_Control write set_Control;
     property IsHeaderRow: Boolean read get_IsHeaderRow;
     property Enabled: Boolean read get_Enabled write set_Enabled;
+    property UseBuffering: Boolean read get_UseBuffering write set_UseBuffering;
 
     // control below can be used to insert custom controls and recycle them if needed.
     property CustomTag: CObject read get_CustomTag write set_CustomTag;

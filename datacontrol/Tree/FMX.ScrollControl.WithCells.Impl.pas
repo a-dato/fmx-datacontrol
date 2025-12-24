@@ -214,7 +214,6 @@ type
     function  GetCellControlData(const Cell: IDCTreeCell): CObject;
 
     procedure UpdateHoverRect(MousePos: TPointF); override;
-    function  ScrollPerformanceShouldHideColumns(const FlatIndex: Integer): Boolean;
 
     function  FlatColumnByColumn(const Column: IDCTreeColumn): IDCTreeLayoutColumn;
     function  FlatColumnIndexByLayoutIndex(const LayoutIndex: Integer): Integer;
@@ -244,7 +243,7 @@ type
     procedure HandleTreeOptionsChange(const OldFlags, NewFlags: TDCTreeOptions); override;
     procedure HandleMultiSelectOptionChanged;
 
-    function  CreateDummyRowForChanging(const FromSelectionInfo: IRowSelectionInfo): IDCRow; override;
+    function  ProvideRowForChanging(const FromSelectionInfo: IRowSelectionInfo): IDCRow; override;
 
     function  GetCellByControl(const Control: TControl): IDCTreeCell;
 
@@ -880,6 +879,7 @@ type
     procedure ClearRowForReassignment; override;
     procedure UpdateSelectionVisibility(const SelectionInfo: IRowSelectionInfo; OwnerIsFocused: Boolean); override;
     procedure ResetCells;
+    function  IsDummyRowForChanging: Boolean;
 
 //    property InnerRowControl: TControl read get_InnerRowControl write set_InnerRowControl;
 //    property PlaceInnerRowAtBottom: Boolean read get_PlaceInnerRowAtBottom write set_PlaceInnerRowAtBottom;
@@ -1155,7 +1155,7 @@ end;
 
 procedure TScrollControlWithCells.AssignWidthsToAlignColumns;
 begin
-  if _scrollingType = TScrollingType.WithScrollBar then
+  if GetScrollingType = TScrollingType.WithScrollBar then
     Exit;
 
   var fullRowList: List<IDCTreeRow> := HeaderAndTreeRows(True);
@@ -1232,7 +1232,7 @@ begin
   begin
     var clmn := GetSelectableFlatColumnByMouseX(MousePos.X);
 
-    _hoverRect.Visible := (clmn <> nil) and (_scrollingType = TScrollingType.None);
+    _hoverRect.Visible := (clmn <> nil) and (GetScrollingType = TScrollingType.None);
     if not _hoverRect.Visible then Exit;
 
     // y positions already set in "inherited"
@@ -2069,26 +2069,6 @@ begin
   DoCellSelected(cell, _selectionInfo.LastSelectionEventTrigger);
 end;
 
-function TScrollControlWithCells.ScrollPerformanceShouldHideColumns(const FlatIndex: Integer): Boolean;
-begin
-  if (_scrollingHideColumnsFromIndex <= 0) or (_treeLayout.FlatColumns.Count >= _scrollingHideColumnsFromIndex) then
-    Exit(False);
-
-  if _scrollingType = TScrollingType.None then
-    Exit(False);
-
-  if _view.ActiveViewRows.Count = 0 then
-    Exit(False);
-
-  if (FlatIndex < _scrollingHideColumnsFromIndex - 3) then
-    Exit(False);
-
-  if _scrollingType = TScrollingType.Other then
-    Result := (Self.Content.Height > 850)
-  else // _scrollingType = TScrollingType.WithScrollBar
-    Result := True;
-end;
-
 procedure TScrollControlWithCells.SelectAll;
 begin
   var selInfo := _selectionInfo as ITreeSelectionInfo;
@@ -2597,7 +2577,7 @@ procedure TScrollControlWithCells.DoCellLoaded(const Cell: IDCTreeCell; RequestF
 begin
   if Assigned(_CellLoaded) then
   begin
-    var args := DCCellLoadedEventArgs.Create(Cell, TDCTreeOption.ShowVertGrid in  _options, IsFastScrolling, PerformanceModeWhileScrolling);
+    var args := DCCellLoadedEventArgs.Create(Cell, TDCTreeOption.ShowVertGrid in  _options, PerformanceModeWhileScrolling);
     try
       args.RequestValueForSorting := RequestForSort;
       args.OverrideRowHeight := OverrideRowHeight;
@@ -2607,7 +2587,7 @@ begin
       if args.OverrideRowHeight <> -1 {> ManualRowHeight} then
         OverrideRowHeight := args.OverrideRowHeight;
 
-      if args.CalculateCellAfterScrolling then
+      if args.CalculateCellAfterScrolling and IsScrolling then
         _view.NotifyRowControlsNeedReload(Cell.Row, True {force reload after scrolling is done});
 
       {var} PerformanceModeWhileScrolling := args.PerformanceModeWhileScrolling;
@@ -2623,7 +2603,7 @@ begin
 
   if Assigned(_CellLoading) then
   begin
-    var args := DCCellLoadingEventArgs.Create(Cell, TDCTreeOption.ShowVertGrid in  _options, IsFastScrolling, PerformanceModeWhileScrolling);
+    var args := DCCellLoadingEventArgs.Create(Cell, TDCTreeOption.ShowVertGrid in  _options, PerformanceModeWhileScrolling);
     try
       args.RequestValueForSorting := RequestForSort;
       args.OverrideRowHeight := OverrideRowHeight;
@@ -2634,7 +2614,7 @@ begin
       if args.OverrideRowHeight <> -1 {> ManualRowHeight} then
         OverrideRowHeight := args.OverrideRowHeight;
 
-      if args.CalculateCellAfterScrolling then
+      if args.CalculateCellAfterScrolling and IsScrolling then
         _view.NotifyRowControlsNeedReload(Cell.Row, True {force reload after scrolling is done});
 
       {var} PerformanceModeWhileScrolling := args.PerformanceModeWhileScrolling;
@@ -2770,10 +2750,14 @@ begin
   _frozenRectLine.Visible := (_horzScrollBar.Value > _horzScrollBar.Min) and _treeLayout.HasFrozenColumns;
 end;
 
-function TScrollControlWithCells.CreateDummyRowForChanging(const FromSelectionInfo: IRowSelectionInfo): IDCRow;
+function TScrollControlWithCells.ProvideRowForChanging(const FromSelectionInfo: IRowSelectionInfo): IDCRow;
 begin
   var treeRow := inherited as IDCTreeRow;
   if treeRow = nil then Exit;
+
+  // check if row is actual row that already contains the right cell
+  if not treeRow.IsDummyRowForChanging then
+    Exit(treeRow);
 
   var flatColumnIx := (FromSelectionInfo as ITreeSelectionInfo).SelectedLayoutColumn;
 
@@ -2911,7 +2895,7 @@ begin
   // old activecell
   CheckCorrectColumnSelection(currentSelection, GetActiveRow as IDCTreeRow);
 
-  var dummyOldRow := CreateDummyRowForChanging(currentSelection) as IDCTreeRow;
+  var dummyOldRow := ProvideRowForChanging(currentSelection) as IDCTreeRow;
   var oldCell: IDCTreeCell;
   if dummyOldRow <> nil then
     oldCell := dummyOldRow.Cells[currentSelection.SelectedLayoutColumn];
@@ -2920,7 +2904,7 @@ begin
   if requestedSelection.SelectedLayoutColumn = -1 then
     requestedSelection.SelectedLayoutColumn := currentSelection.SelectedLayoutColumn;
 
-  var dummyNewRow := CreateDummyRowForChanging(requestedSelection) as IDCTreeRow;
+  var dummyNewRow := ProvideRowForChanging(requestedSelection) as IDCTreeRow;
   var newCell := dummyNewRow.Cells[requestedSelection.SelectedLayoutColumn];
 
   var ignoreSelectionChanges := not CanRealignContent;
@@ -2938,14 +2922,14 @@ begin
   try
     if SelectionType <> TSelectionType.CellSelection then
     begin
-      InternalDoSelectRow(dummyNewRow, Shift);
+      InternalDoSelectRow(requestedSelection.DataIndex, requestedSelection.ViewListIndex, requestedSelection.DataItem, Shift);
       currentSelection.SelectedLayoutColumn := requestedSelection.SelectedLayoutColumn;
     end
     else begin
       if not rowAlreadySelected then
-        InternalDoSelectRow(dummyNewRow, customShift)
+        InternalDoSelectRow(requestedSelection.DataIndex, requestedSelection.ViewListIndex, requestedSelection.DataItem, customShift)
       else if not (ssShift in Shift) and clmnAlreadySelected and (not clmnChange or (ssCtrl in Shift)) then
-        InternalDoSelectRow(dummyNewRow, customShift);
+        InternalDoSelectRow(requestedSelection.DataIndex, requestedSelection.ViewListIndex, requestedSelection.DataItem, customShift);
 
       if (ssShift in Shift) or (not (ssCtrl in Shift)) or (_selectionInfo.LastSelectionEventTrigger = TSelectionEventTrigger.Key) then
       begin
@@ -3297,7 +3281,7 @@ begin
 
   // if we do horz lines, we do them on cell controls..
   if (TreeOption_ShowVertGrid in _options) then
-    TRowlayout(treeRow.Control).Sides := [];
+    treeRow.ControlAsRowLayout.Sides := [];
 
   var manualHeight: Single := -1;
 
@@ -3309,14 +3293,12 @@ begin
   end else
     l := _treeLayout.FlatColumns;
 
-  var moreThan3Columns := l.Count > 3;
+//  var moreThan3Columns := l.Count > 3;
 
   var flatColumn: IDCTreeLayoutColumn;
   for flatColumn in l do
   begin
-    // by default performance mode is activated by columns that contain something else than text..
-    // it can be manually turned on/off in CellLoading / CellLoaded for any type of columns
-    var performanceModeWhileScrolling := moreThan3Columns and (flatColumn.Column.InfoControlClass <> TInfoControlClass.Text) and not flatColumn.Column.IsSelectionColumn;
+    var performanceModeWhileScrolling := False; //moreThan3Columns and (flatColumn.Column.InfoControlClass <> TInfoControlClass.Text) and not flatColumn.Column.IsSelectionColumn;
 
     if not treeRow.Cells.TryGetValue(flatColumn.Index, cell) then
     begin
@@ -4868,15 +4850,6 @@ begin
     begin
       var rect := DataControlClassFactory.CreateHeaderCellRect(Cell.Row.Control);
 
-//      if Cell.Column.Visualisation.HideGrid then
-//        rect.Sides := []
-//      else if not ShowVertGrid then
-//        rect.Sides := [TSide.Bottom]
-//      else if (Cell.Index = 0) then
-//        rect.Sides := [TSide.Left, TSide.Right, TSide.Bottom, TSide.Top]
-//      else
-//        rect.Sides := [TSide.Bottom, TSide.Top, TSide.Right];
-
       Cell.Control := rect;
 
       if Cell.Column.AllowResize then
@@ -5866,6 +5839,11 @@ end;
 procedure TDCTreeRow.ResetCells;
 begin
   _cells := nil;
+end;
+
+function TDCTreeRow.IsDummyRowForChanging: Boolean;
+begin
+  Result := _control = nil;
 end;
 
 procedure TDCTreeRow.set_FrozenColumnRowControl(const Value: TControl);
