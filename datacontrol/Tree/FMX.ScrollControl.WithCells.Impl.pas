@@ -2896,9 +2896,9 @@ begin
   CheckCorrectColumnSelection(currentSelection, GetActiveRow as IDCTreeRow);
 
   var dummyOldRow := ProvideRowForChanging(currentSelection) as IDCTreeRow;
-  var oldCell: IDCTreeCell;
+  var oldCell: IDCTreeCell := nil;
   if dummyOldRow <> nil then
-    oldCell := dummyOldRow.Cells[currentSelection.SelectedLayoutColumn];
+    dummyOldRow.Cells.TryGetValue(currentSelection.SelectedLayoutColumn, oldCell);
 
   // new activecell
   if requestedSelection.SelectedLayoutColumn = -1 then

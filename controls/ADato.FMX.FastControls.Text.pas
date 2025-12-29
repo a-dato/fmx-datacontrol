@@ -203,7 +203,10 @@ uses
   Wasm.System.SysUtils,
   Wasm.System.Math
   {$ENDIF}
-  , ADato.ObjectModel.intf, FMX.ScrollControl.ControlClasses, FMX.Skia,
+  , ADato.ObjectModel.intf, FMX.ScrollControl.ControlClasses,
+  {$IFDEF SKIA}
+  FMX.Skia,
+  {$ENDIF}
   System.Math.Vectors;
 
 { TDateTimeEditOnKeyDownOverride }
@@ -286,9 +289,11 @@ begin
 
   _textBounds := _layout.TextRect;
 
+  {$IFDEF SKIA}
   // bad code, but neccesssary.. SKIA does not calculate italic fonts right..
   if GlobalUseSkia and (TFontStyle.fsItalic in _layout.Font.Style) then
     _textBounds := RectF(_textBounds.Left, _textBounds.Top, _textBounds.Right + 3, _textBounds.Bottom);
+  {$ENDIF}
 end;
 
 constructor TFastText.Create(AOwner: TComponent);

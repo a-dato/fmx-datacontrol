@@ -134,12 +134,14 @@ begin
   AbsoluteRect := FScene.LocalToAbsolute(R);
   FScene.RepaintRect(AbsoluteRect);
 
+  {$IFDEF SKIA}
   // for skia canvas :(
   if FScene.CanRepaint and not AbsoluteRect.IsEmpty then
   begin
     if (FScene.Canvas = nil) or not (TCanvasStyle.SupportClipRects in FScene.Canvas.GetCanvasStyle) then
       FScene.Scene.AddUpdateRect(R);
   end;
+  {$ENDIF}
 end;
 
 procedure TAdaptableBufferedScene.ChangeScrollingState(const AControl: TControl; const Active: Boolean);

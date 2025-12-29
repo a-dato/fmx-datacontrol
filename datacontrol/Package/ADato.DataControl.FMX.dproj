@@ -193,6 +193,7 @@
         <DCCReference Include="..\Tree\FMX.ScrollControl.DataControl.Impl.pas"/>
         <DCCReference Include="..\Tree\FMX.ScrollControl.DataControl.Binders.pas"/>
         <DCCReference Include="..\Scrollable\FMX.ScrollControl.ControlClasses.Intf.pas"/>
+        <DCCReference Include="..\..\controls\ADato.FMX.FastControls.Layout.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>
