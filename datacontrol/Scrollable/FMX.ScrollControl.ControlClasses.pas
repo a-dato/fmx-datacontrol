@@ -340,6 +340,26 @@ type
 //    property UseBuffering: Boolean read get_UseBuffering write set_UseBuffering default True;
   end;
 
+
+  TRowLayout2x = class(TLayout, IRowLayout)
+  protected
+    _rect: TRectangle;
+
+    function  get_UseBuffering: Boolean;
+    procedure set_UseBuffering(const Value: Boolean);
+    function  get_Sides: TSides;
+    procedure set_Sides(const Value: TSides);
+
+    procedure ResetBuffer;
+    function  Background: TRectangle;
+    procedure DoResized; override;
+  public
+    constructor Create(AOwner: TComponent; Background: TRectangle); reintroduce;
+
+    property UseBuffering: Boolean read get_UseBuffering write set_UseBuffering;
+    property Sides: TSides read get_Sides write set_Sides;
+  end;
+
   TDataControlClassFactory = class(TInterfacedObject, IDCControlClassFactory)
   private
     _isCustomFactory: Boolean;
@@ -1513,6 +1533,58 @@ end;
 //begin
 //  _useBuffering := Value;
 //end;
+
+{ TRowLayout2x }
+
+function TRowLayout2x.Background: TRectangle;
+begin
+  Result := _rect;
+end;
+
+constructor TRowLayout2x.Create(AOwner: TComponent; Background: TRectangle);
+begin
+  inherited Create(AOwner);
+
+  _rect := Background;
+  _rect.ClipChildren := True;
+  _rect.HitTest := False;
+  _rect.Align := TAlignLayout.Contents;
+  Self.AddObject(Background);
+
+  _rect.SendToBack;
+
+end;
+
+procedure TRowLayout2x.DoResized;
+begin
+  inherited;
+
+end;
+
+function TRowLayout2x.get_Sides: TSides;
+begin
+  Result := _rect.Sides;
+end;
+
+function TRowLayout2x.get_UseBuffering: Boolean;
+begin
+  Result := False;
+end;
+
+procedure TRowLayout2x.ResetBuffer;
+begin
+
+end;
+
+procedure TRowLayout2x.set_Sides(const Value: TSides);
+begin
+  _rect.Sides := Value;
+end;
+
+procedure TRowLayout2x.set_UseBuffering(const Value: Boolean);
+begin
+
+end;
 
 initialization
   DataControlClassFactory := TDataControlClassFactory.Create;

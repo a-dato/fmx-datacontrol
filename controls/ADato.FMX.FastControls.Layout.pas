@@ -17,7 +17,7 @@ type
     FScreenService: IFMXScreenService;
     class destructor Destroy;
   private
-    [Weak] FScene: TAdaptableBufferedLayout;
+    [Weak] BScene: TAdaptableBufferedLayout;
     FBuffer: TBitmap;
     FControls: TControlList;
     FWidth: Integer;
@@ -62,24 +62,35 @@ type
     destructor Destroy; override;
     procedure SetSize(const AWidth, AHeight: Integer);
     property Buffer: TBitmap read FBuffer;
-    property Scene: TAdaptableBufferedLayout read FScene;
+    property Scene: TAdaptableBufferedLayout read BScene;
+  end;
 
-
+  TAddedControlFreeNotification = class(TInterfacedObject, IFreeNotification)
+  private
+    _bffLayout: TAdaptableBufferedLayout;
+  public
+    constructor Create(BufferLayout: TAdaptableBufferedLayout);
+    procedure FreeNotification(AObject: TObject);
   end;
 
   TAdaptableBufferedLayout = class(TLayout)
   protected
-    FScene: TAdaptableBufferedScene;
+    AScene, AStoredScene: TAdaptableBufferedScene;
     FUseBuffering: Boolean;
+    FAddedChildren: TArray<TFMXObject>;
+
+    _freeNotify: IFreeNotification;
 
     function  get_UseBuffering: Boolean;
     procedure set_UseBuffering(const Value: Boolean);
 
     procedure Paint; override;
     procedure DoAddObject(const AObject: TFmxObject); override;
+    procedure DoRemoveObject(const AObject: TFmxObject); override;
     procedure DoResized; override;
     function  ObjectAtPoint(P: TPointF): IControl; override;
 
+    procedure OnAddedChildDestroy(const AObject: TFMXObject);
   public
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
@@ -92,7 +103,7 @@ type
 implementation
 
 uses
-  FMX.Forms, FMX.Text, System.Rtti;
+  FMX.Forms, FMX.Text, System.Rtti, FMX.Skia;
 
 { TAdaptableBufferedScene }
 
@@ -101,7 +112,7 @@ begin
   inherited Create(nil);
   if FScreenService = nil then
     TPlatformServices.Current.SupportsPlatformService(IFMXScreenService, FScreenService);
-  FScene := AScene;
+  BScene := AScene;
   FWidth := Round(AScene.Width);
   FHeight := Round(AScene.Height);
   FBuffer := TBitmap.Create;
@@ -132,17 +143,20 @@ begin
   SetLength(FUpdateRects, Length(FUpdateRects) + 1);
   FUpdateRects[High(FUpdateRects)] := R;
 
-  AbsoluteRect := FScene.LocalToAbsolute(R);
-  FScene.RepaintRect(AbsoluteRect);
+  AbsoluteRect := BScene.LocalToAbsolute(R);
+//  BScene.RepaintRect(AbsoluteRect);
 
-  {$IFDEF SKIA}
-  // for skia canvas :(
-  if FScene.CanRepaint and not AbsoluteRect.IsEmpty then
+  // for skia canvas required because not TCanvasStyle.SupportClipRects :(
+  // without SKIA the following was enough: BScene.RepaintRect(AbsoluteRect)
+  if BScene.CanRepaint and not AbsoluteRect.IsEmpty then
   begin
-    if (FScene.Canvas = nil) or not (TCanvasStyle.SupportClipRects in FScene.Canvas.GetCanvasStyle) then
-      FScene.Scene.AddUpdateRect(R);
+    if BScene.HasDisablePaintEffect then
+      BScene.UpdateEffects;
+
+    if (BScene.Canvas <> nil) and (TCanvasStyle.SupportClipRects in BScene.Canvas.GetCanvasStyle) then
+      BScene.Scene.AddUpdateRect(AbsoluteRect) else
+      BScene.Scene.AddUpdateRect(R);
   end;
-  {$ENDIF}
 end;
 
 procedure TAdaptableBufferedScene.ChangeScrollingState(const AControl: TControl; const Active: Boolean);
@@ -264,7 +278,7 @@ end;
 
 function TAdaptableBufferedScene.GetObject: TFmxObject;
 begin
-  Result := Self;
+  Result := BScene;
 end;
 
 function TAdaptableBufferedScene.GetSceneScale: Single;
@@ -274,10 +288,10 @@ end;
 
 function TAdaptableBufferedScene.GetStyleBook: TStyleBook;
 begin
-  if FScene.Scene = nil then
+  if BScene.Scene = nil then
     Result := nil
   else
-    Result := FScene.Scene.StyleBook;
+    Result := BScene.Scene.StyleBook;
 end;
 
 function TAdaptableBufferedScene.GetUpdateRect(const Index: Integer): TRectF;
@@ -292,7 +306,7 @@ end;
 
 function TAdaptableBufferedScene.LocalToScreen(const P: TPointF): TPointF;
 begin
-  Result := FScene.LocalToScreen(P);
+  Result := BScene.LocalToScreen(P);
 end;
 
 function TAdaptableBufferedScene.ObjectAtPoint(P: TPointF): IControl;
@@ -323,7 +337,7 @@ end;
 
 function TAdaptableBufferedScene.ScreenToLocal(const P: TPointF): TPointF;
 begin
-  Result := FScene.ScreenToLocal(P);
+  Result := BScene.ScreenToLocal(P);
 end;
 
 procedure TAdaptableBufferedScene.Realign;
@@ -342,10 +356,10 @@ procedure TAdaptableBufferedScene.UpdateBuffer;
 var
   Scale: Single;
 begin
-  if FScene.Scene = nil then
+  if BScene.Scene = nil then
     Scale := FScreenService.GetScreenScale
   else
-    Scale := FScene.Scene.GetSceneScale;
+    Scale := BScene.Scene.GetSceneScale;
 
   FBuffer.BitmapScale := Scale;
   FBuffer.SetSize(Ceil(FWidth * Scale), Ceil(FHeight * Scale));
@@ -371,7 +385,7 @@ procedure TAdaptableBufferedScene.StyleChangedHandler(const Sender: TObject; con
 
   function IsOurScene(const ANewScene: IScene): Boolean;
   begin
-    Result := (ANewScene <> nil) and (ANewScene.GetObject = FScene.Scene.GetObject);
+    Result := (ANewScene <> nil) and (ANewScene.GetObject = BScene.Scene.GetObject);
   end;
 
   function IsStyleOverriden(const ANewStyleBook: TStyleBook): Boolean;
@@ -408,7 +422,7 @@ end;
 
 function TAdaptableBufferedScene.GetParent: TFmxObject;
 begin
-  Result := FScene;
+  Result := BScene;
 end;
 
 { TAdaptableBufferedLayout }
@@ -420,22 +434,33 @@ begin
   FUseBuffering := True;
   if not (csDesigning in ComponentState) then
   begin
-    FScene := TAdaptableBufferedScene.Create(Self);
-    FScene.Parent := Self;
-    FScene.Stored := False;
+    AScene := TAdaptableBufferedScene.Create(Self);
+    AScene.Parent := Self;
+    AScene.Stored := False;
   end;
+
+  SetLength(FAddedChildren, 0);
+  _freeNotify := TAddedControlFreeNotification.Create(Self);
 end;
 
 destructor TAdaptableBufferedLayout.Destroy;
 begin
-  FreeAndNil(FScene);
+  FreeAndNil(AScene);
   inherited;
 end;
 
 procedure TAdaptableBufferedLayout.DoAddObject(const AObject: TFmxObject);
 begin
-  if (FScene <> nil) and (AObject <> FScene) then
-    FScene.AddObject(AObject)
+  if ((AScene <> nil) and (AObject <> AScene)) and (TArray.IndexOf<TFMXObject>(FAddedChildren, AObject) = -1) then
+  begin
+    SetLength(FAddedChildren, Length(FAddedChildren) + 1);
+    FAddedChildren[High(FAddedChildren)] := AObject;
+
+    AObject.AddFreeNotify(_freeNotify);
+  end;
+
+  if (AScene <> nil) and (AObject <> AScene) and FUseBuffering then
+    AScene.AddObject(AObject)
   else
     inherited;
 end;
@@ -443,8 +468,8 @@ end;
 procedure TAdaptableBufferedLayout.DoResized;
 begin
   inherited;
-  if FScene <> nil then
-    FScene.SetSize(Round(Width), Round(Height));
+  if AScene <> nil then
+    AScene.SetSize(Round(Width), Round(Height));
 end;
 
 function TAdaptableBufferedLayout.get_UseBuffering: Boolean;
@@ -455,31 +480,65 @@ end;
 function TAdaptableBufferedLayout.ObjectAtPoint(P: TPointF): IControl;
 begin
   Result := nil;
-  if FScene <> nil then
-    Result := FScene.ObjectAtPoint(P);
+  if AScene <> nil then
+    Result := AScene.ObjectAtPoint(P);
   if Result = nil then
     Result := inherited ObjectAtPoint(P);
 end;
 
+procedure TAdaptableBufferedLayout.OnAddedChildDestroy(const AObject: TFMXObject);
+begin
+  var ix := TArray.IndexOf<TFmxObject>(FAddedChildren, AObject);
+  if (ix = -1) then
+    Exit;
+
+  if ix <> High(FAddedChildren) then
+  begin
+    for var ix2 := ix to High(FAddedChildren) - 1 do
+      FAddedChildren[ix] := FAddedChildren[ix + 1];
+  end;
+
+  SetLength(FAddedChildren, Length(FAddedChildren) - 1);
+end;
+
 procedure TAdaptableBufferedLayout.Paint;
 begin
-  if FScene <> nil then
+  if AScene <> nil then
   begin
     if not FUseBuffering then
-      FScene.Invalidate;
+    begin
+      AScene.UpdateBuffer;
+      AScene.Invalidate;
+    end;
 
-    FScene.DrawTo;
-    Canvas.DrawBitmap(FScene.Buffer, FScene.Buffer.BoundsF, LocalRect, AbsoluteOpacity, True);
+    AScene.DrawTo;
+    Canvas.DrawBitmap(AScene.Buffer, AScene.Buffer.BoundsF, LocalRect, AbsoluteOpacity, True);
   end;
 
   if (csDesigning in ComponentState) and not Locked then
     DrawDesignBorder;
 end;
 
+procedure TAdaptableBufferedLayout.DoRemoveObject(const AObject: TFmxObject);
+begin
+  inherited;
+
+  AObject.RemoveFreeNotify(_freeNotify);
+  OnAddedChildDestroy(AObject);
+end;
+
 procedure TAdaptableBufferedLayout.ResetBuffer;
 begin
-  if FScene <> nil then
-    FScene.Invalidate;
+  var scene: TAdaptableBufferedScene;
+  if AScene <> nil then
+    scene := AScene else
+    scene := AStoredScene;
+
+  if scene <> nil then
+  begin
+    scene.UpdateBuffer;
+    scene.Invalidate;
+  end;
 end;
 
 procedure TAdaptableBufferedLayout.set_UseBuffering(const Value: Boolean);
@@ -488,6 +547,36 @@ begin
     Exit;
 
   FUseBuffering := Value;
+
+  if FUseBuffering then
+  begin
+    AScene := AStoredScene;
+    AStoredScene := nil;
+  end else begin
+    AStoredScene := AScene;
+    AScene := nil;
+  end;
+
+  for var item in FAddedChildren do
+  begin
+    item.Parent := nil;
+    DoAddObject(item);
+  end;
+end;
+
+{ TAddedControlFreeNotification }
+
+constructor TAddedControlFreeNotification.Create(BufferLayout: TAdaptableBufferedLayout);
+begin
+  inherited Create;
+
+  _bffLayout := BufferLayout;
+end;
+
+procedure TAddedControlFreeNotification.FreeNotification(AObject: TObject);
+begin
+  var fmxObj := TFMXObject(AObject);
+  _bffLayout.DoRemoveObject(fmxObj);
 end;
 
 end.

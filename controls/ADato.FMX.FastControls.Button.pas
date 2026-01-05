@@ -92,6 +92,7 @@ type
   protected
     _isAddTag: Boolean;
     _config: TFastButtonConfig;
+    _parentHitTest: Boolean;
 
     function  get_Radius: Single; virtual;
     function  get_Images: TCustomImageList; virtual; abstract;
@@ -850,7 +851,7 @@ begin
     TTagType.SignPost: Canvas.FillPolygon(_polygon, GetPaintOpacity * IfThen(_isAddTag, 0.6, 1));
   end;
 
-  if (_hover or _hoverSide) and HitTest then
+  if (_hover or _hoverSide) and (HitTest or _parentHitTest) then
   begin
     Canvas.Fill.Color := TAlphaColor($FFC3CBE6);
 

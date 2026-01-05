@@ -587,7 +587,7 @@ begin
   _recalcNeeded := False;
 
   var maxInternalWidth := _maxWidth - Padding.Left - Padding.Right - _internalLeftPadding - _internalRightPadding;
-  var maxWidth := IfThen(_maxWidth > 0, maxInternalWidth, 9999);
+  var maxWidth := IfThen(_maxWidth > 0, maxInternalWidth, IfThen(get_WordWrap, Self.Width, 9999));
   var maxHeight := IfThen(get_WordWrap or _calcAsAutoHeight, 9999, Self.Height - Padding.Top - Padding.Bottom);
 
   CalculateSubText(maxWidth, maxHeight);
