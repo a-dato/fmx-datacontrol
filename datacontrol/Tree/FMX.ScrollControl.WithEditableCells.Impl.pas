@@ -689,10 +689,12 @@ begin
 //  {$ELSE}
   // windows wants to clear the focus control after this point
   // therefor we need a little time untill we can EndEdit and free the editor
+  {$IFNDEF DEBUG}
   TThread.ForceQueue(nil, procedure
   begin
     SafeForcedEndEdit;
   end);
+  {$ENDIF}
 //  {$ENDIF}
 end;
 
@@ -2060,7 +2062,10 @@ begin
   if not _cell.InfoControl.Visible then
     _cell.LayoutColumn.UpdateCellControlsPositions(_cell, True {FORCE});
 
-  _editor.Position.X := _cell.InfoControl.Position.X - ROW_CONTENT_MARGIN;
+  if _cell.Column.InfoControlClass <> TInfoControlClass.CheckBox then
+    _editor.Position.X := _cell.InfoControl.Position.X - ROW_CONTENT_MARGIN else
+    _editor.Position.X := _cell.InfoControl.Position.X;
+
   _editor.Position.Y := _cell.InfoControl.Position.Y - ROW_CONTENT_MARGIN;
   _editor.Width := _cell.InfoControl.Width + (2*ROW_CONTENT_MARGIN);
   _editor.Height := _cell.InfoControl.Height + (2*ROW_CONTENT_MARGIN);

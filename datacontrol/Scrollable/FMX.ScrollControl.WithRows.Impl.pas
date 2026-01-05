@@ -261,10 +261,6 @@ type
     function  GetActiveRow: IDCRow;
 
   protected
-//    _ignoreNextViewChanged: EventArgs;
-//    _ignoreNextRowChanged: RowChangedEventArgs;
-//    _ignoreNextRowPropertiesChanged: RowPropertiesChangedEventArgs;
-
     procedure OnViewChanged(Sender: TObject; e: EventArgs); virtual;
     procedure DataModelViewRowChanged(const Sender: IBaseInterface; Args: RowChangedEventArgs);
     procedure DataModelViewRowPropertiesChanged(Sender: TObject; Args: RowPropertiesChangedEventArgs); virtual;
@@ -1614,24 +1610,6 @@ begin
   begin
     _selectionInfo.Clear;
     RefreshControl(True);
-
-//    GenerateView;
-//
-//    if GetDataModelView <> nil then
-//    begin
-//      {$IFNDEF WEBASSEMBLY}
-//      GetDataModelView.CurrencyManager.CurrentRowChanged.Add(DataModelViewRowChanged);
-//      GetDataModelView.RowPropertiesChanged.Add(DataModelViewRowPropertiesChanged);
-//      {$ELSE}
-//      GetDataModelView.CurrencyManager.CurrentRowChanged += DataModelViewRowChanged;
-//      GetDataModelView.RowPropertiesChanged += DataModelViewRowPropertiesChanged;
-//      {$ENDIF}
-//
-//      Self.Current := GetDataModelView.CurrencyManager.Current;
-//    end
-//    else if _model <> nil then
-//      // Set current position, if any
-//      GetInitializedWaitForRefreshInfo.DataItem := _model.ObjectContext;
   end else
     _dataModelView := nil;
 
@@ -1723,6 +1701,9 @@ begin
     _selectionInfo.NotSelectableDataIndexes := [];
     Exit;
   end;
+
+  if _view = nil then
+    GenerateView;
 
   var arr: TDataIndexArray;
   SetLength(arr, 0);
@@ -2735,7 +2716,8 @@ begin
     var item: CObject;
     for item in SelectedItems do
     begin
-      GenerateView;
+      if _view = nil then
+        GenerateView;
 
       var viewListIndex := _view.GetViewListIndex(item);
       var dataIndex := _view.GetDataIndex(viewListIndex);
