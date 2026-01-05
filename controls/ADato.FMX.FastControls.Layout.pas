@@ -79,6 +79,7 @@ type
     procedure DoAddObject(const AObject: TFmxObject); override;
     procedure DoResized; override;
     function  ObjectAtPoint(P: TPointF): IControl; override;
+
   public
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;

@@ -556,7 +556,7 @@ uses
   FMX.ScrollControl.ControlClasses,
   FMX.ScrollControl.View.Impl, FMX.ControlCalculations,
   ADato.TraceEvents.intf, FMX.ScrollControl.SortAndFilter,
-  System.ComponentModel;
+  System.ComponentModel, FMX.Layouts;
 
 
 { TScrollControlWithRows }
@@ -3609,7 +3609,7 @@ begin
   else if _selectionRect <> nil then
     FreeAndNil(_selectionRect);
 
-  ControlAsRowLayout.ResetBuffer;
+  // ControlAsRowLayout.ResetBuffer;
 end;
 
 procedure TDCRow.ClearRowForReassignment;

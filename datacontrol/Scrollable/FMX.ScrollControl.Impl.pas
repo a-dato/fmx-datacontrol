@@ -285,6 +285,7 @@ begin
   _content.Stored := False;
   _content.Align := TAlignLayout.Client;
   _content.ClipChildren := True;
+
   {$IFNDEF WEBASSEMBLY}
   _content.OnResized := OnContentResized;
   {$ELSE}
