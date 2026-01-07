@@ -383,8 +383,11 @@ begin
     else if (_layout.MaxSize.Y < textH) and (Self.Height - yPos > _layout.MaxSize.Y + 1) then
       _recalcNeeded := True;
 
-    Calculate;
-    PrepareTextForPaint(1);
+    if _recalcNeeded then
+    begin
+      Calculate;
+      PrepareTextForPaint(1);
+    end;
   end;
 end;
 
