@@ -2418,7 +2418,7 @@ procedure TScrollControlWithRows.OnSelectionInfoChanged;
 
   procedure ValidateSelectionInfo;
   begin
-    if (_view = nil) or (_selectionInfo.ViewListIndex <> -1) then
+    if (_view = nil) or (_selectionInfo.ViewListIndex <> -1) or (_view.ViewCount = 0) then
       Exit;
 
     if not ViewIsDataModelView and ((_model = nil) or (_model.ObjectContext = nil)) then
@@ -3591,7 +3591,7 @@ begin
   else if _selectionRect <> nil then
     FreeAndNil(_selectionRect);
 
-  // ControlAsRowLayout.ResetBuffer;
+  ControlAsRowLayout.ResetBuffer;
 end;
 
 procedure TDCRow.ClearRowForReassignment;

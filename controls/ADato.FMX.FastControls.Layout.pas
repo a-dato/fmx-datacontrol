@@ -103,7 +103,7 @@ type
 implementation
 
 uses
-  FMX.Forms, FMX.Text, System.Rtti, FMX.Skia;
+  FMX.Forms, FMX.Text, System.Rtti;
 
 { TAdaptableBufferedScene }
 

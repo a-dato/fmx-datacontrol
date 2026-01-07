@@ -71,7 +71,7 @@ type
     procedure LoadDefaultDataIntoControl(const Cell: IDCTreeCell; const IsSubProp: Boolean); override;
     function  ProvideCellData(const Cell: IDCTreeCell; const PropName: CString; const IsSubProp: Boolean): CObject; override;
 
-    procedure OnPropertyCheckBoxChange(Sender: TObject);
+    procedure OnNonPropertyCheckBoxChange(Sender: TObject);
 
     procedure UpdateColumnCheck(const DataIndex: Integer; const Column: IDCTreeColumn; IsChecked: Boolean); overload;
     procedure DoCellCheckChangedByUser(const Cell: IDCTreeCell); overload;
@@ -572,13 +572,13 @@ begin
       var cb: ICheckBoxControl;
       var rb: IRadioButtonControl;
       if Interfaces.Supports<ICheckBoxControl>(ctrl, cb) then
-        cb.OnChange := OnPropertyCheckBoxChange
+        cb.OnChange := OnNonPropertyCheckBoxChange
       else if Interfaces.Supports<IRadioButtonControl>(ctrl, rb) then
-        rb.OnChange := OnPropertyCheckBoxChange;
+        rb.OnChange := OnNonPropertyCheckBoxChange;
       {$ELSE}
       if ctrl is TCheckBox then
-        (ctrl as TCheckBox).OnChange := @OnPropertyCheckBoxChange else
-        (ctrl as TRadioButton).OnChange := @OnPropertyCheckBoxChange;
+        (ctrl as TCheckBox).OnChange := @OnNonPropertyCheckBoxChange else
+        (ctrl as TRadioButton).OnChange := @OnNonPropertyCheckBoxChange;
       {$ENDIF}
 
       chkCtrl.IsChecked := _checkedItems.ContainsKey(Cell.Column) and _checkedItems[Cell.Column].Contains(cell.Row.DataIndex);
@@ -594,11 +594,12 @@ begin
   if Cell = nil then
     Exit;
 
-//  var item := cell.Row.DataItem;
-//  var checkBox := Cell.InfoControl as IIsChecked;
-//
-//  UpdateColumnCheck(cell.Row.DataIndex, Cell.Column, checkBox.IsChecked);
-//
+  var item := cell.Row.DataItem;
+  var checkBox := Cell.InfoControl as IIsChecked;
+
+  if CString.IsNullOrEmpty(Cell.Column.PropertyName) then
+    UpdateColumnCheck(cell.Row.DataIndex, Cell.Column, checkBox.IsChecked);
+
 //  if not CString.IsNullOrEmpty(Cell.Column.PropertyName) then
 //  begin
 //    SetCellData(cell, checkBox.IsChecked);
@@ -620,7 +621,7 @@ begin
   end;
 end;
 
-procedure TScrollControlWithEditableCells.OnPropertyCheckBoxChange(Sender: TObject);
+procedure TScrollControlWithEditableCells.OnNonPropertyCheckBoxChange(Sender: TObject);
 begin
   if Self.IsUpdating or (_updateCount > 0) then
     Exit;
@@ -635,9 +636,6 @@ begin
 
   if TrySelectItem(requestedSelection, []) then
   begin
-    // var IHadFocus := Self.IsFocused;
-
-    // var checkBox := cell.InfoControl as IIsChecked;
     if not CString.IsNullOrEmpty(cell.Column.PropertyName) and not StartEditCell(cell, True, ' ') then
       Exit;
 
@@ -1639,6 +1637,9 @@ end;
 
 function TScrollControlWithEditableCells.ItemCheckedInColumn(const Item: CObject; const Column: IDCTreeColumn): Boolean;
 begin
+  if _view = nil then
+    Exit(False);
+
   var ix := _view.OriginalData.IndexOf(Item);
   if ix = -1 then
     Exit(False);
@@ -1684,12 +1685,12 @@ begin
       Break;
     end;
 
-  if (checkCell = nil) or (checkCell.InfoControl = nil) or not checkCell.InfoControl.Visible or ((checkCell.InfoControl as TCheckBox).IsChecked = IsChecked) then
+  if (checkCell = nil) or (checkCell.InfoControl = nil) or not checkCell.InfoControl.Visible or ((checkCell.InfoControl as IIsChecked).IsChecked = IsChecked) then
     Exit;
 
   inc(_updateCount);
   try
-    (checkCell.InfoControl as TCheckBox).IsChecked := IsChecked;
+    (checkCell.InfoControl as IIsChecked).IsChecked := IsChecked;
   finally
     dec(_updateCount);
   end;

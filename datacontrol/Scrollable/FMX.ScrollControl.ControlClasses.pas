@@ -1225,7 +1225,7 @@ begin
   end else
     idx := -1;
 
-  if _itemsLoaded then
+  if _itemsLoaded or (Value = nil) then
   begin
     set_ItemIndex(idx);
     Exit;
