@@ -458,6 +458,7 @@ type
 
     // IDataModel Property getters
     function  get_AutoCreatedRows: List<IDataRow>;
+
     function  get_Columns: IDataModelColumnCollection; virtual;
     function  get_DefaultCurrencyManager: IDataModelCurrencyManager; virtual;
     function  get_DefaultView: IDataModelView;
@@ -466,6 +467,8 @@ type
     function  get_Factory: IDataModelFactory;
     procedure set_Factory(const Value: IDataModelFactory);
     function  get_Parser: IDataModelParser;
+    function  get_StoreKeys: Boolean;
+    procedure set_StoreKeys(const Value: Boolean);
     function  get_Rows: List<IDataRow>; virtual;
     function  get_Keys: IDictionary<CObject, IDataRow>;
 
@@ -486,6 +489,7 @@ type
     // Class methods
     procedure AddExpressionSamples(const List: IList);
     function  CanAccessProperties: Boolean; virtual;
+    procedure CreateKeyDictionary; virtual;
     function  DoGetRowObjectType(const ARow: IDataRow) : &Type; virtual;
     function  FindAutoCreatedRow(const Row: IDataRow) : Integer;
     function  FindColumnByName(const PropertyName: CString): IDatamodelColumn;
@@ -1193,7 +1197,7 @@ begin
   // Must be created before other objects,
   // since these objects might want to subscribe
   // to DataModel events
-  _keys := CDictionary<CObject, IDataRow>.Create(0, ObjectEqualityComparer.Create);
+  CreateKeyDictionary;
   _rows := _factory.CreateRowList;
 
   // Do not use factory here.
@@ -1210,6 +1214,11 @@ begin
 
   _validIndexIndex := -1;
   _validChildIndexIndex := -1;
+end;
+
+procedure TDataModel.CreateKeyDictionary;
+begin
+  _keys := CDictionary<CObject, IDataRow>.Create(0, ObjectEqualityComparer.Create);
 end;
 
 function  TDataModel.get_InterfaceComponentReference: IInterfaceComponentReference;
@@ -1387,10 +1396,10 @@ begin
   Row.UpdateTable(Self);
 
   {$IFDEF DELPHI}
-  if not Row.Data.Equals(nil) then
+  if get_StoreKeys and not Row.Data.Equals(nil) then
     _keys.Add(Row.Data, Row);
   {$ELSE}
-  if Row.Data <> nil then
+  if get_StoreKeys and (Row.Data <> nil) then
     _keys.Add(Row.Data, Row);
   {$ENDIF}
 
@@ -2280,6 +2289,13 @@ function TDataModel.FirstChild(const Row: IDataRow): IDataRow;
 var
   i: Integer;
 begin
+  if Row = nil then
+  begin
+    if Rows.Count > 0 then
+      Result := Rows[0];
+    Exit;
+  end;
+
   i := RowIndex(Row) + 1;
   if (i < Rows.Count) and (Rows[i].Level > Row.Level) then
      Result := Rows[i] else
@@ -2930,6 +2946,21 @@ end;
 function TDataModel.get_Parser: IDataModelParser;
 begin
   Result := _parser;
+end;
+
+function TDataModel.get_StoreKeys: Boolean;
+begin
+  Result := _keys <> nil;
+end;
+
+procedure TDataModel.set_StoreKeys(const Value: Boolean);
+begin
+  if Value then
+  begin
+    if _keys = nil then
+      CreateKeyDictionary;
+  end else
+    _keys := nil;
 end;
 
 // TVirtualListBase

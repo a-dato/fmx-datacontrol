@@ -613,6 +613,8 @@ type
     function  get_Factory: IDataModelFactory;
     procedure set_Factory(const Value: IDataModelFactory);
     function  get_Parser: IDataModelParser;
+    function  get_StoreKeys: Boolean;
+    procedure set_StoreKeys(const Value: Boolean);
     function  get_Rows: List<IDataRow>;
     function  get_Keys: IDictionary<CObject, IDataRow>;
 
@@ -715,6 +717,9 @@ type
     property Factory: IDataModelFactory
       read get_Factory
       write set_Factory;
+    property StoreKeys: Boolean
+      read get_StoreKeys
+      write set_StoreKeys;
     property Keys: IDictionary<CObject, IDataRow>
       read get_Keys;
     property Parser: IDataModelParser read get_Parser;
