@@ -203,6 +203,8 @@ type
     function  ComboIsDroppedDown : Boolean; virtual;
     procedure ComboClear; virtual;
     procedure ComboAdd(const str: string); virtual;
+
+    procedure CheckUpdateComboPopupWidth;
     function  ComboUpdateItems(const Items: List<string>) : Boolean; virtual;
 
     procedure DoKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState); override;
@@ -319,44 +321,18 @@ type
 
   TRowLayout = class(TAdaptableBufferedLayout, IRowLayout)
   protected
-    _rect: TRectangle;
-//    _useBuffering: Boolean;
+    _rect: IBackgroundControl;
 
-//    function  get_UseBuffering: Boolean;
-//    procedure set_UseBuffering(const Value: Boolean);
     function  get_Sides: TSides;
     procedure set_Sides(const Value: TSides);
+    procedure set_UseBuffering(const Value: Boolean); override;
 
     procedure DoResized; override;
   public
-    constructor Create(AOwner: TComponent; Background: TRectangle); reintroduce;
+    constructor Create(AOwner: TComponent; Background: IBackgroundControl); reintroduce;
 
-    procedure Paint; override;
+    function  Background: IBackgroundControl;
 
-    function  Background: TRectangle;
-//    procedure ResetBuffer;
-
-    property Sides: TSides read get_Sides write set_Sides;
-//    property UseBuffering: Boolean read get_UseBuffering write set_UseBuffering default True;
-  end;
-
-
-  TRowLayout2x = class(TLayout, IRowLayout)
-  protected
-    _rect: TRectangle;
-
-    function  get_UseBuffering: Boolean;
-    procedure set_UseBuffering(const Value: Boolean);
-    function  get_Sides: TSides;
-    procedure set_Sides(const Value: TSides);
-
-    procedure ResetBuffer;
-    function  Background: TRectangle;
-    procedure DoResized; override;
-  public
-    constructor Create(AOwner: TComponent; Background: TRectangle); reintroduce;
-
-    property UseBuffering: Boolean read get_UseBuffering write set_UseBuffering;
     property Sides: TSides read get_Sides write set_Sides;
   end;
 
@@ -366,13 +342,13 @@ type
   public
     constructor Create; reintroduce;
 
-    function CreateHeaderRect(const Owner: TComponent): TRectangle; virtual;
-    function CreateRowRect(const Owner: TComponent): TRectangle; virtual;
+    function CreateHeaderRect(const Owner: TComponent): IBackgroundControl; virtual;
+    function CreateRowRect(const Owner: TComponent): IBackgroundControl; virtual;
 
     function IsCustomFactory: Boolean;
 
-    function CreateHeaderCellRect(const Owner: TComponent): TRectangle; virtual;
-    function CreateRowCellRect(const Owner: TComponent): TRectangle; virtual;
+    function CreateHeaderCellRect(const Owner: TComponent): IBackgroundControl; virtual;
+    function CreateRowCellRect(const Owner: TComponent): IBackgroundControl; virtual;
 
     function CreateText(const Owner: TComponent): IDCControl; virtual;
     function CreateButton(const Owner: TComponent): IDCControl; virtual;
@@ -385,7 +361,7 @@ type
     function CreateEdit(const Owner: TComponent): IDCEditControl; virtual;
     function CreateComboEdit(const Owner: TComponent): IDCEditControl; virtual;
 
-    procedure HandleRowBackground(const RowRect: TRectangle; Alternate: Boolean); virtual;
+    procedure HandleRowBackground(const RowRect: IBackgroundControl; AlternateAvailable: Boolean; Alternate: Boolean); virtual;
   end;
 
 var
@@ -412,18 +388,21 @@ uses
   Wasm.System.SysUtils,
   Wasm.System.Types
   {$ENDIF}
-  , ADato.FMX.FastControls.Text, FMX.ListBox, ADato.TraceEvents.intf;
+  , ADato.FMX.FastControls.Text, FMX.ListBox, ADato.TraceEvents.intf,
+  System.Math;
 
 { TDataControlClassFactory }
 
-function TDataControlClassFactory.CreateHeaderRect(const Owner: TComponent): TRectangle;
+function TDataControlClassFactory.CreateHeaderRect(const Owner: TComponent): IBackgroundControl;
 begin
-  Result := TRectangle.Create(Owner);
+  var rect := TBackgroundControl.Create(Owner);
 
-  Result.HitTest := True;
-  Result.Fill.Color := DEFAULT_HEADER_BACKGROUND;
-  Result.Stroke.Color := TAlphaColors.Null;
-  Result.Sides := [];
+  rect.HitTest := True;
+  rect.FillColor := DEFAULT_HEADER_BACKGROUND;
+  rect.StrokeColor := TAlphaColors.Null;
+  rect.Sides := [];
+
+  Result := rect;
 end;
 
 constructor TDataControlClassFactory.Create;
@@ -492,28 +471,31 @@ begin
    Result := TGlyphControl.Create(Owner);
 end;
 
-function TDataControlClassFactory.CreateHeaderCellRect(const Owner: TComponent): TRectangle;
+function TDataControlClassFactory.CreateHeaderCellRect(const Owner: TComponent): IBackgroundControl;
 begin
-  Result := TRectangle.Create(Owner);
+  var rect := TBackgroundControl.Create(Owner);
 
 //  Result.Fill.Kind := TBrushKind.None;
-  Result.Fill.Color := TAlphaColors.Null;
-  Result.Stroke.Color := DEFAULT_HEADER_STROKE;
-  Result.Sides := [TSide.Bottom];
+  rect.FillColor := TAlphaColors.Null;
+  rect.StrokeColor := DEFAULT_HEADER_STROKE;
+  rect.Sides := [TSide.Bottom];
+
+  Result := rect;
 end;
 
-function TDataControlClassFactory.CreateRowCellRect(const Owner: TComponent): TRectangle;
+function TDataControlClassFactory.CreateRowCellRect(const Owner: TComponent): IBackgroundControl;
 begin
-  Result := TRectangle.Create(Owner);
-  Result.Fill.Kind := TBrushKind.None;
-  Result.Stroke.Color := DEFAULT_CELL_STROKE;
+  var rect := TBackgroundControl.Create(Owner);
+  rect.StrokeColor := DEFAULT_CELL_STROKE;
+  Result := rect;
 end;
 
-function TDataControlClassFactory.CreateRowRect(const Owner: TComponent): TRectangle;
+function TDataControlClassFactory.CreateRowRect(const Owner: TComponent): IBackgroundControl;
 begin
-  Result := TRectangle.Create(Owner);
-  Result.Fill.Color := DEFAULT_WHITE_COLOR;
-  Result.Stroke.Color := DEFAULT_CELL_STROKE;
+  var rect := TBackgroundControl.Create(Owner);
+  rect.FillColor := DEFAULT_WHITE_COLOR;
+  rect.StrokeColor := DEFAULT_CELL_STROKE;
+  Result := rect;
 end;
 
 function TDataControlClassFactory.CreateText(const Owner: TComponent): IDCControl;
@@ -524,12 +506,14 @@ begin
   Result := ctrl;
 end;
 
-procedure TDataControlClassFactory.HandleRowBackground(const RowRect: TRectangle; Alternate: Boolean);
+procedure TDataControlClassFactory.HandleRowBackground(const RowRect: IBackgroundControl; AlternateAvailable: Boolean; Alternate: Boolean);
 begin
-//  RowRect.Fill.Kind := TBrushKind.Solid;
-  if Alternate then
-    RowRect.Fill.Color := DEFAULT_GREY_COLOR else
-    RowRect.Fill.Color := DEFAULT_WHITE_COLOR;
+  if not AlternateAvailable then
+    RowRect.FillColor := TAlphaColors.Null
+  else if Alternate then
+    RowRect.FillColor := DEFAULT_GREY_COLOR
+  else
+    RowRect.FillColor := DEFAULT_WHITE_COLOR;
 end;
 
 function TDataControlClassFactory.IsCustomFactory: Boolean;
@@ -926,7 +910,7 @@ begin
   if ssAlt in Shift then
     Exit;
 
-  if (_PickList <> nil) and (Key in [vkUp, vkDown, vkPrior, vkNext]) then
+  if (_PickList <> nil) and (Key in [vkUp, vkDown, vkPrior, vkNext, vkHome, vkEnd]) then
   begin
     var v := get_Value;
     var i: Integer;
@@ -936,16 +920,13 @@ begin
 
     var idx := i;
     case Key of
-      vkUp:     dec(idx);
-      vkDown:   inc(idx);
-      vkPrior:  dec(idx, 10);
-      vkNext:   inc(idx, 10);
-//      vkHome:
-//        if    idx := 0;
-//      vkEnd:    idx := _PickList.Count;
+      vkUp:     idx := IfThen(idx > 0, idx - 1, _PickList.Count - 1);
+      vkDown:   idx := IfThen(idx < _PickList.Count - 1, idx + 1, 0);
+      vkPrior:  idx := System.Math.Max(idx - 10, 0);
+      vkNext:   idx := System.Math.Min(idx + 10, _PickList.Count - 1);
+      vkHome:   idx := 0;
+      vkEnd:    idx := _PickList.Count - 1;
     end;
-
-    idx := CMath.Min(CMath.Max(idx, 0), _PickList.Count - 1);
 
     if (idx >= 0) and (i <> idx) then
     begin
@@ -1015,6 +996,38 @@ begin
   end;
 end;
 
+procedure TComboEditControlImpl.CheckUpdateComboPopupWidth;
+begin
+  var ce := TComboEdit(_control);
+
+  if ce.Items.Count = 0 then
+    Exit;
+
+  {$IFNDEF WEBASSEMBLY}
+  var layout := TTextLayoutManager.DefaultTextLayout.Create;
+  {$ELSE}
+  var layout := TTextLayoutManager.DefaultTextLayout.Create(nil);
+  {$ENDIF}
+  try
+    layout.WordWrap := False;
+    layout.Font := ce.TextSettings.Font;
+    var maxWidth := 0.0;
+
+    var ix: Integer;
+    for ix := 0 to ce.Items.Count - 1 do
+    begin
+      layout.BeginUpdate;
+      layout.Text := ce.Items[ix];
+      layout.EndUpdate;
+      maxWidth := System.Math.Max(maxWidth, layout.Width);
+    end;
+
+    ce.ItemWidth := CMath.Max(ce.width, maxWidth + 10);
+  finally
+    layout.Free;
+  end;
+end;
+
 procedure TComboEditControlImpl.ComboAdd(const str: string);
 begin
   (_control as TComboEdit).Items.Add(str);
@@ -1042,6 +1055,8 @@ begin
       ComboClear;
       for var s in Items do
         ComboAdd(s);
+
+      CheckUpdateComboPopupWidth;
     finally
       _control.EndUpdate;
     end;
@@ -1139,7 +1154,7 @@ end;
 procedure TComboEditControlImpl.DropDown;
 begin
   RefreshItems;
-  (_control as TComboEdit).DropDown;
+  TComboEdit(_control).DropDown;
 end;
 
 function TComboEditControlImpl.get_AutoFilter: Boolean;
@@ -1467,32 +1482,30 @@ end;
 
 { TRowLayout }
 
-function TRowLayout.Background: TRectangle;
+function TRowLayout.Background: IBackgroundControl;
 begin
   Result := _rect;
 end;
 
-constructor TRowLayout.Create(AOwner: TComponent; Background: TRectangle);
+constructor TRowLayout.Create(AOwner: TComponent; Background: IBackgroundControl);
 begin
   inherited Create(AOwner);
 
   _rect := Background;
-  _rect.ClipChildren := True;
-  _rect.HitTest := False;
-  _rect.Align := TAlignLayout.Contents;
-  Self.AddObject(Background);
+  _rect.AsControl.ClipChildren := True;
+  _rect.AsControl.HitTest := False;
+  _rect.AsControl.Align := TAlignLayout.Contents;
+  Self.AddObject(_rect.AsControl);
 
-  _rect.SendToBack;
-
-//  _useBuffering := True;
+  _rect.AsControl.SendToBack;
 end;
 
 procedure TRowLayout.DoResized;
 begin
   inherited;
 
-  _rect.Width := Self.Width;
-  _rect.Height := Self.Height;
+  _rect.AsControl.Width := Self.Width;
+  _rect.AsControl.Height := Self.Height;
 end;
 
 function TRowLayout.get_Sides: TSides;
@@ -1500,90 +1513,14 @@ begin
   Result := _rect.Sides;
 end;
 
-//function TRowLayout.get_UseBuffering: Boolean;
-//begin
-//  Result := _useBuffering;
-//end;
-
-procedure TRowLayout.Paint;
-begin
-//  // note that Self.Scene is the original IScene
-//  if not _useBuffering and (Self.Scene.GetUpdateRectsCount > 0) then
-//    ResetBuffer;
-
-  inherited;
-end;
-
-//procedure TRowLayout.ResetBuffer;
-//begin
-//  // looks drastic, but we cannot access any buffer thingies..
-//  // therefor we trigger DoResized
-//
-//  var w := Self.Width;
-//  Self.Width := w - 1;
-//  Self.Width := w;
-//end;
-
 procedure TRowLayout.set_Sides(const Value: TSides);
 begin
   _rect.Sides := Value;
 end;
 
-//procedure TRowLayout.set_UseBuffering(const Value: Boolean);
-//begin
-//  _useBuffering := Value;
-//end;
-
-{ TRowLayout2x }
-
-function TRowLayout2x.Background: TRectangle;
-begin
-  Result := _rect;
-end;
-
-constructor TRowLayout2x.Create(AOwner: TComponent; Background: TRectangle);
-begin
-  inherited Create(AOwner);
-
-  _rect := Background;
-  _rect.ClipChildren := True;
-  _rect.HitTest := False;
-  _rect.Align := TAlignLayout.Contents;
-  Self.AddObject(Background);
-
-  _rect.SendToBack;
-
-end;
-
-procedure TRowLayout2x.DoResized;
+procedure TRowLayout.set_UseBuffering(const Value: Boolean);
 begin
   inherited;
-
-end;
-
-function TRowLayout2x.get_Sides: TSides;
-begin
-  Result := _rect.Sides;
-end;
-
-function TRowLayout2x.get_UseBuffering: Boolean;
-begin
-  Result := False;
-end;
-
-procedure TRowLayout2x.ResetBuffer;
-begin
-
-end;
-
-procedure TRowLayout2x.set_Sides(const Value: TSides);
-begin
-  _rect.Sides := Value;
-end;
-
-procedure TRowLayout2x.set_UseBuffering(const Value: Boolean);
-begin
-
 end;
 
 initialization

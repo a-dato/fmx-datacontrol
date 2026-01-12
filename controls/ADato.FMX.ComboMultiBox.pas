@@ -71,7 +71,7 @@ type
     procedure set_SelectedItems(const Value: IList);
     function  get_items: IList;
 
-    function  CreateBackgroundRect: TRectangle; virtual;
+    function  CreateBackground: TControl; virtual;
     function  CreateText: TFastText; virtual;
     function  CreateDropDownButton: TControl; virtual;
     function  CreateClearButton: TControl; virtual;
@@ -120,7 +120,7 @@ begin
 
   CanFocus := True;
 
-  var rect := CreateBackgroundRect;
+  var rect := CreateBackground;
   rect.Align := TAlignLayout.Contents;
   Self.AddObject(rect);
   rect.SendToBack;
@@ -163,11 +163,13 @@ begin
   _showNoneSelected := True;
 end;
 
-function TComboMultiBox.CreateBackgroundRect: TRectangle;
+function TComboMultiBox.CreateBackground: TControl;
 begin
-  Result := TRectangle.Create(Self);
-  Result.Fill.Color := TAlphaColors.Lightgrey;
-  Result.Stroke.Color := TAlphaColors.Darkgrey;
+  var r := TRectangle.Create(Self);
+  r.Fill.Color := TAlphaColors.Lightgrey;
+  r.Stroke.Color := TAlphaColors.Darkgrey;
+
+  Result := r;
 end;
 
 function TComboMultiBox.CreateClearButton: TControl;

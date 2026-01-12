@@ -257,6 +257,7 @@ type
     TreeOption_KeepCurrentSelection,
     TreeOption_AllowColumnUpdates,
     TreeOption_AllowAddNewRows,
+    TreeOption_AllowAddNewRowsWithDownKey,
     TreeOption_AllowDeleteRows
 //    TreeOption_AutoCommit,
 //    TreeOption_DisplayPartialRows
@@ -293,6 +294,7 @@ type
     KeepCurrentSelection: TDCTreeOptionFlag = TreeOption_KeepCurrentSelection;
     AllowColumnUpdates: TDCTreeOptionFlag = TreeOption_AllowColumnUpdates;
     AllowAddNewRows: TDCTreeOptionFlag = TreeOption_AllowAddNewRows;
+    AllowAddNewRowsWithDownKey: TDCTreeOptionFlag = TreeOption_AllowAddNewRowsWithDownKey;
     AllowDeleteRows: TDCTreeOptionFlag = TreeOption_AllowDeleteRows;
 //    AutoCommit: TDCTreeOptionFlag = TreeOption_AutoCommit;
 //    AllowCellSelection: TDCTreeOptionFlag = TreeOption_AllowCellSelection;

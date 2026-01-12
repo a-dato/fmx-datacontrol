@@ -429,6 +429,7 @@ type
     _format: CString;
 
     _horzAlign: TDCTextAlign;
+    _vertAlign: TDCTextAlign;
 
     function  get_Visible: Boolean;
     procedure set_Visible(const Value: Boolean);
@@ -452,6 +453,8 @@ type
     procedure set_Format(const Value: CString);
     function  get_HorzAlign: TDCTextAlign;
     procedure set_HorzAlign(const Value: TDCTextAlign);
+    function  get_VertAlign: TDCTextAlign;
+    procedure set_VertAlign(const Value: TDCTextAlign);
 
     function Clone: IDCColumnVisualisation; virtual;
 
@@ -471,6 +474,7 @@ type
     property IgnoreHeightByRowCalculation: Boolean read get_IgnoreHeightByRowCalculation write set_IgnoreHeightByRowCalculation;
     property Format: CString read get_Format write set_Format;
     property HorzAlign: TDCTextAlign read get_HorzAlign write set_HorzAlign;
+    property VertAlign: TDCTextAlign read get_VertAlign write set_VertAlign;
 
   end;
 
@@ -655,6 +659,7 @@ type
     _hideColumnInView: Boolean;
     _containsData: TColumnContainsData;
     _calculatedHorzAlign: TTextAlign;
+    _calculatedVertAlign: TTextAlign;
 
     {$IFNDEF WEBASSEMBLY}[weak]{$ENDIF} _activeFilter: ITreeFilterDescription;
     {$IFNDEF WEBASSEMBLY}[weak]{$ENDIF} _activeSort: IListSortDescription;
@@ -675,6 +680,7 @@ type
     procedure set_HideColumnInView(const Value: Boolean);
     function  get_ContainsData: TColumnContainsData;
     function  get_CalculatedHorzAlign: TTextAlign;
+    function  get_CalculatedVertAlign: TTextAlign;
 
   public
     constructor Create(const AColumn: IDCTreeColumn; const ColumnControl: IColumnsControl);
@@ -751,7 +757,7 @@ type
 
   TDCTreeCell = class(TBaseInterfacedObject, IDCTreeCell)
   protected
-    _control: TControl; // can be custom user control, not only TCellControl
+    _backgroundControl: IBackgroundControl; // can be custom user control, not only TCellControl
     _infoControl: IDCControl;
     _subInfoControl: IDCControl;
     _expandButton: TLayout;
@@ -772,7 +778,9 @@ type
     function  get_Column: IDCTreeColumn;
     function  get_LayoutColumn: IDCTreeLayoutColumn;
     function  get_Control: TControl;
-    procedure set_Control(const Value: TControl); virtual;
+//    procedure set_Control(const Value: TControl); virtual;
+    function  get_BackgroundControl: IBackgroundControl;
+    procedure set_BackgroundControl(const Value: IBackgroundControl);
     function  get_ExpandButton: TLayout;
     procedure set_ExpandButton(const Value: TLayout);
     function  get_HideCellInView: Boolean;
@@ -819,7 +827,7 @@ type
 
     property Column: IDCTreeColumn read get_Column;
     property Row: IDCRow read get_Row;
-    property Control: TControl read get_Control write set_Control;
+    property Control: TControl read get_Control;
     property PerformanceModeWhileScrolling: Boolean read get_PerformanceModeWhileScrolling write set_PerformanceModeWhileScrolling;
   end;
 
@@ -887,7 +895,7 @@ type
 
   TDCHeaderRow = class(TDCTreeRow, IDCHeaderRow)
   private
-    _contentControl: TRectangle;
+    _contentControl: TControl;
 
     function  get_ContentControl: TControl;
 
@@ -1320,7 +1328,6 @@ begin
 
     var firstVisibleGridClmn := True;
 
-
     var flatClmn: IDCTreeLayoutColumn;
     for flatClmn in _treeLayout.FlatColumns do
     begin
@@ -1330,35 +1337,33 @@ begin
 
       flatClmn.UpdateCellControlsPositions(cell);
 
-      if (showVertGrid or showHorzGrid) and (cell.Control is TRectangle) then
+      var sides: TSides := [];
+      if not cell.Column.Visualisation.HideGrid then
       begin
-        var sides: TSides := [];
-
-        if cell.Column.Visualisation.HideGrid then
-          sides := []
-        else begin
-          if cell.IsHeaderCell then
+        if cell.IsHeaderCell then
+        begin
+          if not showHeaderGrid then
+            sides := [TSide.Bottom]
+          else if firstVisibleGridClmn then
+            sides := AllSides
+          else
+            sides := [TSide.Top, TSide.Bottom, TSide.Right];
+        end
+        else
+        begin
+          if showVertGrid then
           begin
-            if showHeaderGrid then
-              sides := AllSides else
-              sides := [TSide.Bottom];
-          end
-          else begin
-            if showVertGrid then
-            begin
-              if firstVisibleGridClmn then
-                sides := [TSide.Right, TSide.Left] else
-                sides := [TSide.Right];
-            end;
-
-            if showHorzGrid then
-              sides := sides + [TSide.Bottom];
+            if firstVisibleGridClmn then
+              sides := [TSide.Right, TSide.Left] else
+              sides := [TSide.Right];
           end;
-        end;
 
-        var rect := TRectangle(cell.Control);
-        rect.Sides := sides;
+          if showHorzGrid then
+            sides := sides + [TSide.Bottom];
+        end;
       end;
+
+      cell.BackgroundControl.Sides := sides;
 
       var leftPos := flatClmn.Left;
       var xPos: Single;
@@ -2417,9 +2422,14 @@ begin
 
     if (_selectionInfo as ITreeSelectionInfo).SelectedLayoutColumn = 0 then
     begin
-      var selTreeInfo := (_selectionInfo as ITreeSelectionInfo);
-      selTreeInfo.SelectedLayoutColumn := -1;
-      CheckCorrectColumnSelection(selTreeInfo, GetActiveRow as IDCTreeRow);
+      _selectionInfo.BeginUpdate;
+      try
+        var selTreeInfo := (_selectionInfo as ITreeSelectionInfo);
+        selTreeInfo.SelectedLayoutColumn := -1;
+        CheckCorrectColumnSelection(selTreeInfo, GetActiveRow as IDCTreeRow);
+      finally
+        _selectionInfo.EndUpdate(True);
+      end;
     end;
   end;
 
@@ -3406,8 +3416,9 @@ begin
       Result := Result + Cell.ExpandButton.Width + _cellLeftRightPadding;
 
     // give a little extra space to editable AlignToContent columns
+    // for example with dropdown, it has space to drop down itself + scrollbar width
     if not Cell.Column.ReadOnly and not (TDCTreeOption.ReadOnly in _options) then
-      Result := Result + 10;
+      Result := Result + 15;
   end;
 end;
 
@@ -4506,6 +4517,7 @@ begin
   _index := -1;
   _containsData := TColumnContainsData.Unknown;
   _calculatedHorzAlign := TTextAlign.Leading;
+  _calculatedVertAlign := TTextAlign.Center;
 
   _hideColumnInView := not AColumn.Visible;
 end;
@@ -4628,6 +4640,15 @@ begin
         else
           _calculatedHorzAlign := TTextAlign.Leading;
       end;
+    end;
+
+    case _column.Visualisation.VertAlign of
+      TDCTextAlign.Leading: _calculatedVertAlign := TTextAlign.Leading;
+      TDCTextAlign.Center: _calculatedVertAlign := TTextAlign.Center;
+      TDCTextAlign.Trailing: _calculatedVertAlign := TTextAlign.Trailing;
+
+      else {TDCTextAlign.Default}
+        _calculatedVertAlign := TTextAlign.Center;
     end;
   end;
 end;
@@ -4756,7 +4777,11 @@ begin
     else if validSub and (cell.Column.SubInfoControlClass = TInfoControlClass.Text) then
       ctrl.Height := ctrlHeight - (2*_treeControl.CellTopBottomPadding);
 
-    ctrl.Position.Y := (ctrlHeight - ctrl.Height) / 2;
+    case Cell.LayoutColumn.CalculatedVertAlign of
+      TTextAlign.Leading: ctrl.Position.Y := _treeControl.CellTopBottomPadding;
+      TTextAlign.Center: ctrl.Position.Y := (ctrlHeight - ctrl.Height) / 2;
+      TTextAlign.Trailing: ctrl.Position.Y := ctrlHeight - ctrl.Height - _treeControl.CellTopBottomPadding;
+    end;
 
     if Cell.IsHeaderCell and validMain then
     begin
@@ -4779,11 +4804,13 @@ begin
   if (cell.Column.SubInfoControlClass = TInfoControlClass.Text) then
     cell.SubInfoControl.Height := (cell.SubInfoControl as ITextControl).TextHeight;
 
-  var extraHeightPerCtrl := CMath.Max(0, (ctrlHeight - cell.InfoControl.Height - cell.SubInfoControl.Height) / 2);
+  case Cell.LayoutColumn.CalculatedVertAlign of
+    TTextAlign.Leading: cell.InfoControl.Position.Y := _treeControl.CellTopBottomPadding;
+    TTextAlign.Center: cell.InfoControl.Position.Y := CMath.Max(0, (ctrlHeight - cell.InfoControl.Height - cell.SubInfoControl.Height) / 2);
+    TTextAlign.Trailing: cell.InfoControl.Position.Y := ctrlHeight - cell.InfoControl.Height - cell.SubInfoControl.Height - _treeControl.CellTopBottomPadding;
+  end;
 
-  // align in vert center
-  cell.InfoControl.Position.Y := extraHeightPerCtrl;
-  cell.SubInfoControl.Position.Y := extraHeightPerCtrl + cell.InfoControl.Height;
+  cell.SubInfoControl.Position.Y := cell.InfoControl.Position.Y + cell.InfoControl.Height;
 end;
 
 function TTreeLayoutColumn.CreateInfoControl(const Cell: IDCTreeCell; const ControlClassType: TInfoControlClass): IDCControl;
@@ -4844,14 +4871,11 @@ begin
   // in case user assigns cell control in CellLoading the tree allows that
   if Cell.Control = nil then
   begin
-    // if special controls are loaded into the cell, then always create a TLayout as base control
-    // otherwise the TText can be the baseControl
+    Cell.BackgroundControl := DataControlClassFactory.CreateHeaderCellRect(Cell.Row.Control);
+    var rect := Cell.BackgroundControl.AsControl;
+
     if Cell.IsHeaderCell then
     begin
-      var rect := DataControlClassFactory.CreateHeaderCellRect(Cell.Row.Control);
-
-      Cell.Control := rect;
-
       if Cell.Column.AllowResize then
       begin
         var splitterLy := TLayout.Create(rect);
@@ -4866,17 +4890,7 @@ begin
         var headerCell := Cell as IHeaderCell;
         headerCell.ResizeControl := splitterLy;
       end;
-    end
-    else if ShowVertGrid then
-    begin
-      var rect := DataControlClassFactory.CreateRowCellRect(Cell.Row.Control);
-      Cell.Control := rect;
-    end else
-      {$IFDEF WEBASSEMBLY}
-      Cell.Control := DataControlClassFactory.CreateRowCellRect(Cell.Row.Control);
-      {$ELSE}
-      Cell.Control := TLayout.Create(Cell.Row.Control);
-      {$ENDIF}
+    end;
 
     Cell.Control.HitTest := False;
   end;
@@ -4961,6 +4975,11 @@ end;
 function TTreeLayoutColumn.get_CalculatedHorzAlign: TTextAlign;
 begin
   Result := _calculatedHorzAlign;
+end;
+
+function TTreeLayoutColumn.get_CalculatedVertAlign: TTextAlign;
+begin
+  Result := _calculatedVertAlign;
 end;
 
 function TTreeLayoutColumn.get_HideColumnInView: Boolean;
@@ -5540,7 +5559,14 @@ end;
 
 function TDCTreeCell.get_Control: TControl;
 begin
-  Result := _control;
+  if _backgroundControl <> nil then
+    Result := _backgroundControl.AsControl else
+    Result := nil;
+end;
+
+function TDCTreeCell.get_BackgroundControl: IBackgroundControl;
+begin
+  Result := _backgroundControl;
 end;
 
 function TDCTreeCell.get_CustomInfoControlBounds: TRectF;
@@ -5570,7 +5596,7 @@ end;
 
 function TDCTreeCell.get_HideCellInView: Boolean;
 begin
-  Result := not _control.Visible;
+  Result := not get_Control.Visible;
 end;
 
 function TDCTreeCell.get_Index: Integer;
@@ -5618,12 +5644,20 @@ begin
   Result := False;
 end;
 
-procedure TDCTreeCell.set_Control(const Value: TControl);
-begin
-  if _control <> nil then
-    FreeAndNil(_control);
+//procedure TDCTreeCell.set_Control(const Value: TControl);
+//begin
+//  if _control <> nil then
+//    FreeAndNil(_control);
+//
+//  _control := Value;
+//end;
 
-  _control := Value;
+procedure TDCTreeCell.set_BackgroundControl(const Value: IBackgroundControl);
+begin
+  if _backgroundControl <> nil then
+    _backgroundControl.AsControl.Free;
+
+  _backgroundControl := Value;
 end;
 
 procedure TDCTreeCell.set_CustomInfoControlBounds(const Value: TRectF);
@@ -5653,7 +5687,7 @@ end;
 
 procedure TDCTreeCell.set_HideCellInView(const Value: Boolean);
 begin
-  _control.Visible := not Value;
+  get_Control.Visible := not Value;
 end;
 
 procedure TDCTreeCell.set_InfoControl(const Value: IDCControl);
@@ -5688,15 +5722,15 @@ begin
   begin
     if _performanceLayout = nil then
     begin
-      _performanceLayout := TFastLayout.Create(_control);
+      _performanceLayout := TFastLayout.Create(get_Control);
       _performanceLayout.Align := TAlignLayout.None;
-      _control.AddObject(_performanceLayout);
+      get_Control.AddObject(_performanceLayout);
     end;
 
     _performanceLayout.Position.X := 0;
     _performanceLayout.Position.Y := 0;
     _performanceLayout.Width := _layoutColumn.Width;
-    _performanceLayout.Height := _control.Height;
+    _performanceLayout.Height := get_Control.Height;
     _performanceLayout.Visible := True;
   end
   else if _performanceLayout <> nil then
@@ -5704,65 +5738,23 @@ begin
 
   if (_infoControl <> nil) then
     _infoControl.Opacity := IfThen(not Activate, 1, 0);
-//    _infoControl.Visible := not Activate;
 
   if (_subInfoControl <> nil) then
     _subInfoControl.Opacity := IfThen(not Activate, 1, 0);
-//    _subInfoControl.Visible := not Activate;
-
-  // METHOD 2
-//  if _performanceMode = Activate then
-//    Exit;
-
-//  _performanceMode := Activate;
-//  if (_infoControl <> nil) and (Self.Column.InfoControlClass <> TInfoControlClass.Text) then
-//    _infoControl.Visible := not Activate;
-//
-//  if (_subInfoControl <> nil) and (Self.Column.SubInfoControlClass <> TInfoControlClass.Text) then
-//    _subInfoControl.Visible := not Activate;
-
-
-  // METHOD 3
-//  if (_performanceBitmap <> nil) = Activate then
-//    Exit;
-//
-//  if Activate then
-//  begin
-//    if (Self.Column.InfoControlClass = TInfoControlClass.Text) and ((_subInfoControl = nil) or (Self.Column.SubInfoControlClass = TInfoControlClass.Text)) then
-//      Exit;
-//
-//    _performanceBitmap := TImage.Create(_control);
-//    _performanceBitmap.Bitmap := _control.MakeScreenshot;
-//
-//    _performanceBitmap.Align := TAlignLayout.None;
-//    _performanceBitmap.Position.X := 0;
-//    _performanceBitmap.Position.Y := 0;
-//    _performanceBitmap.Width := _control.Width;
-//    _performanceBitmap.Height := _control.Height;
-//
-//    _control.AddObject(_performanceBitmap);
-//  end else
-//    FreeAndNil(_performanceBitmap);
-//
-//  if _infoControl <> nil then
-//    _infoControl.Visible := not Activate;
-//
-//  if _subInfoControl <> nil then
-//    _subInfoControl.Visible := not Activate;
 end;
 
 procedure TDCTreeCell.UpdateSelectionRect(OwnerIsFocused: Boolean);
 begin
   if _selectionRect = nil then
   begin
-    var rect := TRectangle.Create(_control);
+    var rect := TRectangle.Create(get_Control);
     rect.Align := TAlignLayout.Contents;
     rect.Sides := [];
     rect.Opacity := 0.3;
     rect.HitTest := False;
 
     _selectionRect := rect;
-    _control.AddObject(_selectionRect);
+    get_Control.AddObject(_selectionRect);
     _selectionRect.BringToFront;
   end;
 
@@ -5772,7 +5764,6 @@ begin
     clr := DEFAULT_ROW_SELECTION_INACTIVE_COLOR;
 
   (_selectionRect as TRectangle).Fill.Color := clr;
-
 end;
 
 procedure TDCTreeCell.UpdateSelectionVisibility(const RowIsSelected: Boolean; const SelectionInfo: ITreeSelectionInfo; OwnerIsFocused: Boolean);
@@ -6299,6 +6290,7 @@ begin
     _ignoreHeightByRowCalculation := _src.IgnoreHeightByRowCalculation;
     _format := _src.Format;
     _horzAlign := _src.HorzAlign;
+    _vertAlign := _src.VertAlign;
   end;
 end;
 
@@ -6316,6 +6308,7 @@ begin
   _visible := True;
   _selectable := True;
   _horzAlign := TDCTextAlign.Default;
+  _vertAlign := TDCTextAlign.Default;
 end;
 
 function TDCColumnVisualisation.get_Format: CString;
@@ -6326,6 +6319,11 @@ end;
 function TDCColumnVisualisation.get_HorzAlign: TDCTextAlign;
 begin
   Result := _horzAlign;
+end;
+
+function TDCColumnVisualisation.get_VertAlign: TDCTextAlign;
+begin
+  Result := _vertAlign;
 end;
 
 function TDCColumnVisualisation.get_Frozen: Boolean;
@@ -6381,6 +6379,11 @@ end;
 procedure TDCColumnVisualisation.set_HorzAlign(const Value: TDCTextAlign);
 begin
   _horzAlign := Value;
+end;
+
+procedure TDCColumnVisualisation.set_VertAlign(const Value: TDCTextAlign);
+begin
+  _vertAlign := Value;
 end;
 
 procedure TDCColumnVisualisation.set_Frozen(const Value: Boolean);
@@ -6567,7 +6570,7 @@ end;
 
 procedure TDCHeaderRow.CreateHeaderControls(const Owner: IColumnsControl);
 begin
-  _contentControl := DataControlClassFactory.CreateHeaderRect(Owner.Control);
+  _contentControl := DataControlClassFactory.CreateHeaderRect(Owner.Control).AsControl;
   _contentControl.Stored := False;
   _contentControl.Align := TAlignLayout.Top;
   _contentControl.Height := Owner.HeaderHeight;

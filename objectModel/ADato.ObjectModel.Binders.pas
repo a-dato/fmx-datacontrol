@@ -289,10 +289,15 @@ type
 
   TComboEditControlBinding = class(TControlBinding<TComboEdit>)
   protected
+    _lastItemIndex: Integer;
+
     function  GetValue: CObject; override;
     procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject); override;
 
     procedure UpdateControlEditability(IsEditable: Boolean); override;
+
+    procedure NotifyModel(Sender: TObject); override;
+
   public
     constructor Create(AControl: TComboEdit); reintroduce;
     destructor Destroy; override;
@@ -1776,12 +1781,15 @@ end;
 constructor TComboEditControlBinding.Create(AControl: TComboEdit);
 begin
   inherited Create(AControl);
-  ValidateControl(_Control.OnChange);
+  ValidateControl(_Control.OnChangeTracking);
 
+  // because OnChange is executed randomly by OnExit of the ComboEdit
+  // and not executed at all when mouse wheel scroll changes the itemIndex
+  // So we Use OnChangeTracking, but keep out every key change
   {$IFDEF DELPHI}
-  _Control.OnChange := NotifyModel;
+  _Control.OnChangeTracking := NotifyModel;
   {$ELSE}
-  (_Control as TComboEdit).OnChange := @NotifyModel;
+  (_Control as TComboEdit).OnChangeTracking := @NotifyModel;
   {$ENDIF}
 end;
 
@@ -1789,7 +1797,7 @@ destructor TComboEditControlBinding.Destroy;
 begin
   {$IFDEF DELPHI}
   if (_Control <> nil) and ([csDestroying] * _Control.ComponentState = []) then
-    _Control.OnChange := _orgChangeEvent;
+    _Control.OnChangeTracking := _orgChangeEvent;
 
   inherited;
   {$ENDIF}
@@ -1828,6 +1836,8 @@ begin
       _Control.ItemIndex := -1;
       _Control.Text := '';
     end;
+
+    _lastItemIndex := _Control.ItemIndex;
   finally
     EndUpdate;
   end;
@@ -1838,6 +1848,18 @@ begin
   // make it possible to copy code..
   _control.Enabled := True;
   TComboEdit(_control).ReadOnly := not IsEditable;
+end;
+
+procedure TComboEditControlBinding.NotifyModel(Sender: TObject);
+begin
+  // because OnChange is executed randomly by OnExit of the ComboEdit
+  // and not executed at all when mouse wheel scroll changes the itemIndex
+  // So we Use OnChangeTracking, but keep out every key change
+  if _lastItemIndex <> _control.ItemIndex then
+  begin
+    _lastItemIndex := _control.ItemIndex;
+    inherited;
+  end;
 end;
 
 { TComboEditControlSmartLinkBinding }
