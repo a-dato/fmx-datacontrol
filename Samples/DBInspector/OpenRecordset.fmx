@@ -112,7 +112,6 @@ object OpenRecordSetFrame: TOpenRecordSetFrame
         Size.PlatformDefault = False
         TabOrder = 1
         Text = 'Copy cell'
-        TextSettings.Trimming = None
         OnClick = btnCopyClick
       end
     end
@@ -144,8 +143,8 @@ object OpenRecordSetFrame: TOpenRecordSetFrame
           TabOrder = 0
           SelectionType = CellSelection
           Options = [TreeOption_ShowHeaders, TreeOption_ShowVertGrid, TreeOption_ShowHorzGrid, TreeOption_AllowAddNewRows, TreeOption_AllowDeleteRows]
-          RowHeightFixed = 24.000000000000000000
           RowHeightDefault = 24.000000000000000000
+          RowHeightMax = 60.000000000000000000
           HeaderHeight = 24.000000000000000000
           AutoExtraColumnSizeMax = -1.000000000000000000
           CellTopBottomPadding = 5.000000000000000000
@@ -172,7 +171,6 @@ object OpenRecordSetFrame: TOpenRecordSetFrame
           Size.Height = 33.000000000000000000
           Size.PlatformDefault = False
           StyleLookup = 'playtoolbutton'
-          TextSettings.Trimming = None
         end
         object Button1: TButton
           Action = acAbort
@@ -187,7 +185,6 @@ object OpenRecordSetFrame: TOpenRecordSetFrame
           Size.Height = 21.000000000000000000
           Size.PlatformDefault = False
           TabOrder = 0
-          TextSettings.Trimming = None
         end
         object SpeedButton2: TSpeedButton
           Action = acNextRecordSet
@@ -200,7 +197,6 @@ object OpenRecordSetFrame: TOpenRecordSetFrame
           Size.Height = 41.250000000000000000
           Size.PlatformDefault = False
           StyleLookup = 'escapetoolbutton'
-          TextSettings.Trimming = None
         end
         object lblConnection: TLabel
           Align = Right

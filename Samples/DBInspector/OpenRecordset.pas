@@ -101,7 +101,7 @@ implementation
 
 uses
   System.TypInfo, ADato.Data.DataModel.intf, System.Collections, FMX.Platform,
-  LynxX.Controls.Editors;
+  LynxX.Controls.Editors, FMX.ScrollControl.WithCells.Intf;
 
 {$R *.fmx}
 
@@ -218,7 +218,9 @@ begin
 
     dateTimeEditor.DateTime := e.Value.AsType<CDateTime>;
     e.Editor := dateTimeEditor;
-  end;
+  end
+  else if field.DataType in [TFieldType.ftMemo, TFieldType.ftWideMemo] then
+    e.MultilineEdit := True;
 end;
 
 procedure TOpenRecordSetFrame.DataGridEditRowEnd(const Sender: TObject; e: DCRowEditEventArgs);

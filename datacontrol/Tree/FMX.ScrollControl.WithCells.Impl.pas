@@ -4772,10 +4772,15 @@ begin
     if not validMain then
       ctrl := Cell.SubInfoControl;
 
-    if validMain and (cell.Column.InfoControlClass = TInfoControlClass.Text) then
-      ctrl.Height := ctrlHeight - (2*_treeControl.CellTopBottomPadding)
-    else if validSub and (cell.Column.SubInfoControlClass = TInfoControlClass.Text) then
+    var txtCtrl: ITextControl;
+    if not cell.IsHeaderCell and Interfaces.Supports<ITextControl>(cell.InfoControl, txtCtrl) then
+    begin
+      if txtCtrl.TextHeightWithPadding > (ctrlHeight - (2*_treeControl.CellTopBottomPadding)) then
+        (txtCtrl as ITextSettings).TextSettings.VertAlign := TTextAlign.Leading else
+        (txtCtrl as ITextSettings).TextSettings.VertAlign := TTextAlign.Center;
+
       ctrl.Height := ctrlHeight - (2*_treeControl.CellTopBottomPadding);
+    end;
 
     case Cell.LayoutColumn.CalculatedVertAlign of
       TTextAlign.Leading: ctrl.Position.Y := _treeControl.CellTopBottomPadding;

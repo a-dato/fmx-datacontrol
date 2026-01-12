@@ -110,7 +110,7 @@ type
     _rowDeleted: TNotifyEvent;
 
     // IDataControlEditorHandler
-    procedure OnEditorKeyDown(var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
+    procedure OnEditorKeyDown(const CellEditor: IDCCellEditor; var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
     procedure OnEditorExit;
 
     function  LoadDefaultPickListForCell(const Cell: IDCTreeCell; const CellValue: CObject) : IList;
@@ -222,6 +222,7 @@ type
     function  get_PickList: IList; virtual;
     procedure set_PickList(const Value: IList); virtual;
     function  get_Editor: TControl;
+    function  get_IsMultiLine: Boolean; virtual;
     function  get_UserCanClear: Boolean;
     procedure set_UserCanClear(const Value: Boolean);
 
@@ -232,7 +233,7 @@ type
     function  ParseValue(var AValue: CObject): Boolean;
 
     procedure OnEditorExit(Sender: TObject);
-    procedure OnEditorKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState); virtual;
+    procedure OnEditorKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState); //virtual;
 
     function TryBeginEditWithUserKey(const OriginalValue: CObject; const UserKey: CString): Boolean; virtual;
 
@@ -260,9 +261,13 @@ type
     function  TryBeginEditWithUserKey(const OriginalValue: CObject; const UserKey: CString): Boolean; override;
   end;
 
-  TDCTextCellMultilineEditor = class(TDCTextCellEditor)
+  TDCTextCellMultilineEditor = class(TDCCellEditor)
+  protected
+    function  get_IsMultiLine: Boolean; override;
   public
-
+    constructor Create(const EditorHandler: IDataControlEditorHandler; const Cell: IDCTreeCell); override;
+    procedure BeginEdit(const EditValue: CObject; SelectAll: Boolean = True); override;
+    function  TryBeginEditWithUserKey(const OriginalValue: CObject; const UserKey: CString): Boolean; override;
   end;
 
   TDCCellDateTimeEditor = class(TDCCellEditor)
@@ -279,7 +284,6 @@ type
   TDCCellDropDownEditor = class(TDCCellEditor)
   protected
     function  TryBeginEditWithUserKey(const OriginalValue: CObject; const UserKey: CString): Boolean; override;
-    procedure OnEditorKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState); override;
     procedure Dropdown;
 
   public
@@ -295,8 +299,6 @@ type
     procedure set_Value(const Value: CObject); override;
 
     procedure Dropdown;
-
-//    procedure OnEditorKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState); override;
   public
     procedure BeginEdit(const EditValue: CObject; SelectAll: Boolean = True); override;
 
@@ -698,7 +700,7 @@ begin
 //  {$ENDIF}
 end;
 
-procedure TScrollControlWithEditableCells.OnEditorKeyDown(var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
+procedure TScrollControlWithEditableCells.OnEditorKeyDown(const CellEditor: IDCCellEditor; var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
 begin
   if (Key = vkEscape) then
   begin
@@ -709,6 +711,9 @@ begin
   end
   else if Key = vkReturn then
   begin
+    if CellEditor.IsMultiLine and ((ssCtrl in Shift) or (ssShift in Shift)) then
+      Exit; // let memo handle
+
     SafeForcedEndEdit;
     Self.SetFocus;
 
@@ -716,6 +721,24 @@ begin
   end
   else if (Key in [vkUp, vkDown]) then
   begin
+    if CellEditor.IsMultiLine and (Shift = []) then
+    begin
+      var mm := CellEditor.Editor as TMemo;
+
+      if (Key = vkUp) and not mm.CaretPosition.IsZero then
+        Exit; // let memo handle
+
+      if key = vkDown then
+      begin
+        if (mm.CaretPosition.Line < mm.Lines.Count - 1) then
+          Exit; // let memo handle
+
+        if (mm.CaretPosition.Pos < Length(mm.Lines[mm.Lines.Count - 1])) then
+          Exit; // let memo handle
+      end;
+
+    end;
+
     var changeUpdatedSort: Boolean;
     if not EndEditCell({out} changeUpdatedSort) or changeUpdatedSort then
       Exit;
@@ -1796,7 +1819,12 @@ begin
   if Assigned(_editRowEnd) then
   begin
     AutoObject.Guard(DCRowEditEventArgs.Create(ARow, _editingInfo.EditItem, not _editingInfo.IsNew), rowEditArgs);
-    _editRowEnd(Self, rowEditArgs);
+    inc(_updateCount); // in case datamodel changes in EndEditRowEnd
+    try
+      _editRowEnd(Self, rowEditArgs);
+    finally
+      dec(_updateCount);
+    end;
     Result := rowEditArgs.Accept;
   end;
 
@@ -2123,6 +2151,11 @@ begin
   Result := _editor.Control;
 end;
 
+function TDCCellEditor.get_IsMultiLine: Boolean;
+begin
+  Result := False;
+end;
+
 function TDCCellEditor.get_Modified: Boolean;
 begin
   Result := not CObject.Equals(_OriginalValue, get_Value);
@@ -2167,7 +2200,9 @@ end;
 
 procedure TDCCellEditor.OnEditorKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
 begin
-  _editorHandler.OnEditorKeyDown(Key, KeyChar, Shift);
+  _editor.DoKeyDown(Sender, Key, KeyChar, Shift);
+  if Key <> 0 then
+    _editorHandler.OnEditorKeyDown(Self, Key, KeyChar, Shift);
 end;
 
 function TDCCellEditor.ParseValue(var AValue: CObject): Boolean;
@@ -2288,13 +2323,6 @@ begin
     if Interfaces.Supports<IComboEditControl>(_editor, ce) then
       ce.Text := UserKey;
   end;
-end;
-
-procedure TDCCellDropDownEditor.OnEditorKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
-begin
-  _editor.DoKeyDown(Sender, Key, KeyChar, Shift);
-  if Key <> 0 then
-    inherited;
 end;
 
 procedure TDCCellDropDownEditor.DropDown;
@@ -2455,6 +2483,62 @@ begin
   {$IFNDEF WEBASSEMBLY}
   TComboMultiBox(_editor).SelectedItems := Value.AsType<IList>;
   {$ENDIF}
+end;
+
+{ TDCTextCellMultilineEditor }
+
+procedure TDCTextCellMultilineEditor.BeginEdit(const EditValue: CObject; SelectAll: Boolean);
+begin
+  inherited;
+  set_Value(EditValue);
+
+  var ta: ITextActions;
+  if Interfaces.Supports<ITextActions>(_editor, ta) then
+  begin
+    if SelectAll then
+      ta.SelectAll else
+      ta.GoToTextEnd;
+  end;
+end;
+
+constructor TDCTextCellMultilineEditor.Create(const EditorHandler: IDataControlEditorHandler; const Cell: IDCTreeCell);
+begin
+  inherited;
+  _editor := DataControlClassFactory.CreateMemo(nil);
+
+  var cell_Settings: ITextSettings;
+  var edit_Settings: ITextSettings;
+
+  if Interfaces.Supports<ITextSettings>(_cell.InfoControl, cell_settings) and Interfaces.Supports<ITextSettings>(_editor, edit_settings) then
+  begin
+    if cell_settings.TextSettings.WordWrap then
+    begin
+      edit_Settings.TextSettings.WordWrap := True;
+
+      // check if only 1 line is needed, or multiple
+      var startWithOneLine := _cell.Control.Width > TextControlWidth(_cell.InfoControl.Control, cell_settings.TextSettings, (_cell.InfoControl as ICaption).Text);
+
+      if startWithOneLine then
+        edit_Settings.TextSettings.VertAlign := TTextAlign.Center else
+        edit_Settings.TextSettings.VertAlign := TTextAlign.Trailing;
+    end;
+  end;
+end;
+
+function TDCTextCellMultilineEditor.get_IsMultiLine: Boolean;
+begin
+  Result := True;
+end;
+
+function TDCTextCellMultilineEditor.TryBeginEditWithUserKey(const OriginalValue: CObject; const UserKey: CString): Boolean;
+begin
+  Result := UserKey <> nil;
+
+  if Result then
+  begin
+    BeginEdit(UserKey, False);
+    _originalValue := OriginalValue;
+  end;
 end;
 
 end.
