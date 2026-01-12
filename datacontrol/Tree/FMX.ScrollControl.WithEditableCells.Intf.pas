@@ -42,15 +42,6 @@ type
     property  EditItem: CObject read get_EditItem write set_EditItem;
   end;
 
-  IDataControlEditorHandler = interface
-    ['{58AD8937-68E6-4390-A908-589B02CE1E27}']
-    procedure OnEditorKeyDown(var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
-    procedure OnEditorExit;
-
-    function  DoCellParsing(const Cell: IDCTreeCell; IsCheckOnEndEdit: Boolean; var AValue: CObject): Boolean;
-    function  DoCellFormatting(const Cell: IDCTreeCell; RequestForSort: Boolean; var Value: CObject) : Boolean;
-  end;
-
   IDCCellEditor = interface
     ['{3278B3F2-2D64-4049-9AF2-EE411F3AE509}']
     function  get_Cell: IDCTreeCell;
@@ -63,7 +54,8 @@ type
     function  get_OriginalValue: CObject;
     function  get_PickList: IList;
     procedure set_PickList(const Value: IList);
-    function  get_editor: TControl;
+    function  get_Editor: TControl;
+    function  get_IsMultiLine: Boolean;
     function  get_UserCanClear: Boolean;
     procedure set_UserCanClear(const Value: Boolean);
 
@@ -82,7 +74,17 @@ type
     property OriginalValue: CObject read get_OriginalValue;
     property Editor: TControl read get_editor;
     property PickList: IList read get_PickList write set_PickList;
+    property IsMultiLine: Boolean read get_IsMultiLine;
     property UserCanClear: Boolean read get_UserCanClear write set_UserCanClear;
+  end;
+
+  IDataControlEditorHandler = interface
+    ['{58AD8937-68E6-4390-A908-589B02CE1E27}']
+    procedure OnEditorKeyDown(const CellEditor: IDCCellEditor; var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
+    procedure OnEditorExit;
+
+    function  DoCellParsing(const Cell: IDCTreeCell; IsCheckOnEndEdit: Boolean; var AValue: CObject): Boolean;
+    function  DoCellFormatting(const Cell: IDCTreeCell; RequestForSort: Boolean; var Value: CObject) : Boolean;
   end;
 
 implementation

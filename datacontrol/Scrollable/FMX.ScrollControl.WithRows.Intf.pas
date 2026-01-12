@@ -51,10 +51,12 @@ type
     ['{DFFB7FC1-1AA5-419B-8125-6106792603B2}']
     function  get_SelectionType: TSelectionType;
     procedure set_SelectionType(const Value: TSelectionType);
-    function  get_rowHeightDefault: Single;
+    function  get_RowHeightDefault: Single;
     procedure set_RowHeightDefault(const Value: Single);
-    function  get_rowHeightFixed: Single;
+    function  get_RowHeightFixed: Single;
     procedure set_RowHeightFixed(const Value: Single);
+    function  get_RowHeightMax: Single;
+    procedure set_RowHeightMax(const Value: Single);
     function  get_IsPrinting: Boolean;
     procedure set_IsPrinting(const Value: Boolean);
 
@@ -74,6 +76,7 @@ type
     property SelectionType: TSelectionType read get_SelectionType write set_SelectionType;
     property RowHeightFixed: Single read get_rowHeightFixed write set_RowHeightFixed;
     property RowHeightDefault: Single read get_rowHeightDefault write set_RowHeightDefault;
+    property RowHeightMax: Single read get_RowHeightMax write set_RowHeightMax;
     property IsPrinting: Boolean read get_IsPrinting write set_IsPrinting;
   end;
 

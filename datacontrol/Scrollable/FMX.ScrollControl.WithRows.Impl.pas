@@ -89,9 +89,13 @@ type
     procedure set_Options(const Value: TDCTreeOptions);
     function  get_NotSelectableItems: IList;
     procedure set_NotSelectableItems(const Value: IList);
-    procedure set_RowHeightMax(const Value: Single);
 
     function  get_rowHeightDefault: Single; virtual;
+    procedure set_RowHeightDefault(const Value: Single);
+    function  get_rowHeightFixed: Single;
+    procedure set_RowHeightFixed(const Value: Single);
+    function  get_RowHeightMax: Single;
+    procedure set_RowHeightMax(const Value: Single);
     function  get_RowHeightSynchronizer: TScrollControlWithRows;
     procedure set_RowHeightSynchronizer(const Value: TScrollControlWithRows);
 
@@ -130,9 +134,6 @@ type
     procedure DoViewLoadingFinished;
     procedure CreateAndSynchronizeSynchronizerRow(const Row: IDCRow);
     procedure UpdateRowHeightSynchronizerScrollbar;
-    procedure set_RowHeightDefault(const Value: Single);
-    procedure set_RowHeightFixed(const Value: Single);
-    function  get_rowHeightFixed: Single;
 
   protected
     _view: IDataViewList;
@@ -358,7 +359,7 @@ type
 
     property RowHeightFixed: Single read get_rowHeightFixed write set_RowHeightFixed;
     property RowHeightDefault: Single read get_rowHeightDefault write set_RowHeightDefault;
-    property RowHeightMax: Single read _rowHeightMax write set_RowHeightMax;
+    property RowHeightMax: Single read get_RowHeightMax write set_RowHeightMax;
 
     {$IFNDEF WEBASSEMBLY}
     property RowLoaded: RowLoadedEvent read _rowLoaded write _rowLoaded;
@@ -1581,6 +1582,11 @@ end;
 function TScrollControlWithRows.get_rowHeightFixed: Single;
 begin
   Result := _rowHeightFixed;
+end;
+
+function TScrollControlWithRows.get_RowHeightMax: Single;
+begin
+  Result := _rowHeightMax;
 end;
 
 function TScrollControlWithRows.get_RowHeightSynchronizer: TScrollControlWithRows;

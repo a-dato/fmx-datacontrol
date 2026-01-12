@@ -137,6 +137,11 @@ type
     procedure set_Value(const Value: CObject); override;
   end;
 
+  TMemoEditControlImpl = class(TEditControlImpl)
+    function  get_Value: CObject; override;
+    procedure set_Value(const Value: CObject); override;
+  end;
+
   TCheckBoxControlImpl = class(TEditControlImpl, ICheckBoxControl, IIsChecked)
   protected
     function  get_IsChecked: IIsChecked;
@@ -254,7 +259,6 @@ type
     _editControl: IDCEditControl;
 
     function get_EditControl: IDCEditControl;
-
   public
     constructor Create(AOwner: TComponent); override;
 
@@ -447,7 +451,10 @@ end;
 
 function TDataControlClassFactory.CreateMemo(const Owner: TComponent): IDCEditControl;
 begin
-  Result := TMemoEditControl.Create(Owner);
+  var memo := TMemoEditControl.Create(Owner);
+  memo.ShowScrollBars := False;
+
+  Result := memo;
 end;
 
 function TDataControlClassFactory.CreateComboEdit(const Owner: TComponent): IDCEditControl;
@@ -501,8 +508,6 @@ end;
 function TDataControlClassFactory.CreateText(const Owner: TComponent): IDCControl;
 begin
   var ctrl := TFastText.Create(Owner);
-  ctrl.VertTextAlign := TTextAlign.Center;
-
   Result := ctrl;
 end;
 
@@ -538,7 +543,7 @@ end;
 constructor TMemoEditControl.Create(AOwner: TComponent);
 begin
   inherited;
-  _editControl := TTextEditControlImpl.Create(Self);
+  _editControl := TMemoEditControlImpl.Create(Self);
 end;
 
 function TMemoEditControl.get_EditControl: IDCEditControl;
@@ -1301,17 +1306,15 @@ end;
 function TTextEditControlImpl.get_Value: CObject;
 begin
   if _control is TCustomEdit then
-    Result := (_control as TCustomEdit).Text;
+    Result := TCustomEdit(_control).Text else
+    Result := nil;
 end;
 
 procedure TTextEditControlImpl.set_Value(const Value: CObject);
 begin
   var s: string;
   if (_control is TCustomEdit) and DoFormatItem(Value, s) then
-  begin
-    var ce := _control as TCustomEdit;
-    ce.Text := s;
-  end;
+    TCustomEdit(_control).Text := s;
 end;
 
 { TCheckBoxControlImpl }
@@ -1521,6 +1524,22 @@ end;
 procedure TRowLayout.set_UseBuffering(const Value: Boolean);
 begin
   inherited;
+end;
+
+{ TMemoEditControlImpl }
+
+function TMemoEditControlImpl.get_Value: CObject;
+begin
+  if _control is TCustomMemo then
+    Result := TCustomMemo(_control).Text else
+    Result := nil;
+end;
+
+procedure TMemoEditControlImpl.set_Value(const Value: CObject);
+begin
+  var s: string;
+  if (_control is TCustomMemo) and DoFormatItem(Value, s) then
+    TCustomMemo(_control).Text := s;
 end;
 
 initialization
