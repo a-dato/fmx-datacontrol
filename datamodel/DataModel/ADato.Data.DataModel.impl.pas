@@ -1141,19 +1141,27 @@ end;
 
 function DataRowEqualityComparer.Equals(const Left, Right: IDataRow): Boolean;
 begin
-  if Left = nil then
-    Result := Right = nil
-  else if Right = nil then
-    Result := False
-  else
-    Result := (Left.Level = Right.Level) and CObject.Equals(Left.Data, Right.Data);
+  // KV: 12/01/2026, DataModel allows duplicate row when 'StoreKeys' is false,
+  // use 'Index' for Equality
+  Result := Left.get_Index = right.get_Index;
+
+//  if Left = nil then
+//    Result := Right = nil
+//  else if Right = nil then
+//    Result := False
+//  else
+//    Result := (Left.Level = Right.Level) and CObject.Equals(Left.Data, Right.Data);
 end;
 
 function DataRowEqualityComparer.GetHashCode(const Value: IDataRow): Integer;
 begin
-  if Value.Data = nil then
-    Result := Value.get_Index else
-    Result := Value.Data.GetHashCode;
+  // KV: 12/01/2026, DataModel allows duplicate row when 'StoreKeys' is false,
+  // use 'Index' for the hash
+  Result := Value.get_Index;
+
+//  if Value.Data = nil then
+//    Result := Value.get_Index else
+//    Result := Value.Data.GetHashCode;
 end;
 
 { DataRowViewEqualityComparer }
