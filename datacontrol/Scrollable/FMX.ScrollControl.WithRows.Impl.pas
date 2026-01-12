@@ -173,10 +173,11 @@ type
 
     procedure DoRealignContent; override;
 
-    procedure ExecuteAfterRealignOnly(DoBeginUpdate: Boolean);
-
     function  IsScrolling: Boolean; override;
     function  IsFastScrolling(ScrollbarOnly: Boolean = False): Boolean; override;
+
+  public
+    procedure ExecuteAfterRealignOnly(DoBeginUpdate: Boolean);
 
   protected
     {$IFDEF DEBUG}
@@ -204,7 +205,7 @@ type
     procedure AfterScrolling; override;
 
     function  DoCreateNewRow: IDCRow; virtual;
-    function  CreateRowRect: TRectangle; virtual;
+    function  CreateRowBackground: IBackgroundControl; virtual;
     procedure InnerInitRow(const Row: IDCRow; RowHeightNeedsRecalc: Boolean = False); virtual;
     procedure PerformanceRoutineLoadedRow(const Row: IDCRow); virtual;
     procedure InitRow(const Row: IDCRow; const IsAboveRefRow: Boolean = False);
@@ -294,7 +295,7 @@ type
     procedure AddFilterDescription(const Filter: IListFilterDescription; const ClearOtherFlters: Boolean);
 
     procedure DoDataItemChangedInternal(const DataItem: CObject); virtual;
-    procedure DoDataItemChanged(const CurrentViewListIndex: Integer; const DataItem: CObject; out ChangeUpdatedSort: Boolean);
+    procedure DoDataItemChanged(const CurrentViewListIndex: Integer; const DataItem: CObject; out ChangeUpdatedSort: Boolean); virtual;
 
     function  VisibleRows: List<IDCRow>;
 
@@ -1509,7 +1510,7 @@ begin
   Result.ViewListIndex := FromSelectionInfo.ViewListIndex;
 end;
 
-function TScrollControlWithRows.CreateRowRect: TRectangle;
+function TScrollControlWithRows.CreateRowBackground: IBackgroundControl;
 begin
   Result := DataControlClassFactory.CreateRowRect(_content);
 end;
@@ -2075,7 +2076,7 @@ begin
   begin
     if Row.Control = nil then
     begin
-      var ly := TRowLayout.Create(_content, CreateRowRect);
+      var ly := TRowLayout.Create(_content, CreateRowBackground);
       ly.ClipChildren := True;
       ly.HitTest := False;
       ly.Align := TAlignLayout.None;
@@ -2089,7 +2090,7 @@ begin
         ly.Sides := [];
     end;
 
-    DataControlClassFactory.HandleRowBackground(Row.ControlAsRowLayout.Background, (TreeOption_AlternatingRowBackground in _options) and not Row.IsOddRow);
+    DataControlClassFactory.HandleRowBackground(Row.ControlAsRowLayout.Background, (TreeOption_AlternatingRowBackground in _options), not Row.IsOddRow);
     Row.Control.Position.X := 0;
 
     if not rowInfo.ControlNeedsResizeSoft then
@@ -2532,6 +2533,13 @@ begin
   var doIgnoreMaster := TryStartIgnoreMasterSynchronizer(True);
   try
     ResetView;
+
+    // in case of a revert of a newly added item..
+    if _selectionInfo.ViewListIndex > _view.ViewCount - 1 then
+    begin
+      _mustShowSelectionInRealign := False;
+      ClearSelections;
+    end;
   finally
     StopIgnoreMasterSynchronizer(doIgnoreMaster);
   end;
@@ -2610,7 +2618,7 @@ begin
   if (viewIndex = -1) and filterChanged and (customDataItem <> nil) then
     viewIndex := _view.GetViewListIndex(customDataItem);
 
-  if (viewIndex <> -1) and (_view.ViewCount > 0) then
+  if (viewIndex <> -1) and (_view.ViewCount > 0) and (viewIndex <= _view.ViewCount - 1) then
   begin
     UpdateSelectionInfo(self, viewIndex);
 
@@ -2709,6 +2717,7 @@ begin
   if (SelectedItems = nil) or (SelectedItems.Count = 0) then
     Exit;
 
+  _selectionInfo.LastSelectionEventTrigger := TSelectionEventTrigger.External;
   _selectionInfo.BeginUpdate;
   try
     _selectionInfo.ClearAllSelections;

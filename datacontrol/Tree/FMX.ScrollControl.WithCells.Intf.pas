@@ -135,6 +135,8 @@ type
     procedure set_Format(const Value: CString);
     function  get_HorzAlign: TDCTextAlign;
     procedure set_HorzAlign(const Value: TDCTextAlign);
+    function  get_VertAlign: TDCTextAlign;
+    procedure set_VertAlign(const Value: TDCTextAlign);
 
     function  Clone: IDCColumnVisualisation;
 
@@ -149,6 +151,7 @@ type
     property IgnoreHeightByRowCalculation: Boolean read get_IgnoreHeightByRowCalculation write set_IgnoreHeightByRowCalculation;
     property Format: CString read get_Format write set_Format;
     property HorzAlign: TDCTextAlign read get_HorzAlign write set_HorzAlign;
+    property VertAlign: TDCTextAlign read get_VertAlign write set_VertAlign;
   end;
 
   IDCTreeColumn = interface;
@@ -385,6 +388,7 @@ type
     procedure set_HideColumnInView(const Value: Boolean);
     function  get_ContainsData: TColumnContainsData;
     function  get_CalculatedHorzAlign: TTextAlign;
+    function  get_CalculatedVertAlign: TTextAlign;
 
     function  get_ActiveFilter: ITreeFilterDescription;
     procedure set_ActiveFilter(const Value: ITreeFilterDescription);
@@ -408,6 +412,7 @@ type
 
     property ContainsData: TColumnContainsData read get_ContainsData;
     property CalculatedHorzAlign: TTextAlign read get_CalculatedHorzAlign;
+    property CalculatedVertAlign: TTextAlign read get_CalculatedVertAlign;
 
     property ActiveFilter: ITreeFilterDescription read get_ActiveFilter write set_ActiveFilter;
     property ActiveSort: IListSortDescription read get_ActiveSort write set_ActiveSort;
@@ -470,7 +475,8 @@ type
     function  get_Column: IDCTreeColumn;
     function  get_LayoutColumn: IDCTreeLayoutColumn;
     function  get_Control: TControl;
-    procedure set_Control(const Value: TControl);
+    function  get_BackgroundControl: IBackgroundControl;
+    procedure set_BackgroundControl(const Value: IBackgroundControl);
     function  get_ExpandButton: TLayout;
     procedure set_ExpandButton(const Value: TLayout);
     function  get_HideCellInView: Boolean;
@@ -507,7 +513,8 @@ type
     property Column: IDCTreeColumn read get_Column;
     property LayoutColumn: IDCTreeLayoutColumn read get_LayoutColumn;
 
-    property Control: TControl read get_Control write set_Control;
+    property Control: TControl read get_Control;
+    property BackgroundControl: IBackgroundControl read get_BackgroundControl write set_BackgroundControl;
     property InfoControl: IDCControl read get_InfoControl write set_InfoControl;
     property CustomInfoControlBounds: TRectF read get_CustomInfoControlBounds write set_CustomInfoControlBounds;
     property SubInfoControl: IDCControl read get_SubInfoControl write set_SubInfoControl;

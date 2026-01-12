@@ -355,7 +355,7 @@ begin
   end;
 
 //  {$IFDEF DEBUG}
-//  Self.Canvas.Fill.Color := TALphaColors.Red;
+//  Self.Canvas.Fill.Color := TALphaColors.Green;
 //  Self.Canvas.FillRect(RectF(0, 0, Self.Width, Self.Height), 0.2);
 //
 //  Self.Canvas.Fill.Color := TALphaColors.Purple;

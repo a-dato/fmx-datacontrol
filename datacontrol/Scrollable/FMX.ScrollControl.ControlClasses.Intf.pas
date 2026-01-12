@@ -193,6 +193,31 @@ type
     property Text: CString read get_Text write set_Text;
   end;
 
+  IBackgroundControl = interface
+    ['{C0F12B2D-7C93-478F-809F-BC8A66166F84}']
+    function  GetXRadius: Single;
+    procedure SetXRadius(const Value: Single);
+    function  GetYRadius: Single;
+    procedure SetYRadius(const Value: Single);
+    function  GetCorners: TCorners;
+    procedure SetCorners(const Value: TCorners);
+    function  GetSides: TSides;
+    procedure SetSides(const Value: TSides);
+    function  GetFillColor: TAlphaColor;
+    procedure SetFillColor(const Value: TAlphaColor);
+    function  GetStrokeColor: TAlphaColor;
+    procedure SetStrokeColor(const Value: TAlphaColor);
+
+    function AsControl: TControl;
+
+    property Corners: TCorners read GetCorners write SetCorners;
+    property Sides: TSides read GetSides write SetSides;
+    property XRadius: Single read GetXRadius write SetXRadius;
+    property YRadius: Single read GetYRadius write SetYRadius;
+    property FillColor: TAlphaColor read GetFillColor write SetFillColor;
+    property StrokeColor: TAlphaColor read GetStrokeColor write SetStrokeColor;
+  end;
+
   IRowLayout = interface
     ['{C553D374-7432-4700-8C60-849A4F0CF5A8}']
     function  get_UseBuffering: Boolean;
@@ -201,7 +226,7 @@ type
     procedure set_Sides(const Value: TSides);
 
     procedure ResetBuffer;
-    function  Background: TRectangle;
+    function  Background: IBackgroundControl;
 
     property UseBuffering: Boolean read get_UseBuffering write set_UseBuffering;
     property Sides: TSides read get_Sides write set_Sides;
@@ -209,13 +234,13 @@ type
 
   IDCControlClassFactory = interface
     ['{08ADE46F-92EA-4A14-9208-51FD5347C754}']
-    function CreateHeaderRect(const Owner: TComponent): TRectangle;
-    function CreateHeaderCellRect(const Owner: TComponent): TRectangle;
+    function CreateHeaderRect(const Owner: TComponent): IBackgroundControl;
+    function CreateHeaderCellRect(const Owner: TComponent): IBackgroundControl;
 
     function IsCustomFactory: Boolean;
 
-    function CreateRowCellRect(const Owner: TComponent): TRectangle;
-    function CreateRowRect(const Owner: TComponent): TRectangle;
+    function CreateRowCellRect(const Owner: TComponent): IBackgroundControl;
+    function CreateRowRect(const Owner: TComponent): IBackgroundControl;
 
     function CreateText(const Owner: TComponent): IDCControl;
     function CreateButton(const Owner: TComponent): IDCControl;
@@ -228,7 +253,7 @@ type
     function CreateMemo(const Owner: TComponent): IDCEditControl;
     function CreateDateEdit(const Owner: TComponent): IDateEditControl;
 
-    procedure HandleRowBackground(const RowRect: TRectangle; Alternate: Boolean);
+    procedure HandleRowBackground(const RowRect: IBackgroundControl; AlternateAvailable: Boolean; Alternate: Boolean);
   end;
 
 implementation

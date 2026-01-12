@@ -82,7 +82,7 @@ type
     _freeNotify: IFreeNotification;
 
     function  get_UseBuffering: Boolean;
-    procedure set_UseBuffering(const Value: Boolean);
+    procedure set_UseBuffering(const Value: Boolean); virtual;
 
     procedure Paint; override;
     procedure DoAddObject(const AObject: TFmxObject); override;
@@ -90,6 +90,7 @@ type
     procedure DoResized; override;
     function  ObjectAtPoint(P: TPointF): IControl; override;
 
+    procedure ClearAddedChildren;
     procedure OnAddedChildDestroy(const AObject: TFMXObject);
   public
     constructor Create(AOwner: TComponent); override;
@@ -100,10 +101,53 @@ type
     property UseBuffering: Boolean read get_UseBuffering write set_UseBuffering default True;
   end;
 
+  TBackgroundControl = class(TControl, IBackgroundControl)
+  private
+    FStrokeThickness: Single;
+  protected
+    FYRadius: Single;
+    FXRadius: Single;
+    FCorners: TCorners;
+    FSides: TSides;
+    FFillColor: TAlphaColor;
+    FStrokeColor: TAlphaColor;
+
+    function  GetXRadius: Single;
+    procedure SetXRadius(const Value: Single);
+    function  GetYRadius: Single;
+    procedure SetYRadius(const Value: Single);
+    function  GetCorners: TCorners;
+    procedure SetCorners(const Value: TCorners);
+    function  GetSides: TSides;
+    procedure SetSides(const Value: TSides);
+    function  GetFillColor: TAlphaColor;
+    procedure SetFillColor(const Value: TAlphaColor);
+    function  GetStrokeColor: TAlphaColor;
+    procedure SetStrokeColor(const Value: TAlphaColor);
+
+    function  AsControl: TControl;
+
+    function GetShapeRect: TRectF;
+    function HasStroke: Boolean;
+
+    procedure DoInternalChanged; virtual;
+
+  public
+    constructor Create(AOwner: TComponent); override;
+    procedure Paint; override;
+
+    property Corners: TCorners read GetCorners write SetCorners;
+    property Sides: TSides read GetSides write SetSides;
+    property XRadius: Single read GetXRadius write SetXRadius;
+    property YRadius: Single read GetYRadius write SetYRadius;
+    property FillColor: TAlphaColor read GetFillColor write SetFillColor;
+    property StrokeColor: TAlphaColor read GetStrokeColor write SetStrokeColor;
+  end;
+
 implementation
 
 uses
-  FMX.Forms, FMX.Text, System.Rtti;
+  FMX.Forms, FMX.Text, System.Rtti, System.Math.Vectors;
 
 { TAdaptableBufferedScene }
 
@@ -363,7 +407,7 @@ begin
 
   FBuffer.BitmapScale := Scale;
   FBuffer.SetSize(Ceil(FWidth * Scale), Ceil(FHeight * Scale));
-//  Invalidate;
+  Invalidate;
 end;
 
 procedure TAdaptableBufferedScene.SetSize(const AWidth, AHeight: Integer);
@@ -427,6 +471,14 @@ end;
 
 { TAdaptableBufferedLayout }
 
+procedure TAdaptableBufferedLayout.ClearAddedChildren;
+begin
+  for var child in FAddedChildren do
+    child.RemoveFreeNotify(_freeNotify);
+
+  SetLength(FAddedChildren, 0);
+end;
+
 constructor TAdaptableBufferedLayout.Create(AOwner: TComponent);
 begin
   inherited;
@@ -451,7 +503,7 @@ end;
 
 procedure TAdaptableBufferedLayout.DoAddObject(const AObject: TFmxObject);
 begin
-  if ((AScene <> nil) and (AObject <> AScene)) and (TArray.IndexOf<TFMXObject>(FAddedChildren, AObject) = -1) then
+  if not get_UseBuffering and not TArray.Contains<TFMXObject>(FAddedChildren, AObject) then
   begin
     SetLength(FAddedChildren, Length(FAddedChildren) + 1);
     FAddedChildren[High(FAddedChildren)] := AObject;
@@ -459,7 +511,7 @@ begin
     AObject.AddFreeNotify(_freeNotify);
   end;
 
-  if (AScene <> nil) and (AObject <> AScene) and FUseBuffering then
+  if (AScene <> nil) and (AObject <> AScene) and (AObject <> AStoredScene) and get_UseBuffering then
     AScene.AddObject(AObject)
   else
     inherited;
@@ -505,15 +557,15 @@ procedure TAdaptableBufferedLayout.Paint;
 begin
   if AScene <> nil then
   begin
-    if not FUseBuffering then
-    begin
-      AScene.UpdateBuffer;
-      AScene.Invalidate;
+    try
+      AScene.DrawTo;
+      Canvas.DrawBitmap(AScene.Buffer, AScene.Buffer.BoundsF, LocalRect, AbsoluteOpacity, True);
+    except
+      AScene.DrawTo;
+      Canvas.DrawBitmap(AScene.Buffer, AScene.Buffer.BoundsF, LocalRect, AbsoluteOpacity, True);
     end;
-
-    AScene.DrawTo;
-    Canvas.DrawBitmap(AScene.Buffer, AScene.Buffer.BoundsF, LocalRect, AbsoluteOpacity, True);
-  end;
+  end else
+    inherited;
 
   if (csDesigning in ComponentState) and not Locked then
     DrawDesignBorder;
@@ -535,10 +587,7 @@ begin
     scene := AStoredScene;
 
   if scene <> nil then
-  begin
     scene.UpdateBuffer;
-    scene.Invalidate;
-  end;
 end;
 
 procedure TAdaptableBufferedLayout.set_UseBuffering(const Value: Boolean);
@@ -552,15 +601,38 @@ begin
   begin
     AScene := AStoredScene;
     AStoredScene := nil;
+
+    for var child in FAddedChildren do
+    begin
+      child.Parent := nil;
+      DoAddObject(child);
+    end;
+
+    ClearAddedChildren;
+
+    AScene.UpdateBuffer;
   end else begin
     AStoredScene := AScene;
     AScene := nil;
-  end;
 
-  for var item in FAddedChildren do
-  begin
-    item.Parent := nil;
-    DoAddObject(item);
+    ClearAddedChildren;
+    if (AStoredScene <> nil) then
+    begin
+      for var child in AStoredScene.FControls do
+        if not TArray.Contains<TFMXObject>(FAddedChildren, child) then
+        begin
+          SetLength(FAddedChildren, Length(FAddedChildren) + 1);
+          FAddedChildren[High(FAddedChildren)] := child;
+
+          child.AddFreeNotify(_freeNotify);
+        end;
+
+      for var child in FAddedChildren do
+      begin
+        child.Parent := nil;
+        inherited DoAddObject(child);
+      end;
+    end;
   end;
 end;
 
@@ -577,6 +649,160 @@ procedure TAddedControlFreeNotification.FreeNotification(AObject: TObject);
 begin
   var fmxObj := TFMXObject(AObject);
   _bffLayout.DoRemoveObject(fmxObj);
+end;
+
+{ TBackgroundControl }
+
+constructor TBackgroundControl.Create(AOwner: TComponent);
+begin
+  inherited;
+
+  FSides := AllSides;
+  FCorners := AllCorners;
+  FStrokeThickness := 1;
+
+  CanParentFocus := True;
+  HitTest := False;
+end;
+
+procedure TBackgroundControl.Paint;
+begin
+  if FFillColor <> TAlphaColors.Null then
+  begin
+    Canvas.Fill.Color := FFillColor;
+    Canvas.FillRect(LocalRect, FXRadius, FYRadius, FCorners, AbsoluteOpacity, TCornerType.Round);
+  end;
+
+  var drawStroke := (FStrokeColor <> TAlphaColors.Null) and (FSides <> []);
+  if not drawStroke then
+    Exit;
+
+  Canvas.Stroke.Kind := TBrushKind.Solid;
+  Canvas.Stroke.Color := FStrokeColor;
+  Canvas.Stroke.Thickness := FStrokeThickness;
+  if FSides <> AllSides then
+    Canvas.DrawRectSides(GetShapeRect, FXRadius, FYRadius, FCorners,  AbsoluteOpacity, FSides, TCornerType.Round) else
+    Canvas.DrawRect(GetShapeRect, XRadius, YRadius, FCorners, AbsoluteOpacity, TCornerType.Round);
+
+  inherited;
+end;
+
+procedure TBackgroundControl.DoInternalChanged;
+begin
+  Repaint;
+end;
+
+function TBackgroundControl.GetCorners: TCorners;
+begin
+  Result := FCorners;
+end;
+
+function TBackgroundControl.GetFillColor: TAlphaColor;
+begin
+  Result := FFillColor;
+end;
+
+function TBackgroundControl.GetShapeRect: TRectF;
+begin
+  Result := LocalRect;
+  if HasStroke then
+    InflateRect(Result, -(FStrokeThickness / 2), -(FStrokeThickness / 2));
+end;
+
+function TBackgroundControl.GetSides: TSides;
+begin
+  Result := FSides;
+end;
+
+function TBackgroundControl.GetStrokeColor: TAlphaColor;
+begin
+  Result := FStrokeColor;
+end;
+
+function TBackgroundControl.GetXRadius: Single;
+begin
+  Result := FXRadius;
+end;
+
+function TBackgroundControl.GetYRadius: Single;
+begin
+  Result := FYRadius;
+end;
+
+function TBackgroundControl.AsControl: TControl;
+begin
+  Result := Self;
+end;
+
+function TBackgroundControl.HasStroke: Boolean;
+begin
+  Result := (FStrokeColor <> TAlphaColors.Null) and (FSides <> []);
+end;
+
+procedure TBackgroundControl.SetCorners(const Value: TCorners);
+begin
+  if FCorners <> Value then
+  begin
+    FCorners := Value;
+    DoInternalChanged;
+  end;
+end;
+
+procedure TBackgroundControl.SetFillColor(const Value: TAlphaColor);
+begin
+  if FFillColor <> Value then
+  begin
+    FFillColor := Value;
+    DoInternalChanged;
+  end;
+end;
+
+procedure TBackgroundControl.SetSides(const Value: TSides);
+begin
+  if FSides <> Value then
+  begin
+    FSides := Value;
+    DoInternalChanged;
+  end;
+end;
+
+procedure TBackgroundControl.SetStrokeColor(const Value: TAlphaColor);
+begin
+  if FStrokeColor <> Value then
+  begin
+    FStrokeColor := Value;
+    DoInternalChanged;
+  end;
+end;
+
+procedure TBackgroundControl.SetXRadius(const Value: Single);
+var
+  NewValue: Single;
+begin
+  if csDesigning in ComponentState then
+    NewValue := Min(Value, Min(Width / 2, Height / 2))
+  else
+    NewValue := Value;
+  if not SameValue(FXRadius, NewValue, TEpsilon.Vector) then
+  begin
+    FXRadius := NewValue;
+    DoInternalChanged;
+  end;
+end;
+
+procedure TBackgroundControl.SetYRadius(const Value: Single);
+var
+  NewValue: Single;
+begin
+  if csDesigning in ComponentState then
+    NewValue := Min(Value, Min(Width / 2, Height / 2))
+  else
+    NewValue := Value;
+  if not SameValue(FYRadius, NewValue, TEpsilon.Vector) then
+  begin
+    FYRadius := NewValue;
+    DoInternalChanged;
+  end;
 end;
 
 end.

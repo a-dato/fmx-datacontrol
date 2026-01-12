@@ -79,6 +79,8 @@ type
 
     procedure OnViewChanged(Sender: TObject; e: EventArgs); override;
 
+    procedure HandleTreeOptionsChange(const OldFlags, NewFlags: TDCTreeOptions); override;
+
   public
     function  ItemCheckedInColumn(const Item: CObject; const Column: IDCTreeColumn): Boolean;
     function  CheckedItemsInColumn(const Column: IDCTreeColumn): List<CObject>;
@@ -419,7 +421,7 @@ procedure TScrollControlWithEditableCells.KeyDown(var Key: Word; var KeyChar: Wi
     if (Key = vkInsert) then
       Exit(True);
 
-    if (Key = vkDown) and not (ssCtrl in Shift) and not (ssShift in Shift) and (_view <> nil) and (Self.Current = _view.ViewCount - 1) then
+    if (Key = vkDown) and not (ssCtrl in Shift) and not (ssShift in Shift) and (_view <> nil) and (Self.Current = _view.ViewCount - 1) and (TDCTreeOption.AllowAddNewRowsWithDownKey in _options) then
       Exit(True);
   end;
 
@@ -523,7 +525,7 @@ begin
     end;
 
     {$IFNDEF WEBASSEMBLY}
-    if KeyChar.IsLetterOrDigit or (KeyChar = ' ') then
+    if (Key = 0) and KeyChar.IsDefined then
     begin
       if CanEditCell(GetActiveCell) then
       begin
@@ -1375,11 +1377,14 @@ begin
       _editingInfo.CellEditingFinished;
 
       var row := cell.Row as IDCTreeRow;
-      HideEditor;
 
-      // reset width of the cell
-      if row.ContentCellSizes.ContainsKey(cell.Index) then
-        row.ContentCellSizes.Remove(cell.Index);
+      // reset width of all cells, because multiple columns can depend on this item
+      row.ContentCellSizes.Clear;
+//      if row.ContentCellSizes.ContainsKey(cell.Index) then
+//        row.ContentCellSizes.Remove(cell.Index);
+
+      // Hide Editor after clear row.ContentCellSizes
+      HideEditor;
 
       DoDataItemChangedInternal(row.DataItem);
 
@@ -1543,6 +1548,16 @@ begin
 
   if (UserValue = nil) or not _CellEditor.TryBeginEditWithUserKey(StartEditArgs.Value, UserValue) then
     _cellEditor.BeginEdit(StartEditArgs.Value);
+end;
+
+procedure TScrollControlWithEditableCells.HandleTreeOptionsChange(const OldFlags, NewFlags: TDCTreeOptions);
+begin
+  if (TDCTreeOption.AllowAddNewRows in OldFlags) and not (TDCTreeOption.AllowAddNewRows in NewFlags) then
+    _options := _options - [TDCTreeOption.AllowAddNewRowsWithDownKey]
+  else if not (TDCTreeOption.AllowAddNewRowsWithDownKey in OldFlags) and (TDCTreeOption.AllowAddNewRowsWithDownKey in NewFlags) then
+    _options := _options + [TDCTreeOption.AllowAddNewRows];
+
+  inherited;
 end;
 
 procedure TScrollControlWithEditableCells.HideEditor;
@@ -1777,8 +1792,6 @@ begin
   if not _editingInfo.RowIsEditing then
     Exit(True); // already done in DoEditCellEnd
 
-  ARow.UseBuffering := True;
-
   Result := True;
   if Assigned(_editRowEnd) then
   begin
@@ -1830,16 +1843,9 @@ begin
     _view.EndEdit;
     _editingInfo.RowEditingFinished;
 
-    // it can be that the EditRowStart is activated by user event that triggers this EditRowEnd
-    // for excample by clicking a checkbox on a next row or inserting a new row by "INSERT"
-    // therefor we have to wait a little
-//    TThread.ForceQueue(nil, procedure
-//    begin
-//      if not IsEditOrNew then
-//        DoDataItemChanged(editItem, dataIndex);
-//    end);
-
     DoDataItemChanged(ARow.ViewListIndex, editItem, {out} ChangeUpdatedSort);
+
+    ARow.UseBuffering := True;
   end;
 end;
 
