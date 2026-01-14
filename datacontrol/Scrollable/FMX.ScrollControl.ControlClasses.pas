@@ -315,14 +315,14 @@ type
     property EditControl: IDCEditControl read get_EditControl implements IDCEditControl;
   end;
 
-  TGlyphControl = class(TGlyph, IDCControl)
+  TGlyphControl = class(TGlyph, IImageControl)
   protected
-    _dcControl: IDCControl;
-    function  get_DCControl: IDCControl;
+    _imageControl: IImageControl;
+    function  get_ImageControl: IImageControl;
 
   public
     constructor Create(AOwner: TComponent); override;
-    property DCControl: IDCControl read get_DCControl implements IDCControl;
+    property ImageControl: IImageControl read get_ImageControl implements IImageControl;
   end;
 
   TRowLayout = class(TAdaptableBufferedLayout, IRowLayout)
@@ -357,8 +357,8 @@ type
     function CreateRowCellRect(const Owner: TComponent): IBackgroundControl; virtual;
 
     function CreateText(const Owner: TComponent): IDCControl; virtual;
-    function CreateButton(const Owner: TComponent): IDCControl; virtual;
-    function CreateGlyph(const Owner: TComponent): IDCControl; virtual;
+    function CreateButton(const Owner: TComponent): IImageControl; virtual;
+    function CreateGlyph(const Owner: TComponent): IImageControl; virtual;
 
     function CreateCheckBox(const Owner: TComponent): IDCEditControl; virtual;
     function CreateRadioButton(const Owner: TComponent): IDCEditControl; virtual;
@@ -434,7 +434,7 @@ begin
 end;
 {$ENDIF}
 
-function TDataControlClassFactory.CreateButton(const Owner: TComponent): IDCControl;
+function TDataControlClassFactory.CreateButton(const Owner: TComponent): IImageControl;
 begin
    Result := TFastButton.Create(Owner);
 end;
@@ -475,7 +475,7 @@ begin
   Result := TRadioButtonEditControl.Create(Owner);
 end;
 
-function TDataControlClassFactory.CreateGlyph(const Owner: TComponent): IDCControl;
+function TDataControlClassFactory.CreateGlyph(const Owner: TComponent): IImageControl;
 begin
    Result := TGlyphControl.Create(Owner);
 end;
@@ -1416,12 +1416,20 @@ end;
 
 function TImageControlImpl.get_ImageIndex: Integer;
 begin
-
+  if _control is TGlyph then
+    Result := TGlyph(_control).ImageIndex
+  else if _control is TFastButton then
+    Result := TFastButton(_control).ImageIndex
+  else
+    Result := -1;
 end;
 
 procedure TImageControlImpl.set_ImageIndex(const Value: Integer);
 begin
-
+  if _control is TGlyph then
+    TGlyph(_control).ImageIndex := Value
+  else if _control is TFastButton then
+    TFastButton(_control).ImageIndex := Value;
 end;
 
 { TGlyphControl }
@@ -1429,12 +1437,12 @@ end;
 constructor TGlyphControl.Create(AOwner: TComponent);
 begin
   inherited;
-  _dcControl := TDCControlImpl.Create(Self);
+  _imageControl := TImageControlImpl.Create(Self);
 end;
 
-function TGlyphControl.get_DCControl: IDCControl;
+function TGlyphControl.get_ImageControl: IImageControl;
 begin
-  Result := _dcControl;
+  Result := _imageControl;
 end;
 
 { TComboBoxControlImpl }

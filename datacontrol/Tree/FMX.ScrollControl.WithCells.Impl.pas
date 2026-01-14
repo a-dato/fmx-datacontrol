@@ -170,6 +170,7 @@ type
     _totalColumnWidth: Single;
     _fullHeaderClick: Boolean;
     _autoMultiSelectColumn: IDCTreeCheckboxColumn;
+    _autoMultiSelectColumnIndex: Integer;
     _localCheckSetInDefaultData: Boolean;
 
     procedure FastColumnAlignAfterColumnChange;
@@ -196,13 +197,17 @@ type
     procedure OnSelectionInfoChanged; override;
     procedure VisualizeRowSelection(const Row: IDCRow); override;
     procedure CheckCorrectColumnSelection( const SelectionInfo: ITreeSelectionInfo; const Row: IDCTreeRow);
-    procedure UpdateMultiSelectColumnVisibility;
+
+    function  AutoMultiSelectColumnShowing: Boolean;
+    procedure CheckShowAutoMultiSelectColumn;
+    procedure CheckHideAutoMultiSelectColumn(const OldRow: IDCRow; const Shift: TShiftState);
 
     function  GetInitializedWaitForRefreshInfo: IWaitForRepaintInfo; override;
 
     procedure InternalDoSelectColumn(const LayoutColumnIndex: Integer; Shift: TShiftState);
     function  TrySelectItem(const RequestedSelectionInfo: IRowSelectionInfo; Shift: TShiftState): Boolean; override;
 
+    procedure KeyDown(var Key: Word; var KeyChar: WideChar; Shift: TShiftState); override;
     procedure UserClicked(Button: TMouseButton; Shift: TShiftState; const X, Y: Single); override;
     procedure OnHeaderClick(Sender: TObject);
     procedure OnHeaderMouseUp(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Single); virtual;
@@ -288,6 +293,7 @@ type
     property  Layout: IDCTreeLayout read get_Layout;
     property  HeaderRow: IDCHeaderRow read _headerRow;
     property  SelectedColumn: IDCTreeLayoutColumn read get_SelectedColumn;
+    property  AutoMultiSelectColumnIndex: Integer write _autoMultiSelectColumnIndex;
 
   public
     // designer properties
@@ -1001,7 +1007,8 @@ uses
   , app.intf
   , app.PropertyDescriptor.intf
   {$ENDIF}
-  , FMX.ScrollControl.ControlClasses, System.Generics.Collections;
+  , FMX.ScrollControl.ControlClasses,
+  System.Generics.Collections;
 
 
 { TScrollControlWithCells }
@@ -1032,7 +1039,6 @@ begin
   var lastFlatColumn := _treeLayout.FlatColumns[_treeLayout.FlatColumns.Count - 1];
   if selInfo.SelectedLayoutColumn > lastFlatColumn.Index then
     selInfo.SelectedLayoutColumn := lastFlatColumn.Index;
-
 
   if _view <> nil then
   begin
@@ -1535,8 +1541,19 @@ begin
   end;
 end;
 
+procedure TScrollControlWithCells.KeyDown(var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
+begin
+  var row := GetActiveRow;
+
+  inherited;
+
+  CheckHideAutoMultiSelectColumn(row, Shift);
+end;
+
 procedure TScrollControlWithCells.UserClicked(Button: TMouseButton; Shift: TShiftState; const X, Y: Single);
 begin
+  var currentRow := GetActiveRow;
+
   var clickedRow := GetRowByLocalY(Y);
   if clickedRow = nil then Exit;
 
@@ -1576,6 +1593,8 @@ begin
   requestedSelection.SelectedLayoutColumn := flatColumn.Index;
 
   TrySelectItem(requestedSelection, Shift);
+
+  CheckHideAutoMultiSelectColumn(currentRow, Shift);
 end;
 
 procedure TScrollControlWithCells.PerformanceRoutineLoadedRow(const Row: IDCRow);
@@ -2027,15 +2046,33 @@ begin
   end;
 end;
 
-procedure TScrollControlWithCells.UpdateMultiSelectColumnVisibility;
+function TScrollControlWithCells.AutoMultiSelectColumnShowing: Boolean;
 begin
-  if (_autoMultiSelectColumn = nil) then
+  Result := (_autoMultiSelectColumn <> nil) and _autoMultiSelectColumn.Visualisation.Visible;
+end;
+
+procedure TScrollControlWithCells.CheckHideAutoMultiSelectColumn(const OldRow: IDCRow; const Shift: TShiftState);
+begin
+  if not AutoMultiSelectColumnShowing then
     Exit;
 
-  var makeVisible := _selectionInfo.IsMultiSelection {only visible by 2 or more selected};
-  if (_autoMultiSelectColumn <> nil) and (_autoMultiSelectColumn.Visualisation.Visible <> makeVisible) then
+  if not (ssCtrl in Shift) and not (ssShift in Shift) and (OldRow <> GetActiveRow) and not _selectionInfo.IsSelected(OldRow.DataIndex) then
   begin
-    _autoMultiSelectColumn.Visualisation.Visible := not _autoMultiSelectColumn.Visualisation.Visible;
+    _autoMultiSelectColumn.Visualisation.Visible := False;
+    (GetInitializedWaitForRefreshInfo as IDCControlWaitForRepaintInfo).ColumnsChanged;
+
+    ColumnVisibilityChanged(_autoMultiSelectColumn, False);
+  end;
+end;
+
+procedure TScrollControlWithCells.CheckShowAutoMultiSelectColumn;
+begin
+  if (_autoMultiSelectColumn = nil) or _autoMultiSelectColumn.Visualisation.Visible then
+    Exit;
+
+  if (_autoMultiSelectColumn.Visualisation.Visible or _selectionInfo.IsMultiSelection {only visible by 2 or more selected}) then
+  begin
+    _autoMultiSelectColumn.Visualisation.Visible := True;
     (GetInitializedWaitForRefreshInfo as IDCControlWaitForRepaintInfo).ColumnsChanged;
 
     ColumnVisibilityChanged(_autoMultiSelectColumn, False);
@@ -2059,7 +2096,7 @@ begin
     end;
   end;
 
-  UpdateMultiSelectColumnVisibility;
+  CheckShowAutoMultiSelectColumn;
 
   if not _selectionInfo.HasSelection then
     Exit;
@@ -2267,8 +2304,8 @@ begin
     Exit(_columns);
 
   var list: List<IDCTreeColumn> := CList<IDCTreeColumn>.Create(_columns.Count + 1);
-  list.Add(_autoMultiSelectColumn);
   list.AddRange(_columns);
+  list.Insert(_autoMultiSelectColumnIndex, _autoMultiSelectColumn);
 
   Result :=  list;
 end;
@@ -2293,6 +2330,7 @@ begin
   _autoExtraColumnSizeMax := -1;
 
   _scrollingHideColumnsFromIndex := 5;
+  _autoMultiSelectColumnIndex := 0;
 
   _cellTopBottomPadding := ROW_CONTENT_MARGIN;
   _cellLeftRightPadding := ROW_CONTENT_MARGIN;
@@ -2398,10 +2436,12 @@ begin
     _autoMultiSelectColumn.TreeControl := Self;
     _autoMultiSelectColumn.WidthSettings.WidthType := TDCColumnWidthType.Pixel;
     _autoMultiSelectColumn.WidthSettings.Width := 30;
+    _autoMultiSelectColumn.Visualisation.Selectable := False;
     _autoMultiSelectColumn.Visualisation.Frozen := True;
+    _autoMultiSelectColumn.Visualisation.Visible := False;
     _autoMultiSelectColumn.Tag := AUTO_SELECT_COLUMN_TAG;
 
-    UpdateMultiSelectColumnVisibility;
+    CheckShowAutoMultiSelectColumn;
   end;
 end;
 
@@ -2965,11 +3005,13 @@ begin
   var flatColumn := GetFlatColumnByKey(Key, Shift, (_selectionInfo as ITreeSelectionInfo).SelectedLayoutColumn);
   var rowViewListIndex := GetRowViewListIndexByKey(Key, Shift);
 
-  // no row visible / available anymore
-  // refreshcontrol in case a row was showing, butis filtered out now
   if rowViewListIndex = -1 then
   begin
-    RefreshControl(True);
+    // check if no row visible / available anymore
+    // refreshcontrol in case a row was showing, butis filtered out now
+    if (_view <> nil) and (_view.ViewCount = 0) then
+      RefreshControl(True);
+
     Exit;
   end;
 
@@ -5458,7 +5500,7 @@ begin
     var lyClmnIx: Integer;
     for lyClmnIx := _layoutColumns.Count - 1 downto 0 do
       if not fullClmnList.Contains(_layoutColumns[lyClmnIx].Column) then
-        _layoutColumns.RemoveAt(lyClmnIx);    
+        _layoutColumns.RemoveAt(lyClmnIx);
   end;
 
   var updatedLayoutClmns: List<IDCTreeLayoutColumn> := CList<IDCTreeLayoutColumn>.Create;
@@ -5792,7 +5834,7 @@ begin
     _contentCellSizes.Clear;
 
   var cell: IDCTreeCell;
-  for cell in _cells.Values do
+  for cell in get_Cells.Values do
     cell.ClearCellForReassignment;
 
 //  if _innerRowControl <> nil then

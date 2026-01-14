@@ -533,6 +533,8 @@ function TDataViewList.GetTotalDataHeight: Single;
 begin
   if _totalValidDataHeight = -1 then
   begin
+    _totalValidDataHeight := 0;
+
     var ix: Integer;
     for ix := 0 to High(_viewRowHeights) do
     begin
@@ -979,9 +981,6 @@ begin
   begin
     var row := _activeRows[ix];
 
-    if row.ViewPortIndex = -1 then
-      row := _activeRows[ix];
-
     if cleanAll or (row.VirtualYPosition + row.Control.Height <= VirtualYPositionStart) or (row.VirtualYPosition >= VirtualYPositionStop) then
       RemoveRowFromActiveView(row);
   end;
@@ -1066,7 +1065,7 @@ begin
 //
 //  Result := totalAbsoluteHeight + (DefaultRowHeight * (ViewCount - rowsWithValidHeights));
 
-  Result := _totalValidDataHeight + (DefaultRowHeight * (ViewCount - _totalValidHeightCount))
+  Result := GetTotalDataHeight + (DefaultRowHeight * (ViewCount - _totalValidHeightCount))
 end;
 
 procedure TDataViewList.ApplyFilter(const Filters: List<IListFilterDescription>);

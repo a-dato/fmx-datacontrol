@@ -100,7 +100,8 @@ type
     property Text: string read GetText write SetText;
   end;
 
-  IImageControl = interface
+  // Interface that handles button en glyphs as Cell Data controls
+  IImageControl = interface(IDCControl)
     ['{BBB416C1-0739-4EE9-B081-EEB73E78CBD6}']
     function  get_ImageIndex: Integer;
     procedure set_ImageIndex(const Value: Integer);
@@ -243,8 +244,8 @@ type
     function CreateRowRect(const Owner: TComponent): IBackgroundControl;
 
     function CreateText(const Owner: TComponent): IDCControl;
-    function CreateButton(const Owner: TComponent): IDCControl;
-    function CreateGlyph(const Owner: TComponent): IDCControl;
+    function CreateButton(const Owner: TComponent): IImageControl;
+    function CreateGlyph(const Owner: TComponent): IImageControl;
 
     function CreateEdit(const Owner: TComponent): IDCEditControl;
     function CreateComboEdit(const Owner: TComponent): IDCEditControl;
