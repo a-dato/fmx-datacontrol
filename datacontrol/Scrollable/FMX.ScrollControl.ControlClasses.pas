@@ -209,7 +209,7 @@ type
     procedure ComboClear; virtual;
     procedure ComboAdd(const str: string); virtual;
 
-    procedure CheckUpdateComboPopupWidth;
+    procedure CheckUpdateComboPopupWidth; virtual;
     function  ComboUpdateItems(const Items: List<string>) : Boolean; virtual;
 
     procedure DoKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState); override;
@@ -238,6 +238,8 @@ type
     function  ComboIsDroppedDown : Boolean; override;
     procedure ComboClear; override;
     procedure ComboAdd(const str: string); override;
+
+    procedure CheckUpdateComboPopupWidth; override;
 
     procedure DropDown; override;
   end;
@@ -1451,6 +1453,39 @@ begin
   (_control as TComboBox).ItemIndex := Value;
 end;
 
+procedure TComboBoxControlImpl.CheckUpdateComboPopupWidth;
+begin
+  var ce := TComboBox(_control);
+
+  if ce.Items.Count = 0 then
+    Exit;
+
+  {$IFNDEF WEBASSEMBLY}
+  var layout := TTextLayoutManager.DefaultTextLayout.Create;
+  {$ELSE}
+  var layout := TTextLayoutManager.DefaultTextLayout.Create(nil);
+  {$ENDIF}
+  try
+    layout.WordWrap := False;
+    // does not exist for ComboBox
+//    layout.Font := ce.TextSettings.Font;
+    var maxWidth := 0.0;
+
+    var ix: Integer;
+    for ix := 0 to ce.Items.Count - 1 do
+    begin
+      layout.BeginUpdate;
+      layout.Text := ce.Items[ix];
+      layout.EndUpdate;
+      maxWidth := System.Math.Max(maxWidth, layout.Width);
+    end;
+
+    ce.ItemWidth := CMath.Max(ce.width, maxWidth + 10);
+  finally
+    layout.Free;
+  end;
+end;
+
 procedure TComboBoxControlImpl.ComboAdd(const str: string);
 begin
   (_control as TComboBox).Items.Add(str);
@@ -1543,7 +1578,8 @@ begin
 end;
 
 initialization
-  DataControlClassFactory := TDataControlClassFactory.Create;
+  if DataControlClassFactory = nil then
+    DataControlClassFactory := TDataControlClassFactory.Create;
 
   DEFAULT_GREY_COLOR := TAlphaColor($FFF1F2F7);
   DEFAULT_WHITE_COLOR := TAlphaColors.Null;

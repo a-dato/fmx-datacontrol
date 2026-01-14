@@ -83,6 +83,7 @@ type
 
     procedure DoRowLoaded(const ARow: IDCRow); virtual;
     procedure DoRowAligned(const ARow: IDCRow); virtual;
+    function  DrawRowBackground: Boolean; virtual;
 
     function  get_SelectionType: TSelectionType;
     procedure set_SelectionType(const Value: TSelectionType);
@@ -134,6 +135,7 @@ type
     procedure DoViewLoadingFinished;
     procedure CreateAndSynchronizeSynchronizerRow(const Row: IDCRow);
     procedure UpdateRowHeightSynchronizerScrollbar;
+    procedure ValidateSelectionInfo;
 
   protected
     _view: IDataViewList;
@@ -263,6 +265,8 @@ type
     function  GetActiveRow: IDCRow;
 
   protected
+    _resetRowDataItem: Boolean;
+
     procedure OnViewChanged(Sender: TObject; e: EventArgs); virtual;
     procedure DataModelViewRowChanged(const Sender: IBaseInterface; Args: RowChangedEventArgs);
     procedure DataModelViewRowPropertiesChanged(Sender: TObject; Args: RowPropertiesChangedEventArgs); virtual;
@@ -1235,6 +1239,7 @@ end;
 
 function TScrollControlWithRows.get_DataItem: CObject;
 begin
+  ValidateSelectionInfo;
   Result := _selectionInfo.DataItem;
 end;
 
@@ -2096,7 +2101,9 @@ begin
         ly.Sides := [];
     end;
 
-    DataControlClassFactory.HandleRowBackground(Row.ControlAsRowLayout.Background, (TreeOption_AlternatingRowBackground in _options), not Row.IsOddRow);
+    if DrawRowBackground then
+      DataControlClassFactory.HandleRowBackground(Row.ControlAsRowLayout.Background, (TreeOption_AlternatingRowBackground in _options), not Row.IsOddRow);
+
     Row.Control.Position.X := 0;
 
     if not rowInfo.ControlNeedsResizeSoft then
@@ -2421,39 +2428,54 @@ begin
   end;
 end;
 
-procedure TScrollControlWithRows.OnSelectionInfoChanged;
 
-  procedure ValidateSelectionInfo;
+procedure TScrollControlWithRows.ValidateSelectionInfo;
+begin
+  if (_view = nil) or (_view.ViewCount = 0) then
+    Exit;
+
+  if ViewIsDataModelView then
   begin
-    if (_view = nil) or (_selectionInfo.ViewListIndex <> -1) or (_view.ViewCount = 0) then
+    if not _resetRowDataItem and (_selectionInfo.ViewListIndex <> -1) then
       Exit;
 
-    if not ViewIsDataModelView and ((_model = nil) or (_model.ObjectContext = nil)) then
+    _resetRowDataItem := False;
+  end else
+  begin
+    if (_selectionInfo.ViewListIndex <> -1) then
       Exit;
 
-    _selectionInfo.BeginUpdate;
-    try
-      if ViewIsDataModelView then
-      begin
-        var dmv := _dataModelView;
-        if dmv = nil then
-          dmv := (_dataList as IDataModel).DefaultView;
-
-        var drv := dmv.Rows[dmv.CurrencyManager.Current];
-        _selectionInfo.UpdateLastSelection(drv.Row.get_Index, drv.ViewIndex, drv);
-      end else
-      begin
-        var di := _model.ObjectContext;
-        var diIndex := _view.GetViewListIndex(di);
-        var diViewIndex := _view.GetViewListIndex(diIndex);
-
-        _selectionInfo.UpdateLastSelection(diIndex, diViewIndex, di);
-      end;
-    finally
-      _selectionInfo.EndUpdate(True {Ignore events at this point});
-    end;
+    if ((_model = nil) or (_model.ObjectContext = nil)) then
+      Exit;
   end;
 
+  _selectionInfo.BeginUpdate;
+  try
+    if ViewIsDataModelView then
+    begin
+      var dmv := _dataModelView;
+      if dmv = nil then
+        dmv := (_dataList as IDataModel).DefaultView;
+
+      if dmv.CurrencyManager.Current <> -1 then
+      begin
+        var drv := dmv.Rows[dmv.CurrencyManager.Current];
+        _selectionInfo.UpdateLastSelection(drv.Row.get_Index, drv.ViewIndex, drv);
+      end;
+    end else
+    begin
+      var di := _model.ObjectContext;
+      var diIndex := _view.GetViewListIndex(di);
+      var diViewIndex := _view.GetViewListIndex(diIndex);
+
+      _selectionInfo.UpdateLastSelection(diIndex, diViewIndex, di);
+    end;
+  finally
+    _selectionInfo.EndUpdate(True {Ignore events at this point});
+  end;
+end;
+
+procedure TScrollControlWithRows.OnSelectionInfoChanged;
 begin
   if SyncIsMasterSynchronizer then
     Exit;
@@ -2538,6 +2560,7 @@ begin
 
   var doIgnoreMaster := TryStartIgnoreMasterSynchronizer(True);
   try
+    _resetRowDataItem := True;
     ResetView;
 
     // in case of a revert of a newly added item..
@@ -2894,6 +2917,11 @@ begin
     Result.Add(_dragObject);
   end else
     Result := SelectedItems;
+end;
+
+function TScrollControlWithRows.DrawRowBackground: Boolean;
+begin
+  Result := True;
 end;
 
 procedure TScrollControlWithRows.DoViewLoadingFinished;
