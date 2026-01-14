@@ -1272,7 +1272,9 @@ begin
   begin
     inc(_scrollUpdateCount);
     try
-      _vertScrollBar.Max := CMath.Max(_view.TotalDataHeight(get_rowHeightDefault), _content.Height);
+      var newMax := CMath.Max(_view.TotalDataHeight(get_rowHeightDefault), _content.Height);
+      if not SameValue(_vertScrollBar.Max, newMax, 0.5) then
+        _vertScrollBar.Max := newMax;
     finally
       dec(_scrollUpdateCount);
     end;
@@ -2654,7 +2656,7 @@ begin
     if IsMasterSynchronizer then
       UpdateSelectionInfo(_rowHeightSynchronizer, viewIndex);
 
-    _mustShowSelectionInRealign := True;
+//    _mustShowSelectionInRealign := True;
   end;
 end;
 
@@ -2695,22 +2697,22 @@ begin
     if SameValue(originalMax, _vertScrollBar.Max, 0.1) then
       Exit;
 
-    var forcedIndexInView := IfThen(_mustShowSelectionInRealign, get_Current, -1);
-    var scrollToBottom := scrollIsAtEnd or (forcedIndexInView = _view.ViewCount - 1);
+//    var forcedIndexInView := IfThen(_mustShowSelectionInRealign, get_Current, -1);
+    var scrollToBottom := scrollIsAtEnd; // or (forcedIndexInView = _view.ViewCount - 1);
 
     if scrollToBottom then
-      _vertScrollBar.Value := _vertScrollBar.Max - _vertScrollBar.ViewportSize
-    else if forcedIndexInView >= 0 then
-    begin
-      // show as first or as last
-      var row := _view.GetActiveRowIfExists(forcedIndexInView);
-      if row.VirtualYPosition <= _vertScrollBar.Value then
-        _vertScrollBar.Value := row.VirtualYPosition
-      else if GetScrollingType <> TScrollingType.None then
-        _vertScrollBar.Value := (row.VirtualYPosition + row.Height) - _vertScrollBar.ViewportSize
-      else if  (row.VirtualYPosition + row.Height) > (_vertScrollBar.Value + _vertScrollBar.ViewportSize) then
-        _vertScrollBar.Value := (row.VirtualYPosition + row.Height) - _vertScrollBar.ViewportSize;
-    end;
+      _vertScrollBar.Value := _vertScrollBar.Max - _vertScrollBar.ViewportSize;
+//    else if forcedIndexInView >= 0 then
+//    begin
+//      // show as first or as last
+//      var row := _view.GetActiveRowIfExists(forcedIndexInView);
+//      if row.VirtualYPosition <= _vertScrollBar.Value then
+//        _vertScrollBar.Value := row.VirtualYPosition
+//      else if GetScrollingType <> TScrollingType.None then
+//        _vertScrollBar.Value := (row.VirtualYPosition + row.Height) - _vertScrollBar.ViewportSize
+//      else if  (row.VirtualYPosition + row.Height) > (_vertScrollBar.Value + _vertScrollBar.ViewportSize) then
+//        _vertScrollBar.Value := (row.VirtualYPosition + row.Height) - _vertScrollBar.ViewportSize;
+//    end;
 //
 //    // check if _scrollbarMaxChangeSinceViewLoading is postive or negative
 //    // in case of negative, the max of the scrollbar has been set back, and the value of the scrollbar automatically has the right value!!
@@ -2938,7 +2940,7 @@ begin
   try
     StartScrolling;
     try
-      _mustShowSelectionInRealign := True;
+//      _mustShowSelectionInRealign := True;
 
       var isInRealignProcess := _realignState <> TRealignState.RealignDone;
 
@@ -2989,7 +2991,9 @@ begin
   if _view = nil then
     Exit;
 
-  try       
+  try
+    inherited;
+
     var startY := _vertScrollBar.Value;
     var stopY := _vertScrollBar.Value + _vertScrollBar.ViewportSize;
 
@@ -3007,8 +3011,6 @@ begin
           realignBottomTop := True;
       end;
     end;
-
-    inherited;
 
     var goMaster := TryStartMasterSynchronizer(True);
     try
@@ -3072,10 +3074,11 @@ begin
 
   finally
     // set model context / cell selected if the correct one was not set yet
-    if (_waitForRepaintInfo <> nil) and (RowChanged in _waitForRepaintInfo.RowStateFlags) then
-      OnSelectionInfoChanged;
+    var rowIsChanged := (_waitForRepaintInfo <> nil) and (RowChanged in _waitForRepaintInfo.RowStateFlags);
 
     _waitForRepaintInfo := nil;
+    if rowIsChanged then
+      OnSelectionInfoChanged;
   end;
 end;
 
@@ -3312,12 +3315,12 @@ begin
 
     if not SameValue(yChange, 0, 0.5) then
     begin
-      _mustShowSelectionInRealign := True;
+//      _mustShowSelectionInRealign := True;
       if _selectionInfo.LastSelectionEventTrigger = TSelectionEventTrigger.External then
       begin
         _mouseWheelDistanceToGo := Round(yChange);
         _mouseWheelDistanceTotal := _mouseWheelDistanceToGo;
-        ScrollManualTryAnimated2; //(Round(yChange), False)
+        ScrollManualTryAnimated2;
       end
       else
         ScrollManualInstant(Round(yChange));
@@ -4035,19 +4038,25 @@ begin
   // therefore works with Update locks
   BeginUpdate;
   try
-    if _lastSelectedDataIndex = DataIndex then
+    var lastSelectedIsDeselect := _lastSelectedDataIndex = DataIndex;
+
+    if lastSelectedIsDeselect then
     begin
       var item: IRowSelectionInfo;
       for item in _multiSelection.Values do
         if item.DataIndex <> DataIndex then
         begin
           UpdateLastSelection(item.DataIndex, item.ViewListIndex, item.DataItem);
+          lastSelectedIsDeselect := False;
           Break
         end;
     end;
 
-    _multiSelection.Remove(DataIndex);
-    UpdateLastSelection(-1, -1, nil);
+    if _multiSelection.Remove(DataIndex) then
+      _selectionChanged := True;
+
+    if lastSelectedIsDeselect then
+      UpdateLastSelection(-1, -1, nil);
   finally
     EndUpdate; //(True {do not scroll lastselected into view, because it can be out of view, causing scroll action});
   end;
