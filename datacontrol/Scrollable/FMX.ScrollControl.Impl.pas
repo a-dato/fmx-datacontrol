@@ -357,7 +357,9 @@ end;
 procedure TScrollControl.AfterRealignContent;
 begin
   _realignState := TRealignState.AfterRealign;
+
   CalculateScrollBarMax;
+  UpdateScrollbarMargins;
 end;
 
 procedure TScrollControl.AfterScrolling;
@@ -385,8 +387,8 @@ procedure TScrollControl.BeforeRealignContent;
 begin
   _realignState := TRealignState.BeforeRealign;
 
-  CalculateScrollBarMax;
-  UpdateScrollbarMargins;
+//  CalculateScrollBarMax;
+//  UpdateScrollbarMargins;
 end;
 
 function TScrollControl.CanRealignContent: Boolean;

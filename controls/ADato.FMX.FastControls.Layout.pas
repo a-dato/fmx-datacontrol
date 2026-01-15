@@ -483,13 +483,13 @@ constructor TAdaptableBufferedLayout.Create(AOwner: TComponent);
 begin
   inherited;
 
-  FUseBuffering := True;
-  if not (csDesigning in ComponentState) then
-  begin
-    AScene := TAdaptableBufferedScene.Create(Self);
-    AScene.Parent := Self;
-    AScene.Stored := False;
-  end;
+//  FUseBuffering := True;
+//  if not (csDesigning in ComponentState) then
+//  begin
+//    AScene := TAdaptableBufferedScene.Create(Self);
+//    AScene.Parent := Self;
+//    AScene.Stored := False;
+//  end;
 
   SetLength(FAddedChildren, 0);
   _freeNotify := TAddedControlFreeNotification.Create(Self);
@@ -595,7 +595,7 @@ begin
   if FUseBuffering = Value then
     Exit;
 
-  FUseBuffering := Value;
+  FUseBuffering := False; //Value;
 
   if FUseBuffering then
   begin

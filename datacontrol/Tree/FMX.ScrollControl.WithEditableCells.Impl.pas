@@ -80,6 +80,7 @@ type
     procedure OnViewChanged(Sender: TObject; e: EventArgs); override;
 
     procedure HandleTreeOptionsChange(const OldFlags, NewFlags: TDCTreeOptions); override;
+    procedure DoCollapseOrExpandRow(const ViewListIndex: Integer; DoExpand: Boolean); override;
 
   public
     function  ItemCheckedInColumn(const Item: CObject; const Column: IDCTreeColumn): Boolean;
@@ -1782,7 +1783,7 @@ begin
       GetDataModelView.DataModel.BeginEdit(ARow.DataItem.AsType<IDataRowView>.Row);
     end;
 
-    ARow.UseBuffering := False;
+//    ARow.UseBuffering := False;
     _editingInfo.StartRowEdit(ARow.DataIndex, DataItem, IsNew);
 
     _view.StartEdit(_editingInfo.EditItem);
@@ -1873,7 +1874,7 @@ begin
 
     DoDataItemChanged(ARow.ViewListIndex, editItem, {out} ChangeUpdatedSort);
 
-    ARow.UseBuffering := True;
+//    ARow.UseBuffering := True;
   end;
 end;
 
@@ -1892,6 +1893,18 @@ begin
       AValue := e.Value else
       Result := False;
   end;
+end;
+
+procedure TScrollControlWithEditableCells.DoCollapseOrExpandRow(const ViewListIndex: Integer; DoExpand: Boolean);
+begin
+  if IsEditOrNew then
+  begin
+    EndEditFromExternal;
+    if IsEditOrNew then
+      Exit;
+  end;
+
+  inherited;
 end;
 
 destructor TScrollControlWithEditableCells.Destroy;

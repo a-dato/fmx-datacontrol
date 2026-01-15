@@ -70,7 +70,8 @@ type
     function  GetDataIndex(const DataItem: CObject): Integer; overload;
     function  GetViewListIndex(const DataItem: CObject): Integer; overload;
     function  GetViewListIndex(const DataIndex: Integer): Integer; overload;
-    function  FastPerformanceDataIndexIsActive(const DataIndex: Integer): Boolean;
+    function  DataIndexIsInView(const DataIndex: Integer): Boolean;
+
     procedure GetFastPerformanceRowInfo(const ViewListIndex: Integer; out DataItem: CObject; out VirtualYPosition: Single);
     procedure GetSlowPerformanceRowInfo(const ViewListIndex: Integer; out DataItem: CObject; out VirtualYPosition: Single);
 
@@ -81,7 +82,7 @@ type
     function  ItemIsFilteredOut(const DataItem: CObject): Boolean;
 
     procedure Prepare(const DefaultRowHeight: Single);
-    procedure ViewLoadingStart(const VirtualYPositionStart, VirtualYPositionStop: Single; preferedReferenceIndex: Integer = -1); overload;
+    procedure ViewLoadingStart(const VirtualYPositionStart, VirtualYPositionStop: Single; const ReferenceRow: IDCRow); overload;
     procedure ViewLoadingStart(const SynchronizeFromView: IDataViewList); overload;
     procedure ViewLoadingFinished;
     procedure ViewLoadingRemoveNonUsedRows(const TillSpecifiedViewFrameIndex: Integer = -1; const FromTop: Boolean = True);
@@ -100,7 +101,7 @@ type
 
     function ActiveViewRows: List<IDCRow>;
     function ViewCount: Integer;
-    function TotalDataHeight(DefaultRowHeight: Single): Single;
+    function TotalDataHeight: Single;
     function DefaultRowHeight: Single;
     function IsFirstAlign: Boolean;
 

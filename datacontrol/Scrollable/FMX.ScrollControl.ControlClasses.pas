@@ -331,7 +331,6 @@ type
 
     function  get_Sides: TSides;
     procedure set_Sides(const Value: TSides);
-    procedure set_UseBuffering(const Value: Boolean); override;
 
     procedure DoResized; override;
   public
@@ -1562,11 +1561,6 @@ end;
 procedure TRowLayout.set_Sides(const Value: TSides);
 begin
   _rect.Sides := Value;
-end;
-
-procedure TRowLayout.set_UseBuffering(const Value: Boolean);
-begin
-  inherited;
 end;
 
 { TMemoEditControlImpl }

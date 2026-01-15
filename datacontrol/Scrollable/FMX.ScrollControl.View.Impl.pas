@@ -96,7 +96,7 @@ type
     function  ItemIsFilteredOut(const DataItem: CObject): Boolean;
 
     procedure Prepare(const DefaultRowHeight: Single);
-    procedure ViewLoadingStart(const VirtualYPositionStart, VirtualYPositionStop: Single; preferedReferenceIndex: Integer = -1); overload;
+    procedure ViewLoadingStart(const VirtualYPositionStart, VirtualYPositionStop: Single; const ReferenceRow: IDCRow); overload;
     procedure ViewLoadingStart(const SynchronizeFromView: IDataViewList); overload;
 
     procedure ViewLoadingFinished;
@@ -112,7 +112,7 @@ type
     function  GetViewListIndex(const DataIndex: Integer): Integer; overload;
     function  GetDataItem(const ViewListIndex: Integer): CObject;
 
-    function  FastPerformanceDataIndexIsActive(const DataIndex: Integer): Boolean;
+    function  DataIndexIsInView(const DataIndex: Integer): Boolean;
 
     procedure StartEdit(const EditItem: CObject);
     procedure EndEdit;
@@ -129,7 +129,7 @@ type
     function ActiveViewRows: List<IDCRow>;
     function CachedRowHeight(const RowViewListIndex: Integer): Single;
     function ViewCount: Integer;
-    function TotalDataHeight(DefaultRowHeight: Single): Single;
+    function TotalDataHeight: Single;
     function DefaultRowHeight: Single;
     function IsFirstAlign: Boolean;
 
@@ -273,7 +273,7 @@ end;
 //    _onViewChanged(Sender, e);
 //end;
 
-function TDataViewList.FastPerformanceDataIndexIsActive(const DataIndex: Integer): Boolean;
+function TDataViewList.DataIndexIsInView(const DataIndex: Integer): Boolean;
 begin
   if (Length(_activeDataIndexes) = 0) and (_activeRows <> nil) and (_activeRows.Count > 0) then
   begin
@@ -469,22 +469,24 @@ begin
   // otherwise calculating by going through all rows can take very long
   Assert((_activeRows.Count > 0) and (_activeRows[0].Control <> nil));
 
-  {out} DataItem := GetDataItem(ViewListIndex);
-
   var referenceRow: IDCRow;
-  if _activeRows[0].ViewListIndex >= ViewListIndex then
+
+  if _activeRows[0].ViewListIndex >= ViewListIndex then // if above current view
     referenceRow := _activeRows[0]
-  else if _activeRows[_activeRows.Count - 1].ViewListIndex <= ViewListIndex then
+  else if _activeRows[_activeRows.Count - 1].ViewListIndex <= ViewListIndex then // else if below current view
     referenceRow := _activeRows[_activeRows.Count - 1]
-  else
+  else  // else if in current view
     referenceRow := GetActiveRowIfExists(ViewListIndex);
 
   // if already found the correct row
   if referenceRow.ViewListIndex = ViewListIndex then
   begin
+    {out} DataItem := referenceRow.DataItem;
     {out} VirtualYPosition := referenceRow.VirtualYPosition;
     Exit;
   end;
+
+  {out} DataItem := GetDataItem(ViewListIndex);
 
   var findAboveView := referenceRow.ViewListIndex > ViewListIndex;
   var rowIndex: Integer := referenceRow.ViewListIndex;
@@ -968,20 +970,22 @@ begin
   _defaultRowHeight := DefaultRowHeight;
 end;
 
-procedure TDataViewList.ViewLoadingStart(const VirtualYPositionStart, VirtualYPositionStop: Single; preferedReferenceIndex: Integer = -1);
+procedure TDataViewList.ViewLoadingStart(const VirtualYPositionStart, VirtualYPositionStop: Single; const ReferenceRow: IDCRow);
 begin
-  // this method is required when using a datamodel, and expanding / collapsing made the viewlistindexes of above rows stay, which led to a gap between that row and thisrow
-  var cleanAll :=
-    (preferedReferenceIndex <> -1) and
-    (GetActiveRowIfExists(preferedReferenceIndex) = nil) and
-    not ((_performanceVar_activeStartViewListIndex <= preferedReferenceIndex + 1) and (_performanceVar_activeStopViewListIndex >= preferedReferenceIndex - 1));
+//  // this method is required when using a datamodel, and expanding / collapsing made the viewlistindexes of above rows stay, which led to a gap between that row and thisrow
+//  var cleanAll :=
+//    (preferedReferenceIndex <> -1) and
+//    (GetActiveRowIfExists(preferedReferenceIndex) = nil) and
+//    not ((_performanceVar_activeStartViewListIndex <= preferedReferenceIndex + 1) and (_performanceVar_activeStopViewListIndex >= preferedReferenceIndex - 1));
 
   var ix: Integer;
   for ix := _activeRows.Count - 1 downto 0 do
   begin
     var row := _activeRows[ix];
+    if row = ReferenceRow then
+      Continue;
 
-    if cleanAll or (row.VirtualYPosition + row.Control.Height <= VirtualYPositionStart) or (row.VirtualYPosition >= VirtualYPositionStop) then
+    if (row.VirtualYPosition + row.Control.Height <= VirtualYPositionStart) or (row.VirtualYPosition >= VirtualYPositionStop) then
       RemoveRowFromActiveView(row);
   end;
 
@@ -1050,22 +1054,9 @@ begin
   UpdateViewIndexFromIndex(ix);
 end;
 
-function TDataViewList.TotalDataHeight(DefaultRowHeight: Single): Single;
+function TDataViewList.TotalDataHeight: Single;
 begin
-//  var rowsWithValidHeights: Integer := 0;
-//  var totalAbsoluteHeight := 0.0;
-//
-//  var value: TRowInfoRecord;
-//  for value in _viewRowHeights do
-//    if not value.ControlNeedsResizeSoft then
-//    begin
-//      totalAbsoluteHeight := totalAbsoluteHeight + value.GetCalculatedHeight;
-//      inc(rowsWithValidHeights);
-//    end;
-//
-//  Result := totalAbsoluteHeight + (DefaultRowHeight * (ViewCount - rowsWithValidHeights));
-
-  Result := GetTotalDataHeight + (DefaultRowHeight * (ViewCount - _totalValidHeightCount))
+  Result := GetTotalDataHeight + (_defaultRowHeight * (ViewCount - _totalValidHeightCount))
 end;
 
 procedure TDataViewList.ApplyFilter(const Filters: List<IListFilterDescription>);
