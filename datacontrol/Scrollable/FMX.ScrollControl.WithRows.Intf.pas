@@ -160,6 +160,8 @@ type
     function  HasChildren: Boolean;
     function  HasVisibleChildren: Boolean;
     function  ParentCount: Integer;
+    function  IsChildOf(const DataItem: CObject): Boolean;
+    function  IsParentOf(const DataItem: CObject): Boolean;
     function  IsOddRow: Boolean;
 
     procedure ClearRowForReassignment;

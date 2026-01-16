@@ -760,11 +760,15 @@ begin
 
   if (_activeRows <> nil) and (_activeRows.Count > 0) then
   begin
-    if not BottomTop and RowInRange(_activeRows[0]) then
-      Exit(_activeRows[0])
+    var rowIndex := IfThen(BottomTop, _activeRows.Count - 1, 0);
+    while (rowIndex >= 0) and (rowIndex <= _activeRows.Count - 1) do
+    begin
+      var row := _activeRows[rowIndex];
+      if RowInRange(row) then
+        Exit(row);
 
-    else if RowInRange(_activeRows[_activeRows.Count - 1]) then
-      Exit(_activeRows[_activeRows.Count - 1]);
+      rowIndex := IfThen(BottomTop, rowIndex - 1, rowIndex + 1);
+    end;
 
     var row := _activeRows[IfThen(BottomTop, _activeRows.Count - 1, 0)];
     pos := row.VirtualYPosition;

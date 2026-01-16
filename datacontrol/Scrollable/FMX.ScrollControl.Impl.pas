@@ -58,6 +58,7 @@ type
     function  MouseIsDown: Boolean;
 
     procedure TryStartWaitForRealignTimer;
+    procedure StopWaitForRealignTimer;
     procedure RestartWaitForRealignTimer(DoWait: Boolean = False; OnlyForRealignWhenScrollingStopped: Boolean = False);
 
   // scrolling events
@@ -564,6 +565,11 @@ end;
 procedure TScrollControl.StopScrolling;
 begin
   _scrollingType := TScrollingType.None;
+end;
+
+procedure TScrollControl.StopWaitForRealignTimer;
+begin
+  _checkWaitForRealignTimer.Enabled := False;
 end;
 
 function TScrollControl.IsFastScrolling(ScrollbarOnly: Boolean = False): Boolean;

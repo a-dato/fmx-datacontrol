@@ -91,6 +91,7 @@ type
     procedure DoHorzScrollBarChanged; override;
     procedure GenerateView; override;
     procedure RealignFinished; override;
+    procedure DoCollapseOrExpandRow(const ViewListIndex: Integer; DoExpand: Boolean); override;
 
   // properties
   protected
@@ -3658,6 +3659,12 @@ begin
     _frozenRectLine.Height := _content.Height;
 
   inherited;
+end;
+
+procedure TScrollControlWithCells.DoCollapseOrExpandRow(const ViewListIndex: Integer; DoExpand: Boolean);
+begin
+  inherited;
+  UpdatePositionAndWidthCells;
 end;
 
 procedure TScrollControlWithCells.OnExpandCollapseHierarchy(Sender: TObject);

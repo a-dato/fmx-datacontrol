@@ -28,7 +28,7 @@ uses
   FMX.ScrollControl.Impl, ADato.Data.DataModel.intf,
   ADato.ObjectModel.List.intf, ADato.ObjectModel.intf,
   FMX.ScrollControl.View.Intf, FMX.ScrollControl.Events,
-  System.Diagnostics, FMX.ScrollControl.ControlClasses.Intf;
+  System.Diagnostics, FMX.ScrollControl.ControlClasses.Intf, FMX.Types;
 
 type
   TScrollControlWithRows = class(TScrollControl, IRowsControl)
@@ -140,6 +140,21 @@ type
     procedure CreateAndSynchronizeSynchronizerRow(const Row: IDCRow);
     procedure UpdateRowHeightSynchronizerScrollbar;
     procedure ValidateSelectionInfo;
+
+    procedure AnimateRow(const Row: IDCRow; StartY, StopY: Single; AnimateOpacity: Boolean; Hide: Boolean);
+    procedure ExecuteAfterAnimateRow(const Row: IDCRow; Event: TNotifyEvent);
+    function IsPartOfSelectedParentChildGroup(const Row: IDCRow): Boolean;
+
+  // expand / collapse
+  protected
+    _expandCollapseTimer: TTimer;
+    _scrollAfterExpandCollapse: Integer;
+
+    procedure VisualizeRowExpand(ViewListIndex: Integer);
+    procedure VisualizeRowCollapse(ViewListIndex: Integer);
+    procedure OnExpandTimer(Sender: TObject);
+    procedure OnCollapseTimer(Sender: TObject);
+
 
   protected
     _view: IDataViewList;
@@ -437,6 +452,8 @@ type
     function  HasChildren: Boolean;
     function  HasVisibleChildren: Boolean;
     function  ParentCount: Integer;
+    function  IsChildOf(const DataItem: CObject): Boolean;
+    function  IsParentOf(const DataItem: CObject): Boolean;
     function  IsOddRow: Boolean;
   end;
 
@@ -538,11 +555,14 @@ type
     property FilterDescriptions: List<IListFilterDescription> read get_FilterDescriptions write set_FilterDescriptions;
   end;
 
+const
+  ANI_DURATION = 0.3;
+  ANI_DELAY = 0.2;
+
 implementation
 
 uses
   {$IFNDEF WEBASSEMBLY}
-  FMX.Types,
   FMX.StdCtrls,
   System.Generics.Collections,
   System.Math, 
@@ -563,7 +583,7 @@ uses
   FMX.ScrollControl.ControlClasses,
   FMX.ScrollControl.View.Impl, FMX.ControlCalculations,
   ADato.TraceEvents.intf, FMX.ScrollControl.SortAndFilter,
-  System.ComponentModel, FMX.Layouts;
+  System.ComponentModel, FMX.Layouts, FMX.Ani;
 
 
 { TScrollControlWithRows }
@@ -844,11 +864,6 @@ begin
   finally
     StopMasterSynchronizer(goMaster);
   end;
-
-  // temporary code..
-  var row: IDCRow;
-  for row in _view.ActiveViewRows do
-    VisualizeRowSelection(row);
 
   {$IFDEF DEBUG}
   {$IFNDEF WEBASSEMBLY}
@@ -1846,57 +1861,28 @@ end;
                                 
 procedure TScrollControlWithRows.DataModelViewRowChanged(const Sender: IBaseInterface; Args: RowChangedEventArgs);
 begin
-  if HasInternalSelectCount then
+  if not HasInternalSelectCount then
   begin
-    if ((_rowHeightSynchronizer <> nil) and (_rowHeightSynchronizer._internalSelectCount > 0)) then
-    begin
-      var syncSelInfo := _rowHeightSynchronizer._selectionInfo;
-      _selectionInfo.BeginUpdate;
-      try
-        _selectionInfo.UpdateLastSelection(syncSelInfo.DataIndex, syncSelInfo.ViewListIndex, syncSelInfo.DataItem);
-      finally
-        _selectionInfo.EndUpdate(True {do ignore events});
-      end;
-
-      UpdateRowHeightSynchronizerScrollbar;
-
-      var row: IDCRow;
-      for row in _view.ActiveViewRows do
-        VisualizeRowSelection(row);
-    end;
-
+    set_Current(Args.NewIndex);
     Exit;
   end;
 
-//  var wasDone := (_ignoreNextRowChanged <> nil) and (_ignoreNextRowChanged = Args);
-//
-//  if (_rowHeightSynchronizer <> nil) then
-//  begin
-//    _ignoreNextRowChanged := Args;
-//    _rowHeightSynchronizer._ignoreNextRowChanged := Args;
-//  end;
-//
-//  if wasDone and not HasInternalSelectCount then
-//    Exit;
-//
-////  if HasInternalSelectCount then
-//  if ((_rowHeightSynchronizer <> nil) and (_rowHeightSynchronizer._internalSelectCount > 0)) then
-//  begin
-//    var syncSelInfo := _rowHeightSynchronizer._selectionInfo;
-//    _selectionInfo.BeginUpdate;
-//    try
-//      _selectionInfo.UpdateLastSelection(syncSelInfo.DataIndex, syncSelInfo.ViewListIndex, syncSelInfo.DataItem);
-//    finally
-//      _selectionInfo.EndUpdate(True);
-//    end;
-//
-//    UpdateRowHeightSynchronizerScrollbar;
-//
-//    var row: IDCRow;
-//    for row in _view.ActiveViewRows do
-//      VisualizeRowSelection(row);
-//  end else
-    set_Current(Args.NewIndex);
+  if ((_rowHeightSynchronizer <> nil) and (_rowHeightSynchronizer._internalSelectCount > 0)) then
+  begin
+    var syncSelInfo := _rowHeightSynchronizer._selectionInfo;
+    _selectionInfo.BeginUpdate;
+    try
+      _selectionInfo.UpdateLastSelection(syncSelInfo.DataIndex, syncSelInfo.ViewListIndex, syncSelInfo.DataItem);
+    finally
+      _selectionInfo.EndUpdate(True {do ignore events});
+    end;
+
+    UpdateRowHeightSynchronizerScrollbar;
+
+    var row: IDCRow;
+    for row in _view.ActiveViewRows do
+      VisualizeRowSelection(row);
+  end;
 end;
 
 procedure TScrollControlWithRows.ModelContextChanged(const Sender: IObjectModelContext; const Context: CObject);
@@ -2076,6 +2062,8 @@ end;
 
 procedure TScrollControlWithRows.InitRow(const Row: IDCRow);
 begin
+  Row.UseBuffering := IsScrolling;
+
   var rowInfo := _view.RowLoadedInfo(Row.ViewListIndex);
   var isFastScrollbarScrolling := IsFastScrolling(True);
   var rowNeedsReload := IsPrinting or Row.IsScrollingIntoView or not rowInfo.InnerCellsAreApplied or (rowInfo.ControlNeedsResizeSoft and not (GetScrollingType <> TScrollingType.WithScrollBar));
@@ -2125,7 +2113,9 @@ begin
   end;
 
   PerformanceRoutineLoadedRow(Row);
-  Row.Control.Width := CalculateRowControlWidth(False);
+  if Row.Control <> nil then
+    Row.Control.Width := CalculateRowControlWidth(False) else
+    Row.Control.Width := CalculateRowControlWidth(False);
 
   CreateAndSynchronizeSynchronizerRow(Row);
 
@@ -2139,17 +2129,12 @@ begin
       rowHeightChanged := False;
       row.Control.Height := oldRowHeight;
     end;
-
-    VisualizeRowSelection(Row);
-  end else
-    VisualizeRowSelection(Row);
+  end;
 
   rowInfo := _view.RowLoadedInfo(Row.ViewListIndex) {reload the rowInfo, for it can be changed};
 
   var softRowHeightNeedsResizeAfterScrolling := rowInfo.ControlNeedsResizeSoft and (GetScrollingType = TScrollingType.WithScrollBar);
   _view.RowLoaded(Row, softRowHeightNeedsResizeAfterScrolling);
-
-  Row.UseBuffering := IsScrolling;
 
   // if user tells in CellLoading / CellLoaded that a cell control should be loaded after scrolling is done (for performance)
   if rowInfo.ReloadAfterScroll then
@@ -2358,46 +2343,70 @@ begin
     inherited;
 end;
 
-procedure TScrollControlWithRows.DoCollapseOrExpandRow(const ViewListIndex: Integer; DoExpand: Boolean);
+procedure TScrollControlWithRows.AnimateRow(const Row: IDCRow; StartY, StopY: Single; AnimateOpacity: Boolean; Hide: Boolean);
 
-  procedure StartExpandingChild(const ParentRow, Row: IDCRow);
+  procedure DoAnimate(const Row: IDCRow);
   begin
     Row.UseBuffering := False;
-    Row.Control.Opacity := 0.1;
-    Row.Control.AnimateFloatDelay('Opacity', 1, 0.3, 0.2, TAnimationType.InOut, TInterpolationType.Quadratic);
+    Row.Control.Position.Y := StartY;
+    Row.Control.AnimateFloatDelay('Position.Y', StopY, ANI_DURATION, ANI_DELAY, TAnimationType.InOut, TInterpolationType.Quadratic);
 
-    var distanceToParent := ParentRow.Control.Position.Y - Row.Control.Position.Y;
-    var newNegativePos := distanceToParent * (1/3);
-    for var childCtrl in Row.Control.Controls do
-      if childCtrl.Visible then
-      begin
-        var orgYPos := childCtrl.Position.Y;
-        childCtrl.Position.Y := newNegativePos;
-        childCtrl.AnimateFloatDelay('Position.Y', orgYPos, 0.3, 0.2, TAnimationType.InOut, TInterpolationType.Quadratic);
-      end;
+    if AnimateOpacity then
+    begin
+      Row.Control.Opacity := IfThen(Hide, Row.Control.Opacity, 0.1);
+      Row.Control.AnimateFloatDelay('Opacity', IfThen(Hide, 0, 1), ANI_DURATION, ANI_DELAY, TAnimationType.InOut, TInterpolationType.Quadratic);
+    end
+    else if Hide then
+      Row.Control.Opacity := 0;
   end;
 
 begin
-  if HasInternalSelectCount then
-    Exit;
+  DoAnimate(Row);
 
-  var drv: IDataRowView;
-  if not _view.GetViewList[ViewListIndex].TryAsType<IDataRowView>(drv) then
-    Exit;
-
-  var virtualYPos: Single;
-  if DoExpand then
+  if (_rowHeightSynchronizer <> nil) and (_rowHeightSynchronizer.View <> nil) then
   begin
-    var diDummy: CObject;
-    _view.GetFastPerformanceRowInfo(ViewListIndex, {out} diDummy, {out} virtualYPos);
+    var otherRow := _rowHeightSynchronizer.View.GetActiveRowIfExists(Row.ViewListIndex);
+    if otherRow <> nil then
+      DoAnimate(otherRow);
+  end;
+end;
+
+procedure TScrollControlWithRows.ExecuteAfterAnimateRow(const Row: IDCRow; Event: TNotifyEvent);
+begin
+  Row.UseBuffering := False;
+  Row.Control.Opacity := 0.5;
+
+  var ani := TFloatAnimation.Create(nil);
+  ani.Parent := Row.Control;
+  ani.Duration := ANI_DURATION;
+  ani.Delay := ANI_DELAY;
+  ani.PropertyName := 'Opacity';
+  ani.StartFromCurrent := True;
+  ani.StopValue := 1;
+  ani.OnFinish := Event;
+  ani.Start;
+end;
+
+procedure TScrollControlWithRows.VisualizeRowExpand(ViewListIndex: Integer);
+begin
+  var parentRow := _view.GetActiveRowIfExists(ViewListIndex);
+  if parentRow = nil then
+  begin
+    if ViewListIndex <> _selectionInfo.ViewListIndex then
+    begin
+      _selectionInfo.BeginUpdate;
+      try
+        _selectionInfo.UpdateLastSelection(parentRow.DataIndex, parentRow.ViewListIndex, parentRow.DataItem);
+      finally
+        _selectionInfo.EndUpdate(True);
+      end;
+    end;
+
+    OnCollapseTimer(nil);
+    Exit;
   end;
 
-  inc(_internalSelectCount);
-  try
-    drv.DataView.IsExpanded[drv.Row] := DoExpand;
-  finally
-    dec(_internalSelectCount);
-  end;
+  var rowCountBelowParentRow := _view.ActiveViewRows.Count - 1 - parentRow.ViewPortIndex;
 
   var doIgnoreMaster := TryStartIgnoreMasterSynchronizer(True);
   try
@@ -2413,73 +2422,182 @@ begin
   end else
     DoRealignContent;
 
-  if DoExpand then
+  StopWaitForRealignTimer;
+
+  // because parentrow changed, get it again
+  parentRow := _view.GetActiveRowIfExists(ViewListIndex);
+  var drv := parentRow.DataItem.AsType<IDataRowView>;
+  var oldParentPos := parentRow.Control.Position.Y;
+  var row: IDCRow;
+
+  // check if children fit in current view, otherwise scroll parent up...
+  var spaceAvailableForParentAndChildren := _vertScrollBar.ViewportSize - (parentRow.VirtualYPosition - _vertScrollBar.Value);
+
+  var parentAndChildrenHeight := 1.0 + parentRow.Height;
+  var childCount := CMath.Min(drv.DataView.ChildCount(drv), _view.ActiveViewRows.Count - 1);
+
+  var goMaster := TryStartMasterSynchronizer(True);
+  try
+    var childNo := 0;
+    for var viewPortIndex := parentRow.ViewPortIndex + 1 to parentRow.ViewPortIndex + childCount + rowCountBelowParentRow do
+    begin
+      inc(childNo);
+      if _view.ActiveViewRows.Count - 1 >= viewPortIndex then
+        row := _view.ActiveViewRows[viewPortIndex]
+      else
+      begin
+        row := _view.ProvideReferenceRowForViewIndex(parentRow.ViewListIndex + childNo);
+        InitRow(row);
+      end;
+
+      // other rows are normal rows below
+      if viewPortIndex <= parentRow.ViewPortIndex + childCount then
+        parentAndChildrenHeight := parentAndChildrenHeight + row.Height;
+    end;
+  finally
+    StopMasterSynchronizer(goMaster);
+  end;
+
+  var newParentPos := oldParentPos;
+  if parentAndChildrenHeight > spaceAvailableForParentAndChildren then
+    newParentPos := CMath.Max(0, newParentPos - (parentAndChildrenHeight - spaceAvailableForParentAndChildren));
+
+  _scrollAfterExpandCollapse := Round(newParentPos - parentRow.Control.Position.Y);
+
+  var diff := parentRow.Control.Position.Y - NewParentPos; // can be 0
+
+  // for rows that are above the parentrow and have to scroll up to give the childs room
+  if diff > 0 then
   begin
-    // check if children fit in current view, otherwise scroll parent up...
-    var spaceAvailableForParentAndChildren := _vertScrollBar.ViewportSize - (virtualYPos - _vertScrollBar.Value);
-
-    var parentRow := GetActiveRow;
-    var parentAndChildrenHeight := 1.0 + parentRow.Height;
-    var childCount := CMath.Min(drv.DataView.ChildCount(drv), _view.ActiveViewRows.Count - 1);
-
-    var goMaster := TryStartMasterSynchronizer(True);
-    try
-      var childNo := 0;
-      for var viewPortIndex := parentRow.ViewPortIndex + 1 to parentRow.ViewPortIndex + childCount do
-      begin
-        inc(childNo);
-        if _view.ActiveViewRows.Count - 1 >= viewPortIndex then
-        begin
-          var row := _view.ActiveViewRows[viewPortIndex];
-          parentAndChildrenHeight := parentAndChildrenHeight + row.Height;
-        end else
-        begin
-          var row := _view.ProvideReferenceRowForViewIndex(parentRow.ViewListIndex + childNo);
-          InitRow(row);
-          parentAndChildrenHeight := parentAndChildrenHeight + row.Height;
-        end;
-      end;
-    finally
-      StopMasterSynchronizer(goMaster);
-    end;
-
-    if parentAndChildrenHeight > spaceAvailableForParentAndChildren then
+    var rowYPos := _view.ActiveViewRows[0].Control.Position.Y;
+    for var rowAboveIx := 0 to parentRow.ViewPortIndex do
     begin
-//      _mouseWheelDistanceToGo := -Round(CMath.Min(parentAndChildrenHeight - spaceAvailableForParentAndChildren, virtualYPos - _vertScrollBar.Value));
-//      _mouseWheelDistanceTotal := _mouseWheelDistanceToGo;
-//      ScrollManualTryAnimated2;
-      ScrollManualInstant(-Round(CMath.Min(parentAndChildrenHeight - spaceAvailableForParentAndChildren, virtualYPos - _vertScrollBar.Value)));
-    end;
+      var startPos := rowYPos;
+      var stopPos := rowYPos - diff;
 
-    for var viewPortIndex := parentRow.ViewPortIndex + 1 to parentRow.ViewPortIndex + childCount do
-    begin
-      var row := _view.ActiveViewRows[viewPortIndex];
+      row := _view.ActiveViewRows[rowAboveIx];
+      AnimateRow(row, startPos, stopPos, False, False);
 
-      StartExpandingChild(parentRow, row);
-      if _rowHeightSynchronizer <> nil then
-      begin
-        var otherRow := _rowHeightSynchronizer.View.GetActiveRowIfExists(row.ViewListIndex);
-        if otherRow <> nil then
-          StartExpandingChild(parentRow, otherRow);
-      end;
+      rowYPos := rowYPos + row.Height;
     end;
   end;
 
-//  GetInitializedWaitForRefreshInfo.Current := ViewListIndex;
-//
-//  if DoExpand then
-//  begin
-//    // check if children fit in current view, otherwise scroll parent up...
-//    var spaceAvailableForChildren := _vertScrollBar.ViewportSize - (virtualYPos - _vertScrollBar.Value);
-//    var spaceNeeded := CalculateAverageRowHeight * (drv.DataView.ChildCount(drv) + 1 {for parent});
-//
-//    if spaceNeeded > spaceAvailableForChildren then
-//    begin
-//      _mouseWheelDistanceToGo := Round(CMath.Min(spaceNeeded - spaceAvailableForChildren, virtualYPos - _vertScrollBar.Value));
-//      _mouseWheelDistanceTotal := _mouseWheelDistanceToGo;
-//      ScrollManualTryAnimated2; //(-Trunc(scrollBy), False);
-//    end;
-//  end;
+  // for the new child rows
+  var rowYPos := newParentPos + parentRow.Height;
+  for var rowChildIx := parentRow.ViewPortIndex + 1 to parentRow.ViewPortIndex + childCount do
+  begin
+    var startPos := newParentPos + (rowYPos - newParentPos)*0.75;
+    var stopPos := rowYPos;
+
+    row := _view.ActiveViewRows[rowChildIx];
+    AnimateRow(row, startPos, stopPos, True, False);
+
+    rowYPos := rowYPos + row.Height;
+  end;
+
+  // for rows that were below the parentrow and that scroll out of view
+  var rowsHeight := 0.0;
+  for var rowBelowIx := parentRow.ViewPortIndex + childCount + 1 to _view.ActiveViewRows.Count - 1 do
+  begin
+    var startPos := oldParentPos + parentRow.Height + rowsHeight; // + 15 {just to look cool with a gappie};
+    var stopPos := oldParentPos + parentAndChildrenHeight + rowsHeight;
+
+    row := _view.ActiveViewRows[rowBelowIx];
+    AnimateRow(row, startPos, stopPos, False, False);
+
+    rowsHeight := rowsHeight + row.Height;
+  end;
+
+  ExecuteAfterAnimateRow(parentRow, OnExpandTimer);
+end;
+
+procedure TScrollControlWithRows.OnExpandTimer(Sender: TObject);
+begin
+  CalculateScrollBarMax;
+  ScrollManualInstant(_scrollAfterExpandCollapse);
+end;
+
+procedure TScrollControlWithRows.VisualizeRowCollapse(ViewListIndex: Integer);
+begin
+  var parentRow := _view.GetActiveRowIfExists(ViewListIndex);
+  if parentRow = nil then
+  begin
+    if ViewListIndex <> _selectionInfo.ViewListIndex then
+      InternalSetCurrent(ViewListIndex, TSelectionEventTrigger.Key, []);
+
+    OnCollapseTimer(nil);
+    Exit;
+  end;
+
+  var drv := parentRow.DataItem.AsType<IDataRowView>;
+
+  if ViewListIndex <> _selectionInfo.ViewListIndex then
+  begin
+    _selectionInfo.BeginUpdate;
+    try
+      _selectionInfo.UpdateLastSelection(parentRow.DataIndex, parentRow.ViewListIndex, parentRow.DataItem);
+    finally
+      _selectionInfo.EndUpdate(True);
+    end;
+  end;
+
+  var childCount := 0;
+  if _view.ActiveViewRows.Count > parentRow.ViewPortIndex + 1 then
+  begin
+    var parentLevel := parentRow.ParentCount;
+    var childIx := parentRow.ViewPortIndex + 1;
+    var childLevel := _view.ActiveViewRows[parentRow.ViewPortIndex + 1].ParentCount;
+    while (_view.ActiveViewRows.Count > childIx) and (_view.ActiveViewRows[childIx].ParentCount > parentLevel) do
+    begin
+      inc(childIx);
+      inc(childCount);
+    end;
+  end;
+
+  // hide children
+  for var rowChildIx := parentRow.ViewPortIndex + 1 to parentRow.ViewPortIndex + childCount do
+  begin
+    var row := _view.ActiveViewRows[rowChildIx];
+    var pos := row.Control.Position.Y;
+    AnimateRow(row, pos, pos, True, True);
+  end;
+
+  ExecuteAfterAnimateRow(parentRow, OnCollapseTimer);
+end;
+
+procedure TScrollControlWithRows.OnCollapseTimer(Sender: TObject);
+begin
+  var doIgnoreMaster := TryStartIgnoreMasterSynchronizer(True);
+  try
+    ResetView(_selectionInfo.ViewListIndex);
+  finally
+    StopIgnoreMasterSynchronizer(doIgnoreMaster);
+  end;
+
+  RefreshControl(False);
+//  CalculateScrollBarMax;
+//  ScrollManualInstant(_scrollAfterExpandCollapse);
+end;
+
+procedure TScrollControlWithRows.DoCollapseOrExpandRow(const ViewListIndex: Integer; DoExpand: Boolean);
+begin
+  if HasInternalSelectCount then
+    Exit;
+
+  var drv: IDataRowView;
+  if not _view.GetViewList[ViewListIndex].TryAsType<IDataRowView>(drv) then
+    Exit;
+
+  inc(_internalSelectCount);
+  try
+    drv.DataView.IsExpanded[drv.Row] := DoExpand;
+  finally
+    dec(_internalSelectCount);
+  end;
+
+  if DoExpand then
+    VisualizeRowExpand(ViewListIndex) else
+    VisualizeRowCollapse(ViewListIndex);
 end;
 
 procedure TScrollControlWithRows.OnItemAddedByUser(const Item: CObject; Index: Integer);
@@ -2638,10 +2756,50 @@ begin
   Result := (_dataModelView <> nil) or interfaces.Supports<IDataModel>(_dataList);
 end;
 
+function TScrollControlWithRows.IsPartOfSelectedParentChildGroup(const Row: IDCRow): Boolean;
+begin
+  if not ViewIsDataModelView then
+    Exit(False);
+
+  if not Row.HasVisibleChildren and (Row.ParentCount = 0) then
+    Exit(False);
+
+  var drv := Row.DataItem.AsType<IDataRowView>;
+  var view := drv.DataView;
+
+  var selDrv := view.Rows[view.CurrencyManager.Current];
+
+  if drv = selDrv then
+    Result := True
+  else if drv.Row.Level < selDrv.Row.Level then
+    Result := view.Parent(selDrv) = drv
+  else if drv.Row.Level > selDrv.Row.Level then
+    Result := view.Parent(drv) = selDrv
+  else
+    Result := (drv.Row.Level > 0) and (view.Parent(drv) = view.Parent(selDrv));
+end;
+
 procedure TScrollControlWithRows.VisualizeRowSelection(const Row: IDCRow);
 begin
   if (_selectionType <> TSelectionType.HideSelection) then
+  begin
     Row.UpdateSelectionVisibility(_selectionInfo, Self.IsFocused);
+
+    if DrawRowBackground then
+    begin
+      var isOpenParent := False;
+      var isOpenChild := False;
+      if ViewIsDataModelView and IsPartOfSelectedParentChildGroup(Row) then
+      begin
+        isOpenParent := Row.HasVisibleChildren;
+        if not isOpenParent then
+          isOpenChild := True;
+      end;
+
+      Row.UseBuffering := False;
+      DataControlClassFactory.HandleRowChildRelation(Row.ControlAsRowLayout, isOpenParent, isOpenChild);
+    end;
+  end;
 end;
 
 procedure TScrollControlWithRows.OnViewChanged(Sender: TObject; e: EventArgs);
@@ -2769,7 +2927,7 @@ end;
 
 procedure TScrollControlWithRows.UpdateScrollBarValues(const NewValue: Single);
 begin
-  CalculateScrollBarMax;  
+  CalculateScrollBarMax;
        
   // after CalculateScrollBarMax!! 
   UpdateAndIgnoreVertScrollbar(NewValue);
@@ -3201,7 +3359,10 @@ begin
   begin
     var row: IDCRow;
     for row in _view.ActiveViewRows do
+    begin
       DoRowAligned(row);
+      VisualizeRowSelection(row);
+    end;
   end;
 
   inherited;
@@ -3673,8 +3834,8 @@ begin
   if _control <> nil then
   begin
     var rowLayout := ControlAsRowLayout;
-//    rowLayout.UseBuffering := True;
-    rowLayout.ResetBuffer;
+    rowLayout.UseBuffering := False;
+    rowLayout.HandleParentChildVisualisation(False, False);
   end;
 
   UpdateControlVisibility;
@@ -3811,6 +3972,15 @@ begin
   Result := _control.Height;
 end;
 
+function TDCRow.IsChildOf(const DataItem: CObject): Boolean;
+begin
+  var drv: IDataRowView;
+  if not _dataItem.TryAsType<IDataRowView>(drv) then
+    Exit(False);
+
+  Result := CObject.Equals(drv.DataView.Parent(drv).Row.Data, DataItem);
+end;
+
 function TDCRow.IsClearedForReassignment: Boolean;
 begin
   Result := (_dataItem = nil) and (_control <> nil);
@@ -3819,6 +3989,23 @@ end;
 function TDCRow.IsOddRow: Boolean;
 begin
   Result := Odd(_viewListIndex);
+end;
+
+function TDCRow.IsParentOf(const DataItem: CObject): Boolean;
+begin
+  var drv: IDataRowView;
+  if not _dataItem.TryAsType<IDataRowView>(drv) then
+    Exit(False);
+
+  if not drv.DataView.HasChildren(drv) then
+    Exit(False);
+
+  var childs := drv.DataView.Children(drv, TChildren.IncludeParentRows);
+  for var child in childs do
+    if CObject.Equals(child, DataItem) then
+      Exit(True);
+
+  Result := False;
 end;
 
 function TDCRow.IsScrollingIntoView: Boolean;

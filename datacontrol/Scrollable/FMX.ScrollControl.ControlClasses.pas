@@ -328,6 +328,7 @@ type
   TRowLayout = class(TAdaptableBufferedLayout, IRowLayout)
   protected
     _rect: IBackgroundControl;
+    _parentChildRect: TRectangle;
 
     function  get_Sides: TSides;
     procedure set_Sides(const Value: TSides);
@@ -336,7 +337,9 @@ type
   public
     constructor Create(AOwner: TComponent; Background: IBackgroundControl); reintroduce;
 
+    procedure Paint; override;
     function  Background: IBackgroundControl;
+    procedure HandleParentChildVisualisation(IsParent, IsChild: Boolean);
 
     property Sides: TSides read get_Sides write set_Sides;
   end;
@@ -367,6 +370,7 @@ type
     function CreateComboEdit(const Owner: TComponent): IDCEditControl; virtual;
 
     procedure HandleRowBackground(const RowRect: IBackgroundControl; AlternateAvailable: Boolean; Alternate: Boolean); virtual;
+    procedure HandleRowChildRelation(const RowLayout: IRowLayout; IsOpenParent, IsOpenChild: Boolean); virtual;
   end;
 
 var
@@ -379,6 +383,9 @@ var
   DEFAULT_ROW_SELECTION_ACTIVE_COLOR: TAlphaColor;
   DEFAULT_ROW_SELECTION_INACTIVE_COLOR: TAlphaColor;
   DEFAULT_ROW_HOVER_COLOR: TAlphaColor;
+
+  DEFAULT_PARENTROW_COLOR: TAlphaColor;
+  DEFAULT_CHILDROW_COLOR: TAlphaColor;
 
   DEFAULT_HEADER_BACKGROUND: TAlphaColor;
   DEFAULT_HEADER_STROKE: TAlphaColor;
@@ -520,6 +527,15 @@ begin
     RowRect.FillColor := DEFAULT_GREY_COLOR
   else
     RowRect.FillColor := DEFAULT_WHITE_COLOR;
+end;
+
+procedure TDataControlClassFactory.HandleRowChildRelation(const RowLayout: IRowLayout; IsOpenParent, IsOpenChild: Boolean);
+begin
+  RowLayout.HandleParentChildVisualisation(IsOpenParent, IsOpenChild);
+//  if IsOpenParent then
+//    RowRect.StrokeColor := DEFAULT_PARENTROW_COLOR
+//  else if IsOpenChild then
+//    RowRect.StrokeColor := DEFAULT_CHILDROW_COLOR
 end;
 
 function TDataControlClassFactory.IsCustomFactory: Boolean;
@@ -1558,6 +1574,57 @@ begin
   Result := _rect.Sides;
 end;
 
+procedure TRowLayout.HandleParentChildVisualisation(IsParent, IsChild: Boolean);
+
+  function PrepareHatchedBitmap: TBitmap;
+  begin
+    Result := TBitmap.Create(8, 8);
+
+    Result.Canvas.BeginScene;
+    try
+      Result.Clear(TAlphaColors.Null);
+      Result.Canvas.Stroke.Color := TAlphaColor($16000080);
+      Result.Canvas.Stroke.Thickness := 1;
+      Result.Canvas.DrawLine(PointF(0,8), PointF(8,0), 0.4);
+    finally
+      Result.Canvas.EndScene;
+    end;
+  end;
+
+begin
+  if not IsParent and not IsChild then
+  begin
+    FreeAndNil(_parentChildRect);
+    Exit;
+  end;
+
+//  _parentChildRect := TRectangle.Create(_rect.AsControl);
+//  _parentChildRect.Align := TAlignLayout.Contents;
+//  _parentChildRect.Stroke.Kind := TBrushKind.None;
+//  _parentChildRect.HitTest := False;
+//  _rect.AsControl.AddObject(_parentChildRect);
+//
+//  if IsParent then
+//  begin
+//    _parentChildRect.Fill.Kind := TBrushKind.Solid;
+//    _parentChildRect.Fill.Color := DEFAULT_CHILDROW_COLOR;
+//  end else
+//  begin
+//    _parentChildRect.Fill.Kind := TBrushKind.Bitmap;
+//    _parentChildRect.Fill.Bitmap.Bitmap := PrepareHatchedBitmap;
+//  end;
+end;
+
+procedure TRowLayout.Paint;
+begin
+  inherited;
+
+//  {$IFDEF DEBUG}
+//  Self.Canvas.FIll.Color := TAlphaColors.Darkred;
+//  Self.Canvas.FillRect(RectF(0,5,Width,Height-5), 0, 0, AllCorners, 0.2, TCornerType.Round);
+//  {$ENDIF}
+end;
+
 procedure TRowLayout.set_Sides(const Value: TSides);
 begin
   _rect.Sides := Value;
@@ -1593,6 +1660,9 @@ initialization
   {$ELSE}
   DEFAULT_ROW_HOVER_COLOR := TAlphaColor($335B8BCD);
   {$ENDIF}
+
+  DEFAULT_PARENTROW_COLOR := TAlphaColors.Darkslategrey;
+  DEFAULT_CHILDROW_COLOR := TAlphaColors.Lightgray;
 
   DEFAULT_HEADER_BACKGROUND := TAlphaColors.Null;
   DEFAULT_HEADER_STROKE := TAlphaColors.Grey;
