@@ -909,6 +909,11 @@ end;
 { TComboEditControlImpl }
 procedure TComboEditControlImpl.DoKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
 begin
+  {$IFDEF DEBUG}
+  if not _ItemsLoaded then
+    Exit;
+  {$ENDIF}
+
   if (Key = vkBack) and (_control is TComboEdit) then
   begin
     var ce := _control as TComboEdit;
@@ -1163,7 +1168,7 @@ end;
 procedure TComboEditControlImpl.DoKeyUp(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
 begin
   if CharInSet(KeyChar, [' ', 'a'..'z', 'A'..'Z', '0'..'9']) then
-    RefreshItems;
+    DropDown;
 end;
 
 function TComboEditControlImpl.ActivePickList: IList;
@@ -1175,8 +1180,13 @@ end;
 
 procedure TComboEditControlImpl.DropDown;
 begin
+//  if not TComboEdit(_control).DroppedDown then
+//    TComboEdit(_control).DropDown;
+
   RefreshItems;
-  TComboEdit(_control).DropDown;
+
+  if not TComboEdit(_control).DroppedDown then
+    TComboEdit(_control).DropDown;
 end;
 
 function TComboEditControlImpl.get_AutoFilter: Boolean;
