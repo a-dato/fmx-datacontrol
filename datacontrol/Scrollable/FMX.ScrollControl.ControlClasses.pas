@@ -332,6 +332,7 @@ type
 
     function  get_Sides: TSides;
     procedure set_Sides(const Value: TSides);
+    procedure set_UseBuffering(const Value: Boolean); override;
 
     procedure DoResized; override;
   public
@@ -339,7 +340,7 @@ type
 
     procedure Paint; override;
     function  Background: IBackgroundControl;
-    procedure HandleParentChildVisualisation(IsParent, IsChild: Boolean);
+    procedure HandleParentChildVisualisation(IsParent, IsChild: Boolean; AWidth: Single);
 
     property Sides: TSides read get_Sides write set_Sides;
   end;
@@ -370,7 +371,7 @@ type
     function CreateComboEdit(const Owner: TComponent): IDCEditControl; virtual;
 
     procedure HandleRowBackground(const RowRect: IBackgroundControl; AlternateAvailable: Boolean; Alternate: Boolean); virtual;
-    procedure HandleRowChildRelation(const RowLayout: IRowLayout; IsOpenParent, IsOpenChild: Boolean); virtual;
+    procedure HandleRowChildRelation(const RowLayout: IRowLayout; IsOpenParent, IsOpenChild: Boolean; AWidth: Single); virtual;
   end;
 
 var
@@ -529,9 +530,9 @@ begin
     RowRect.FillColor := DEFAULT_WHITE_COLOR;
 end;
 
-procedure TDataControlClassFactory.HandleRowChildRelation(const RowLayout: IRowLayout; IsOpenParent, IsOpenChild: Boolean);
+procedure TDataControlClassFactory.HandleRowChildRelation(const RowLayout: IRowLayout; IsOpenParent, IsOpenChild: Boolean; AWidth: Single);
 begin
-  RowLayout.HandleParentChildVisualisation(IsOpenParent, IsOpenChild);
+  RowLayout.HandleParentChildVisualisation(IsOpenParent, IsOpenChild, AWidth);
 //  if IsOpenParent then
 //    RowRect.StrokeColor := DEFAULT_PARENTROW_COLOR
 //  else if IsOpenChild then
@@ -1553,7 +1554,7 @@ begin
   inherited Create(AOwner);
 
   _rect := Background;
-  _rect.AsControl.ClipChildren := True;
+//  _rect.AsControl.ClipChildren := True;
   _rect.AsControl.HitTest := False;
   _rect.AsControl.Align := TAlignLayout.Contents;
   Self.AddObject(_rect.AsControl);
@@ -1574,45 +1575,40 @@ begin
   Result := _rect.Sides;
 end;
 
-procedure TRowLayout.HandleParentChildVisualisation(IsParent, IsChild: Boolean);
-
-  function PrepareHatchedBitmap: TBitmap;
-  begin
-    Result := TBitmap.Create(8, 8);
-
-    Result.Canvas.BeginScene;
-    try
-      Result.Clear(TAlphaColors.Null);
-      Result.Canvas.Stroke.Color := TAlphaColor($16000080);
-      Result.Canvas.Stroke.Thickness := 1;
-      Result.Canvas.DrawLine(PointF(0,8), PointF(8,0), 0.4);
-    finally
-      Result.Canvas.EndScene;
-    end;
-  end;
-
+procedure TRowLayout.HandleParentChildVisualisation(IsParent, IsChild: Boolean; AWidth: Single);
 begin
-  if not IsParent and not IsChild then
+  if IsParent or IsChild then
   begin
-    FreeAndNil(_parentChildRect);
-    Exit;
-  end;
+    if _parentChildRect = nil then
+    begin
+      _parentChildRect := TRectangle.Create(_rect.AsControl);
+      _parentChildRect.Align := TAlignLayout.None;
+      _parentChildRect.HitTest := False;
+      _rect.AsControl.AddObject(_parentChildRect);
+    end;
 
-//  _parentChildRect := TRectangle.Create(_rect.AsControl);
-//  _parentChildRect.Align := TAlignLayout.Contents;
-//  _parentChildRect.Stroke.Kind := TBrushKind.None;
-//  _parentChildRect.HitTest := False;
-//  _rect.AsControl.AddObject(_parentChildRect);
-//
-//  if IsParent then
-//  begin
-//    _parentChildRect.Fill.Kind := TBrushKind.Solid;
-//    _parentChildRect.Fill.Color := DEFAULT_CHILDROW_COLOR;
-//  end else
-//  begin
-//    _parentChildRect.Fill.Kind := TBrushKind.Bitmap;
-//    _parentChildRect.Fill.Bitmap.Bitmap := PrepareHatchedBitmap;
-//  end;
+    _parentChildRect.Height := Self.Height;
+    _parentChildRect.Width := AWidth;
+
+    if IsParent then
+    begin
+      _parentChildRect.Stroke.Kind := TBrushKind.Solid;
+      _parentChildRect.Sides := [TSide.Top];
+      _parentChildRect.Stroke.Color := TAlphaColors.Slategray;
+      _parentChildRect.Stroke.Thickness := 1;
+    end else
+      _parentChildRect.Stroke.Kind := TBrushKind.None;
+
+    _parentChildRect.Fill.Kind := TBrushKind.Solid;
+    if IsParent then
+      _parentChildRect.Fill.Color := TAlphaColor($BB9ACD32) else
+      _parentChildRect.Fill.Color := TAlphaColor($449ACD32);
+  end
+  else if _parentChildRect <> nil then
+  begin
+    _parentChildRect.Fill.Kind := TBrushKind.None;
+    _parentChildRect.Stroke.Kind := TBrushKind.None;
+  end;
 end;
 
 procedure TRowLayout.Paint;
@@ -1628,6 +1624,16 @@ end;
 procedure TRowLayout.set_Sides(const Value: TSides);
 begin
   _rect.Sides := Value;
+end;
+
+procedure TRowLayout.set_UseBuffering(const Value: Boolean);
+begin
+  if get_UseBuffering = Value then
+    Exit;
+
+  inherited;
+
+  _rect.AsControl.SendToBack;
 end;
 
 { TMemoEditControlImpl }

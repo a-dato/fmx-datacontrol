@@ -228,7 +228,7 @@ type
 
     procedure ResetBuffer;
     function  Background: IBackgroundControl;
-    procedure HandleParentChildVisualisation(IsParent, IsChild: Boolean);
+    procedure HandleParentChildVisualisation(IsParent, IsChild: Boolean; AWidth: Single);
 
     property UseBuffering: Boolean read get_UseBuffering write set_UseBuffering;
     property Sides: TSides read get_Sides write set_Sides;
@@ -256,7 +256,7 @@ type
     function CreateDateEdit(const Owner: TComponent): IDateEditControl;
 
     procedure HandleRowBackground(const RowRect: IBackgroundControl; AlternateAvailable: Boolean; Alternate: Boolean);
-    procedure HandleRowChildRelation(const RowLayout: IRowLayout; IsOpenParent, IsOpenChild: Boolean);
+    procedure HandleRowChildRelation(const RowLayout: IRowLayout; IsOpenParent, IsOpenChild: Boolean; AWidth: Single);
   end;
 
 implementation

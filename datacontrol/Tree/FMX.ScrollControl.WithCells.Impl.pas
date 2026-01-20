@@ -197,6 +197,7 @@ type
     function  CreateSelectioninfoInstance: IRowSelectionInfo; override;
     procedure OnSelectionInfoChanged; override;
     procedure VisualizeRowSelection(const Row: IDCRow); override;
+    procedure HandleRowChildRelation(const Row: IDCRow; IsOpenParent, IsOpenChild: Boolean); override;
     procedure CheckCorrectColumnSelection( const SelectionInfo: ITreeSelectionInfo; const Row: IDCTreeRow);
 
     function  AutoMultiSelectColumnShowing: Boolean;
@@ -266,6 +267,7 @@ type
 
   protected
     procedure PositionTree;
+    function  TreeInnerXPosition: Single;
 
     {$IFDEF WEBASSEMBLY}
     function  GetItemType: &Type; 
@@ -1105,10 +1107,15 @@ begin
   RefreshControl;
 end;
 
+function TScrollControlWithCells.TreeInnerXPosition: Single;
+begin
+  if _autoCenterTree then
+    Result := CMath.Max((Self.Width-_totalColumnWidth)/2, 0) else
+    Result := 0;
+end;
+
 procedure TScrollControlWithCells.PositionTree;
 begin
-  var startFromX := 0.0;
-
   if (_treeLayout <> nil) and (_treeLayout.FlatColumns.Count > 0) then
   begin
     var lastClmn := _treeLayout.FlatColumns[_treeLayout.FlatColumns.Count - 1];
@@ -1117,15 +1124,13 @@ begin
     if not SameValue(_totalColumnWidth, newColumnsWidth) then
       _totalColumnWidth := newColumnsWidth;
 
-    if _autoCenterTree then
-      startFromX := CMath.Max((Self.Width-_totalColumnWidth)/2, 0);
-
     DoTreePositioned(_totalColumnWidth);
   end else
     _totalColumnWidth := 0.0;
 
   if _autoCenterTree then
   begin
+    var startFromX := TreeInnerXPosition;
     var row: IDCTreeRow;
     for row in HeaderAndTreeRows(False) do
       row.Control.Position.X := startFromX;
@@ -1576,7 +1581,7 @@ begin
 
     if _selectionInfo.IsChecked(treeRow.DataIndex) then
       _selectionInfo.Deselect(treeRow.DataIndex) else
-      _selectionInfo.AddToSelection(treeRow.DataIndex, treeRow.ViewListIndex, treeRow.DataItem, ssCtrl in Shift {Expand selection});
+      _selectionInfo.AddToSelection(treeRow.DataIndex, treeRow.ViewListIndex, treeRow.DataItem, TreeOption_MultiSelect in _options);
 
     _selectionInfo.BeginUpdate;
     try
@@ -1619,6 +1624,13 @@ begin
 
   inherited;
   UpdateSelectionCheckboxes(Row);
+end;
+
+procedure TScrollControlWithCells.HandleRowChildRelation(const Row: IDCRow; IsOpenParent, IsOpenChild: Boolean);
+begin
+  if IsOpenParent then
+    DataControlClassFactory.HandleRowChildRelation(Row.ControlAsRowLayout, IsOpenParent, IsOpenChild, Row.Control.Width) else
+    DataControlClassFactory.HandleRowChildRelation(Row.ControlAsRowLayout, IsOpenParent, IsOpenChild, _treeLayout.FlatColumns[0].Width);
 end;
 
 procedure TScrollControlWithCells.OnHeaderCellResizeClicked( const HeaderCell: IHeaderCell);
@@ -1859,9 +1871,9 @@ begin
   popupMenu.LayoutColumn := LayoutColumn;
 
   var leftPos: Single;
-  if LayoutColumn.Left + _frmHeaderPopupMenu.Width > (Self.Width - 10) then
+  if LayoutColumn.Left + TreeInnerXPosition + _frmHeaderPopupMenu.Width > (Self.Width - 10) then
     leftPos := (Self.Width - 10) - _frmHeaderPopupMenu.Width else
-    leftPos := LayoutColumn.Left;
+    leftPos := LayoutColumn.Left + TreeInnerXPosition;
 
   var localPos := PointF(leftPos, _headerRow.Height);
   var screenPos := Self.LocalToScreen(localPos);
@@ -2041,7 +2053,9 @@ begin
     var checkBoxCell := (Row as IDCTreeRow).Cells[selectionCheckBoxColumn.Index];
     var checkBox := checkBoxCell.InfoControl as IIsChecked;
 
-    checkBox.IsChecked := _selectionInfo.IsChecked(Row.DataIndex);
+    if (TreeOption_MultiSelect in _options) then
+      checkBox.IsChecked := _selectionInfo.IsChecked(Row.DataIndex) else
+      checkBox.IsChecked := _selectionInfo.IsSelected(Row.DataIndex);
   finally
     dec(_selectionCheckBoxUpdateCount);
   end;
@@ -2882,8 +2896,8 @@ function TScrollControlWithCells.TrySelectItem(const RequestedSelectionInfo: IRo
 
 begin
   Result := False;
-  if _treeLayout = nil then
-    Exit; // will get here later again
+  if (_treeLayout = nil { will get here later again}) or not _selectionInfo.CanSelect(RequestedSelectionInfo.DataIndex) then
+    Exit;
 
   var currentSelection := _selectionInfo as ITreeSelectionInfo;
   var requestedSelection := RequestedSelectionInfo as ITreeSelectionInfo;
@@ -2940,7 +2954,6 @@ begin
 
   // Okay, we now know for sure that we have a changed cell..
   // old row can be scrolled out of view. So always work with dummy rows
-
   var customShift := Shift;
 
   // old activecell
@@ -2956,7 +2969,9 @@ begin
     requestedSelection.SelectedLayoutColumn := currentSelection.SelectedLayoutColumn;
 
   var dummyNewRow := ProvideRowForChanging(requestedSelection) as IDCTreeRow;
-  var newCell := dummyNewRow.Cells[requestedSelection.SelectedLayoutColumn];
+  var newCell: IDCTreeCell := nil;
+  if dummyNewRow <> nil then
+    newCell := dummyNewRow.Cells[requestedSelection.SelectedLayoutColumn];
 
   var ignoreSelectionChanges := not CanRealignContent;
   if not DoCellCanChange(oldCell, newCell) then
@@ -4925,7 +4940,10 @@ begin
   // in case user assigns cell control in CellLoading the tree allows that
   if Cell.Control = nil then
   begin
-    Cell.BackgroundControl := DataControlClassFactory.CreateHeaderCellRect(Cell.Row.Control);
+    if Cell.IsHeaderCell then
+      Cell.BackgroundControl := DataControlClassFactory.CreateHeaderCellRect(Cell.Row.Control) else
+      Cell.BackgroundControl := DataControlClassFactory.CreateRowCellRect(Cell.Row.Control);
+
     var rect := Cell.BackgroundControl.AsControl;
 
     if Cell.IsHeaderCell then
