@@ -141,19 +141,24 @@ type
     procedure UpdateRowHeightSynchronizerScrollbar;
     procedure ValidateSelectionInfo;
 
-    procedure AnimateRow(const Row: IDCRow; StartY, StopY: Single; AnimateOpacity: Boolean; Hide: Boolean);
-    procedure ExecuteAfterAnimateRow(const Row: IDCRow; Event: TNotifyEvent);
+    procedure AnimateRow(const Row: IDCRow; StartY, StopY: Single; AnimateOpacity: Boolean; Hide: Boolean; ExtraDelay: Single = 0);
+    procedure ExecuteAfterAnimateRow(const Row: IDCRow; Event: TNotifyEvent; ExtraDelay: Single = 0);
     function IsPartOfSelectedParentChildGroup(const Row: IDCRow): Boolean;
 
   // expand / collapse
   protected
-    _expandCollapseTimer: TTimer;
+    _isExpandingOrCollapsing: Boolean;
     _scrollAfterExpandCollapse: Integer;
+    _visualizeParentChilds: TVisualizeParentChilds;
 
     procedure VisualizeRowExpand(ViewListIndex: Integer);
     procedure VisualizeRowCollapse(ViewListIndex: Integer);
     procedure OnExpandTimer(Sender: TObject);
     procedure OnCollapseTimer(Sender: TObject);
+
+    procedure set_VisualizeParentChilds(const Value: TVisualizeParentChilds);
+
+    property VisualizeParentChilds: TVisualizeParentChilds read _visualizeParentChilds write set_VisualizeParentChilds;
 
 
   protected
@@ -165,12 +170,9 @@ type
     _masterSynchronizerIndex: Integer;
 
     _hoverRect: TRectangle;
-//    _viewChangedIndex: Integer;
-//    _waitingForViewChange: Boolean;
     _resetViewRec: TResetViewRec;
     _canDragDrop: Boolean;
     _dragObject: CObject;
-//    _newLoadedTreeRows: List<IDCRow>;
 
     _tryFindNewSelectionInDataModel: Boolean;
     _referenceRowViewListIndex: Integer;
@@ -269,6 +271,7 @@ type
 
     function  GetInitializedWaitForRefreshInfo: IWaitForRepaintInfo; virtual;
     procedure VisualizeRowSelection(const Row: IDCRow); virtual;
+    procedure HandleRowChildRelation(const Row: IDCRow; IsOpenParent, IsOpenChild: Boolean); virtual;
 
     procedure KeyDown(var Key: Word; var KeyChar: WideChar; Shift: TShiftState); override;
     procedure UpdateScrollAndSelectionByKey(var Key: Word; Shift: TShiftState); virtual;
@@ -1224,7 +1227,7 @@ begin
   if ClearOtherSelections then
     ClearSelections;
 
-  _selectionInfo.AddToSelection(dataIndex, ix, DataItem, False);
+  _selectionInfo.AddToSelection(dataIndex, ix, _view.GetViewList[ix] {should be datarowview}, False);
 end;
 
 procedure TScrollControlWithRows.DeselectItem(const DataItem: CObject);
@@ -2062,8 +2065,6 @@ end;
 
 procedure TScrollControlWithRows.InitRow(const Row: IDCRow);
 begin
-  Row.UseBuffering := IsScrolling;
-
   var rowInfo := _view.RowLoadedInfo(Row.ViewListIndex);
   var isFastScrollbarScrolling := IsFastScrolling(True);
   var rowNeedsReload := IsPrinting or Row.IsScrollingIntoView or not rowInfo.InnerCellsAreApplied or (rowInfo.ControlNeedsResizeSoft and not (GetScrollingType <> TScrollingType.WithScrollBar));
@@ -2113,9 +2114,8 @@ begin
   end;
 
   PerformanceRoutineLoadedRow(Row);
-  if Row.Control <> nil then
-    Row.Control.Width := CalculateRowControlWidth(False) else
-    Row.Control.Width := CalculateRowControlWidth(False);
+  Row.Control.Width := CalculateRowControlWidth(False);
+  Row.UseBuffering := IsScrolling;
 
   CreateAndSynchronizeSynchronizerRow(Row);
 
@@ -2156,7 +2156,7 @@ end;
 
 procedure TScrollControlWithRows.UpdateHoverRect(MousePos: TPointF);
 begin
-  if (TreeOption_HideHoverEffect in _options) or IsScrolling or MousePos.IsZero then
+  if (TreeOption_HideHoverEffect in _options) or IsScrolling or MousePos.IsZero or _isExpandingOrCollapsing then
   begin
     _hoverRect.Visible := False;
     Exit;
@@ -2343,18 +2343,20 @@ begin
     inherited;
 end;
 
-procedure TScrollControlWithRows.AnimateRow(const Row: IDCRow; StartY, StopY: Single; AnimateOpacity: Boolean; Hide: Boolean);
+procedure TScrollControlWithRows.AnimateRow(const Row: IDCRow; StartY, StopY: Single; AnimateOpacity: Boolean; Hide: Boolean; ExtraDelay: Single = 0);
 
   procedure DoAnimate(const Row: IDCRow);
   begin
     Row.UseBuffering := False;
     Row.Control.Position.Y := StartY;
-    Row.Control.AnimateFloatDelay('Position.Y', StopY, ANI_DURATION, ANI_DELAY, TAnimationType.InOut, TInterpolationType.Quadratic);
+    if AnimateOpacity then
+      Row.Control.AnimateFloatDelay('Position.Y', StopY, ANI_DURATION, ANI_DELAY + ExtraDelay, TAnimationType.Out, TInterpolationType.Quadratic) else
+      Row.Control.AnimateFloatDelay('Position.Y', StopY, ANI_DURATION, ANI_DELAY + ExtraDelay, TAnimationType.InOut, TInterpolationType.Quadratic);
 
     if AnimateOpacity then
     begin
-      Row.Control.Opacity := IfThen(Hide, Row.Control.Opacity, 0.1);
-      Row.Control.AnimateFloatDelay('Opacity', IfThen(Hide, 0, 1), ANI_DURATION, ANI_DELAY, TAnimationType.InOut, TInterpolationType.Quadratic);
+      Row.Control.Opacity := IfThen(Hide, Row.Control.Opacity, 0);
+      Row.Control.AnimateFloatDelay('Opacity', IfThen(Hide, 0, 1), ANI_DURATION, ANI_DELAY + ExtraDelay, TAnimationType.InOut, TInterpolationType.Quadratic);
     end
     else if Hide then
       Row.Control.Opacity := 0;
@@ -2371,7 +2373,7 @@ begin
   end;
 end;
 
-procedure TScrollControlWithRows.ExecuteAfterAnimateRow(const Row: IDCRow; Event: TNotifyEvent);
+procedure TScrollControlWithRows.ExecuteAfterAnimateRow(const Row: IDCRow; Event: TNotifyEvent; ExtraDelay: Single = 0);
 begin
   Row.UseBuffering := False;
   Row.Control.Opacity := 0.5;
@@ -2379,7 +2381,7 @@ begin
   var ani := TFloatAnimation.Create(nil);
   ani.Parent := Row.Control;
   ani.Duration := ANI_DURATION;
-  ani.Delay := ANI_DELAY;
+  ani.Delay := ANI_DELAY + ExtraDelay;
   ani.PropertyName := 'Opacity';
   ani.StartFromCurrent := True;
   ani.StopValue := 1;
@@ -2389,6 +2391,9 @@ end;
 
 procedure TScrollControlWithRows.VisualizeRowExpand(ViewListIndex: Integer);
 begin
+  _isExpandingOrCollapsing := True;
+  UpdateHoverRect(PointF(0,0));
+
   var parentRow := _view.GetActiveRowIfExists(ViewListIndex);
   if parentRow = nil then
   begin
@@ -2407,6 +2412,8 @@ begin
   end;
 
   var rowCountBelowParentRow := _view.ActiveViewRows.Count - 1 - parentRow.ViewPortIndex;
+
+  var orgHeight := parentRow.Height;
 
   var doIgnoreMaster := TryStartIgnoreMasterSynchronizer(True);
   try
@@ -2433,7 +2440,7 @@ begin
   // check if children fit in current view, otherwise scroll parent up...
   var spaceAvailableForParentAndChildren := _vertScrollBar.ViewportSize - (parentRow.VirtualYPosition - _vertScrollBar.Value);
 
-  var parentAndChildrenHeight := 1.0 + parentRow.Height;
+  var parentAndChildrenHeight := parentRow.Height;
   var childCount := CMath.Min(drv.DataView.ChildCount(drv), _view.ActiveViewRows.Count - 1);
 
   var goMaster := TryStartMasterSynchronizer(True);
@@ -2483,42 +2490,57 @@ begin
   end;
 
   // for the new child rows
+  var extraDelay := 0.15;
   var rowYPos := newParentPos + parentRow.Height;
   for var rowChildIx := parentRow.ViewPortIndex + 1 to parentRow.ViewPortIndex + childCount do
   begin
-    var startPos := newParentPos + (rowYPos - newParentPos)*0.75;
+    var startPos := newParentPos + (rowYPos - newParentPos)*0.45;
     var stopPos := rowYPos;
 
     row := _view.ActiveViewRows[rowChildIx];
-    AnimateRow(row, startPos, stopPos, True, False);
+    AnimateRow(row, startPos, stopPos, True, False, extraDelay);
+    extraDelay := extraDelay + 0.01;
 
     rowYPos := rowYPos + row.Height;
   end;
+
+  var parentRowDiff := orgHeight - parentRow.Height;
 
   // for rows that were below the parentrow and that scroll out of view
   var rowsHeight := 0.0;
   for var rowBelowIx := parentRow.ViewPortIndex + childCount + 1 to _view.ActiveViewRows.Count - 1 do
   begin
-    var startPos := oldParentPos + parentRow.Height + rowsHeight; // + 15 {just to look cool with a gappie};
+    var startPos := oldParentPos + parentRow.Height + rowsHeight + parentRowDiff; // + 15 {just to look cool with a gappie};
     var stopPos := oldParentPos + parentAndChildrenHeight + rowsHeight;
 
     row := _view.ActiveViewRows[rowBelowIx];
-    AnimateRow(row, startPos, stopPos, False, False);
+    AnimateRow(row, startPos, stopPos, False, False, -0.15);
 
     rowsHeight := rowsHeight + row.Height;
   end;
 
-  ExecuteAfterAnimateRow(parentRow, OnExpandTimer);
+  if not SameValue(parentRowDiff, 0) then
+  begin
+    var newHeight := parentRow.Height;
+    parentRow.Control.Height := newHeight + parentRowDiff;
+    parentRow.Control.AnimateFloatDelay('Height', newHeight, ANI_DURATION, ANI_DELAY, TAnimationType.InOut, TInterpolationType.Quadratic);
+  end;
+
+  ExecuteAfterAnimateRow(parentRow, OnExpandTimer, extraDelay);
 end;
 
 procedure TScrollControlWithRows.OnExpandTimer(Sender: TObject);
 begin
+  _isExpandingOrCollapsing := False;
   CalculateScrollBarMax;
   ScrollManualInstant(_scrollAfterExpandCollapse);
 end;
 
 procedure TScrollControlWithRows.VisualizeRowCollapse(ViewListIndex: Integer);
 begin
+  _isExpandingOrCollapsing := True;
+  UpdateHoverRect(PointF(0,0));
+
   var parentRow := _view.GetActiveRowIfExists(ViewListIndex);
   if parentRow = nil then
   begin
@@ -2541,32 +2563,36 @@ begin
     end;
   end;
 
-  var childCount := 0;
-  if _view.ActiveViewRows.Count > parentRow.ViewPortIndex + 1 then
-  begin
-    var parentLevel := parentRow.ParentCount;
-    var childIx := parentRow.ViewPortIndex + 1;
-    var childLevel := _view.ActiveViewRows[parentRow.ViewPortIndex + 1].ParentCount;
-    while (_view.ActiveViewRows.Count > childIx) and (_view.ActiveViewRows[childIx].ParentCount > parentLevel) do
-    begin
-      inc(childIx);
-      inc(childCount);
-    end;
-  end;
 
-  // hide children
-  for var rowChildIx := parentRow.ViewPortIndex + 1 to parentRow.ViewPortIndex + childCount do
-  begin
-    var row := _view.ActiveViewRows[rowChildIx];
-    var pos := row.Control.Position.Y;
-    AnimateRow(row, pos, pos, True, True);
-  end;
+//  var childCount := 0;
+//  if _view.ActiveViewRows.Count > parentRow.ViewPortIndex + 1 then
+//  begin
+//    var parentLevel := parentRow.ParentCount;
+//    var childIx := parentRow.ViewPortIndex + 1;
+//    var childLevel := _view.ActiveViewRows[parentRow.ViewPortIndex + 1].ParentCount;
+//    while (_view.ActiveViewRows.Count > childIx) and (_view.ActiveViewRows[childIx].ParentCount > parentLevel) do
+//    begin
+//      inc(childIx);
+//      inc(childCount);
+//    end;
+//  end;
+//
+//  // hide children
+//  for var rowChildIx := parentRow.ViewPortIndex + 1 to parentRow.ViewPortIndex + childCount do
+//  begin
+//    var row := _view.ActiveViewRows[rowChildIx];
+//    var pos := row.Control.Position.Y;
+//    AnimateRow(row, pos, pos, True, True);
+//  end;
 
-  ExecuteAfterAnimateRow(parentRow, OnCollapseTimer);
+//  ExecuteAfterAnimateRow(parentRow, OnCollapseTimer);
+  OnCollapseTimer(nil);
 end;
 
 procedure TScrollControlWithRows.OnCollapseTimer(Sender: TObject);
 begin
+  _isExpandingOrCollapsing := False;
+
   var doIgnoreMaster := TryStartIgnoreMasterSynchronizer(True);
   try
     ResetView(_selectionInfo.ViewListIndex);
@@ -2575,8 +2601,6 @@ begin
   end;
 
   RefreshControl(False);
-//  CalculateScrollBarMax;
-//  ScrollManualInstant(_scrollAfterExpandCollapse);
 end;
 
 procedure TScrollControlWithRows.DoCollapseOrExpandRow(const ViewListIndex: Integer; DoExpand: Boolean);
@@ -2644,7 +2668,7 @@ begin
 
   if ViewIsDataModelView then
   begin
-    if not _resetRowDataItem and (_selectionInfo.ViewListIndex <> -1) then
+    if not _resetRowDataItem {and (_selectionInfo.ViewListIndex <> -1)} then
       Exit;
 
     _resetRowDataItem := False;
@@ -2779,25 +2803,37 @@ begin
     Result := (drv.Row.Level > 0) and (view.Parent(drv) = view.Parent(selDrv));
 end;
 
+procedure TScrollControlWithRows.HandleRowChildRelation(const Row: IDCRow; IsOpenParent, IsOpenChild: Boolean);
+begin
+  DataControlClassFactory.HandleRowChildRelation(Row.ControlAsRowLayout, isOpenParent, isOpenChild, Row.Control.Width);
+end;
+
 procedure TScrollControlWithRows.VisualizeRowSelection(const Row: IDCRow);
 begin
   if (_selectionType <> TSelectionType.HideSelection) then
   begin
     Row.UpdateSelectionVisibility(_selectionInfo, Self.IsFocused);
 
-    if DrawRowBackground then
+    if DrawRowBackground and (_visualizeParentChilds <> TVisualizeParentChilds.No) then
     begin
       var isOpenParent := False;
       var isOpenChild := False;
-      if ViewIsDataModelView and IsPartOfSelectedParentChildGroup(Row) then
+      var isParentChilds := False;
+
+      if ViewIsDataModelView then
       begin
-        isOpenParent := Row.HasVisibleChildren;
-        if not isOpenParent then
-          isOpenChild := True;
+        var drv := Row.DataItem.AsType<IDataRowView>;
+
+        isParentChilds := (drv <> nil) and ((drv.DataView.ChildCount(drv) > 0) or (drv.Row.Level > 0));
+        if isParentChilds and ((_visualizeParentChilds = TVisualizeParentChilds.Yes) or IsPartOfSelectedParentChildGroup(Row)) then
+        begin
+          isOpenParent := Row.HasVisibleChildren;
+          if not isOpenParent then
+            isOpenChild := True;
+        end;
       end;
 
-      Row.UseBuffering := False;
-      DataControlClassFactory.HandleRowChildRelation(Row.ControlAsRowLayout, isOpenParent, isOpenChild);
+      HandleRowChildRelation(Row, isOpenParent, isOpenChild);
     end;
   end;
 end;
@@ -3641,6 +3677,21 @@ begin
   end;
 end;
 
+procedure TScrollControlWithRows.set_VisualizeParentChilds(const Value: TVisualizeParentChilds);
+begin
+  if _visualizeParentChilds = Value then
+    Exit;
+
+  _visualizeParentChilds := Value;
+
+  if _view = nil then
+    Exit;
+
+  var row: IDCRow;
+  for row in _view.ActiveViewRows do
+    VisualizeRowSelection(row);
+end;
+
 procedure TScrollControlWithRows.set_Current(const Value: Integer);
 begin
   if (_selectionInfo = nil) or (_selectionInfo.ViewListIndex <> Value) then
@@ -3835,7 +3886,7 @@ begin
   begin
     var rowLayout := ControlAsRowLayout;
     rowLayout.UseBuffering := False;
-    rowLayout.HandleParentChildVisualisation(False, False);
+    rowLayout.HandleParentChildVisualisation(False, False, 0);
   end;
 
   UpdateControlVisibility;
@@ -4305,16 +4356,20 @@ begin
 
   BeginUpdate;
   try
-    if ExpandCurrentSelection then
-    begin
-      // add single selection if needed
-      var prevInfo: IRowSelectionInfo := nil;
-      if (_lastSelectedViewListIndex <> -1) {and not _multiSelection.ContainsKey(_lastSelectedDataIndex)} then
-        prevInfo := Clone;
+//    if ExpandCurrentSelection then
+//    begin
+//      // add single selection if needed
+//      var prevInfo: IRowSelectionInfo := nil;
+//      if (_lastSelectedViewListIndex <> -1) {and not _multiSelection.ContainsKey(_lastSelectedDataIndex)} then
+//        prevInfo := Clone;
+//
+//      if prevInfo <> nil then
+//        _multiSelection[prevInfo.DataIndex] := prevInfo;
+//    end else
+//      ClearMultiSelections;
 
-      if prevInfo <> nil then
-        _multiSelection[prevInfo.DataIndex] := prevInfo;
-    end;
+    if not ExpandCurrentSelection then
+      ClearMultiSelections;
 
     UpdateLastSelection(DataIndex, ViewListIndex, DataItem);
 
@@ -4368,6 +4423,12 @@ end;
 
 procedure TRowSelectionInfo.UpdateLastSelection(const DataIndex, ViewListIndex: Integer; const DataItem: CObject);
 begin
+  if not CanSelect(DataIndex) then
+  begin
+    UpdateLastSelection(-1, -1, nil);
+    Exit;
+  end;
+
   _lastSelectedDataIndex := DataIndex;
   _lastSelectedViewListIndex := ViewListIndex;
   _lastSelectedDataItem := DataItem;

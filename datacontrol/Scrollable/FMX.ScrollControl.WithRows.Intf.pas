@@ -21,6 +21,7 @@ type
   TTreeRowState = (SortChanged, FilterChanged, RowChanged);
   TTreeRowStateFlags = set of TTreeRowState;
   TAlignDirection = (Undetermined, TopToBottom, BottomToTop);
+  TVisualizeParentChilds = (No, OnSelection, Yes);
   TSelectionEventTrigger = record
   const
     Internal = 0;
