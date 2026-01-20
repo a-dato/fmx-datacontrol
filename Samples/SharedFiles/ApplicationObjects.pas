@@ -9,9 +9,12 @@ type
   {$M+}
   ICompany = interface(IBaseInterface)
     ['{21E9FA90-85E1-4173-9DCB-019A489AFB18}']
+    function  get_Created: CDateTime;
+    procedure set_Created(const Value: CDateTime);
     function  get_Name: string;
     procedure set_Name(const Value: string);
 
+    property Created: CDateTime read get_Created write set_Created;
     property Name: string read get_Name write set_Name;
   end;
 
@@ -25,13 +28,18 @@ type
 
   TCompany = class(TBaseInterfacedObject, ICompany)
   private
+    _Created: CDateTime;
     _Name: string;
+
+    function  get_Created: CDateTime;
+    procedure set_Created(const Value: CDateTime);
 
     function  get_Name: string;
     procedure set_Name(const Value: string);
   public
     function ToString: CString; override;
   published
+    property Created: CDateTime read get_Created write set_Created;
     property Name: string read get_Name write set_Name;
   end;
 
@@ -60,9 +68,19 @@ uses
 
 { TCompany }
 
+function TCompany.get_Created: CDateTime;
+begin
+  Result := _Created;
+end;
+
 function TCompany.get_Name: string;
 begin
   Result := _Name;
+end;
+
+procedure TCompany.set_Created(const Value: CDateTime);
+begin
+  _Created := Value;
 end;
 
 procedure TCompany.set_Name(const Value: string);
@@ -103,6 +121,11 @@ begin
   c.Name := 'Name';
   Result.Columns.Add(c);
 
+  c := DataModelColumn.Create;
+  c.DataType := Global.GetTypeOf<CDateTime>;
+  c.Name := 'Created';
+  Result.Columns.Add(c);
+
   for var cm in TAppObjects.CreateCompanyList do
   begin
     Result.Add(cm, nil, InsertPosition.After);
@@ -125,6 +148,7 @@ begin
   begin
     var c: ICompany := TCompany.Create;
     c.Name := 'Company ' + i.ToString;
+    c.Created := CDateTime.Now.Date.AddDays(i);
     Result.Add(c);
   end;
 end;

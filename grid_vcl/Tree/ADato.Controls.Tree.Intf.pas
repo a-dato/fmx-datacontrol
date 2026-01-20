@@ -214,14 +214,15 @@ type
     class operator Implicit(const AValue: SortType) : SortTypeFlag;
   end;
 
-  FilterTypeFlag = (FilterType_None, FilterType_List, FilterType_FullText, FilterType_Comparer);
+  FilterTypeFlag = (FilterType_None, FilterType_Values, FilterType_FullText, FilterType_Comparer, FilterType_DateRange);
 
   FilterType = record
   const
     None = FilterType_None;
-    List = FilterType_List;
+    Values = FilterType_Values;
     FullText = FilterType_FullText;
     Comparer = FilterType_Comparer;
+    DateRange = FilterType_DateRange;
 
   private
     class var _enumInfo: EnumInformation;
@@ -2081,6 +2082,10 @@ type
     procedure set_FilterType(const Value: FilterType);
     function  get_ShowEmptyValues: Boolean;
     procedure set_ShowEmptyValues(const Values: Boolean);
+    function  get_Start: CDateTime;
+    procedure set_Start(const Value: CDateTime);
+    function  get_Stop: CDateTime;
+    procedure set_Stop(const Value: CDateTime);
 
     function  get_Values: List<CObject>;
     procedure set_Values(const Value: List<CObject>);
@@ -2104,6 +2109,14 @@ type
     property ShowEmptyValues: Boolean
       read  get_ShowEmptyValues
       write set_ShowEmptyValues;
+
+    property Start: CDateTime
+      read  get_Start
+      write set_Start;
+
+    property Stop: CDateTime
+      read  get_Stop
+      write set_Stop;
 
     property LayoutColumn: ITreeLayoutColumn
       read get_LayoutColumn;
