@@ -341,6 +341,9 @@ procedure TObjectListModelWithChangeTracking<T>.NotifyBeginEdit(const Context: I
 begin
   UpdateEditContext(Context);
 
+  if Context.Context = nil then
+    raise Exception.Create('Context not set in NotifyBeginEdit');
+
   var i := _Context.IndexOf(Context.Context);
   if i = -1 then
     raise Exception.Create('NotifyBeginEdit, item could not be located');
