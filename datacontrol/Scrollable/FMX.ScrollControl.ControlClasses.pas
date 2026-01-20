@@ -226,6 +226,7 @@ type
     function  DoFilterItem(const Item: CObject; const ItemText, Filter: string) : Boolean; virtual;
     function  RefreshItems: Boolean;
     procedure DoBeforePopup;
+    procedure UpdateSelection;
   end;
 
   TComboBoxControlImpl = class(TComboEditControlImpl)
@@ -943,12 +944,16 @@ begin
 
     var idx := i;
     case Key of
-      vkUp:     idx := IfThen(idx > 0, idx - 1, _PickList.Count - 1);
-      vkDown:   idx := IfThen(idx < _PickList.Count - 1, idx + 1, 0);
-      vkPrior:  idx := System.Math.Max(idx - 10, 0);
-      vkNext:   idx := System.Math.Min(idx + 10, _PickList.Count - 1);
-      vkHome:   idx := 0;
-      vkEnd:    idx := _PickList.Count - 1;
+      vkUp:     idx := System.Math.Max(0, idx - 1);
+      vkDown:   idx := System.Math.Min(_PickList.Count - 1, idx + 1);
+      vkPrior:  idx := System.Math.Max(idx - (_control as TComboEdit).DropdownCount, 0);
+      vkNext:   idx := System.Math.Min(idx + (_control as TComboEdit).DropdownCount, _PickList.Count - 1);
+      vkHome:
+        if ssCtrl in Shift then
+          idx := 0;
+      vkEnd:
+        if ssCtrl in Shift then
+          idx := _PickList.Count - 1;
     end;
 
     if (idx >= 0) and (i <> idx) then
@@ -1006,6 +1011,8 @@ end;
 function TComboEditControlImpl.FindBestMatch(const Items: List<string>; const Text: string; var Pos: Integer) : Integer;
 begin
   Result := -1;
+  if Items = nil then
+    Exit;
   Pos := Integer.MaxValue;
 
   for var i := 0 to Items.Count - 1 do
@@ -1078,7 +1085,6 @@ begin
       ComboClear;
       for var s in Items do
         ComboAdd(s);
-
       CheckUpdateComboPopupWidth;
     finally
       _control.EndUpdate;
@@ -1143,13 +1149,17 @@ begin
     items := ComboItems;
 
   ComboUpdateItems(items);
+end;
 
+procedure TComboEditControlImpl.UpdateSelection;
+begin
   if (_control is TComboEdit) then
   begin
     var ce := _control as TComboEdit;
 
     var text := get_Text;
     var pos: Integer;
+    var items := ComboItems;
     var match_index := FindBestMatch(items, text, {var} pos);
     if match_index <> -1 then
     begin
@@ -1164,7 +1174,7 @@ end;
 procedure TComboEditControlImpl.DoKeyUp(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
 begin
   if CharInSet(KeyChar, [' ', 'a'..'z', 'A'..'Z', '0'..'9']) then
-    RefreshItems;
+    DropDown;
 end;
 
 function TComboEditControlImpl.ActivePickList: IList;
@@ -1176,8 +1186,18 @@ end;
 
 procedure TComboEditControlImpl.DropDown;
 begin
+//  if not TComboEdit(_control).DroppedDown then
+//    TComboEdit(_control).DropDown;
+
   RefreshItems;
-  TComboEdit(_control).DropDown;
+
+  if not TComboEdit(_control).DroppedDown then
+  begin
+    TComboEdit(_control).DropDown;
+    TComboEdit(_control).Caret.Show; // Drop down hides caret -> show it again
+  end;
+
+  UpdateSelection;
 end;
 
 function TComboEditControlImpl.get_AutoFilter: Boolean;
