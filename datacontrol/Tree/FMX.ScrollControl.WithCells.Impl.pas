@@ -4905,10 +4905,7 @@ begin
     var txtCtrl: ITextControl;
     if not cell.IsHeaderCell and Interfaces.Supports<ITextControl>(cell.InfoControl, txtCtrl) then
     begin
-      if txtCtrl.TextHeightWithPadding > (ctrlHeight - (2*_treeControl.CellTopBottomPadding)) then
-        (txtCtrl as ITextSettings).TextSettings.VertAlign := TTextAlign.Leading else
-        (txtCtrl as ITextSettings).TextSettings.VertAlign := TTextAlign.Center;
-
+      (txtCtrl as ITextSettings).TextSettings.VertAlign := Cell.LayoutColumn.CalculatedVertAlign;
       ctrl.Height := ctrlHeight - (2*_treeControl.CellTopBottomPadding);
     end;
 

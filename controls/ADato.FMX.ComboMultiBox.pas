@@ -64,6 +64,7 @@ type
 
     procedure OnClosePopup(Sender: TObject; var Action: TCloseAction);
     procedure MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Single); override;
+    procedure KeyDown(var Key: Word; var KeyChar: WideChar; Shift: TShiftState); override;
 
     procedure CellSelectedEvent(const Sender: TObject; e: DCCellSelectedEventArgs);
 
@@ -285,6 +286,20 @@ end;
 function TComboMultiBox.InClearClick: Boolean;
 begin
   Result := _inClearClick;
+end;
+
+procedure TComboMultiBox.KeyDown(var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
+begin
+  if (Key = vkF2) then
+  begin
+    if not _popupMenu.IsOpen then
+      DropDown;
+
+    Key := 0;
+    Exit;
+  end;
+
+  inherited;
 end;
 
 procedure TComboMultiBox.set_Items(Value: IList);

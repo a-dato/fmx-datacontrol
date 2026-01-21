@@ -199,7 +199,7 @@ type
     procedure set_BeforePopup(const Value: TComboBeforePopup);
     function  get_PickList: IList;
     procedure set_PickList(const Value: IList);
-    function  get_Text: CString;
+    function  get_Text: CString; virtual;
     procedure set_Text(const Value: CString);
     function  get_Value: CObject; override;
     procedure set_Value(const Value: CObject); override;
@@ -234,6 +234,7 @@ type
     function  get_ItemIndex: Integer; override;
     procedure set_ItemIndex(const Value: Integer); override;
     function  get_ItemCount: Integer; override;
+    function  get_Text: CString; override;
 
     function  ComboItems : List<string>; override;
     function  ComboIsDroppedDown : Boolean; override;
@@ -934,33 +935,47 @@ begin
   if ssAlt in Shift then
     Exit;
 
-  if (_PickList <> nil) and (Key in [vkUp, vkDown, vkPrior, vkNext, vkHome, vkEnd]) then
+  if (get_ItemCount = 0) then
+    Exit;
+
+  if (Key = vkF2) then
+  begin
+    if not ComboIsDroppedDown then
+      DropDown;
+
+    Key := 0;
+  end
+
+  else if (Key in [vkUp, vkDown, vkPrior, vkNext, vkHome, vkEnd]) then
   begin
     var v := get_Value;
     var i: Integer;
-    if v <> nil then
+    if (v <> nil) and (_PickList <> nil) then
       i := _PickList.IndexOf(v) else
-      i := -1;
+      i := get_ItemIndex;
 
     var idx := i;
     case Key of
       vkUp:     idx := System.Math.Max(0, idx - 1);
-      vkDown:   idx := System.Math.Min(_PickList.Count - 1, idx + 1);
+      vkDown:   idx := System.Math.Min(get_ItemCount - 1, idx + 1);
       vkPrior:  idx := System.Math.Max(idx - (_control as TComboEdit).DropdownCount, 0);
-      vkNext:   idx := System.Math.Min(idx + (_control as TComboEdit).DropdownCount, _PickList.Count - 1);
+      vkNext:   idx := System.Math.Min(idx + (_control as TComboEdit).DropdownCount, get_ItemCount - 1);
       vkHome:
         if ssCtrl in Shift then
           idx := 0;
       vkEnd:
         if ssCtrl in Shift then
-          idx := _PickList.Count - 1;
+          idx := get_ItemCount - 1;
     end;
 
     if (idx >= 0) and (i <> idx) then
     begin
-      set_Value(_PickList[idx]);
-      Key := 0;
+      if _PickList <> nil then
+        set_Value(_PickList[idx]) else
+        set_ItemIndex(idx);
     end;
+
+    Key := 0;
   end;
 end;
 
@@ -1082,10 +1097,15 @@ begin
   begin
     _control.BeginUpdate;
     try
+      var val := get_Value;
+
       ComboClear;
       for var s in Items do
         ComboAdd(s);
+
       CheckUpdateComboPopupWidth;
+
+      set_Value(val);
     finally
       _control.EndUpdate;
     end;
@@ -1278,13 +1298,16 @@ begin
   if (Value <> nil) and (Items <> nil) then
   begin
     idx := items.IndexOf(Value);
-    if idx = get_ItemIndex then
+    if (idx <> -1) and (idx = get_ItemIndex) then
       Exit;
   end else
     idx := -1;
 
   if _itemsLoaded or (Value = nil) then
   begin
+    if (Value <> nil) and (idx = -1) then
+      RefreshItems;
+
     set_ItemIndex(idx);
     Exit;
   end;
@@ -1308,10 +1331,7 @@ end;
 
 function TComboEditControlImpl.get_Text: CString;
 begin
-  if _control is TComboEdit then
-    Result := (_control as TComboEdit).Text
-  else if _control is TComboBox then
-    Result := (_control as TComboBox).Text;
+  Result := (_control as TComboEdit).Text;
 end;
 
 procedure TComboEditControlImpl.set_Text(const Value: CString);
@@ -1490,6 +1510,11 @@ end;
 function TComboBoxControlImpl.get_ItemIndex: Integer;
 begin
   Result := (_control as TComboBox).ItemIndex;
+end;
+
+function TComboBoxControlImpl.get_Text: CString;
+begin
+  Result := (_control as TComboBox).Text;
 end;
 
 procedure TComboBoxControlImpl.set_ItemIndex(const Value: Integer);
