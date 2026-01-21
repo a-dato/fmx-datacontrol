@@ -83,7 +83,7 @@ type
     procedure CreateDefaultColumns;
     procedure ShowHeaderPopupMenu(const LayoutColumn: IDCTreeLayoutColumn);
     procedure HeaderPopupMenu_Closed(Sender: TObject; var Action: TCloseAction);
-    function  GetColumnValues(const LayoutColumn: IDCTreeLayoutColumn; Add_NO_VALUE: Boolean): Dictionary<CObject, CString>;
+    function  GetColumnValues(const LayoutColumn: IDCTreeLayoutColumn; out NullValueExists: Boolean): Dictionary<CObject, CString>;
 
     procedure GetSortAndFilterImages(out ImageList: TCustomImageList; out FilterIndex, SortAscIndex, SortDescIndex: Integer);
 
@@ -286,7 +286,8 @@ type
     procedure ColumnsChangedFromExternal;
 
     procedure UpdateColumnSort(const Column: IDCTreeColumn; SortDirection: ListSortDirection; ClearOtherSort: Boolean);
-    procedure UpdateColumnFilter(const Column: IDCTreeColumn; const FilterText: CString; const FilterValues: List<CObject>);
+    procedure UpdateColumnFilter(const Column: IDCTreeColumn; const FilterText: CString; const FilterValues: List<CObject>; const NullValueSelected: Boolean); overload;
+    procedure UpdateColumnFilter(const Column: IDCTreeColumn; const Start: CDateTime; const Stop: CDateTime); overload;
 
     procedure UpdateSelectedColumn(const Column: Integer);
 
@@ -1736,13 +1737,13 @@ begin
   ExecuteAfterRealignOnly(False);
 end;
 
-procedure TScrollControlWithCells.UpdateColumnFilter(const Column: IDCTreeColumn; const FilterText: CString; const FilterValues: List<CObject>);
+procedure TScrollControlWithCells.UpdateColumnFilter(const Column: IDCTreeColumn; const FilterText: CString; const FilterValues: List<CObject>; const NullValueSelected: Boolean);
 begin
   var flatColumn := Self.FlatColumnByColumn(Column);
   if flatColumn = nil then
     Exit;
 
-  if CString.IsNullOrEmpty(FilterText) and ((FilterValues = nil) or (FilterValues.Count = 0)) then
+  if CString.IsNullOrEmpty(FilterText) and ((FilterValues = nil) or (FilterValues.Count = 0)) and not NullValueSelected then
   begin
     if flatColumn.ActiveFilter <> nil then
     begin
@@ -1756,7 +1757,8 @@ begin
       GetInitializedWaitForRefreshInfo.FilterDescriptions := activeFilters;
     end;
   end
-  else begin
+  else
+  begin
     // keep this var in the methods scope
     // for "ActiveFilter" is a weak referenced variable
     var filter: ITreeFilterDescription;
@@ -1771,13 +1773,40 @@ begin
     end;
 
     FlatColumn.ActiveFilter.FilterText := FilterText;
-
-    if (FilterValues <> nil) and (FilterValues.Count > 0) then
-      FlatColumn.ActiveFilter.FilterValues := FilterValues else
-      FlatColumn.ActiveFilter.FilterValues := nil;
-
+    FlatColumn.ActiveFilter.FilterValues := FilterValues;
+    FlatColumn.ActiveFilter.NullValueSelected := NullValueSelected;
     AddFilterDescription(FlatColumn.ActiveFilter, False);
   end;
+
+  if _headerRow <> nil then
+  begin
+    var headerCell := _headerRow.Cells[FlatColumn.Index];
+    FlatColumn.UpdateCellControlsByRow(HeaderCell);
+  end;
+end;
+
+procedure TScrollControlWithCells.UpdateColumnFilter(const Column: IDCTreeColumn; const Start: CDateTime; const Stop: CDateTime);
+begin
+  var flatColumn := Self.FlatColumnByColumn(Column);
+  if flatColumn = nil then
+    Exit;
+
+  // keep this var in the methods scope
+  // for "ActiveFilter" is a weak referenced variable
+  var filter: ITreeFilterDescription;
+  if flatColumn.ActiveFilter = nil then
+  begin
+    {$IFNDEF WEBASSEMBLY}
+    filter := TTreeFilterDescriptionWithRow.Create(flatColumn, OnGetCellDataForSorting);
+    {$ELSE}
+    filter := TTreeFilterDescriptionWithRow.Create(flatColumn, @OnGetCellDataForSorting);
+    {$ENDIF}
+    FlatColumn.ActiveFilter := filter;
+  end;
+
+  FlatColumn.ActiveFilter.Start := Start;
+  FlatColumn.ActiveFilter.Stop := Stop;
+  AddFilterDescription(FlatColumn.ActiveFilter, False);
 
   if _headerRow <> nil then
   begin
@@ -1799,7 +1828,7 @@ begin
   TrySelectItem(_selectionInfo, [ssShift]);
 end;
 
-function TScrollControlWithCells.GetColumnValues(const LayoutColumn: IDCTreeLayoutColumn; Add_NO_VALUE: Boolean): Dictionary<CObject, CString>;
+function TScrollControlWithCells.GetColumnValues(const LayoutColumn: IDCTreeLayoutColumn; out NullValueExists: Boolean): Dictionary<CObject, CString>;
 var
   filterDescription: IListFilterDescription;
 
@@ -1821,6 +1850,7 @@ begin
   filterDescription := TTreeFilterDescriptionWithRow.Create(LayoutColumn, @OnGetCellDataForSorting);
   {$ENDIF}
 
+  NullValueExists := False;
   var orgDataList := _view.OriginalData;
 
   // do it this way to make sure that DataModel returns IDataRow, and not the CObjectss
@@ -1835,10 +1865,9 @@ begin
   begin
     var obj := filterDescription.GetFilterableValue(item);
 
-    if (obj = nil) and Add_NO_VALUE then
+    if obj = nil then
     begin
-      if not Result.ContainsKey(NO_VALUE_KEY)  then
-        Result[NO_VALUE_KEY] := NO_VALUE;
+      NullValueExists := True;
       continue;
     end;
 
@@ -1891,17 +1920,50 @@ begin
     var descriptor: IListSortDescriptionWithComparer := TTreeSortDescriptionWithComparer.Create(LayoutColumn, OnGetCellDataForSorting);
     var comparer := DoSortingGetComparer(descriptor);
     var filter := LayoutColumn.ActiveFilter;
+    var showNullValue := False;
+    var selectNullvalue := False;
+    var selectedItems: List<CObject> := nil;
+    var useTextComparer := LayoutColumn.Column.SortType = TSortType.DisplayText;
+    var start := CDateTime.MaxValue;
+    var stop := CDateTime.MinValue;
+
+    dataValues := GetColumnValues(LayoutColumn, {var} showNullValue);
+
+    var useDateFilter := (dataValues.Count > 0) and dataValues.Entries[0].Key.IsDateTime;
 
     if filter <> nil then
     begin
-      dataValues := GetColumnValues(LayoutColumn, filter.ShowEmptyValues);
-      popupMenu.LoadFilterItems(dataValues, comparer, filter.FilterValues, LayoutColumn.Column.SortType = TSortType.Displaytext);
+      if useDateFilter then
+      begin
+        start := filter.Start;
+        stop := filter.Stop.AddDays(-1);
+      end
+      else
+      begin
+        selectedItems := filter.FilterValues;
+        showNullValue := filter.ShowEmptyValues and showNullValue;
+        selectNullValue := showNullValue and filter.NullValueSelected;
+      end;
     end
-    else
+    else if useDateFilter then
     begin
-      dataValues := GetColumnValues(LayoutColumn, True);
-      popupMenu.LoadFilterItems(dataValues, comparer, nil, LayoutColumn.Column.SortType = TSortType.Displaytext);
+      for var key in dataValues.Keys do
+      begin
+        var dt: CDateTime;
+        if key.TryGetValue<CDateTime>(dt) then
+        begin
+          start := CMath.Min(start, dt);
+          stop := CMath.Max(stop, dt);
+        end;
+      end;
+
+      if start.Equals(CDateTime.MaxValue) then
+        start := CDateTime.MinValue;
     end;
+
+    if useDateFilter then
+      popupMenu.LoadDateRange(start, stop, False) else
+      popupMenu.LoadFilterItems(dataValues, comparer, selectedItems, showNullValue, selectNullValue, useTextComparer);
 
     popupMenu.AllowClearColumnFilter := (filter <> nil);
   end;
@@ -1940,9 +2002,13 @@ begin
 
     TfrmFMXPopupMenuDataControl.TPopupResult.ptFilter:
     begin
-      var filterValues := popupForm.SelectedItems;
-      UpdateColumnFilter(flatColumn.Column, nil, filterValues);
+      var nullValueSelected: Boolean;
+      var filterValues := popupForm.SelectedItems({out} nullValueSelected);
+      UpdateColumnFilter(flatColumn.Column, nil, filterValues, nullValueSelected);
     end;
+
+    TfrmFMXPopupMenuDataControl.TPopupResult.ptFilterDateRange:
+      UpdateColumnFilter(flatColumn.Column, popupForm.Start, popupForm.Stop.AddDays(1));
 
     TfrmFMXPopupMenuDataControl.TPopupResult.ptHideColumn:
     begin
@@ -1966,7 +2032,7 @@ begin
 
     TfrmFMXPopupMenuDataControl.TPopupResult.ptClearFilter:
     begin
-      UpdateColumnFilter(flatColumn.Column, nil, nil);
+      UpdateColumnFilter(flatColumn.Column, nil, nil, False);
     end;
 
     TfrmFMXPopupMenuDataControl.TPopupResult.ptClearSortAndFilter:

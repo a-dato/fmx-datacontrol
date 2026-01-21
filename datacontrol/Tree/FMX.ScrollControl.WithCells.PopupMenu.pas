@@ -57,7 +57,7 @@ uses
   FMX.ScrollControl.WithEditableCells.Impl,
   FMX.ScrollControl.WithCells.Impl,
   FMX.ScrollControl.Events,
-  FMX.ScrollControl.DataControl.Impl;
+  FMX.ScrollControl.DataControl.Impl, FMX.TabControl, FMX.DateTimeCtrls;
 
 type
   TfrmFMXPopupMenuDataControl = class(TForm)
@@ -79,8 +79,18 @@ type
     Timer1: TTimer;
     Line1: TLine;
     lyListBoxBackGround: TLayout;
+    tcFilterControls: TTabControl;
+    tsTreeControl: TTabItem;
+    tsDateRange: TTabItem;
+    dtpFrom: TDateEdit;
+    dtpTo: TDateEdit;
+    lblFrom: TLabel;
+    lblTo: TLabel;
+    btnApplyDateRange: TButton;
+    procedure btnApplyDateRangeClick(Sender: TObject);
     procedure btnApplyFiltersClick(Sender: TObject);
     procedure cbSelectAllClick(Sender: TObject);
+    procedure dtpFromChange(Sender: TObject);
     procedure edSearchChangeTracking(Sender: TObject);
     procedure FormDeactivate(Sender: TObject);
     procedure lbiSortSmallToLargeClick(Sender: TObject);
@@ -97,10 +107,9 @@ type
     procedure lbiSortSmallToLargeMouseLeave(Sender: TObject);
     procedure Timer1Timer(Sender: TObject);
   public type
-    TPopupResult = (ptCancel, ptSortAscending, ptSortDescending, ptAddColumnAfter, ptHideColumn, ptClearFilter, ptClearSortAndFilter, ptClearAll, ptFilter);
+    TPopupResult = (ptCancel, ptSortAscending, ptSortDescending, ptAddColumnAfter, ptHideColumn, ptClearFilter, ptClearSortAndFilter, ptClearAll, ptFilter, ptFilterDateRange);
 
   private
-    const TREE_COLUMN_NAME_TEXT = 'Text';
   {$IFNDEF WEBASSEMBLY}
   strict private
   {$ELSE}
@@ -113,13 +122,15 @@ type
 
     [unsafe] _LayoutColumn: IDCTreeLayoutColumn;
 
-
     procedure CreateItemFiltersControls;
     procedure SetAllowClearColumnFilter(Value: Boolean);
-//    procedure set_Items(const Value: List<IFilterItem>);
-    function  get_SelectedItems: List<CObject>;
+
     function  get_LayoutColumn: IDCTreeLayoutColumn;
     procedure set_LayoutColumn(const Value: IDCTreeLayoutColumn);
+    function  get_Start: CDateTime;
+    procedure set_Start(const Value: CDateTime);
+    function  get_Stop: CDateTime;
+    procedure set_Stop(const Value: CDateTime);
 
     procedure TreeCellSelected(const Sender: TObject; e: DCCellSelectedEventArgs);
     procedure TreeCellFormatting(const Sender: TObject; e: DCCellFormattingEventArgs);
@@ -128,14 +139,17 @@ type
     destructor Destroy; override;
 
     procedure ShowPopupMenu(const ScreenPos: TPointF; ShowItemFilters, ShowItemSortOptions, ShowItemAddColumAfter, ShowItemHideColumn: Boolean);
-
+    function  SelectedItems(out NullValueSelected: Boolean) : List<CObject>;
 
     procedure EnableItem(Index: integer; Value: boolean);
-    procedure LoadFilterItems(const Data: Dictionary<CObject, CString>; const Comparer: IComparer<CObject>; const Selected: List<CObject>; CompareText: Boolean);
+    procedure LoadFilterItems(const Data: Dictionary<CObject, CString>; const Comparer: IComparer<CObject>; const Selected: List<CObject>;
+      ShowNullValue: Boolean; SelectNullValue: Boolean; UseTextCompare: Boolean);
+    procedure LoadDateRange(const Start: CDateTime; const Stop: CDateTime; ShowTimeValue: Boolean);
+
     property  PopupResult: TPopupResult read _PopupResult;
     property  AllowClearColumnFilter: Boolean write SetAllowClearColumnFilter;
-    property  SelectedItems: List<CObject> read get_SelectedItems;
-
+    property  Start: CDateTime read get_Start write set_Start;
+    property  Stop: CDateTime read get_Stop write set_Stop;
     property LayoutColumn: IDCTreeLayoutColumn read get_LayoutColumn write set_LayoutColumn;
   end;
 
@@ -201,6 +215,7 @@ begin
 
   PopupListBox.StylesData['background.Visible'] := False;
   btnApplyFilters.Enabled := False;
+  btnApplyDateRange.Enabled := False;
 
   Left := Trunc(ScreenPos.X);
   Top := Trunc(ScreenPos.Y);
@@ -257,8 +272,18 @@ begin
   inherited;
 end;
 
-procedure TfrmFMXPopupMenuDataControl.LoadFilterItems(const Data: Dictionary<CObject, CString>; const Comparer: IComparer<CObject>; const Selected: List<CObject>; CompareText: Boolean);
+procedure TfrmFMXPopupMenuDataControl.btnApplyDateRangeClick(Sender: TObject);
 begin
+  _PopupResult := TPopupResult.ptFilterDateRange;
+  Close;
+end;
+
+procedure TfrmFMXPopupMenuDataControl.LoadFilterItems(const Data: Dictionary<CObject, CString>;
+    const Comparer: IComparer<CObject>; const Selected: List<CObject>;
+    ShowNullValue: Boolean; SelectNullValue: Boolean; UseTextCompare: Boolean);
+begin
+  tcFilterControls.ActiveTab := tsTreeControl;
+
   _data := Data;
   var items: List<CObject> := CList<CObject>.Create(Data.Keys);
 
@@ -267,16 +292,30 @@ begin
       begin
         if (Comparer <> nil) then
           Result := Comparer.Compare(x, y)
-        else if CompareText then
+        else if UseTextCompare then
           Result := CString.Compare(Data[x], Data[y])
         else
           Result := CObject.Compare(x, y);
       end);
 
+  if ShowNullValue then
+    items.Insert(0, NO_VALUE);
+
   _dataControl.DataList := items as IList;
 
   if Selected <> nil then
     _dataControl.AssignSelection(Selected as IList);
+
+  if SelectNullValue then
+    _dataControl.SelectItem(NO_VALUE, False);
+end;
+
+procedure TfrmFMXPopupMenuDataControl.LoadDateRange(const Start: CDateTime; const Stop: CDateTime; ShowTimeValue: Boolean);
+begin
+  tcFilterControls.ActiveTab := tsDateRange;
+  dtpFrom.Date := Start;
+  dtpTo.Date := Stop;
+  btnApplyDateRange.Enabled := False;
 end;
 
 function TfrmFMXPopupMenuDataControl.get_LayoutColumn: IDCTreeLayoutColumn;
@@ -284,9 +323,32 @@ begin
   Result := _LayoutColumn;
 end;
 
-function TfrmFMXPopupMenuDataControl.get_SelectedItems: List<CObject>;
+function TfrmFMXPopupMenuDataControl.get_Start: CDateTime;
 begin
-  Result := _dataControl.SelectedItems;
+  Result := dtpFrom.DateTime;
+end;
+
+function TfrmFMXPopupMenuDataControl.get_Stop: CDateTime;
+begin
+  Result := dtpTo.DateTime;
+end;
+
+function TfrmFMXPopupMenuDataControl.SelectedItems(out NullValueSelected: Boolean) : List<CObject>;
+begin
+  var selected := _dataControl.SelectedItems;
+  NullValueSelected := False;
+
+  Result := CList<CObject>.Create(selected.Count);
+
+  for var item in selected do
+  begin
+    if item.IsString and CObject.Equals(item, NO_VALUE) then
+    begin
+      NullValueSelected := True;
+      continue;
+    end;
+    Result.Add(item);
+  end;
 end;
 
 procedure TfrmFMXPopupMenuDataControl.SetAllowClearColumnFilter(Value: Boolean);
@@ -297,6 +359,16 @@ end;
 procedure TfrmFMXPopupMenuDataControl.set_LayoutColumn(const Value: IDCTreeLayoutColumn);
 begin
   _LayoutColumn := Value;
+end;
+
+procedure TfrmFMXPopupMenuDataControl.set_Start(const Value: CDateTime);
+begin
+  dtpFrom.DateTime := Value;
+end;
+
+procedure TfrmFMXPopupMenuDataControl.set_Stop(const Value: CDateTime);
+begin
+  dtpTo.DateTime := Value;
 end;
 
 //procedure TfrmFMXPopupMenu.set_Items(const Value: List<IFilterItem>);
@@ -321,6 +393,11 @@ begin
   end);
 end;
 
+procedure TfrmFMXPopupMenuDataControl.dtpFromChange(Sender: TObject);
+begin
+  btnApplyDateRange.Enabled := True;
+end;
+
 procedure TfrmFMXPopupMenuDataControl.TreeCellSelected(const Sender: TObject; e: DCCellSelectedEventArgs);
 begin
   btnApplyFilters.Enabled := True;
@@ -333,7 +410,7 @@ begin
 //
 //  _dataControl.AddFilterDescription(filterByText, True);
 
-  _dataControl.UpdateColumnFilter(_dataControl.Columns[1], edSearch.Text.ToLower, nil);
+  _dataControl.UpdateColumnFilter(_dataControl.Columns[1], edSearch.Text.ToLower, nil, False);
 end;
 
 procedure TfrmFMXPopupMenuDataControl.FormCloseQuery(Sender: TObject; var CanClose: Boolean);

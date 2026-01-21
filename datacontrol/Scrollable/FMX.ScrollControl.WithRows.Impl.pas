@@ -503,6 +503,7 @@ type
     procedure UpdateSingleSelection(const DataIndex, ViewListIndex: Integer; const DataItem: CObject; KeepCurrentSelection: Boolean);
     procedure AddToSelection(const DataIndex, ViewListIndex: Integer; const DataItem: CObject; ExpandCurrentSelection: Boolean);
     procedure Deselect(const DataIndex: Integer);
+    function  Select(const DataIndex, ViewListIndex: Integer; const DataItem: CObject) : Boolean;
     procedure SelectedRowClicked(const DataIndex: Integer);
 
     procedure BeginUpdate;
@@ -1227,7 +1228,8 @@ begin
   if ClearOtherSelections then
     ClearSelections;
 
-  _selectionInfo.AddToSelection(dataIndex, ix, _view.GetViewList[ix] {should be datarowview}, False);
+  _selectionInfo.Select(dataIndex, ix, _view.GetViewList[ix] {should be datarowview});
+  // _selectionInfo.AddToSelection(dataIndex, ix, _view.GetViewList[ix] {should be datarowview}, False);
 end;
 
 procedure TScrollControlWithRows.DeselectItem(const DataItem: CObject);
@@ -2126,7 +2128,7 @@ begin
     begin
       // We do not!!!! accept a row height change while user is scrolling with scrollbar
       // because this will give flickering. AFter scroll release the row is reloaded automatically
-      rowHeightChanged := False;
+      // rowHeightChanged := False;
       row.Control.Height := oldRowHeight;
     end;
   end;
@@ -2818,7 +2820,7 @@ begin
     begin
       var isOpenParent := False;
       var isOpenChild := False;
-      var isParentChilds := False;
+      var isParentChilds: Boolean;
 
       if ViewIsDataModelView then
       begin
@@ -4323,6 +4325,23 @@ begin
   end;
 end;
 
+function TRowSelectionInfo.Select(const DataIndex, ViewListIndex: Integer; const DataItem: CObject) : Boolean;
+begin
+  BeginUpdate;
+  try
+    if not _multiSelection.ContainsKey(DataIndex) then
+    begin
+      Result := True;
+      var info: IRowSelectionInfo := CreateInstance as IRowSelectionInfo;
+      info.UpdateSingleSelection(DataIndex, ViewListIndex, DataItem, False);
+      _multiSelection[DataIndex] := info;
+    end else
+      Result := False;
+  finally
+    EndUpdate; //(True {do not scroll lastselected into view, because it can be out of view, causing scroll action});
+  end;
+end;
+
 procedure TRowSelectionInfo.DoSelectionInfoChanged;
 begin
   // check if we are dealing with clone
@@ -4356,18 +4375,6 @@ begin
 
   BeginUpdate;
   try
-//    if ExpandCurrentSelection then
-//    begin
-//      // add single selection if needed
-//      var prevInfo: IRowSelectionInfo := nil;
-//      if (_lastSelectedViewListIndex <> -1) {and not _multiSelection.ContainsKey(_lastSelectedDataIndex)} then
-//        prevInfo := Clone;
-//
-//      if prevInfo <> nil then
-//        _multiSelection[prevInfo.DataIndex] := prevInfo;
-//    end else
-//      ClearMultiSelections;
-
     if not ExpandCurrentSelection then
       ClearMultiSelections;
 

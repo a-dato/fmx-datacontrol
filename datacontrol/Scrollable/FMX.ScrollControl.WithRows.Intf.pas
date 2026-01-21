@@ -121,6 +121,7 @@ type
     procedure UpdateSingleSelection(const DataIndex, ViewListIndex: Integer; const DataItem: CObject; KeepCurrentSelection: Boolean);
     procedure AddToSelection(const DataIndex, ViewListIndex: Integer; const DataItem: CObject; ExpandCurrentSelection: Boolean);
     procedure Deselect(const DataIndex: Integer);
+    function  Select(const DataIndex, ViewListIndex: Integer; const DataItem: CObject) : Boolean;
     procedure SelectedRowClicked(const DataIndex: Integer);
 
     property DataIndex: Integer read get_DataIndex;
@@ -218,9 +219,18 @@ type
     procedure set_filterText(const Value: CString);
     function  get_filterValues: List<CObject>;
     procedure set_filterValues(const Value: List<CObject>);
+    function  get_NullValueSelected: Boolean;
+    procedure set_NullValueSelected(const Value: Boolean);
+    function  get_Start: CDateTime;
+    procedure set_Start(const Value: CDateTime);
+    function  get_Stop: CDateTime;
+    procedure set_Stop(const Value: CDateTime);
 
     property FilterText: CString read get_filterText write set_filterText;
     property FilterValues: List<CObject> read get_filterValues write set_filterValues;
+    property Start: CDateTime read get_Start write set_Start;
+    property Stop: CDateTime read get_Stop write set_Stop;
+    property NullValueSelected: Boolean read get_NullValueSelected write set_NullValueSelected;
   end;
 
   IWaitForRepaintInfo = interface

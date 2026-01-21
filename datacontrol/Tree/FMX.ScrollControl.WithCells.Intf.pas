@@ -36,7 +36,6 @@ uses
 
 const
   NO_VALUE = '[no value]';
-  NO_VALUE_KEY = 'NO_VALUE';
 
 type
   TSortType = (None, Displaytext, CellData, PropertyValue, ColumnCellComparer, RowComparer);

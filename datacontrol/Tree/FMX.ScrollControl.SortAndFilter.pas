@@ -70,6 +70,9 @@ type
 
     _FilterText: CString;
     _FilterValues: List<CObject>;
+    _NullValueSelected: Boolean;
+    _Start: CDateTime;
+    _Stop: CDateTime;
 
     _sort: IListSortDescription;
 
@@ -77,6 +80,12 @@ type
     procedure set_filterText(const Value: CString);
     function  get_filterValues: List<CObject>;
     procedure set_filterValues(const Value: List<CObject>);
+    function  get_NullValueSelected: Boolean;
+    procedure set_NullValueSelected(const Value: Boolean);
+    function  get_Start: CDateTime;
+    procedure set_Start(const Value: CDateTime);
+    function  get_Stop: CDateTime;
+    procedure set_Stop(const Value: CDateTime);
 
   public
     constructor Create(const Column: IDCTreeLayoutColumn; OnGetSortCellData: TOnGetSortCellData); reintroduce;
@@ -88,8 +97,6 @@ type
 
     property FilterCell: IDCTreeCell read _filterCell implements IDCTreeCell;
     property FilterRow: IDCTreeRow read _filterRow implements IDCTreeRow;
-    property FilterText: CString read get_filterText write set_filterText;
-    property FilterValues: List<CObject> read get_filterValues write set_filterValues;
   end;
 
   TComparerForEvents = class(TBaseInterfacedObject, IComparer<CObject>)
@@ -246,13 +253,15 @@ begin
         Exit(True);
 
     Result := False;
-  end else
-    Result := ((_FilterValues <> nil) and (_FilterValues.BinarySearch(Value) >= 0)) or MatchText(Value);
-
-  // KV: 12/11/2025 Code removed
-  // TTreeFilterDescriptionWithRow also used by TDataModel
-  //  if not Result and (DataIndex <> -1) and (_flatColumn.Column.TreeControl.SelectionCount > 0) then
-  //    Result := _flatColumn.Column.TreeControl.IsSelected(DataIndex);
+  end
+  else if _start.Equals(CDateTime.MinValue) then
+    Result := (_NullValueSelected and (Value = nil)) or ((_FilterValues <> nil) and (_FilterValues.BinarySearch(Value) >= 0)) or MatchText(Value)
+  else
+  begin
+    // Filter date range
+    var dt: CDateTime;
+    Result := (_NullValueSelected and (Value = nil)) or (Value.TryAsType<CDateTime>(dt) and (_start <= dt) and (dt < _stop));
+  end;
 end;
 
 procedure TTreeFilterDescriptionWithRow.set_filterText(const Value: CString);
@@ -263,6 +272,36 @@ end;
 procedure TTreeFilterDescriptionWithRow.set_filterValues(const Value: List<CObject>);
 begin
   _FilterValues := Value;
+end;
+
+function TTreeFilterDescriptionWithRow.get_NullValueSelected: Boolean;
+begin
+  Result := _NullValueSelected;
+end;
+
+function TTreeFilterDescriptionWithRow.get_Start: CDateTime;
+begin
+  Result := _Start;
+end;
+
+function TTreeFilterDescriptionWithRow.get_Stop: CDateTime;
+begin
+  Result := _Stop;
+end;
+
+procedure TTreeFilterDescriptionWithRow.set_NullValueSelected(const Value: Boolean);
+begin
+  _NullValueSelected := Value;
+end;
+
+procedure TTreeFilterDescriptionWithRow.set_Start(const Value: CDateTime);
+begin
+  _Start := Value;
+end;
+
+procedure TTreeFilterDescriptionWithRow.set_Stop(const Value: CDateTime);
+begin
+  _Stop := Value;
 end;
 
 function TTreeFilterDescriptionWithRow.ToSortDescription: IListSortDescription;
