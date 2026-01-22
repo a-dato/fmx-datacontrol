@@ -593,8 +593,6 @@ begin
   if get_UseBuffering = Value then
     Exit;
 
-  Exit;
-
   if Value then
   begin
     AScene := AStoredScene;
