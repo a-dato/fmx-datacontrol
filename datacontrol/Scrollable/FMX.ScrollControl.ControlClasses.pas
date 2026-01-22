@@ -210,7 +210,7 @@ type
     procedure ComboAdd(const str: string); virtual;
 
     procedure CheckUpdateComboPopupWidth; virtual;
-    function  ComboUpdateItems(const Items: List<string>) : Boolean; virtual;
+    function  ComboUpdateItems(const Items: List<string>; CurrentValue: CObject) : Boolean; virtual;
 
     procedure DoKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState); override;
     procedure DoKeyUp(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState); override;
@@ -224,26 +224,9 @@ type
     function  IsFiltered: Boolean;
     procedure DropDown; virtual;
     function  DoFilterItem(const Item: CObject; const ItemText, Filter: string) : Boolean; virtual;
-    function  RefreshItems: Boolean;
+    procedure RefreshItems;
     procedure DoBeforePopup;
     procedure UpdateSelection;
-  end;
-
-  TComboBoxControlImpl = class(TComboEditControlImpl)
-  protected
-    function  get_ItemIndex: Integer; override;
-    procedure set_ItemIndex(const Value: Integer); override;
-    function  get_ItemCount: Integer; override;
-    function  get_Text: CString; override;
-
-    function  ComboItems : List<string>; override;
-    function  ComboIsDroppedDown : Boolean; override;
-    procedure ComboClear; override;
-    procedure ComboAdd(const str: string); override;
-
-    procedure CheckUpdateComboPopupWidth; override;
-
-    procedure DropDown; override;
   end;
 
   TTextEditControl = class(TEdit, IDCEditControl)
@@ -1078,7 +1061,7 @@ begin
   (_control as TComboEdit).Items.Add(str);
 end;
 
-function TComboEditControlImpl.ComboUpdateItems(const Items: List<string>) : Boolean;
+function TComboEditControlImpl.ComboUpdateItems(const Items: List<string>; CurrentValue: CObject) : Boolean;
 begin
   var current := ComboItems;
   var changed := ((current = nil) and (Items <> nil)) or (current.Count <> Items.Count);
@@ -1097,15 +1080,13 @@ begin
   begin
     _control.BeginUpdate;
     try
-      var val := get_Value;
-
       ComboClear;
       for var s in Items do
         ComboAdd(s);
 
       CheckUpdateComboPopupWidth;
 
-      set_Value(val);
+      set_Value(CurrentValue);
     finally
       _control.EndUpdate;
     end;
@@ -1136,9 +1117,9 @@ begin
   (_control as TComboEdit).ItemIndex := -1;
 end;
 
-function TComboEditControlImpl.RefreshItems: Boolean;
+procedure TComboEditControlImpl.RefreshItems;
 begin
-  Result := False; // Drop down did not change
+  var currentValue := get_Value;
 
   DoBeforePopup;
 
@@ -1168,7 +1149,7 @@ begin
   end else
     items := ComboItems;
 
-  ComboUpdateItems(items);
+  ComboUpdateItems(items, currentValue);
 end;
 
 procedure TComboEditControlImpl.UpdateSelection;
@@ -1499,92 +1480,6 @@ end;
 function TGlyphControl.get_ImageControl: IImageControl;
 begin
   Result := _imageControl;
-end;
-
-{ TComboBoxControlImpl }
-function TComboBoxControlImpl.get_ItemCount: Integer;
-begin
-  Result := (_control as TComboBox).Count;
-end;
-
-function TComboBoxControlImpl.get_ItemIndex: Integer;
-begin
-  Result := (_control as TComboBox).ItemIndex;
-end;
-
-function TComboBoxControlImpl.get_Text: CString;
-begin
-  Result := (_control as TComboBox).Text;
-end;
-
-procedure TComboBoxControlImpl.set_ItemIndex(const Value: Integer);
-begin
-  (_control as TComboBox).ItemIndex := Value;
-end;
-
-procedure TComboBoxControlImpl.CheckUpdateComboPopupWidth;
-begin
-  var ce := TComboBox(_control);
-
-  if ce.Items.Count = 0 then
-    Exit;
-
-  {$IFNDEF WEBASSEMBLY}
-  var layout := TTextLayoutManager.DefaultTextLayout.Create;
-  {$ELSE}
-  var layout := TTextLayoutManager.DefaultTextLayout.Create(nil);
-  {$ENDIF}
-  try
-    layout.WordWrap := False;
-    // does not exist for ComboBox
-//    layout.Font := ce.TextSettings.Font;
-    var maxWidth := 0.0;
-
-    var ix: Integer;
-    for ix := 0 to ce.Items.Count - 1 do
-    begin
-      layout.BeginUpdate;
-      layout.Text := ce.Items[ix];
-      layout.EndUpdate;
-      maxWidth := System.Math.Max(maxWidth, layout.Width);
-    end;
-
-    ce.ItemWidth := CMath.Max(ce.width, maxWidth + 10);
-  finally
-    layout.Free;
-  end;
-end;
-
-procedure TComboBoxControlImpl.ComboAdd(const str: string);
-begin
-  (_control as TComboBox).Items.Add(str);
-end;
-
-procedure TComboBoxControlImpl.ComboClear;
-begin
-  (_control as TComboBox).Clear;
-end;
-
-function TComboBoxControlImpl.ComboIsDroppedDown: Boolean;
-begin
-  Result := (_control as TComboBox).DroppedDown;
-end;
-
-function TComboBoxControlImpl.ComboItems: List<string>;
-begin
-  var strings := (_control as TComboBox).Items;
-  if (strings <> nil) and (strings.Count > 0) then
-  begin
-    Result := CList<string>.Create(strings.Count);
-    for var s in strings do
-      Result.Add(s);
-  end;
-end;
-
-procedure TComboBoxControlImpl.DropDown;
-begin
-  RefreshItems;
-  (_control as TComboBox).DropDown;
 end;
 
 { TRowLayout }
