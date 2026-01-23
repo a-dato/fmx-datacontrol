@@ -387,7 +387,7 @@ begin
           begin
             var sortObj := _sorts[i].Sort.GetSortableValue(o);
             var l: IList;
-            if not sortObj.IsInterface or not sortObj.TryAsType<IList>(l) then
+            if (sortObj = nil) or not sortObj.IsInterface or not sortObj.TryAsType<IList>(l) then
               valueArr[i] := sortObj
             else if (l.Count > 0) then
               valueArr[i] := l[0]

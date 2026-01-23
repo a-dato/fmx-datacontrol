@@ -32,20 +32,20 @@ object frmPopupMenu: TfrmPopupMenu
     TabOrder = 0
     object pnlFilterItems: TPanel
       Left = 0
-      Top = 72
+      Top = 46
       Width = 196
-      Height = 279
+      Height = 305
       Margins.Left = 6
       Align = alClient
       BevelOuter = bvNone
       BorderWidth = 2
       ParentColor = True
       TabOrder = 0
-      ExplicitTop = 104
-      ExplicitHeight = 247
+      ExplicitTop = 72
+      ExplicitHeight = 279
       object pnlButtons: TPanel
         Left = 2
-        Top = 252
+        Top = 278
         Width = 192
         Height = 25
         Margins.Top = 30
@@ -54,7 +54,7 @@ object frmPopupMenu: TfrmPopupMenu
         BevelOuter = bvNone
         ParentColor = True
         TabOrder = 0
-        ExplicitTop = 220
+        ExplicitTop = 252
         object btnOK: TButton
           Left = 15
           Top = 3
@@ -76,18 +76,138 @@ object frmPopupMenu: TfrmPopupMenu
           OnClick = Button2Click
         end
       end
-      object pnlTreeControl: TPanel
+      object pgPages: TPageControl
         Left = 2
         Top = 2
         Width = 192
-        Height = 250
+        Height = 276
+        ActivePage = tsDateTimeRange
         Align = alClient
-        BevelOuter = bvNone
-        Caption = 'pnlTreeControl'
-        ParentColor = True
-        ShowCaption = False
         TabOrder = 1
-        ExplicitHeight = 218
+        ExplicitLeft = 17
+        ExplicitTop = 40
+        ExplicitWidth = 289
+        ExplicitHeight = 193
+        object tsTreeControl: TTabSheet
+          Caption = 'tsTreeControl'
+          TabVisible = False
+          object pnlTreeControl: TPanel
+            Left = 0
+            Top = 26
+            Width = 184
+            Height = 240
+            Align = alClient
+            BevelOuter = bvNone
+            Caption = 'pnlTreeControl'
+            ParentColor = True
+            ShowCaption = False
+            TabOrder = 0
+            ExplicitLeft = -8
+            ExplicitTop = 2
+            ExplicitWidth = 192
+            ExplicitHeight = 55
+          end
+          object pnlFilterText: TPanel
+            AlignWithMargins = True
+            Left = 1
+            Top = 3
+            Width = 183
+            Height = 20
+            Margins.Left = 1
+            Margins.Right = 0
+            Align = alTop
+            BevelEdges = [beBottom]
+            BevelOuter = bvNone
+            ParentColor = True
+            TabOrder = 1
+            ExplicitTop = 49
+            ExplicitWidth = 195
+            object SearchEditor: TButtonedEdit
+              Left = 23
+              Top = 0
+              Width = 96
+              Height = 20
+              Margins.Top = 0
+              Margins.Right = 0
+              Margins.Bottom = 0
+              Align = alClient
+              LeftButton.DisabledImageIndex = 21
+              LeftButton.Hint = 'Go'
+              ParentColor = True
+              RightButton.Hint = 'Search options'
+              TabOrder = 0
+              TextHint = 'Filter text'
+              OnChange = SearchEditorChange
+              OnKeyDown = SearchEditorKeyDown
+              ExplicitWidth = 108
+              ExplicitHeight = 21
+            end
+            object btnUseFilter: TButton
+              Left = 119
+              Top = 0
+              Width = 64
+              Height = 20
+              Hint = 'Use filter text to filter data inside this column'
+              Align = alRight
+              Caption = 'Use filter'
+              TabOrder = 1
+              OnClick = btnUseFilterClick
+              ExplicitLeft = 131
+            end
+            object chkSelectAll: TCheckBox
+              AlignWithMargins = True
+              Left = 2
+              Top = 0
+              Width = 18
+              Height = 20
+              Margins.Left = 2
+              Margins.Top = 0
+              Margins.Bottom = 0
+              Align = alLeft
+              TabOrder = 2
+              OnClick = chkSelectAllClick
+            end
+          end
+        end
+        object tsDateTimeRange: TTabSheet
+          Caption = 'tsDateTimeRange'
+          ImageIndex = 1
+          TabVisible = False
+          object lblFrom: TLabel
+            Left = 2
+            Top = 23
+            Width = 24
+            Height = 13
+            Caption = 'From'
+          end
+          object lblTo: TLabel
+            Left = 2
+            Top = 71
+            Width = 12
+            Height = 13
+            Caption = 'To'
+          end
+          object dtpFrom: TDateTimePicker
+            Left = 2
+            Top = 42
+            Width = 180
+            Height = 21
+            Date = 46042.000000000000000000
+            Time = 0.433259791665477700
+            TabOrder = 0
+            OnChange = dtpFromChange
+          end
+          object dtpTo: TDateTimePicker
+            Left = 2
+            Top = 90
+            Width = 180
+            Height = 21
+            Date = 46042.000000000000000000
+            Time = 0.433259791665477700
+            TabOrder = 1
+            OnChange = dtpFromChange
+          end
+        end
       end
     end
     object pnlMenuItems: TPanel
@@ -104,67 +224,6 @@ object frmPopupMenu: TfrmPopupMenu
       ParentColor = True
       TabOrder = 1
     end
-    object pnlFilterText: TPanel
-      AlignWithMargins = True
-      Left = 1
-      Top = 49
-      Width = 195
-      Height = 20
-      Margins.Left = 1
-      Margins.Right = 0
-      Align = alTop
-      BevelEdges = [beBottom]
-      BevelOuter = bvNone
-      ParentColor = True
-      TabOrder = 2
-      ExplicitTop = 81
-      object SearchEditor: TButtonedEdit
-        Left = 23
-        Top = 0
-        Width = 108
-        Height = 20
-        Margins.Top = 0
-        Margins.Right = 0
-        Margins.Bottom = 0
-        Align = alClient
-        LeftButton.DisabledImageIndex = 21
-        LeftButton.Hint = 'Go'
-        ParentColor = True
-        RightButton.Hint = 'Search options'
-        TabOrder = 0
-        TextHint = 'Filter text'
-        OnChange = SearchEditorChange
-        OnKeyDown = SearchEditorKeyDown
-        ExplicitLeft = 0
-        ExplicitWidth = 131
-        ExplicitHeight = 21
-      end
-      object btnUseFilter: TButton
-        Left = 131
-        Top = 0
-        Width = 64
-        Height = 20
-        Hint = 'Use filter text to filter data inside this column'
-        Align = alRight
-        Caption = 'Use filter'
-        TabOrder = 1
-        OnClick = btnUseFilterClick
-      end
-      object chkSelectAll: TCheckBox
-        AlignWithMargins = True
-        Left = 2
-        Top = 0
-        Width = 18
-        Height = 20
-        Margins.Left = 2
-        Margins.Top = 0
-        Margins.Bottom = 0
-        Align = alLeft
-        TabOrder = 2
-        OnClick = chkSelectAllClick
-        ExplicitLeft = 0
-      end
-    end
     object pnlSplitter: TPanel
       Left = 0
       Top = 44
@@ -174,7 +233,7 @@ object frmPopupMenu: TfrmPopupMenu
       Caption = 'pnlSplitter'
       ParentColor = True
       ShowCaption = False
-      TabOrder = 3
+      TabOrder = 2
     end
   end
   object pnlImages: TPanel

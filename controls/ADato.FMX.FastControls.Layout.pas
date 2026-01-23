@@ -60,7 +60,7 @@ type
   public
     constructor Create(const AScene: TAdaptableBufferedLayout); reintroduce;
     destructor Destroy; override;
-    procedure SetSize(const AWidth, AHeight: Integer);
+    procedure ExecuteRealign(const AWidth, AHeight: Integer);
     property Buffer: TBitmap read FBuffer;
     property Scene: TAdaptableBufferedLayout read BScene;
   end;
@@ -76,7 +76,6 @@ type
   TAdaptableBufferedLayout = class(TLayout)
   protected
     AScene, AStoredScene: TAdaptableBufferedScene;
-    FUseBuffering: Boolean;
     FAddedChildren: TArray<TFMXObject>;
 
     _freeNotify: IFreeNotification;
@@ -143,6 +142,7 @@ type
     property FillColor: TAlphaColor read GetFillColor write SetFillColor;
     property StrokeColor: TAlphaColor read GetStrokeColor write SetStrokeColor;
   end;
+
 
 implementation
 
@@ -377,6 +377,7 @@ end;
 procedure TAdaptableBufferedScene.ScaleChangedHandler(const Sender: TObject; const Msg: TMessage);
 begin
   UpdateBuffer;
+  Invalidate;
 end;
 
 function TAdaptableBufferedScene.ScreenToLocal(const P: TPointF): TPointF;
@@ -407,18 +408,17 @@ begin
 
   FBuffer.BitmapScale := Scale;
   FBuffer.SetSize(Ceil(FWidth * Scale), Ceil(FHeight * Scale));
-  Invalidate;
 end;
 
-procedure TAdaptableBufferedScene.SetSize(const AWidth, AHeight: Integer);
+procedure TAdaptableBufferedScene.ExecuteRealign(const AWidth, AHeight: Integer);
 begin
-  if (FWidth <> AWidth) or (FHeight <> AHeight) then
-  begin
+//  if (FWidth <> AWidth) or (FHeight <> AHeight) then
+//  begin
     FWidth := AWidth;
     FHeight := AHeight;
     UpdateBuffer;
     Realign;
-  end;
+//  end;
 end;
 
 procedure TAdaptableBufferedScene.SetStyleBook(const Value: TStyleBook);
@@ -450,6 +450,7 @@ begin
     Application.HandleException(Self);
   end;
   UpdateBuffer;
+  Invalidate;
 end;
 
 function TAdaptableBufferedScene.GetChildrenCount: Integer;
@@ -483,12 +484,11 @@ constructor TAdaptableBufferedLayout.Create(AOwner: TComponent);
 begin
   inherited;
 
-  FUseBuffering := True;
   if not (csDesigning in ComponentState) then
   begin
-    AScene := TAdaptableBufferedScene.Create(Self);
-    AScene.Parent := Self;
-    AScene.Stored := False;
+    AStoredScene := TAdaptableBufferedScene.Create(Self);
+    AStoredScene.Parent := Self;
+    AStoredScene.Stored := False;
   end;
 
   SetLength(FAddedChildren, 0);
@@ -497,6 +497,7 @@ end;
 
 destructor TAdaptableBufferedLayout.Destroy;
 begin
+  FreeAndNil(AStoredScene);
   FreeAndNil(AScene);
   inherited;
 end;
@@ -520,13 +521,12 @@ end;
 procedure TAdaptableBufferedLayout.DoResized;
 begin
   inherited;
-  if AScene <> nil then
-    AScene.SetSize(Round(Width), Round(Height));
+  ResetBuffer;
 end;
 
 function TAdaptableBufferedLayout.get_UseBuffering: Boolean;
 begin
-  Result := FUseBuffering;
+  Result := AScene <> nil;
 end;
 
 function TAdaptableBufferedLayout.ObjectAtPoint(P: TPointF): IControl;
@@ -557,13 +557,8 @@ procedure TAdaptableBufferedLayout.Paint;
 begin
   if AScene <> nil then
   begin
-    try
-      AScene.DrawTo;
-      Canvas.DrawBitmap(AScene.Buffer, AScene.Buffer.BoundsF, LocalRect, AbsoluteOpacity, True);
-    except
-      AScene.DrawTo;
-      Canvas.DrawBitmap(AScene.Buffer, AScene.Buffer.BoundsF, LocalRect, AbsoluteOpacity, True);
-    end;
+    AScene.DrawTo;
+    Canvas.DrawBitmap(AScene.Buffer, AScene.Buffer.BoundsF, LocalRect, AbsoluteOpacity, True);
   end else
     inherited;
 
@@ -587,17 +582,18 @@ begin
     scene := AStoredScene;
 
   if scene <> nil then
-    scene.UpdateBuffer;
+  begin
+    scene.ExecuteRealign(Round(Self.Width), Round(Self.Height));
+    scene.Invalidate;
+  end;
 end;
 
 procedure TAdaptableBufferedLayout.set_UseBuffering(const Value: Boolean);
 begin
-  if FUseBuffering = Value then
+  if get_UseBuffering = Value then
     Exit;
 
-  FUseBuffering := Value;
-
-  if FUseBuffering then
+  if Value then
   begin
     AScene := AStoredScene;
     AStoredScene := nil;
@@ -609,8 +605,7 @@ begin
     end;
 
     ClearAddedChildren;
-
-    AScene.UpdateBuffer;
+    ResetBuffer;
   end else begin
     AStoredScene := AScene;
     AScene := nil;

@@ -245,7 +245,7 @@ end;
 procedure TfrmComboMultiBoxPopup.edSearchChangeTracking(Sender: TObject);
 begin
   if get_IsOpen then
-    DataControl.UpdateColumnFilter(DataControl.Columns[1], edSearch.Text.ToLower, nil);
+    DataControl.UpdateColumnFilter(DataControl.Columns[1], edSearch.Text.ToLower, nil, False);
 end;
 
 procedure TfrmComboMultiBoxPopup.FormCloseQuery(Sender: TObject; var CanClose: Boolean);

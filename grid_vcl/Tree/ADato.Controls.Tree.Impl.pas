@@ -1153,6 +1153,8 @@ type
     _FilterText: CString;
     _FilterType: FilterType;
     _ShowEmptyValues: Boolean;
+    _Start: CDateTime;
+    _Stop: CDateTime;
     _Values: List<CObject>;
 
     function  get_Comparer: IComparer<CObject>;
@@ -1164,6 +1166,10 @@ type
     procedure set_FilterType(const Value: FilterType);
     function  get_ShowEmptyValues: Boolean;
     procedure set_ShowEmptyValues(const Value: Boolean);
+    function  get_Start: CDateTime;
+    procedure set_Start(const Value: CDateTime);
+    function  get_Stop: CDateTime;
+    procedure set_Stop(const Value: CDateTime);
     function  get_Values: List<CObject>;
     procedure set_Values(const Value: List<CObject>);
 
@@ -1171,6 +1177,7 @@ type
     constructor Create(const Comparer: IComparer<CObject>); overload;
     constructor Create(const Column: ITreeLayoutColumn; const Values: List<CObject>); overload;
     constructor Create(const Column: ITreeLayoutColumn; const FilterText: CString); overload;
+    constructor Create(const Column: ITreeLayoutColumn; const Start: CDateTime; const Stop: CDateTime); overload;
 
     class function FromFunc(Func: TTreeFilterFunc) : List<ITreeFilterDescription>;
   end;
@@ -9232,7 +9239,7 @@ begin
   showFilter := Column.Column.ShowFilterMenu and (View <> nil) and (View.Count > 0);
   if showFilter then
   begin
-    dataValues := View.GetColumnValues( column, False {From filtered view?}, True {Return distinct});
+    dataValues := View.GetColumnValues(column, False {From filtered view?}, True {Return distinct});
     // Dummy descriptor
     descriptor := TTreeSortDescription.Create(column);
     comparer := DoSortingGetComparer(descriptor, False);
@@ -9255,22 +9262,51 @@ begin
   try
     // Get active filter for this column
     filter := GetColumnFilter(column);
-    if filter <> nil then
-    begin
-      popupMenu.LoadItemsFrom(  dataValues,
-                                comparer,
-                                filter.Values {Holds current selection},
-                                filter.ShowEmptyValues,
-                                filter.LayoutColumn.Column.Sort = SortType.DisplayText);
 
-      popupMenu.FilterText := filter.FilterText;
-      popupMenu.AllowClearColumnFilter := True;
+    // Datetime filter?
+    if (dataValues.Count > 0) and dataValues.Entries[0].Key.IsDateTime then
+    begin
+      if (filter <> nil) and (filter.FilterType = FilterType.DateRange) then
+        popupMenu.LoadDateRange(filter.Start, filter.Stop.AddDays(-1), False)
+
+      else
+      begin
+        var min := CDateTime.MaxValue;
+        var max := CDateTime.MinValue;
+
+        for var o in dataValues.Keys do
+        begin
+          var dt: CDateTime;
+          if o.TryAsType<CDateTime>(dt) then
+          begin
+            min := CMath.Min(min, dt);
+            max := CMath.Max(max, dt);
+          end;
+        end;
+
+        max := max.Date.AddDays(1);
+        popupMenu.LoadDateRange(min, max, False);
+      end;
     end
     else
     begin
-      popupMenu.LoadItemsFrom(dataValues, comparer, nil, False, False);
-      popupMenu.FilterText := '';
-      popupMenu.AllowClearColumnFilter := False;
+      if filter <> nil then
+      begin
+        popupMenu.LoadItemsFrom(  dataValues,
+                                  comparer,
+                                  filter.Values {Holds current selection},
+                                  filter.ShowEmptyValues,
+                                  filter.LayoutColumn.Column.Sort = SortType.DisplayText);
+
+        popupMenu.FilterText := filter.FilterText;
+        popupMenu.AllowClearColumnFilter := True;
+      end
+      else
+      begin
+        popupMenu.LoadItemsFrom(dataValues, comparer, nil, False, False);
+        popupMenu.FilterText := '';
+        popupMenu.AllowClearColumnFilter := False;
+      end;
     end;
   except
     popupMenu.ShowFilterItems := False;
@@ -9391,7 +9427,7 @@ begin
         end
         else
         begin
-          filter.FilterType := FilterType.List;
+          filter.FilterType := FilterType.Values;
           filter.Values := filterValues;
           filter.ShowEmptyValues := includeEmptyValues;
         end;
@@ -9439,6 +9475,36 @@ begin
         sortingChanged := True;
       end else
         RemoveFilter;
+    end
+    else if DropDownMenu.Result = TfrmPopupMenu.FilterDateRange then
+    begin
+      var start := DropDownMenu.Start;
+      var stop := DropDownMenu.Stop.Date.AddDays(1);
+
+      column := Layout.Columns[_popupMenuColumnIndex];
+
+      // Find existing filter
+      filter := GetColumnFilter(column);
+
+      if filter = nil then
+      begin
+        filter := TTreeFilterDescription.Create(column, start, stop);
+        if column.Column.Sort = SortType.Comparer then
+        begin
+          descriptor := TTreeSortDescription.Create(column);
+          descriptor.SortType := SortType.Comparer;
+          filter.Comparer := DoSortingGetComparer(descriptor, False);
+        end;
+        filterDescriptions.Add(filter);
+      end
+      else
+      begin
+        filter.FilterType := FilterType.DateRange;
+        filter.Start := start;
+        filter.Stop := stop;
+      end;
+
+      sortingChanged := True;
     end
     else if DropDownMenu.Result = TfrmPopupMenu.ClearColumnFilter then
     begin
@@ -11099,7 +11165,7 @@ end;
 constructor TTreeFilterDescription.Create(const Column: ITreeLayoutColumn; const Values: List<CObject>);
 begin
   _LayoutColumn := Column;
-  _FilterType := FilterType.List;
+  _FilterType := FilterType.Values;
   _Values := Values;
 end;
 
@@ -11108,6 +11174,14 @@ begin
   _LayoutColumn := Column;
   _FilterType := FilterType.FullText;
   _FilterText := FilterText;
+end;
+
+constructor TTreeFilterDescription.Create(const Column: ITreeLayoutColumn; const Start: CDateTime; const Stop: CDateTime);
+begin
+  _LayoutColumn := Column;
+  _FilterType := FilterType.DateRange;
+  _Start := Start;
+  _Stop := Stop;
 end;
 
 class function TTreeFilterDescription.FromFunc(Func: TTreeFilterFunc) : List<ITreeFilterDescription>;
@@ -11124,6 +11198,26 @@ end;
 procedure TTreeFilterDescription.set_ShowEmptyValues(const Value: Boolean);
 begin
   _ShowEmptyValues := Value;
+end;
+
+function TTreeFilterDescription.get_Start: CDateTime;
+begin
+  Result := _start;
+end;
+
+procedure TTreeFilterDescription.set_Start(const Value: CDateTime);
+begin
+  _start := value;
+end;
+
+function TTreeFilterDescription.get_Stop: CDateTime;
+begin
+  Result := _stop;
+end;
+
+procedure TTreeFilterDescription.set_Stop(const Value: CDateTime);
+begin
+  _stop := Value;
 end;
 
 function TTreeFilterDescription.get_LayoutColumn: ITreeLayoutColumn;
@@ -11159,15 +11253,6 @@ end;
 procedure TTreeFilterDescription.set_FilterType(const Value: FilterType);
 begin
   _FilterType := Value;
-
-//  if _FilterType <> Value then
-//  begin
-//    _FilterType := Value;
-//
-//    if _FilterType = FilterType.List then
-//      _FilterText := nil else
-//      _Values := nil;
-//  end;
 end;
 
 function TTreeFilterDescription.get_Values: List<CObject>;
@@ -11780,6 +11865,14 @@ var
     end;
   end;
 
+  function MatchDateRange(const SeachObj: CObject; const Filter: ITreeFilterDescription): Boolean;
+  begin
+    var dt: CDateTime;
+    if (SeachObj = nil) or not SeachObj.TryAsType<CDateTime>(dt) then
+      Exit(False);
+    Result := (filter.Start <= dt) and (dt < filter.Stop);
+  end;
+
   function DoAccept(const SeachObj: CObject; const Filter: ITreeFilterDescription): Boolean;
   var
     l: IList;
@@ -11834,10 +11927,12 @@ begin
       end else
         e.Accepted := DoAccept(cellData, filter);
     end
-    else if filter.Values <> nil then
+    else if filter.FilterType = FilterType.Values then
       e.Accepted := DoAccept(cellData, filter)
-    else
-      e.Accepted := MatchText(cellData, filter.FilterText);
+    else if filter.FilterType = FilterType.FullText then
+      e.Accepted := MatchText(cellData, filter.FilterText)
+    else if filter.FilterType = FilterType.DateRange then
+      e.Accepted := MatchDateRange(cellData, filter);
 
     if not e.Accepted then
       break;
@@ -13324,7 +13419,7 @@ var
   begin
     if (Filter.FilterType = FilterType.Comparer) and (Filter.Comparer <> nil) then
       Result := Filter.Comparer.Compare(DataItem, Filter.FilterText) = 0
-    else if Filter.FilterType <> FilterType.List then
+    else if Filter.FilterType <> FilterType.Values then
       Result := (SearchObj <> nil) and MatchText(SearchObj.ToString, Filter.FilterText) // Full text search
     else if Filter.Comparer <> nil then
       Result := Filter.Values.BinarySearch(SearchObj, Filter.Comparer) >= 0

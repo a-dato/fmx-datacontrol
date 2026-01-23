@@ -83,7 +83,7 @@ type
     procedure CreateDefaultColumns;
     procedure ShowHeaderPopupMenu(const LayoutColumn: IDCTreeLayoutColumn);
     procedure HeaderPopupMenu_Closed(Sender: TObject; var Action: TCloseAction);
-    function  GetColumnValues(const LayoutColumn: IDCTreeLayoutColumn; Add_NO_VALUE: Boolean): Dictionary<CObject, CString>;
+    function  GetColumnValues(const LayoutColumn: IDCTreeLayoutColumn; out NullValueExists: Boolean): Dictionary<CObject, CString>;
 
     procedure GetSortAndFilterImages(out ImageList: TCustomImageList; out FilterIndex, SortAscIndex, SortDescIndex: Integer);
 
@@ -197,6 +197,7 @@ type
     function  CreateSelectioninfoInstance: IRowSelectionInfo; override;
     procedure OnSelectionInfoChanged; override;
     procedure VisualizeRowSelection(const Row: IDCRow); override;
+    procedure HandleRowChildRelation(const Row: IDCRow; IsOpenParent, IsOpenChild: Boolean); override;
     procedure CheckCorrectColumnSelection( const SelectionInfo: ITreeSelectionInfo; const Row: IDCTreeRow);
 
     function  AutoMultiSelectColumnShowing: Boolean;
@@ -266,6 +267,7 @@ type
 
   protected
     procedure PositionTree;
+    function  TreeInnerXPosition: Single;
 
     {$IFDEF WEBASSEMBLY}
     function  GetItemType: &Type; 
@@ -284,7 +286,8 @@ type
     procedure ColumnsChangedFromExternal;
 
     procedure UpdateColumnSort(const Column: IDCTreeColumn; SortDirection: ListSortDirection; ClearOtherSort: Boolean);
-    procedure UpdateColumnFilter(const Column: IDCTreeColumn; const FilterText: CString; const FilterValues: List<CObject>);
+    procedure UpdateColumnFilter(const Column: IDCTreeColumn; const FilterText: CString; const FilterValues: List<CObject>; const NullValueSelected: Boolean); overload;
+    procedure UpdateColumnFilter(const Column: IDCTreeColumn; const Start: CDateTime; const Stop: CDateTime); overload;
 
     procedure UpdateSelectedColumn(const Column: Integer);
 
@@ -1105,10 +1108,15 @@ begin
   RefreshControl;
 end;
 
+function TScrollControlWithCells.TreeInnerXPosition: Single;
+begin
+  if _autoCenterTree then
+    Result := CMath.Max((Self.Width-_totalColumnWidth)/2, 0) else
+    Result := 0;
+end;
+
 procedure TScrollControlWithCells.PositionTree;
 begin
-  var startFromX := 0.0;
-
   if (_treeLayout <> nil) and (_treeLayout.FlatColumns.Count > 0) then
   begin
     var lastClmn := _treeLayout.FlatColumns[_treeLayout.FlatColumns.Count - 1];
@@ -1117,15 +1125,13 @@ begin
     if not SameValue(_totalColumnWidth, newColumnsWidth) then
       _totalColumnWidth := newColumnsWidth;
 
-    if _autoCenterTree then
-      startFromX := CMath.Max((Self.Width-_totalColumnWidth)/2, 0);
-
     DoTreePositioned(_totalColumnWidth);
   end else
     _totalColumnWidth := 0.0;
 
   if _autoCenterTree then
   begin
+    var startFromX := TreeInnerXPosition;
     var row: IDCTreeRow;
     for row in HeaderAndTreeRows(False) do
       row.Control.Position.X := startFromX;
@@ -1576,7 +1582,7 @@ begin
 
     if _selectionInfo.IsChecked(treeRow.DataIndex) then
       _selectionInfo.Deselect(treeRow.DataIndex) else
-      _selectionInfo.AddToSelection(treeRow.DataIndex, treeRow.ViewListIndex, treeRow.DataItem, ssCtrl in Shift {Expand selection});
+      _selectionInfo.AddToSelection(treeRow.DataIndex, treeRow.ViewListIndex, treeRow.DataItem, TreeOption_MultiSelect in _options);
 
     _selectionInfo.BeginUpdate;
     try
@@ -1619,6 +1625,13 @@ begin
 
   inherited;
   UpdateSelectionCheckboxes(Row);
+end;
+
+procedure TScrollControlWithCells.HandleRowChildRelation(const Row: IDCRow; IsOpenParent, IsOpenChild: Boolean);
+begin
+  if IsOpenParent then
+    DataControlClassFactory.HandleRowChildRelation(Row.ControlAsRowLayout, IsOpenParent, IsOpenChild, Row.Control.Width) else
+    DataControlClassFactory.HandleRowChildRelation(Row.ControlAsRowLayout, IsOpenParent, IsOpenChild, _treeLayout.FlatColumns[0].Width);
 end;
 
 procedure TScrollControlWithCells.OnHeaderCellResizeClicked( const HeaderCell: IHeaderCell);
@@ -1724,13 +1737,13 @@ begin
   ExecuteAfterRealignOnly(False);
 end;
 
-procedure TScrollControlWithCells.UpdateColumnFilter(const Column: IDCTreeColumn; const FilterText: CString; const FilterValues: List<CObject>);
+procedure TScrollControlWithCells.UpdateColumnFilter(const Column: IDCTreeColumn; const FilterText: CString; const FilterValues: List<CObject>; const NullValueSelected: Boolean);
 begin
   var flatColumn := Self.FlatColumnByColumn(Column);
   if flatColumn = nil then
     Exit;
 
-  if CString.IsNullOrEmpty(FilterText) and ((FilterValues = nil) or (FilterValues.Count = 0)) then
+  if CString.IsNullOrEmpty(FilterText) and ((FilterValues = nil) or (FilterValues.Count = 0)) and not NullValueSelected then
   begin
     if flatColumn.ActiveFilter <> nil then
     begin
@@ -1744,7 +1757,8 @@ begin
       GetInitializedWaitForRefreshInfo.FilterDescriptions := activeFilters;
     end;
   end
-  else begin
+  else
+  begin
     // keep this var in the methods scope
     // for "ActiveFilter" is a weak referenced variable
     var filter: ITreeFilterDescription;
@@ -1759,13 +1773,40 @@ begin
     end;
 
     FlatColumn.ActiveFilter.FilterText := FilterText;
-
-    if (FilterValues <> nil) and (FilterValues.Count > 0) then
-      FlatColumn.ActiveFilter.FilterValues := FilterValues else
-      FlatColumn.ActiveFilter.FilterValues := nil;
-
+    FlatColumn.ActiveFilter.FilterValues := FilterValues;
+    FlatColumn.ActiveFilter.NullValueSelected := NullValueSelected;
     AddFilterDescription(FlatColumn.ActiveFilter, False);
   end;
+
+  if _headerRow <> nil then
+  begin
+    var headerCell := _headerRow.Cells[FlatColumn.Index];
+    FlatColumn.UpdateCellControlsByRow(HeaderCell);
+  end;
+end;
+
+procedure TScrollControlWithCells.UpdateColumnFilter(const Column: IDCTreeColumn; const Start: CDateTime; const Stop: CDateTime);
+begin
+  var flatColumn := Self.FlatColumnByColumn(Column);
+  if flatColumn = nil then
+    Exit;
+
+  // keep this var in the methods scope
+  // for "ActiveFilter" is a weak referenced variable
+  var filter: ITreeFilterDescription;
+  if flatColumn.ActiveFilter = nil then
+  begin
+    {$IFNDEF WEBASSEMBLY}
+    filter := TTreeFilterDescriptionWithRow.Create(flatColumn, OnGetCellDataForSorting);
+    {$ELSE}
+    filter := TTreeFilterDescriptionWithRow.Create(flatColumn, @OnGetCellDataForSorting);
+    {$ENDIF}
+    FlatColumn.ActiveFilter := filter;
+  end;
+
+  FlatColumn.ActiveFilter.Start := Start;
+  FlatColumn.ActiveFilter.Stop := Stop;
+  AddFilterDescription(FlatColumn.ActiveFilter, False);
 
   if _headerRow <> nil then
   begin
@@ -1787,7 +1828,7 @@ begin
   TrySelectItem(_selectionInfo, [ssShift]);
 end;
 
-function TScrollControlWithCells.GetColumnValues(const LayoutColumn: IDCTreeLayoutColumn; Add_NO_VALUE: Boolean): Dictionary<CObject, CString>;
+function TScrollControlWithCells.GetColumnValues(const LayoutColumn: IDCTreeLayoutColumn; out NullValueExists: Boolean): Dictionary<CObject, CString>;
 var
   filterDescription: IListFilterDescription;
 
@@ -1809,6 +1850,7 @@ begin
   filterDescription := TTreeFilterDescriptionWithRow.Create(LayoutColumn, @OnGetCellDataForSorting);
   {$ENDIF}
 
+  NullValueExists := False;
   var orgDataList := _view.OriginalData;
 
   // do it this way to make sure that DataModel returns IDataRow, and not the CObjectss
@@ -1823,10 +1865,9 @@ begin
   begin
     var obj := filterDescription.GetFilterableValue(item);
 
-    if (obj = nil) and Add_NO_VALUE then
+    if obj = nil then
     begin
-      if not Result.ContainsKey(NO_VALUE_KEY)  then
-        Result[NO_VALUE_KEY] := NO_VALUE;
+      NullValueExists := True;
       continue;
     end;
 
@@ -1859,9 +1900,9 @@ begin
   popupMenu.LayoutColumn := LayoutColumn;
 
   var leftPos: Single;
-  if LayoutColumn.Left + _frmHeaderPopupMenu.Width > (Self.Width - 10) then
+  if LayoutColumn.Left + TreeInnerXPosition + _frmHeaderPopupMenu.Width > (Self.Width - 10) then
     leftPos := (Self.Width - 10) - _frmHeaderPopupMenu.Width else
-    leftPos := LayoutColumn.Left;
+    leftPos := LayoutColumn.Left + TreeInnerXPosition;
 
   var localPos := PointF(leftPos, _headerRow.Height);
   var screenPos := Self.LocalToScreen(localPos);
@@ -1879,17 +1920,50 @@ begin
     var descriptor: IListSortDescriptionWithComparer := TTreeSortDescriptionWithComparer.Create(LayoutColumn, OnGetCellDataForSorting);
     var comparer := DoSortingGetComparer(descriptor);
     var filter := LayoutColumn.ActiveFilter;
+    var showNullValue := False;
+    var selectNullvalue := False;
+    var selectedItems: List<CObject> := nil;
+    var useTextComparer := LayoutColumn.Column.SortType = TSortType.DisplayText;
+    var start := CDateTime.MaxValue;
+    var stop := CDateTime.MinValue;
+
+    dataValues := GetColumnValues(LayoutColumn, {var} showNullValue);
+
+    var useDateFilter := (dataValues.Count > 0) and dataValues.Entries[0].Key.IsDateTime;
 
     if filter <> nil then
     begin
-      dataValues := GetColumnValues(LayoutColumn, filter.ShowEmptyValues);
-      popupMenu.LoadFilterItems(dataValues, comparer, filter.FilterValues, LayoutColumn.Column.SortType = TSortType.Displaytext);
+      if useDateFilter then
+      begin
+        start := filter.Start;
+        stop := filter.Stop.AddDays(-1);
+      end
+      else
+      begin
+        selectedItems := filter.FilterValues;
+        showNullValue := filter.ShowEmptyValues and showNullValue;
+        selectNullValue := showNullValue and filter.NullValueSelected;
+      end;
     end
-    else
+    else if useDateFilter then
     begin
-      dataValues := GetColumnValues(LayoutColumn, True);
-      popupMenu.LoadFilterItems(dataValues, comparer, nil, LayoutColumn.Column.SortType = TSortType.Displaytext);
+      for var key in dataValues.Keys do
+      begin
+        var dt: CDateTime;
+        if key.TryGetValue<CDateTime>(dt) then
+        begin
+          start := CMath.Min(start, dt);
+          stop := CMath.Max(stop, dt);
+        end;
+      end;
+
+      if start.Equals(CDateTime.MaxValue) then
+        start := CDateTime.MinValue;
     end;
+
+    if useDateFilter then
+      popupMenu.LoadDateRange(start, stop, False) else
+      popupMenu.LoadFilterItems(dataValues, comparer, selectedItems, showNullValue, selectNullValue, useTextComparer);
 
     popupMenu.AllowClearColumnFilter := (filter <> nil);
   end;
@@ -1928,9 +2002,13 @@ begin
 
     TfrmFMXPopupMenuDataControl.TPopupResult.ptFilter:
     begin
-      var filterValues := popupForm.SelectedItems;
-      UpdateColumnFilter(flatColumn.Column, nil, filterValues);
+      var nullValueSelected: Boolean;
+      var filterValues := popupForm.SelectedItems({out} nullValueSelected);
+      UpdateColumnFilter(flatColumn.Column, nil, filterValues, nullValueSelected);
     end;
+
+    TfrmFMXPopupMenuDataControl.TPopupResult.ptFilterDateRange:
+      UpdateColumnFilter(flatColumn.Column, popupForm.Start, popupForm.Stop.AddDays(1));
 
     TfrmFMXPopupMenuDataControl.TPopupResult.ptHideColumn:
     begin
@@ -1954,7 +2032,7 @@ begin
 
     TfrmFMXPopupMenuDataControl.TPopupResult.ptClearFilter:
     begin
-      UpdateColumnFilter(flatColumn.Column, nil, nil);
+      UpdateColumnFilter(flatColumn.Column, nil, nil, False);
     end;
 
     TfrmFMXPopupMenuDataControl.TPopupResult.ptClearSortAndFilter:
@@ -2041,7 +2119,9 @@ begin
     var checkBoxCell := (Row as IDCTreeRow).Cells[selectionCheckBoxColumn.Index];
     var checkBox := checkBoxCell.InfoControl as IIsChecked;
 
-    checkBox.IsChecked := _selectionInfo.IsChecked(Row.DataIndex);
+    if (TreeOption_MultiSelect in _options) then
+      checkBox.IsChecked := _selectionInfo.IsChecked(Row.DataIndex) else
+      checkBox.IsChecked := _selectionInfo.IsSelected(Row.DataIndex);
   finally
     dec(_selectionCheckBoxUpdateCount);
   end;
@@ -2882,8 +2962,8 @@ function TScrollControlWithCells.TrySelectItem(const RequestedSelectionInfo: IRo
 
 begin
   Result := False;
-  if _treeLayout = nil then
-    Exit; // will get here later again
+  if (_treeLayout = nil { will get here later again}) or not _selectionInfo.CanSelect(RequestedSelectionInfo.DataIndex) then
+    Exit;
 
   var currentSelection := _selectionInfo as ITreeSelectionInfo;
   var requestedSelection := RequestedSelectionInfo as ITreeSelectionInfo;
@@ -2940,7 +3020,6 @@ begin
 
   // Okay, we now know for sure that we have a changed cell..
   // old row can be scrolled out of view. So always work with dummy rows
-
   var customShift := Shift;
 
   // old activecell
@@ -2956,7 +3035,9 @@ begin
     requestedSelection.SelectedLayoutColumn := currentSelection.SelectedLayoutColumn;
 
   var dummyNewRow := ProvideRowForChanging(requestedSelection) as IDCTreeRow;
-  var newCell := dummyNewRow.Cells[requestedSelection.SelectedLayoutColumn];
+  var newCell: IDCTreeCell := nil;
+  if dummyNewRow <> nil then
+    newCell := dummyNewRow.Cells[requestedSelection.SelectedLayoutColumn];
 
   var ignoreSelectionChanges := not CanRealignContent;
   if not DoCellCanChange(oldCell, newCell) then
@@ -4824,10 +4905,7 @@ begin
     var txtCtrl: ITextControl;
     if not cell.IsHeaderCell and Interfaces.Supports<ITextControl>(cell.InfoControl, txtCtrl) then
     begin
-      if txtCtrl.TextHeightWithPadding > (ctrlHeight - (2*_treeControl.CellTopBottomPadding)) then
-        (txtCtrl as ITextSettings).TextSettings.VertAlign := TTextAlign.Leading else
-        (txtCtrl as ITextSettings).TextSettings.VertAlign := TTextAlign.Center;
-
+      (txtCtrl as ITextSettings).TextSettings.VertAlign := Cell.LayoutColumn.CalculatedVertAlign;
       ctrl.Height := ctrlHeight - (2*_treeControl.CellTopBottomPadding);
     end;
 
@@ -4925,7 +5003,10 @@ begin
   // in case user assigns cell control in CellLoading the tree allows that
   if Cell.Control = nil then
   begin
-    Cell.BackgroundControl := DataControlClassFactory.CreateHeaderCellRect(Cell.Row.Control);
+    if Cell.IsHeaderCell then
+      Cell.BackgroundControl := DataControlClassFactory.CreateHeaderCellRect(Cell.Row.Control) else
+      Cell.BackgroundControl := DataControlClassFactory.CreateRowCellRect(Cell.Row.Control);
+
     var rect := Cell.BackgroundControl.AsControl;
 
     if Cell.IsHeaderCell then

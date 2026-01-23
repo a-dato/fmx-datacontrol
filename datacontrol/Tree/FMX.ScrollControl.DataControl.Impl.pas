@@ -59,6 +59,8 @@ type
     property CellTopBottomPadding;
     property CellLeftRightPadding;
     property PopupMenuClosed;
+    property VisualizeParentChilds;
+
     // TScrollControlWithCells designer events
     property CellLoading;
     property CellLoaded;

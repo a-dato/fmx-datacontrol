@@ -62,12 +62,20 @@ type
     btnUseFilter: TButton;
     pnlSplitter: TPanel;
     chkSelectAll: TCheckBox;
+    pgPages: TPageControl;
+    tsTreeControl: TTabSheet;
+    tsDateTimeRange: TTabSheet;
+    lblFrom: TLabel;
+    dtpFrom: TDateTimePicker;
+    lblTo: TLabel;
+    dtpTo: TDateTimePicker;
     procedure ApplicationEvents1Deactivate(Sender: TObject);
     procedure ApplicationEvents1Idle(Sender: TObject; var Done: Boolean);
     procedure btnOKClick(Sender: TObject);
     procedure btnUseFilterClick(Sender: TObject);
     procedure Button2Click(Sender: TObject);
     procedure chkSelectAllClick(Sender: TObject);
+    procedure dtpFromChange(Sender: TObject);
     procedure FormDeactivate(Sender: TObject);
     procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
     procedure FormShow(Sender: TObject);
@@ -93,6 +101,7 @@ type
     ClearColumnFilter = -6;
     AddColumnAfter = -7;
     HideColumn = -8;
+    FilterDateRange = -9;
 
   private
     lblHideColumn: THighLightLabel;
@@ -113,6 +122,7 @@ type
     _TreeControl: TObject; // TTreeControl;
     _UpdateCount: Integer;
 
+    function  get_DateRangeFilterActive: Boolean;
     function  get_FilterText: CString;
     procedure set_FilterText(const Value: CString);
     procedure set_ShowFilterItems(const Value: Boolean);
@@ -124,6 +134,8 @@ type
     procedure set_ShowUpdateColumnsOption(const Value: Boolean);
     procedure set_Items(const Value: List<IFilterItem>);
     function  get_selected: List<IFilterItem>;
+    function  get_Start: CDateTime;
+    function  get_Stop: CDateTime;
     procedure set_AllowClearColumnFilter(const Value: Boolean);
     procedure ActivateEvent(Sender: TObject);
   protected
@@ -136,17 +148,23 @@ type
 
   public
     constructor Create(AOwner: TComponent); override;
+
     procedure LoadItemsFrom(  const Data: Dictionary<CObject, CString>;
                               const Comparer: IComparer<CObject>;
                               const Selected: List<CObject>;
                               const SelectEmptyValue: Boolean;
                               const CompareText: Boolean);
 
+    procedure LoadDateRange(const Start, Stop: CDateTime; ShowTime: Boolean);
+
     property AllowClearColumnFilter: Boolean
       write set_AllowClearColumnFilter;
 
     property Result: Integer
       read _Result write _Result;
+
+    property DateRangeFilterActive: Boolean
+      read get_DateRangeFilterActive;
 
     property FilterText: CString
       read  get_FilterText
@@ -178,6 +196,11 @@ type
 
     property Selected: List<IFilterItem>
       read  get_selected;
+
+    property Start: CDateTime
+      read get_Start;
+    property Stop: CDateTime
+      read get_Stop;
   end;
 
   {$M+}
@@ -385,7 +408,9 @@ end;
 
 procedure TfrmPopupMenu.btnOKClick(Sender: TObject);
 begin
-  _Result := Filtered;
+  if DateRangeFilterActive then
+    _Result := FilterDateRange else
+    _Result := Filtered;
   Close;
 end;
 
@@ -443,6 +468,11 @@ begin
   inherited Close;
 end;
 
+procedure TfrmPopupMenu.dtpFromChange(Sender: TObject);
+begin
+  _selectionChanged := True;
+end;
+
 procedure TfrmPopupMenu.FormDeactivate(Sender: TObject);
 begin
   if (_UpdateCount = 0) then
@@ -488,6 +518,8 @@ var
 begin
   if Data = nil then Exit;
 
+  pgPages.ActivePage := tsTreeControl;
+
   _Items := CList<IFilterItem>.Create(Data.Count);
 
   _selectionChanged := False;
@@ -514,6 +546,13 @@ begin
       end);
 
   LoadItems(_Items);
+end;
+
+procedure TfrmPopupMenu.LoadDateRange(const Start, Stop: CDateTime; ShowTime: Boolean);
+begin
+  pgPages.ActivePage := tsDateTimeRange;
+  dtpFrom.DateTime := Start;
+  dtpTo.DateTime := Stop;
 end;
 
 procedure TfrmPopupMenu.LoadItems(const Items: List<IFilterItem>);
@@ -545,6 +584,11 @@ begin
   finally
     dec(_UpdateCount);
   end;
+end;
+
+function TfrmPopupMenu.get_DateRangeFilterActive: Boolean;
+begin
+  Result := pgPages.ActivePage = tsDateTimeRange;
 end;
 
 function TfrmPopupMenu.get_FilterText: CString;
@@ -643,6 +687,16 @@ begin
   for item in _Items do
     if item.Checked then
       Result.Add(item);
+end;
+
+function TfrmPopupMenu.get_Start: CDateTime;
+begin
+  Result := dtpFrom.DateTime;
+end;
+
+function TfrmPopupMenu.get_Stop: CDateTime;
+begin
+  Result := dtpTo.DateTime;
 end;
 
 procedure TfrmPopupMenu.lblHideColumnClick(Sender: TObject);

@@ -199,7 +199,7 @@ type
     procedure set_BeforePopup(const Value: TComboBeforePopup);
     function  get_PickList: IList;
     procedure set_PickList(const Value: IList);
-    function  get_Text: CString;
+    function  get_Text: CString; virtual;
     procedure set_Text(const Value: CString);
     function  get_Value: CObject; override;
     procedure set_Value(const Value: CObject); override;
@@ -210,7 +210,7 @@ type
     procedure ComboAdd(const str: string); virtual;
 
     procedure CheckUpdateComboPopupWidth; virtual;
-    function  ComboUpdateItems(const Items: List<string>) : Boolean; virtual;
+    function  ComboUpdateItems(const Items: List<string>; CurrentValue: CObject) : Boolean; virtual;
 
     procedure DoKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState); override;
     procedure DoKeyUp(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState); override;
@@ -224,25 +224,9 @@ type
     function  IsFiltered: Boolean;
     procedure DropDown; virtual;
     function  DoFilterItem(const Item: CObject; const ItemText, Filter: string) : Boolean; virtual;
-    function  RefreshItems: Boolean;
+    procedure RefreshItems;
     procedure DoBeforePopup;
     procedure UpdateSelection;
-  end;
-
-  TComboBoxControlImpl = class(TComboEditControlImpl)
-  protected
-    function  get_ItemIndex: Integer; override;
-    procedure set_ItemIndex(const Value: Integer); override;
-    function  get_ItemCount: Integer; override;
-
-    function  ComboItems : List<string>; override;
-    function  ComboIsDroppedDown : Boolean; override;
-    procedure ComboClear; override;
-    procedure ComboAdd(const str: string); override;
-
-    procedure CheckUpdateComboPopupWidth; override;
-
-    procedure DropDown; override;
   end;
 
   TTextEditControl = class(TEdit, IDCEditControl)
@@ -333,6 +317,7 @@ type
 
     function  get_Sides: TSides;
     procedure set_Sides(const Value: TSides);
+    procedure set_UseBuffering(const Value: Boolean); override;
 
     procedure DoResized; override;
   public
@@ -340,7 +325,7 @@ type
 
     procedure Paint; override;
     function  Background: IBackgroundControl;
-    procedure HandleParentChildVisualisation(IsParent, IsChild: Boolean);
+    procedure HandleParentChildVisualisation(IsParent, IsChild: Boolean; AWidth: Single);
 
     property Sides: TSides read get_Sides write set_Sides;
   end;
@@ -371,7 +356,7 @@ type
     function CreateComboEdit(const Owner: TComponent): IDCEditControl; virtual;
 
     procedure HandleRowBackground(const RowRect: IBackgroundControl; AlternateAvailable: Boolean; Alternate: Boolean); virtual;
-    procedure HandleRowChildRelation(const RowLayout: IRowLayout; IsOpenParent, IsOpenChild: Boolean); virtual;
+    procedure HandleRowChildRelation(const RowLayout: IRowLayout; IsOpenParent, IsOpenChild: Boolean; AWidth: Single); virtual;
   end;
 
 var
@@ -530,9 +515,9 @@ begin
     RowRect.FillColor := DEFAULT_WHITE_COLOR;
 end;
 
-procedure TDataControlClassFactory.HandleRowChildRelation(const RowLayout: IRowLayout; IsOpenParent, IsOpenChild: Boolean);
+procedure TDataControlClassFactory.HandleRowChildRelation(const RowLayout: IRowLayout; IsOpenParent, IsOpenChild: Boolean; AWidth: Single);
 begin
-  RowLayout.HandleParentChildVisualisation(IsOpenParent, IsOpenChild);
+  RowLayout.HandleParentChildVisualisation(IsOpenParent, IsOpenChild, AWidth);
 //  if IsOpenParent then
 //    RowRect.StrokeColor := DEFAULT_PARENTROW_COLOR
 //  else if IsOpenChild then
@@ -933,33 +918,47 @@ begin
   if ssAlt in Shift then
     Exit;
 
-  if (_PickList <> nil) and (Key in [vkUp, vkDown, vkPrior, vkNext, vkHome, vkEnd]) then
+  if (get_ItemCount = 0) then
+    Exit;
+
+  if (Key = vkF2) then
+  begin
+    if not ComboIsDroppedDown then
+      DropDown;
+
+    Key := 0;
+  end
+
+  else if (Key in [vkUp, vkDown, vkPrior, vkNext, vkHome, vkEnd]) then
   begin
     var v := get_Value;
     var i: Integer;
-    if v <> nil then
+    if (v <> nil) and (_PickList <> nil) then
       i := _PickList.IndexOf(v) else
-      i := -1;
+      i := get_ItemIndex;
 
     var idx := i;
     case Key of
       vkUp:     idx := System.Math.Max(0, idx - 1);
-      vkDown:   idx := System.Math.Min(_PickList.Count - 1, idx + 1);
+      vkDown:   idx := System.Math.Min(get_ItemCount - 1, idx + 1);
       vkPrior:  idx := System.Math.Max(idx - (_control as TComboEdit).DropdownCount, 0);
-      vkNext:   idx := System.Math.Min(idx + (_control as TComboEdit).DropdownCount, _PickList.Count - 1);
+      vkNext:   idx := System.Math.Min(idx + (_control as TComboEdit).DropdownCount, get_ItemCount - 1);
       vkHome:
         if ssCtrl in Shift then
           idx := 0;
       vkEnd:
         if ssCtrl in Shift then
-          idx := _PickList.Count - 1;
+          idx := get_ItemCount - 1;
     end;
 
     if (idx >= 0) and (i <> idx) then
     begin
-      set_Value(_PickList[idx]);
-      Key := 0;
+      if _PickList <> nil then
+        set_Value(_PickList[idx]) else
+        set_ItemIndex(idx);
     end;
+
+    Key := 0;
   end;
 end;
 
@@ -1062,7 +1061,7 @@ begin
   (_control as TComboEdit).Items.Add(str);
 end;
 
-function TComboEditControlImpl.ComboUpdateItems(const Items: List<string>) : Boolean;
+function TComboEditControlImpl.ComboUpdateItems(const Items: List<string>; CurrentValue: CObject) : Boolean;
 begin
   var current := ComboItems;
   var changed := ((current = nil) and (Items <> nil)) or (current.Count <> Items.Count);
@@ -1084,7 +1083,10 @@ begin
       ComboClear;
       for var s in Items do
         ComboAdd(s);
+
       CheckUpdateComboPopupWidth;
+
+      set_Value(CurrentValue);
     finally
       _control.EndUpdate;
     end;
@@ -1115,9 +1117,9 @@ begin
   (_control as TComboEdit).ItemIndex := -1;
 end;
 
-function TComboEditControlImpl.RefreshItems: Boolean;
+procedure TComboEditControlImpl.RefreshItems;
 begin
-  Result := False; // Drop down did not change
+  var currentValue := get_Value;
 
   DoBeforePopup;
 
@@ -1147,7 +1149,7 @@ begin
   end else
     items := ComboItems;
 
-  ComboUpdateItems(items);
+  ComboUpdateItems(items, currentValue);
 end;
 
 procedure TComboEditControlImpl.UpdateSelection;
@@ -1277,13 +1279,16 @@ begin
   if (Value <> nil) and (Items <> nil) then
   begin
     idx := items.IndexOf(Value);
-    if idx = get_ItemIndex then
+    if (idx <> -1) and (idx = get_ItemIndex) then
       Exit;
   end else
     idx := -1;
 
   if _itemsLoaded or (Value = nil) then
   begin
+    if (Value <> nil) and (idx = -1) then
+      RefreshItems;
+
     set_ItemIndex(idx);
     Exit;
   end;
@@ -1307,10 +1312,7 @@ end;
 
 function TComboEditControlImpl.get_Text: CString;
 begin
-  if _control is TComboEdit then
-    Result := (_control as TComboEdit).Text
-  else if _control is TComboBox then
-    Result := (_control as TComboBox).Text;
+  Result := (_control as TComboEdit).Text;
 end;
 
 procedure TComboEditControlImpl.set_Text(const Value: CString);
@@ -1480,87 +1482,6 @@ begin
   Result := _imageControl;
 end;
 
-{ TComboBoxControlImpl }
-function TComboBoxControlImpl.get_ItemCount: Integer;
-begin
-  Result := (_control as TComboBox).Count;
-end;
-
-function TComboBoxControlImpl.get_ItemIndex: Integer;
-begin
-  Result := (_control as TComboBox).ItemIndex;
-end;
-
-procedure TComboBoxControlImpl.set_ItemIndex(const Value: Integer);
-begin
-  (_control as TComboBox).ItemIndex := Value;
-end;
-
-procedure TComboBoxControlImpl.CheckUpdateComboPopupWidth;
-begin
-  var ce := TComboBox(_control);
-
-  if ce.Items.Count = 0 then
-    Exit;
-
-  {$IFNDEF WEBASSEMBLY}
-  var layout := TTextLayoutManager.DefaultTextLayout.Create;
-  {$ELSE}
-  var layout := TTextLayoutManager.DefaultTextLayout.Create(nil);
-  {$ENDIF}
-  try
-    layout.WordWrap := False;
-    // does not exist for ComboBox
-//    layout.Font := ce.TextSettings.Font;
-    var maxWidth := 0.0;
-
-    var ix: Integer;
-    for ix := 0 to ce.Items.Count - 1 do
-    begin
-      layout.BeginUpdate;
-      layout.Text := ce.Items[ix];
-      layout.EndUpdate;
-      maxWidth := System.Math.Max(maxWidth, layout.Width);
-    end;
-
-    ce.ItemWidth := CMath.Max(ce.width, maxWidth + 10);
-  finally
-    layout.Free;
-  end;
-end;
-
-procedure TComboBoxControlImpl.ComboAdd(const str: string);
-begin
-  (_control as TComboBox).Items.Add(str);
-end;
-
-procedure TComboBoxControlImpl.ComboClear;
-begin
-  (_control as TComboBox).Clear;
-end;
-
-function TComboBoxControlImpl.ComboIsDroppedDown: Boolean;
-begin
-  Result := (_control as TComboBox).DroppedDown;
-end;
-
-function TComboBoxControlImpl.ComboItems: List<string>;
-begin
-  var strings := (_control as TComboBox).Items;
-  if (strings <> nil) and (strings.Count > 0) then
-  begin
-    Result := CList<string>.Create(strings.Count);
-    for var s in strings do
-      Result.Add(s);
-  end;
-end;
-
-procedure TComboBoxControlImpl.DropDown;
-begin
-  RefreshItems;
-  (_control as TComboBox).DropDown;
-end;
-
 { TRowLayout }
 
 function TRowLayout.Background: IBackgroundControl;
@@ -1573,7 +1494,7 @@ begin
   inherited Create(AOwner);
 
   _rect := Background;
-  _rect.AsControl.ClipChildren := True;
+//  _rect.AsControl.ClipChildren := True;
   _rect.AsControl.HitTest := False;
   _rect.AsControl.Align := TAlignLayout.Contents;
   Self.AddObject(_rect.AsControl);
@@ -1594,45 +1515,40 @@ begin
   Result := _rect.Sides;
 end;
 
-procedure TRowLayout.HandleParentChildVisualisation(IsParent, IsChild: Boolean);
-
-  function PrepareHatchedBitmap: TBitmap;
-  begin
-    Result := TBitmap.Create(8, 8);
-
-    Result.Canvas.BeginScene;
-    try
-      Result.Clear(TAlphaColors.Null);
-      Result.Canvas.Stroke.Color := TAlphaColor($16000080);
-      Result.Canvas.Stroke.Thickness := 1;
-      Result.Canvas.DrawLine(PointF(0,8), PointF(8,0), 0.4);
-    finally
-      Result.Canvas.EndScene;
-    end;
-  end;
-
+procedure TRowLayout.HandleParentChildVisualisation(IsParent, IsChild: Boolean; AWidth: Single);
 begin
-  if not IsParent and not IsChild then
+  if IsParent or IsChild then
   begin
-    FreeAndNil(_parentChildRect);
-    Exit;
-  end;
+    if _parentChildRect = nil then
+    begin
+      _parentChildRect := TRectangle.Create(_rect.AsControl);
+      _parentChildRect.Align := TAlignLayout.None;
+      _parentChildRect.HitTest := False;
+      _rect.AsControl.AddObject(_parentChildRect);
+    end;
 
-//  _parentChildRect := TRectangle.Create(_rect.AsControl);
-//  _parentChildRect.Align := TAlignLayout.Contents;
-//  _parentChildRect.Stroke.Kind := TBrushKind.None;
-//  _parentChildRect.HitTest := False;
-//  _rect.AsControl.AddObject(_parentChildRect);
-//
-//  if IsParent then
-//  begin
-//    _parentChildRect.Fill.Kind := TBrushKind.Solid;
-//    _parentChildRect.Fill.Color := DEFAULT_CHILDROW_COLOR;
-//  end else
-//  begin
-//    _parentChildRect.Fill.Kind := TBrushKind.Bitmap;
-//    _parentChildRect.Fill.Bitmap.Bitmap := PrepareHatchedBitmap;
-//  end;
+    _parentChildRect.Height := Self.Height;
+    _parentChildRect.Width := AWidth;
+
+    if IsParent then
+    begin
+      _parentChildRect.Stroke.Kind := TBrushKind.Solid;
+      _parentChildRect.Sides := [TSide.Top];
+      _parentChildRect.Stroke.Color := TAlphaColors.Slategray;
+      _parentChildRect.Stroke.Thickness := 1;
+    end else
+      _parentChildRect.Stroke.Kind := TBrushKind.None;
+
+    _parentChildRect.Fill.Kind := TBrushKind.Solid;
+    if IsParent then
+      _parentChildRect.Fill.Color := TAlphaColor($BB9ACD32) else
+      _parentChildRect.Fill.Color := TAlphaColor($449ACD32);
+  end
+  else if _parentChildRect <> nil then
+  begin
+    _parentChildRect.Fill.Kind := TBrushKind.None;
+    _parentChildRect.Stroke.Kind := TBrushKind.None;
+  end;
 end;
 
 procedure TRowLayout.Paint;
@@ -1648,6 +1564,16 @@ end;
 procedure TRowLayout.set_Sides(const Value: TSides);
 begin
   _rect.Sides := Value;
+end;
+
+procedure TRowLayout.set_UseBuffering(const Value: Boolean);
+begin
+  if get_UseBuffering = Value then
+    Exit;
+
+  inherited;
+
+  _rect.AsControl.SendToBack;
 end;
 
 { TMemoEditControlImpl }

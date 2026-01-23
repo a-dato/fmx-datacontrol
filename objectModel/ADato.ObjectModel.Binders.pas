@@ -145,7 +145,6 @@ type
     procedure set_ObjectModelContext(const Value: IObjectModelContext); override;
 
     procedure EndUpdate(FromNotifyModelEvent: Boolean = False); override;
-    function  IsUpdating: Boolean; override;
     procedure ExecuteOriginalOnChangeEvent; override;
 
     procedure CheckControlEditability(const Context: CObject);
@@ -176,19 +175,9 @@ type
     procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject); override;
   end;
 
-  TLabelControlSmartLinkBinding = class(TLabelControlBinding)
-  protected
-    procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject); override;
-  end;
-
   TButtonControlBinding = class(TControlBinding<TButton>)
   protected
     function  GetValue: CObject; override;
-    procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject); override;
-  end;
-
-  TButtonControlSmartLinkBinding = class(TButtonControlBinding)
-  protected
     procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject); override;
   end;
 
@@ -198,11 +187,6 @@ type
     procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject); override;
 
     procedure UpdateControlEditability(IsEditable: Boolean); override;
-  end;
-
-  TTextControlSmartLinkBinding = class(TTextControlBinding)
-  protected
-    procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject); override;
   end;
 
   TEditControlBinding = class(TControlBinding<TEdit>)
@@ -222,11 +206,6 @@ type
     {$ENDIF}
   end;
 
-  TEditControlSmartLinkBinding = class(TEditControlBinding)
-  protected
-    procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject); override;
-  end;
-
   TNumberBoxControlBinding = class(TControlBinding<TNumberBox>)
   protected
     function GetValue: CObject; override;
@@ -237,19 +216,9 @@ type
     destructor Destroy; override;
   end;
 
-  TNumberBoxControlSmartLinkBinding = class(TNumberBoxControlBinding)
-  protected
-    procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject); override;
-  end;
-
   TProgressbarControlBinding = class(TControlBinding<TProgressBar>)
   protected
     function GetValue: CObject; override;
-    procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject); override;
-  end;
-
-  TProgressbarControlSmartLinkBinding = class(TProgressbarControlBinding)
-  protected
     procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject); override;
   end;
 
@@ -261,11 +230,6 @@ type
   public
     constructor Create(AControl: TSpinBox); reintroduce;
     destructor Destroy; override;
-  end;
-
-  TSpinControlSmartLinkBinding = class(TSpinControlBinding)
-  protected
-    procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject); override;
   end;
 
   TComboBoxControlBinding = class(TControlBinding<TCombobox>)
@@ -286,11 +250,6 @@ type
     destructor Destroy; override;
   end;
 
-  TComboboxControlSmartLinkBinding = class(TComboBoxControlBinding)
-  protected
-    procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject); override;
-  end;
-
   TComboEditControlBinding = class(TControlBinding<TComboEdit>)
   protected
     _lastItemIndex: Integer;
@@ -307,11 +266,6 @@ type
     destructor Destroy; override;
   end;
 
-  TComboEditControlSmartLinkBinding = class(TComboEditControlBinding)
-  protected
-    procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject); override;
-  end;
-
   TMemoControlBinding = class(TControlBinding<TMemo>)
   protected
     function  GetValue: CObject; override;
@@ -325,11 +279,6 @@ type
     destructor Destroy; override;
   end;
 
-  TMemoControlSmartLinkBinding = class(TMemoControlBinding)
-  protected
-    procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject); override;
-  end;
-
   {$IFNDEF WEBASSEMBLY}
   TComboColorBoxControlBinding = class(TControlBinding<TComboColorBox>)
   protected
@@ -338,11 +287,6 @@ type
   public
     constructor Create(AControl: TComboColorBox);
     destructor Destroy; override;
-  end;
-
-  TComboColorBoxControlSmartLinkBinding = class(TComboColorBoxControlBinding)
-  protected
-    procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject); override;
   end;
   {$ENDIF}
 
@@ -357,11 +301,6 @@ type
     {$ENDIF}
   end;
 
-  TSwitchControlSmartLinkBinding = class(TSwitchControlBinding)
-  protected
-    procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject); override;
-  end;
-
   TCheckBoxControlBinding = class(TControlBinding<TCheckBox>)
   protected
     function  GetValue: CObject; override;
@@ -369,11 +308,6 @@ type
   public
     constructor Create(AControl: TCheckBox);
     destructor Destroy; override;
-  end;
-
-  TCheckBoxControlSmartLinkBinding = class(TCheckBoxControlBinding)
-  protected
-    procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject); override;
   end;
 
   TDateControlBinding = class(TControlBinding<TDateEdit>)
@@ -386,11 +320,6 @@ type
     destructor Destroy; override;
   end;
 
-  TDateControlSmartLinkBinding = class(TDateControlBinding)
-  protected
-    procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject); override;
- end;
-
   TTimeControlBinding = class(TControlBinding<TTimeEdit>)
   protected
     _defaultFormat: string;
@@ -401,20 +330,10 @@ type
     destructor Destroy; override;
   end;
 
-  TTimeControlSmartLinkBinding = class(TTimeControlBinding)
-  protected
-    procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject); override;
-  end;
-
   {$IFNDEF WEBASSEMBLY}
   TImageControlBinding = class(TControlBinding<TImage>)
   protected
     function  GetValue: CObject; override;
-    procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject); override;
-  end;
-
-  TImageControlSmartLinkBinding = class(TImageControlBinding)
-  protected
     procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject); override;
   end;
   {$ENDIF}
@@ -510,40 +429,37 @@ end;
 
 procedure TEditControlBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
 begin
-  {$IFDEF APP_PLATFORM}
-  if IsUpdating or not IsBoundProperty(AProperty) then Exit;
+  if IsUpdating then Exit;
 
-  BeginUpdate;
-  try
-    var descriptor: IPropertyDescriptor;
-    var value_string: CString;
+  if IsBoundProperty(AProperty) then
+  begin
+    BeginUpdate;
+    try
+      {$IFDEF APP_PLATFORM}
+      var descriptor: IPropertyDescriptor;
+      var value_string: CString;
 
-    if TryGetPropertyDescriptor(descriptor) and (descriptor.Formatter <> nil) then
-      value_string := descriptor.Formatter.Format(Obj, Value, nil) else
-      Value.TryGetValue<CString>(value_string);
+      if TryGetPropertyDescriptor(descriptor) and (descriptor.Formatter <> nil) then
+        value_string := descriptor.Formatter.Format(Obj, Value, nil) else
+        Value.TryGetValue<CString>(value_string);
 
-    if not CString.Equals(value_string, _Control.Text) then
-      _Control.Text := CStringToString(value_string);
-  finally
-    EndUpdate;
-  end;
-  {$ELSE}
-  if (_UpdateCount > 0) or not IsBoundProperty(AProperty) then Exit;
+      if not CString.Equals(value_string, _Control.Text) then
+        _Control.Text := CStringToString(value_string);
+      {$ELSE}
+      var val: CString;
+      if not TryConvertToUserFriendlyText(Value, __PropertyInfo, val) then
+        if Value <> nil then
+          val := Value.ToString;
 
-  BeginUpdate;
-  try
-    var val: CString;
-    if not TryConvertToUserFriendlyText(Value, __PropertyInfo, val) then
       if Value <> nil then
-        val := Value.ToString;
-
-    if Value <> nil then
-      _Control.Text := CStringToString(val) else
-      _Control.Text := '';
-  finally
-    EndUpdate;
-  end;
-  {$ENDIF}
+        _Control.Text := CStringToString(val) else
+        _Control.Text := '';
+      {$ENDIF}
+    finally
+      EndUpdate;
+    end;
+  end else
+    ExecuteFromLink(Obj);
 end;
 
 function TEditControlBinding.TryConvertFromUserFriendlyText(out AResult: CObject): Boolean;
@@ -716,45 +632,47 @@ end;
 
 procedure TLabelControlBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
 begin
-  {$IFDEF APP_PLATFORM}
-  if IsUpdating or not IsBoundProperty(AProperty) then Exit;
+  if IsUpdating then Exit;
 
-  BeginUpdate;
-  try
-    var descriptor: IPropertyDescriptor;
-    var value_string: CString;
+  if IsBoundProperty(AProperty) then
+  begin
+    BeginUpdate;
+    try
+      {$IFDEF APP_PLATFORM}
+      var descriptor: IPropertyDescriptor;
+      var value_string: CString;
 
-    if TryGetPropertyDescriptor(descriptor) and (descriptor.Formatter <> nil) then
-      value_string := descriptor.Formatter.Format(Obj, Value, nil) else
-      Value.TryGetValue<CString>(value_string);
+      if TryGetPropertyDescriptor(descriptor) and (descriptor.Formatter <> nil) then
+        value_string := descriptor.Formatter.Format(Obj, Value, nil) else
+        Value.TryGetValue<CString>(value_string);
 
-    if not CString.Equals(value_string, _Control.Text) then
-      _Control.Text := CStringToString(value_string);
-  finally
-    EndUpdate;
-  end;
-  {$ELSE}
-  if (_UpdateCount > 0) or not IsBoundProperty(AProperty) then Exit;
+      if not CString.Equals(value_string, _Control.Text) then
+        _Control.Text := CStringToString(value_string);
+      {$ELSE}
+      // use TrimStart/TrimEnd to remove Enters and avoid empty looking labels
+      {$IFDEF DELPHI}
+      var text := Value.ToString(True);
+      if text <> nil then
+        text := Value.ToString(True).TrimStart.TrimEnd;
+      {$ELSE}
+      var text: CString;
+      if Value <> nil then
+        text := Value.ToString;
 
-  // use TrimStart/TrimEnd to remove Enters and avoid empty looking labels
-  {$IFDEF DELPHI}
-  var text := Value.ToString(True);
-  if text <> nil then
-    text := Value.ToString(True).TrimStart.TrimEnd;
-  {$ELSE}
-  var text: CString;
-  if Value <> nil then
-    text := Value.ToString;
+      if not CString.IsNullOrEmpty(text) then
+        text := text.TrimStart.TrimEnd;
+      {$ENDIF}
 
-  if not CString.IsNullOrEmpty(text) then
-    text := text.TrimStart.TrimEnd;
-  {$ENDIF}
+      text := CStringToString(text);
 
-  text := CStringToString(text);
-
-  if not CString.Equals(text, _Control.Text) then
-    _Control.Text := text;
-  {$ENDIF}
+      if not CString.Equals(text, _Control.Text) then
+        _Control.Text := text;
+      {$ENDIF}
+    finally
+      EndUpdate;
+    end;
+  end else
+    ExecuteFromLink(Obj);
 end;
 
 { TComboBoxControlBinding }
@@ -841,47 +759,45 @@ end;
 
 procedure TComboBoxControlBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
 begin
-  {$IFDEF APP_PLATFORM}
-  if IsUpdating or not IsBoundProperty(AProperty) then Exit;
+  if IsUpdating then Exit;
 
-  BeginUpdate;
-  try
-    _control.Items.Clear;
+  if IsBoundProperty(AProperty) then
+  begin
+    BeginUpdate;
+    try
+      {$IFDEF APP_PLATFORM}
+      _control.Items.Clear;
 
-    if Value = nil then
-      Exit;
+      if Value = nil then
+        Exit;
 
-    var descriptor: IPropertyDescriptor;
-    var value_string: CString;
+      var descriptor: IPropertyDescriptor;
+      var value_string: CString;
 
-    if TryGetPropertyDescriptor(descriptor) and (descriptor.Formatter <> nil) then
-      value_string := descriptor.Formatter.Format(Obj, Value, nil)
-    else if not Value.TryGetValue<CString>(value_string) then
-      Exit;
+      if TryGetPropertyDescriptor(descriptor) and (descriptor.Formatter <> nil) then
+        value_string := descriptor.Formatter.Format(Obj, Value, nil)
+      else if not Value.TryGetValue<CString>(value_string) then
+        Exit;
 
-    if not CString.IsNullOrEmpty(value_string) then
-    begin
-      _control.Items.Add(value_string);
-      _control.ItemIndex := 0;
+      if not CString.IsNullOrEmpty(value_string) then
+      begin
+        _control.Items.Add(value_string);
+        _control.ItemIndex := 0;
+      end;
+      {$ELSE}
+
+      if (Value <> nil) and (_control.Items <> nil) then
+      begin
+        var s := CStringToString(Value.ToString);
+        _control.ItemIndex := _control.Items.IndexOf(s);
+      end else
+        _control.ItemIndex := -1;
+      {$ENDIF}
+    finally
+      EndUpdate;
     end;
-  finally
-    EndUpdate;
-  end;
-  {$ELSE}
-  if IsUpdating or not IsBoundProperty(AProperty) then Exit;
-
-  BeginUpdate;
-  try
-    if (Value <> nil) and (_control.Items <> nil) then
-    begin
-      var s := CStringToString(Value.ToString);
-      _control.ItemIndex := _control.Items.IndexOf(s);
-    end else
-      _control.ItemIndex := -1;
-  finally
-    EndUpdate;
-  end;
-  {$ENDIF}
+  end else
+    ExecuteFromLink(Obj);
 end;
 
 { TMemoControlBinding }
@@ -914,16 +830,20 @@ end;
 
 procedure TMemoControlBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
 begin
-  if IsUpdating or not IsBoundProperty(AProperty) then Exit;
+  if IsUpdating then Exit;
 
-  BeginUpdate;
-  try
-    if Value <> nil then
-      _Control.Text := CStringToString(Value.ToString) else
-      _Control.Text := '';
-  finally
-    EndUpdate;
-  end;
+  if IsBoundProperty(AProperty) then
+  begin
+    BeginUpdate;
+    try
+      if Value <> nil then
+        _Control.Text := CStringToString(Value.ToString) else
+        _Control.Text := '';
+    finally
+      EndUpdate;
+    end;
+  end else
+    ExecuteFromLink(Obj);
 end;
 
 procedure TMemoControlBinding.UpdateControlEditability(IsEditable: Boolean);
@@ -971,69 +891,18 @@ end;
 
 procedure TSwitchControlBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
 begin
-  if IsUpdating or not IsBoundProperty(AProperty) then Exit;
+  if IsUpdating then Exit;
 
-  BeginUpdate;
-  try
-    _Control.IsChecked := (Value <> nil) and Value.AsType<Boolean>;
-  finally
-    EndUpdate;
-  end;
-end;
-
-{ TLabelControlSmartLinkBinding }
-
-procedure TLabelControlSmartLinkBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
-begin
-  if _UpdateCount > 0 then Exit;
-
-  if not IsBoundProperty(AProperty) then
-    ExecuteFromLink(Obj) else
-    inherited;
-end;
-
-{ TEditControlSmartLinkBinding }
-
-procedure TEditControlSmartLinkBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
-begin
-  if _UpdateCount > 0 then Exit;
-
-  if not IsBoundProperty(AProperty) then
-    ExecuteFromLink(Obj) else
-    inherited;
-end;
-
-{ TComboboxControlSmartLinkBinding }
-
-procedure TComboboxControlSmartLinkBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
-begin
-  if _UpdateCount > 0 then Exit;
-
-  if not IsBoundProperty(AProperty) then
-    ExecuteFromLink(Obj) else
-    inherited;
-end;
-
-{ TSwitchControlSmartLinkBinding }
-
-procedure TSwitchControlSmartLinkBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
-begin
-  if _UpdateCount > 0 then Exit;
-
-  if not IsBoundProperty(AProperty) then
-    ExecuteFromLink(Obj) else
-    inherited;
-end;
-
-{ TMemoControlSmartLinkBinding }
-
-procedure TMemoControlSmartLinkBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
-begin
-  if _UpdateCount > 0 then Exit;
-
-  if not IsBoundProperty(AProperty) then
-    ExecuteFromLink(Obj) else
-    inherited;
+  if IsBoundProperty(AProperty) then
+  begin
+    BeginUpdate;
+    try
+      _Control.IsChecked := (Value <> nil) and Value.AsType<Boolean>;
+    finally
+      EndUpdate;
+    end;
+  end else
+    ExecuteFromLink(Obj);
 end;
 
 { TFreeControlNotification }
@@ -1089,30 +958,23 @@ procedure TSpinControlBinding.SetValue(const AProperty: _PropertyInfo; const Obj
 var
   d: Double;
 begin
-  if IsUpdating or not IsBoundProperty(AProperty) then Exit;
+  if IsUpdating then Exit;
 
-  BeginUpdate;
-  try
-    if Value <> nil then
-      d := Value.AsType<Double> else
-      d := 0;
+  if IsBoundProperty(AProperty) then
+  begin
+    BeginUpdate;
+    try
+      if Value <> nil then
+        d := Value.AsType<Double> else
+        d := 0;
 
-    _Control.Min := CMath.Min(1, d);
-    _Control.Value := d;
-  finally
-    EndUpdate;
-  end;
-end;
-
-{ TSpinControlSmartLinkBinding }
-
-procedure TSpinControlSmartLinkBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
-begin
-  if _UpdateCount > 0 then Exit;
-
-  if not IsBoundProperty(AProperty) then
-    ExecuteFromLink(Obj) else
-    inherited;
+      _Control.Min := CMath.Min(1, d);
+      _Control.Value := d;
+    finally
+      EndUpdate;
+    end;
+  end else
+    ExecuteFromLink(Obj);
 end;
 
 { TTextControlBinding }
@@ -1128,28 +990,26 @@ end;
 
 procedure TTextControlBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
 begin
-  if IsUpdating or not IsBoundProperty(AProperty) then Exit;
+  if IsUpdating then Exit;
 
-  if Value <> nil then
-    _Control.Text := CStringToString(Value.ToString) else
-    _Control.Text := '';
+  if IsBoundProperty(AProperty) then
+  begin
+    BeginUpdate;
+    try
+      if Value <> nil then
+        _Control.Text := CStringToString(Value.ToString) else
+        _Control.Text := '';
+    finally
+      EndUpdate;
+    end;
+  end else
+    ExecuteFromLink(Obj);
 end;
 
 procedure TTextControlBinding.UpdateControlEditability(IsEditable: Boolean);
 begin
   // textControls can't be edited, therefor always should be true so that they can be copied!!
   _control.Enabled := True;
-end;
-
-{ TTextControlSmartLinkBinding }
-
-procedure TTextControlSmartLinkBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
-begin
-  if _UpdateCount > 0 then Exit;
-
-  if not IsBoundProperty(AProperty) then
-    ExecuteFromLink(Obj) else
-    inherited;
 end;
 
 procedure TControlBinding<T>.CheckControlEditability(const Context: CObject);
@@ -1263,11 +1123,6 @@ end;
 function TControlBinding<T>.get_Value: CObject;
 begin
   Result := _value;
-end;
-
-function TControlBinding<T>.IsUpdating: Boolean;
-begin
-  Result := inherited; // or (_control.IsUpdating);
 end;
 
 procedure TControlBinding<T>.OnContextChanged(const Sender: IObjectModelContext; const Context: CObject);
@@ -1444,56 +1299,30 @@ end;
 
 procedure TDateControlBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
 begin
-  if IsUpdating or not IsBoundProperty(AProperty) then Exit;
+  if IsUpdating then Exit;
 
-  BeginUpdate;
-  try
-//    {$IFDEF DOTNET}
-//    if Value = nil then
-//    begin
-//      _control.Text := CDateTime.MinValue.ToString;
-//      Exit;
-//    end;
-//    {$ENDIF}
-
-    var cdt := Value.AsType<CDateTime>;
-    _Control.IsEmpty := cdt = CDateTime.MinValue;
-    if cdt <> CDateTime.MinValue then
-    begin
-      {$IFDEF DELPHI}
-      _Control.Format := _defaultFormat;
-      _Control.DateTime := cdt.DelphiDateTime;
-      {$ELSE}
-      _Control.Format := _defaultFormat;
-      _Control.DateTime := cdt.Date;
-      {$ENDIF}
-    end else
-      _Control.Format := ' ';
-  finally
-    EndUpdate;
-  end;
-end;
-
-{ TDateControlSmartLinkBinding }
-
-procedure TDateControlSmartLinkBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
-begin
-  if _UpdateCount > 0 then Exit;
-
-  if not IsBoundProperty(AProperty) then
-    ExecuteFromLink(Obj) else
-    inherited;
-end;
-
-{ TCheckBoxControlSmartLinkBinding }
-
-procedure TCheckBoxControlSmartLinkBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
-begin
-  if _UpdateCount > 0 then Exit;
-
-  if not IsBoundProperty(AProperty) then
-    ExecuteFromLink(Obj) else
-    inherited;
+  if IsBoundProperty(AProperty) then
+  begin
+    BeginUpdate;
+    try
+      var cdt := Value.AsType<CDateTime>;
+      _Control.IsEmpty := cdt = CDateTime.MinValue;
+      if cdt <> CDateTime.MinValue then
+      begin
+        {$IFDEF DELPHI}
+        _Control.Format := _defaultFormat;
+        _Control.DateTime := cdt.DelphiDateTime;
+        {$ELSE}
+        _Control.Format := _defaultFormat;
+        _Control.DateTime := cdt.Date;
+        {$ENDIF}
+      end else
+        _Control.Format := ' ';
+    finally
+      EndUpdate;
+    end;
+  end else
+    ExecuteFromLink(Obj);
 end;
 
 { TCheckBoxControlBinding }
@@ -1527,14 +1356,18 @@ end;
 
 procedure TCheckBoxControlBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
 begin
-  if IsUpdating or not IsBoundProperty(AProperty) then Exit;
+  if IsUpdating then Exit;
 
-  BeginUpdate;
-  try
-    _Control.IsChecked := (Value <> nil) and Value.AsType<Boolean>;
-  finally
-    EndUpdate;
-  end;
+  if IsBoundProperty(AProperty) then
+  begin
+    BeginUpdate;
+    try
+      _Control.IsChecked := (Value <> nil) and Value.AsType<Boolean>;
+    finally
+      EndUpdate;
+    end;
+  end else
+    ExecuteFromLink(Obj);
 end;
 
 
@@ -1580,36 +1413,29 @@ end;
 
 procedure TTimeControlBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
 begin
-  if IsUpdating or not IsBoundProperty(AProperty) then Exit;
+  if IsUpdating then Exit;
 
-  BeginUpdate;
-  try
-    {$IFDEF DELPHI}
-    var cdt := Value.AsType<CDateTime>;
-    _Control.IsEmpty := cdt = CDateTime.MinValue;
-    if cdt <> CDateTime.MinValue then
-    begin
-      _Control.Format := _defaultFormat;
-      _Control.DateTime := Value.AsType<CDateTime>.DelphiDateTime;
-    end else
-      _Control.Format := ' ';
-    {$ELSE}
-    Self.Value := Convert.ToDateTime(Value);
-    {$ENDIF}
-  finally
-    EndUpdate;
-  end;
-end;
-
-{ TTimeControlSmartLinkBinding }
-
-procedure TTimeControlSmartLinkBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
-begin
-  if _UpdateCount > 0 then Exit;
-
-  if not IsBoundProperty(AProperty) then
-    ExecuteFromLink(Obj) else
-    inherited;
+  if IsBoundProperty(AProperty) then
+  begin
+    BeginUpdate;
+    try
+      {$IFDEF DELPHI}
+      var cdt := Value.AsType<CDateTime>;
+      _Control.IsEmpty := cdt = CDateTime.MinValue;
+      if cdt <> CDateTime.MinValue then
+      begin
+        _Control.Format := _defaultFormat;
+        _Control.DateTime := Value.AsType<CDateTime>.DelphiDateTime;
+      end else
+        _Control.Format := ' ';
+      {$ELSE}
+      Self.Value := Convert.ToDateTime(Value);
+      {$ENDIF}
+    finally
+      EndUpdate;
+    end;
+  end else
+    ExecuteFromLink(Obj);
 end;
 
 { TNumberBoxControlBinding }
@@ -1649,27 +1475,20 @@ end;
 
 procedure TNumberBoxControlBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
 begin
-  if IsUpdating or not IsBoundProperty(AProperty) then Exit;
+  if IsUpdating then Exit;
 
-  BeginUpdate;
-  try
-    if Value <> nil then
-      _control.Text := CStringToString(Value.ToString) else
-      _control.Value := _control.Min;
-  finally
-    EndUpdate;
-  end;
-end;
-
-{ TNumberBoxControlSmartLinkBinding }
-
-procedure TNumberBoxControlSmartLinkBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
-begin
-  if _UpdateCount > 0 then Exit;
-
-  if not IsBoundProperty(AProperty) then
-    ExecuteFromLink(Obj) else
-    inherited;
+  if IsBoundProperty(AProperty) then
+  begin
+    BeginUpdate;
+    try
+      if Value <> nil then
+        _control.Text := CStringToString(Value.ToString) else
+        _control.Value := _control.Min;
+    finally
+      EndUpdate;
+    end;
+  end else
+    ExecuteFromLink(Obj);
 end;
 
 { TProgressbarControlBinding }
@@ -1681,41 +1500,23 @@ end;
 
 procedure TProgressbarControlBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
 begin
-  if IsUpdating or not IsBoundProperty(AProperty) then Exit;
+  if IsUpdating then Exit;
 
-  BeginUpdate;
-  try
-    if Value <> nil then
-      _Control.Value := Value.AsType<Single> else
-      _Control.Value := 0;
-  finally
-    EndUpdate;
-  end;
-end;
-
-{ TProgressbarControlSmartLinkBinding }
-
-procedure TProgressbarControlSmartLinkBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
-begin
-  if _UpdateCount > 0 then Exit;
-
-  if not IsBoundProperty(AProperty) then
-    ExecuteFromLink(Obj) else
-    inherited;
+  if IsBoundProperty(AProperty) then
+  begin
+    BeginUpdate;
+    try
+      if Value <> nil then
+        _Control.Value := Value.AsType<Single> else
+        _Control.Value := 0;
+    finally
+      EndUpdate;
+    end;
+  end else
+    ExecuteFromLink(Obj);
 end;
 
 {$IFNDEF WEBASSEMBLY}
-{ TImageControlSmartLinkBinding }
-
-procedure TImageControlSmartLinkBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
-begin
-  if _UpdateCount > 0 then Exit;
-
-  if not IsBoundProperty(AProperty) then
-    ExecuteFromLink(Obj) else
-    inherited;
-end;
-
 { TImageControlBinding }
 
 function TImageControlBinding.GetValue: CObject;
@@ -1729,20 +1530,24 @@ end;
 
 procedure TImageControlBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
 begin
-  if IsUpdating or not IsBoundProperty(AProperty) then Exit;
+  if IsUpdating then Exit;
 
-  BeginUpdate;
-  try
-    {$IFDEF DELPHI}
-    if Value <> nil then
-      _Control.Bitmap := Value.AsType<IADatoBitmap>.Bitmap else
-      _Control.Bitmap := nil;
-    {$ELSE}
-      _value := Convert.Tostring(Value);
-    {$ENDIF}
-  finally
-    EndUpdate;
-  end;
+  if IsBoundProperty(AProperty) then
+  begin
+    BeginUpdate;
+    try
+      {$IFDEF DELPHI}
+      if Value <> nil then
+        _Control.Bitmap := Value.AsType<IADatoBitmap>.Bitmap else
+        _Control.Bitmap := nil;
+      {$ELSE}
+        _value := Convert.Tostring(Value);
+      {$ENDIF}
+    finally
+      EndUpdate;
+    end;
+  end else
+    ExecuteFromLink(Obj);
 end;
 {$ENDIF}
 
@@ -1759,25 +1564,24 @@ end;
 
 procedure TButtonControlBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
 begin
-  if IsUpdating or not IsBoundProperty(AProperty) then Exit;
-  {$IFDEF DELPHI}
-  if Value = nil then
-    _Control.Text := '' else
-    _Control.Text := CStringToString(Value.ToString);
-  {$ELSE}
-  _value := Convert.ToString(Value);
-  {$ENDIF}
-end;
+  if IsUpdating then Exit;
 
-{ TButtonControlSmartLinkBinding }
-
-procedure TButtonControlSmartLinkBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
-begin
-  if _UpdateCount > 0 then Exit;
-
-  if not IsBoundProperty(AProperty) then
-    ExecuteFromLink(Obj) else
-    inherited;
+  if IsBoundProperty(AProperty) then
+  begin
+    BeginUpdate;
+    try
+      {$IFDEF DELPHI}
+      if Value = nil then
+        _Control.Text := '' else
+        _Control.Text := CStringToString(Value.ToString);
+      {$ELSE}
+      _value := Convert.ToString(Value);
+      {$ENDIF}
+    finally
+      EndUpdate;
+    end;
+  end else
+    ExecuteFromLink(Obj);
 end;
 
 { TComboEditControlBinding }
@@ -1819,32 +1623,36 @@ procedure TComboEditControlBinding.SetValue(const AProperty: _PropertyInfo; cons
 var
   val: CString;
 begin
-  if IsUpdating or not IsBoundProperty(AProperty) then Exit;
+  if IsUpdating then Exit;
 
-  BeginUpdate;
-  try
-    if not TryConvertToUserFriendlyText(Value, __PropertyInfo, val) then
+  if IsBoundProperty(AProperty) then
+  begin
+    BeginUpdate;
+    try
+      if not TryConvertToUserFriendlyText(Value, __PropertyInfo, val) then
+        if Value <> nil then
+          val := Value.ToString;
+
       if Value <> nil then
-        val := Value.ToString;
+      begin
+        var s := CStringToString(val);
+        var ix := _control.Items.IndexOf(s);
+        if ix <> -1 then
+          _control.ItemIndex := _control.Items.IndexOf(s) else
+          _control.Text := s;
+      end
+      else
+      begin
+        _Control.ItemIndex := -1;
+        _Control.Text := '';
+      end;
 
-    if Value <> nil then
-    begin
-      var s := CStringToString(val);
-      var ix := _control.Items.IndexOf(s);
-      if ix <> -1 then
-        _control.ItemIndex := _control.Items.IndexOf(s) else
-        _control.Text := s;
-    end
-    else
-    begin
-      _Control.ItemIndex := -1;
-      _Control.Text := '';
+      _lastItemIndex := _Control.ItemIndex;
+    finally
+      EndUpdate;
     end;
-
-    _lastItemIndex := _Control.ItemIndex;
-  finally
-    EndUpdate;
-  end;
+  end else
+    ExecuteFromLink(Obj);
 end;
 
 procedure TComboEditControlBinding.UpdateControlEditability(IsEditable: Boolean);
@@ -1864,17 +1672,6 @@ begin
     _lastItemIndex := _control.ItemIndex;
     inherited;
   end;
-end;
-
-{ TComboEditControlSmartLinkBinding }
-
-procedure TComboEditControlSmartLinkBinding.SetValue( const AProperty: _PropertyInfo; const Obj, Value: CObject);
-begin
-  if _UpdateCount > 0 then Exit;
-
-  if not IsBoundProperty(AProperty) then
-    ExecuteFromLink(Obj) else
-    inherited;
 end;
 
 { TComboColorBoxControlBinding }
@@ -1909,76 +1706,69 @@ end;
 
 procedure TComboColorBoxControlBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
 begin
-  if IsUpdating or not IsBoundProperty(AProperty) then Exit;
+  if IsUpdating then Exit;
 
-  BeginUpdate;
-  try
-    _Control.Color := Value.AsType<Cardinal>;
-  finally
-    EndUpdate;
-  end;
-end;
-
-{ TComboColorBoxControlSmartLinkBinding }
-
-procedure TComboColorBoxControlSmartLinkBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
-begin
-  if _UpdateCount > 0 then Exit;
-
-  if not IsBoundProperty(AProperty) then
-    ExecuteFromLink(Obj) else
-    inherited;
+  if IsBoundProperty(AProperty) then
+  begin
+    BeginUpdate;
+    try
+      _Control.Color := Value.AsType<Cardinal>;
+    finally
+      EndUpdate;
+    end;
+  end else
+    ExecuteFromLink(Obj);
 end;
 {$ENDIF}
 
 initialization
   TPropertyBinding.RegisterClassBinding(TLabel,
-    function(const Control: TFMXObject): IPropertyBinding begin Result := TLabelControlSmartLinkBinding.Create(TLabel(Control)) end);
+    function(const Control: TFMXObject): IPropertyBinding begin Result := TLabelControlBinding.Create(TLabel(Control)) end);
 
   TPropertyBinding.RegisterClassBinding(TText,
-    function(const Control: TFMXObject): IPropertyBinding begin Result := TTextControlSmartLinkBinding.Create(TText(Control)) end);
+    function(const Control: TFMXObject): IPropertyBinding begin Result := TTextControlBinding.Create(TText(Control)) end);
 
   TPropertyBinding.RegisterClassBinding(TEdit,
-    function(const Control: TFMXObject): IPropertyBinding begin Result := TEditControlSmartLinkBinding.Create(TEdit(Control)) end);
+    function(const Control: TFMXObject): IPropertyBinding begin Result := TEditControlBinding.Create(TEdit(Control)) end);
 
   TPropertyBinding.RegisterClassBinding(TMemo,
-    function(const Control: TFMXObject): IPropertyBinding begin Result := TMemoControlSmartLinkBinding.Create(TMemo(Control)) end);
+    function(const Control: TFMXObject): IPropertyBinding begin Result := TMemoControlBinding.Create(TMemo(Control)) end);
 
   TPropertyBinding.RegisterClassBinding(TCombobox,
-    function(const Control: TFMXObject): IPropertyBinding begin Result := TComboboxControlSmartLinkBinding.Create(TCombobox(Control)) end);
+    function(const Control: TFMXObject): IPropertyBinding begin Result := TComboboxControlBinding.Create(TCombobox(Control)) end);
 
   TPropertyBinding.RegisterClassBinding(TComboEdit,
-    function(const Control: TFMXObject): IPropertyBinding begin Result := TComboEditControlSmartLinkBinding.Create(TComboEdit(Control)) end);
+    function(const Control: TFMXObject): IPropertyBinding begin Result := TComboEditControlBinding.Create(TComboEdit(Control)) end);
 
   TPropertyBinding.RegisterClassBinding(TSpinbox,
-    function(const Control: TFMXObject): IPropertyBinding begin Result := TSpinControlSmartLinkBinding.Create(TSpinbox(Control)) end);
+    function(const Control: TFMXObject): IPropertyBinding begin Result := TSpinControlBinding.Create(TSpinbox(Control)) end);
 
   TPropertyBinding.RegisterClassBinding(TSwitch,
-    function(const Control: TFMXObject): IPropertyBinding begin Result := TSwitchControlSmartLinkBinding.Create(TSwitch(Control)) end);
+    function(const Control: TFMXObject): IPropertyBinding begin Result := TSwitchControlBinding.Create(TSwitch(Control)) end);
 
   TPropertyBinding.RegisterClassBinding(TCheckbox,
-    function(const Control: TFMXObject): IPropertyBinding begin Result := TCheckBoxControlSmartLinkBinding.Create(TCheckbox(Control)) end);
+    function(const Control: TFMXObject): IPropertyBinding begin Result := TCheckBoxControlBinding.Create(TCheckbox(Control)) end);
 
   TPropertyBinding.RegisterClassBinding(TDateEdit,
-    function(const Control: TFMXObject): IPropertyBinding begin Result := TDateControlSmartLinkBinding.Create(TDateEdit(Control)) end);
+    function(const Control: TFMXObject): IPropertyBinding begin Result := TDateControlBinding.Create(TDateEdit(Control)) end);
 
   TPropertyBinding.RegisterClassBinding(TTimeEdit,
-    function(const Control: TFMXObject): IPropertyBinding begin Result := TTimeControlSmartLinkBinding.Create(TTimeEdit(Control)) end);
+    function(const Control: TFMXObject): IPropertyBinding begin Result := TTimeControlBinding.Create(TTimeEdit(Control)) end);
 
   TPropertyBinding.RegisterClassBinding(TProgressBar,
-    function(const Control: TFMXObject): IPropertyBinding begin Result := TProgressBarControlSmartLinkBinding.Create(TProgressBar(Control)) end);
+    function(const Control: TFMXObject): IPropertyBinding begin Result := TProgressBarControlBinding.Create(TProgressBar(Control)) end);
 
   {$IFNDEF WEBASSEMBLY}
   TPropertyBinding.RegisterClassBinding(TImage,
-    function(const Control: TFMXObject): IPropertyBinding begin Result := TImageControlSmartLinkBinding.Create(TImage(Control)) end);
+    function(const Control: TFMXObject): IPropertyBinding begin Result := TImageControlBinding.Create(TImage(Control)) end);
   {$ENDIF}
 
   TPropertyBinding.RegisterClassBinding(TNumberBox,
-    function(const Control: TFMXObject): IPropertyBinding begin Result := TNumberBoxControlSmartLinkBinding.Create(TNumberBox(Control)) end);
+    function(const Control: TFMXObject): IPropertyBinding begin Result := TNumberBoxControlBinding.Create(TNumberBox(Control)) end);
 
   {$IFNDEF WEBASSEMBLY}
   TPropertyBinding.RegisterClassBinding(TComboColorBox,
-    function(const Control: TFMXObject): IPropertyBinding begin Result := TComboColorBoxControlSmartLinkBinding.Create(TComboColorBox(Control)) end);
+    function(const Control: TFMXObject): IPropertyBinding begin Result := TComboColorBoxControlBinding.Create(TComboColorBox(Control)) end);
   {$ENDIF}
 end.
 

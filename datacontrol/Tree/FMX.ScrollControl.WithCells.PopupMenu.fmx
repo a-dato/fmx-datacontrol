@@ -27,75 +27,6 @@ object frmFMXPopupMenuDataControl: TfrmFMXPopupMenuDataControl
     Size.PlatformDefault = False
     Stroke.Color = xFFE3E3E3
   end
-  object filterlist: TRectangle
-    Align = Client
-    Fill.Color = xFFEBECF0
-    Padding.Right = 2.000000000000000000
-    Size.Width = 196.000000000000000000
-    Size.Height = 262.000000000000000000
-    Size.PlatformDefault = False
-    Stroke.Color = xFFBCBCBC
-    XRadius = 3.000000000000000000
-    YRadius = 3.000000000000000000
-    object Layout1: TLayout
-      Align = Top
-      Margins.Left = 3.000000000000000000
-      Margins.Top = 3.000000000000000000
-      Margins.Right = 3.000000000000000000
-      Position.X = 3.000000000000000000
-      Position.Y = 3.000000000000000000
-      Size.Width = 188.000000000000000000
-      Size.Height = 26.000000000000000000
-      Size.PlatformDefault = False
-      TabOrder = 0
-      object cbSelectAll: TCheckBox
-        Align = Left
-        Hint = 'Select all'
-        Size.Width = 16.000000000000000000
-        Size.Height = 22.000000000000000000
-        Size.PlatformDefault = False
-        TabOrder = 0
-        OnClick = cbSelectAllClick
-      end
-      object edSearch: TEdit
-        Touch.InteractiveGestures = [LongTap, DoubleTap]
-        Align = Client
-        TabOrder = 1
-        Margins.Left = 3.000000000000000000
-        Margins.Right = 3.000000000000000000
-        Size.Width = 118.000000000000000000
-        Size.Height = 22.000000000000000000
-        Size.PlatformDefault = False
-        TextPrompt = 'Search...'
-        OnChangeTracking = edSearchChangeTracking
-      end
-      object btnApplyFilters: TButton
-        Align = Right
-        Hint = 'Apply filters'
-        Position.X = 140.000000000000000000
-        Size.Width = 48.000000000000000000
-        Size.Height = 22.000000000000000000
-        Size.PlatformDefault = False
-        TabOrder = 2
-        Text = 'Apply'
-        TextSettings.Trimming = None
-        OnClick = btnApplyFiltersClick
-      end
-      object Line1: TLine
-        Align = Bottom
-        LineType = Bottom
-        Margins.Left = 3.000000000000000000
-        Margins.Top = 3.000000000000000000
-        Margins.Right = 3.000000000000000000
-        Position.X = 3.000000000000000000
-        Position.Y = 25.000000000000000000
-        Size.Width = 182.000000000000000000
-        Size.Height = 1.000000000000000000
-        Size.PlatformDefault = False
-        Stroke.Color = xFF8A8A8A
-      end
-    end
-  end
   object Timer1: TTimer
     Enabled = False
     Interval = 250
@@ -111,7 +42,7 @@ object frmFMXPopupMenuDataControl: TfrmFMXPopupMenuDataControl
     Size.Width = 196.000000000000000000
     Size.Height = 145.000000000000000000
     Size.PlatformDefault = False
-    TabOrder = 4
+    TabOrder = 3
     object PopupListBox: TListBox
       Align = Top
       Size.Width = 196.000000000000000000
@@ -220,6 +151,155 @@ object frmFMXPopupMenuDataControl: TfrmFMXPopupMenuDataControl
         OnMouseEnter = lbiSortSmallToLargeMouseEnter
         OnMouseLeave = lbiSortSmallToLargeMouseLeave
         OnClick = lbiClearSortAndFilterClick
+      end
+    end
+  end
+  object tcFilterControls: TTabControl
+    Align = Client
+    Size.Width = 196.000000000000000000
+    Size.Height = 262.000000000000000000
+    Size.PlatformDefault = False
+    TabIndex = 1
+    TabOrder = 6
+    TabPosition = None
+    Sizes = (
+      196s
+      262s
+      196s
+      262s)
+    object tsTreeControl: TTabItem
+      CustomIcon = <
+        item
+        end>
+      TextSettings.Trimming = None
+      IsSelected = False
+      Size.Width = 8.000000000000000000
+      Size.Height = 8.000000000000000000
+      Size.PlatformDefault = False
+      StyleLookup = ''
+      TabOrder = 0
+      Text = 'tsTreeControl'
+      object filterlist: TRectangle
+        Align = Client
+        Fill.Color = xFFEBECF0
+        Padding.Right = 2.000000000000000000
+        Size.Width = 196.000000000000000000
+        Size.Height = 262.000000000000000000
+        Size.PlatformDefault = False
+        Stroke.Color = xFFBCBCBC
+        XRadius = 3.000000000000000000
+        YRadius = 3.000000000000000000
+        object Layout1: TLayout
+          Align = Top
+          Margins.Left = 3.000000000000000000
+          Margins.Top = 3.000000000000000000
+          Margins.Right = 3.000000000000000000
+          Position.X = 3.000000000000000000
+          Position.Y = 3.000000000000000000
+          Size.Width = 188.000000000000000000
+          Size.Height = 26.000000000000000000
+          Size.PlatformDefault = False
+          TabOrder = 0
+          object cbSelectAll: TCheckBox
+            Align = Left
+            Hint = 'Select all'
+            Size.Width = 16.000000000000000000
+            Size.Height = 22.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 0
+            OnClick = cbSelectAllClick
+          end
+          object edSearch: TEdit
+            Touch.InteractiveGestures = [LongTap, DoubleTap]
+            Align = Client
+            TabOrder = 1
+            Margins.Left = 3.000000000000000000
+            Margins.Right = 3.000000000000000000
+            Size.Width = 118.000000000000000000
+            Size.Height = 22.000000000000000000
+            Size.PlatformDefault = False
+            TextPrompt = 'Search...'
+            OnChangeTracking = edSearchChangeTracking
+          end
+          object btnApplyFilters: TButton
+            Align = Right
+            Hint = 'Apply filters'
+            Position.X = 140.000000000000000000
+            Size.Width = 48.000000000000000000
+            Size.Height = 22.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 2
+            Text = 'Apply'
+            TextSettings.Trimming = None
+            OnClick = btnApplyFiltersClick
+          end
+          object Line1: TLine
+            Align = Bottom
+            LineType = Bottom
+            Margins.Left = 3.000000000000000000
+            Margins.Top = 3.000000000000000000
+            Margins.Right = 3.000000000000000000
+            Position.X = 3.000000000000000000
+            Position.Y = 25.000000000000000000
+            Size.Width = 182.000000000000000000
+            Size.Height = 1.000000000000000000
+            Size.PlatformDefault = False
+            Stroke.Color = xFF8A8A8A
+          end
+        end
+      end
+    end
+    object tsDateRange: TTabItem
+      CustomIcon = <
+        item
+        end>
+      TextSettings.Trimming = None
+      IsSelected = True
+      Size.Width = 8.000000000000000000
+      Size.Height = 8.000000000000000000
+      Size.PlatformDefault = False
+      StyleLookup = ''
+      TabOrder = 0
+      Text = 'tsDateRange'
+      object dtpFrom: TDateEdit
+        Date = 46042.000000000000000000
+        OnChange = dtpFromChange
+        Position.X = 7.000000000000000000
+        Position.Y = 32.000000000000000000
+        Size.Width = 187.000000000000000000
+        Size.Height = 22.000000000000000000
+        Size.PlatformDefault = False
+        TabOrder = 1
+      end
+      object dtpTo: TDateEdit
+        Date = 46042.000000000000000000
+        OnChange = dtpFromChange
+        Position.X = 7.000000000000000000
+        Position.Y = 80.000000000000000000
+        Size.Width = 187.000000000000000000
+        Size.Height = 22.000000000000000000
+        Size.PlatformDefault = False
+        TabOrder = 0
+      end
+      object lblFrom: TLabel
+        Position.X = 8.000000000000000000
+        Position.Y = 16.000000000000000000
+        Text = 'From'
+        TabOrder = 3
+      end
+      object lblTo: TLabel
+        Position.X = 8.000000000000000000
+        Position.Y = 62.000000000000000000
+        Text = 'To'
+        TabOrder = 2
+      end
+      object btnApplyDateRange: TButton
+        Position.X = 58.000000000000000000
+        Position.Y = 118.000000000000000000
+        TabOrder = 4
+        Text = 'Apply'
+        TextSettings.Trimming = None
+        OnClick = btnApplyDateRangeClick
       end
     end
   end
