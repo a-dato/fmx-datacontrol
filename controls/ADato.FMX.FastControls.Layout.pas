@@ -493,6 +493,8 @@ begin
 
   SetLength(FAddedChildren, 0);
   _freeNotify := TAddedControlFreeNotification.Create(Self);
+
+  set_UseBuffering(True);
 end;
 
 destructor TAdaptableBufferedLayout.Destroy;
@@ -592,8 +594,6 @@ procedure TAdaptableBufferedLayout.set_UseBuffering(const Value: Boolean);
 begin
   if get_UseBuffering = Value then
     Exit;
-
-  Exit;
 
   if Value then
   begin

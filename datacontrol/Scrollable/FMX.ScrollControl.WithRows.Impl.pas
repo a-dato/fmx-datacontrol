@@ -2222,38 +2222,7 @@ begin
       InternalSetCurrent(rowZero.ViewListIndex {+ 1}, TSelectionEventTrigger.Key, Shift);   
       UpdateAndIgnoreVertScrollbar(rowZero.VirtualYPosition);  
       RealignFromSelectionChange;
-      
-//          Inc(_scrollUpdateCount);
-//          try
-//            // scroll action
-//            _vertScrollBar.Value := rowZero.VirtualYPosition - _vertScrollBar.ViewportSize;
-//          finally
-//            dec(_scrollUpdateCount);
-//          end;
-//
-//          DoRealignContent;
-//
-//          rowZero := _view.ActiveViewRows[0];
-//          // check if row is only partly visible
-//          if (rowZero.VirtualYPosition < _vertScrollBar.Value) and (_view.ActiveViewRows.Count > 1) then
-//          begin
-//            rowZero := _view.ActiveViewRows[1];
-//
-//            Inc(_scrollUpdateCount);
-//            try
-//              // scroll action
-//              _vertScrollBar.Value := rowZero.VirtualYPosition;
-//            finally
-//              dec(_scrollUpdateCount);
-//            end;
-//
-//            DoRealignContent;
-//          end;
-//
-//          InternalSetCurrent(rowZero.ViewListIndex, TSelectionEventTrigger.Key, Shift);
-//        end;
-//      end;
-//
+
       Key := 0;
       Exit;
     end

@@ -183,6 +183,7 @@ type
     procedure set_Text(const Value: CString);
 
     function  FindBestMatch(const Text: string) : Integer;
+    procedure RefreshItems;
     procedure DropDown;
 
     property ItemIndex: Integer read get_ItemIndex write set_ItemIndex;

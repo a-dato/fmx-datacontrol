@@ -692,12 +692,15 @@ begin
 //  {$ELSE}
   // windows wants to clear the focus control after this point
   // therefor we need a little time untill we can EndEdit and free the editor
-  {$IFNDEF DEBUG}
-  TThread.ForceQueue(nil, procedure
-  begin
-    SafeForcedEndEdit;
-  end);
-  {$ENDIF}
+
+
+  // otherwise already EndEdited
+  if _cellEditor <> nil then
+    TThread.ForceQueue(nil, procedure
+    begin
+      SafeForcedEndEdit;
+    end);
+
 //  {$ENDIF}
 end;
 
@@ -811,6 +814,9 @@ end;
 
 procedure TScrollControlWithEditableCells.UpdateColumnCheck(const DataItem: CObject; const Column: IDCTreeColumn; IsChecked: Boolean);
 begin
+  if _view = nil then
+    GenerateView;
+
   var ix := _view.OriginalData.IndexOf(DataItem);
   if ix <> -1 then
     UpdateColumnCheck(ix, Column, IsChecked);
@@ -1590,6 +1596,8 @@ begin
 
   _cellEditor.EndEdit;
   _cellEditor := nil;
+
+  Self.SetFocus;
 
   var row := cell.Row as IDCTreeRow;
   if (cell.Column.WidthType = TDCColumnWidthType.AlignToContent) and row.ContentCellSizes.ContainsKey(cell.Index) then

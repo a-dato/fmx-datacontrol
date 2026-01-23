@@ -246,7 +246,6 @@ begin
 
   {$IFDEF DEBUG}
   _debugCheck := True;
-//  _debugCheck := False;
   {$ENDIF}
 
   Self.HitTest := True;
