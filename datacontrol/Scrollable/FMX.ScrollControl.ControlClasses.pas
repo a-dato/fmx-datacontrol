@@ -1517,6 +1517,10 @@ end;
 
 procedure TRowLayout.HandleParentChildVisualisation(IsParent, IsChild: Boolean; AWidth: Single);
 begin
+  {$IFNDEF DEBUG}
+  Exit;
+  {$ENDIF}
+
   if IsParent or IsChild then
   begin
     if _parentChildRect = nil then
@@ -1573,7 +1577,8 @@ begin
 
   inherited;
 
-  _rect.AsControl.SendToBack;
+  if _rect <> nil then
+    _rect.AsControl.SendToBack;
 end;
 
 { TMemoEditControlImpl }

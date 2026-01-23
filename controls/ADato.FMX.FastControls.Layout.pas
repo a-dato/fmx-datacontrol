@@ -493,6 +493,8 @@ begin
 
   SetLength(FAddedChildren, 0);
   _freeNotify := TAddedControlFreeNotification.Create(Self);
+
+  set_UseBuffering(True);
 end;
 
 destructor TAdaptableBufferedLayout.Destroy;
