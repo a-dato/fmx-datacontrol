@@ -2004,7 +2004,7 @@ uses
   ADato.Controls.Tree.SplitterForm,
   ADato.Controls.Tree.Cell.Impl,
   ADato_Renderer_impl,
-  Scaling, ADato.TraceEvents.intf;
+  Scaling, ADato.TraceEvents.intf, System.Rtti;
 
 {$IFDEF DEBUG}
 procedure Skip;
@@ -13415,10 +13415,20 @@ var
     Result := TextData.ToLower.Contains(TextToFind);
   end;
 
+  function MatchDateRange(const SeachObj: CObject; const Filter: ITreeFilterDescription): Boolean;
+  begin
+    var dt: CDateTime;
+    if (SeachObj = nil) or not SeachObj.TryAsType<CDateTime>(dt) then
+      Exit(False);
+    Result := (filter.Start <= dt) and (dt < filter.Stop);
+  end;
+
   function TryMatch(const DataItem: CObject; const SearchObj: CObject; const Filter: ITreeFilterDescription): Boolean;
   begin
     if (Filter.FilterType = FilterType.Comparer) and (Filter.Comparer <> nil) then
       Result := Filter.Comparer.Compare(DataItem, Filter.FilterText) = 0
+    else if Filter.FilterType = FilterType.DateRange then
+      Result := MatchDateRange(SearchObj, filter)
     else if Filter.FilterType <> FilterType.Values then
       Result := (SearchObj <> nil) and MatchText(SearchObj.ToString, Filter.FilterText) // Full text search
     else if Filter.Comparer <> nil then
