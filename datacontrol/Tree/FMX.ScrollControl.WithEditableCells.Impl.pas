@@ -814,6 +814,9 @@ end;
 
 procedure TScrollControlWithEditableCells.UpdateColumnCheck(const DataItem: CObject; const Column: IDCTreeColumn; IsChecked: Boolean);
 begin
+  if _view = nil then
+    GenerateView;
+
   var ix := _view.OriginalData.IndexOf(DataItem);
   if ix <> -1 then
     UpdateColumnCheck(ix, Column, IsChecked);
