@@ -2463,9 +2463,7 @@ end;
 constructor TDCCustomCellEditor.Create(const EditorHandler: IDataControlEditorHandler; const Cell: IDCTreeCell; const Editor: TControl);
 begin
   inherited Create(EditorHandler, Cell);
-  Assert(False);
-  // KV: XXX
-  //_editor := Editor;
+  _editor := Editor as IDCEditControl;
 end;
 
 { TDCCellMultiSelectDropDownEditor }
