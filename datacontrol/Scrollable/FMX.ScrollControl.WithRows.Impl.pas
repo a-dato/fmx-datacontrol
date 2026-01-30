@@ -1214,7 +1214,8 @@ end;
 
 procedure TScrollControlWithRows.SelectItem(const DataItem: CObject; ClearOtherSelections: Boolean = False);
 begin
-  if _view = nil then Exit;
+  if _view = nil then
+    GenerateView;
 
   var ix := _view.GetViewListIndex(DataItem);
   var dataIndex := _view.GetDataIndex(ix);
