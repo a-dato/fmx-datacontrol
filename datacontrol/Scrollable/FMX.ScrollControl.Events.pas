@@ -198,7 +198,7 @@ type
     DefaultValue  : CObject;
     MultilineEdit : Boolean;  // True - show Multiline editor
     UserCanClear  : Boolean;
-    Editor        : TControl; // Custom user editor
+    Editor        : IDCEditControl; // Custom user editor
     MinEditorWidth: Single;
 
     constructor Create(const ACell: IDCTreeCell; const AValue: CObject); reintroduce;

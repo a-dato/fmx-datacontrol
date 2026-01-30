@@ -245,7 +245,7 @@ type
 
   TDCCustomCellEditor = class(TDCCellEditor)
   public
-    constructor Create(const EditorHandler: IDataControlEditorHandler; const Cell: IDCTreeCell; const Editor: TControl); reintroduce;
+    constructor Create(const EditorHandler: IDataControlEditorHandler; const Cell: IDCTreeCell; const Editor: IDCEditControl); reintroduce;
   end;
 
   TDCCheckBoxCellEditor = class(TDCCellEditor)
@@ -2460,10 +2460,10 @@ begin
 end;
 { TDCCustomCellEditor }
 
-constructor TDCCustomCellEditor.Create(const EditorHandler: IDataControlEditorHandler; const Cell: IDCTreeCell; const Editor: TControl);
+constructor TDCCustomCellEditor.Create(const EditorHandler: IDataControlEditorHandler; const Cell: IDCTreeCell; const Editor: IDCEditControl);
 begin
   inherited Create(EditorHandler, Cell);
-  _editor := Editor as IDCEditControl;
+  _editor := Editor;
 end;
 
 { TDCCellMultiSelectDropDownEditor }
