@@ -775,24 +775,36 @@ begin
     startIx := row.ViewListIndex;
   end;
 
+  Result := GetNewActiveRow;
+
   var checkPos := StartY;
   if BottomTop then
     checkPos := StopY-1;
 
-  Result := GetNewActiveRow;
-
-  var defaultHeight := _defaultRowHeight;
   var viewListCount := GetViewList.Count;
-  var endIndex := IfThen(BottomTop and (startIx <> 0), 0, viewListCount);
+  var goUp := {(BottomTop and (startIx <> 0)) or} (pos > checkPos);
+  var endIndex := IfThen(goUp, 0, viewListCount - 1);
   Assert(viewListCount > 0);
 
-  while startIx <> endIndex do
+  var isLastIndex: Boolean := False;
+  var h := -1.0;
+  while not isLastIndex do
   begin
-    var h := CachedRowHeight(startIx);
-    if h = -1 then
-      h := defaultHeight;
+    if goUp then
+    begin
+      isLastIndex := startIx = 0;
 
-    if ((checkPos >= pos) and (checkPos < pos + h)) or (startIx = viewListCount - 1) then
+      // only when -1 in goUp, because it will be culculated after dec(startIx)!!!!
+      if h = -1 then
+        h := GetRowHeight(startIx);
+    end
+    else
+    begin
+      isLastIndex := startIx = viewListCount - 1;
+      h := GetRowHeight(startIx);
+    end;
+
+    if ((checkPos >= pos) and (checkPos < pos + h)) or isLastIndex then
     begin
       Result.ViewListIndex := startIx;
       Result.DataItem := GetDataItem(startIx);
@@ -802,11 +814,16 @@ begin
       break;
     end;
 
-    pos := pos + h;
-
-    if startIx < endIndex then
-      inc(startIx) else
+    if goUp then
+    begin
       dec(startIx);
+      h := GetRowHeight(startIx);
+      pos := pos - h;
+    end else
+    begin
+      inc(startIx);
+      pos := pos + h;
+    end;
   end;
 
   try

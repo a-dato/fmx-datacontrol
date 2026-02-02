@@ -1206,7 +1206,13 @@ begin
         end;
       end;
 
-      _treeLayout.UpdateColumnWidth(flatClmn.Index, maxCellWidth);
+      if not SameValue(flatClmn.Width, maxCellWidth) then
+      begin
+        _treeLayout.UpdateColumnWidth(flatClmn.Index, maxCellWidth);
+        if _view <> nil then
+          for var aRow in _view.ActiveViewRows do
+            aRow.ControlAsRowLayout.ResetBuffer;
+      end;
     end;
 end;
 

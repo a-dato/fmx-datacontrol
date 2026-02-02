@@ -343,19 +343,6 @@ type
     function  GetItemType: &Type;
     function  GetActiveCell: IDCTreeCell;
 
-    {$IFDEF DEBUG}
-    {$IFNDEF WEBASSEMBLY}
-    procedure S0;
-    procedure S1;
-    procedure S2;
-    procedure S3;
-    procedure E0(Pause: Boolean = False);
-    procedure E1(Pause: Boolean = False);
-    procedure E2(Pause: Boolean = False);
-    procedure E3(Pause: Boolean = False);
-    {$ENDIF}
-    {$ENDIF}
-
     function  RadioInsteadOfCheck: Boolean;
 
     procedure GetSortAndFilterImages(out ImageList: TCustomImageList; out FilterIndex, SortAscIndex, SortDescIndex: Integer);

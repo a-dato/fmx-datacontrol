@@ -310,7 +310,7 @@ type
     property ImageControl: IImageControl read get_ImageControl implements IImageControl;
   end;
 
-  TRowLayout = class(TAdaptableBufferedLayout, IRowLayout)
+  TRowLayout = class(TAdaptableBitmapLayout, IRowLayout)
   protected
     _rect: IBackgroundControl;
     _parentChildRect: TRectangle;

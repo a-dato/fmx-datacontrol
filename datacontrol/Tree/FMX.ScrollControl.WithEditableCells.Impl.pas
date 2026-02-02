@@ -1791,7 +1791,7 @@ begin
       GetDataModelView.DataModel.BeginEdit(ARow.DataItem.AsType<IDataRowView>.Row);
     end;
 
-//    ARow.UseBuffering := False;
+    ARow.UseBuffering := False;
     _editingInfo.StartRowEdit(ARow.DataIndex, DataItem, IsNew);
 
     _view.StartEdit(_editingInfo.EditItem);
@@ -1882,7 +1882,7 @@ begin
 
     DoDataItemChanged(ARow.ViewListIndex, editItem, {out} ChangeUpdatedSort);
 
-//    ARow.UseBuffering := True;
+    ARow.UseBuffering := True;
   end;
 end;
 

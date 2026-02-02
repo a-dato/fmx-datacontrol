@@ -204,21 +204,7 @@ type
     procedure ExecuteAfterRealignOnly(DoBeginUpdate: Boolean);
 
   protected
-    {$IFDEF DEBUG}
-    {$IFNDEF WEBASSEMBLY}
-    procedure S0;
-    procedure S1;
-    procedure S2;
-    procedure S3;
-    procedure E0(Pause: Boolean = False);
-    procedure E1(Pause: Boolean = False);
-    procedure E2(Pause: Boolean = False);
-    procedure E3(Pause: Boolean = False);
-    {$ENDIF}
-    {$ENDIF}
-
     procedure RealignFromSelectionChange;
-    procedure AfterRowHeightsChanged(const TopVirtualYPosition: Single);
 
     procedure SetBasicVertScrollBarValues; override;
     procedure BeforePainting; override;
@@ -737,14 +723,7 @@ begin
     CreateAndSynchronizeSynchronizerRow(currentRow);
 
     if not SameValue(originalHeight, currentRow.Height) then
-    begin
-      RealignContentStart;
-      try
-        AfterRowHeightsChanged(_view.ActiveViewRows[0].VirtualYPosition);
-      finally
-        ExecuteAfterRealignOnly(False);
-      end;
-    end;
+      RealignFromSelectionChange;
   finally
     StopMasterSynchronizer(goMaster);
   end;
@@ -849,36 +828,12 @@ end;
 
 procedure TScrollControlWithRows.DoRealignContent;
 begin
-  {$IFDEF DEBUG}
-  if (Self.Name = 'TreeControl') or (Self.Name = 'GanttChart') then
-  begin
-    inc(_logIx);
-
-    _stopwatch1.Reset;
-    _stopwatch2.Reset;
-    _stopwatch3.Reset;
-
-    Log('START OF ' + _logIx.ToString);
-  end;
-  {$ENDIF}
-
   var goMaster := TryStartMasterSynchronizer(True);
   try
     inherited;
   finally
     StopMasterSynchronizer(goMaster);
   end;
-
-  {$IFDEF DEBUG}
-  {$IFNDEF WEBASSEMBLY}
-  E1;
-  E2;
-  E3;
-  {$ENDIF}
-  {$ENDIF}
-
-//  if (_rowHeightSynchronizer <> nil) and ControlEffectiveVisible(_rowHeightSynchronizer) then
-//    _rowHeightSynchronizer.RestartWaitForRealignTimer;
 end;
 
 procedure TScrollControlWithRows.UpdateRowHeightSynchronizerScrollbar;
@@ -2069,7 +2024,7 @@ procedure TScrollControlWithRows.InitRow(const Row: IDCRow);
 begin
   var rowInfo := _view.RowLoadedInfo(Row.ViewListIndex);
   var isFastScrollbarScrolling := IsFastScrolling(True);
-  var rowNeedsReload := IsPrinting or Row.IsScrollingIntoView or not rowInfo.InnerCellsAreApplied or (rowInfo.ControlNeedsResizeSoft and not (GetScrollingType <> TScrollingType.WithScrollBar));
+  var rowNeedsReload := IsPrinting or Row.IsScrollingIntoView or not rowInfo.InnerCellsAreApplied or (rowInfo.ControlNeedsResizeSoft and (GetScrollingType <> TScrollingType.WithScrollBar));
 
   var oldRowHeight: Single := -1;
 
@@ -2089,7 +2044,7 @@ begin
     if Row.Control = nil then
     begin
       var ly := TRowLayout.Create(_content, CreateRowBackground);
-      ly.ClipChildren := True;
+//      ly.ClipChildren := True; // costs a lot of time , while we can also do this on lower level..
       ly.HitTest := False;
       ly.Align := TAlignLayout.None;
 
@@ -2117,7 +2072,7 @@ begin
 
   PerformanceRoutineLoadedRow(Row);
   Row.Control.Width := CalculateRowControlWidth(False);
-  Row.UseBuffering := IsScrolling;
+  Row.UseBuffering := True;
 
   CreateAndSynchronizeSynchronizerRow(Row);
 
@@ -3155,15 +3110,6 @@ begin
   end;
 end;
 
-procedure TScrollControlWithRows.AfterRowHeightsChanged(const TopVirtualYPosition: Single);
-begin
-  DoViewRmoveNonUsedRows;
-  UpdateVirtualYPositions(nil, -1);
-
-  UpdateScrollBarValues(_vertScrollbar.Value);
-  UpdateYPositionRows;
-end;
-
 procedure TScrollControlWithRows.AfterScrolling;
 begin
   inherited;
@@ -3179,7 +3125,7 @@ begin
   if _view <> nil then
     for var row in _view.ActiveViewRows do
     begin
-      row.UseBuffering := False;
+//      row.UseBuffering := True;
       PerformanceRoutineLoadedRow(row);
     end;
 
@@ -3205,7 +3151,7 @@ begin
 
     InitRow(Result);
 
-    AlignBottomToTop := SameValue(Result.VirtualYPosition + prevRefHeight, _vertScrollBar.Value + _vertScrollBar.ViewportSize);
+    AlignBottomToTop := SameValue(Result.VirtualYPosition + prevRefHeight, _vertScrollBar.Value + _vertScrollBar.ViewportSize, 0.5);
     if not existed or (prevRefHeight <> Result.Height) then
     begin
       if AlignBottomToTop then
@@ -3255,7 +3201,10 @@ begin
             
         CalculateScrollBarMax;  
         var newScrollVal := _vertScrollBar.Value + (startY - _vertScrollBar.Value {for reference row height change}) + heightChangeAboveRef;
-        UpdateScrollBarValues(newScrollVal);    
+        if alignBottomToTop and (referenceRow.VirtualYPosition + referenceRow.Height > newScrollVal + _vertScrollBar.ViewportSize) then
+          newScrollVal := (referenceRow.VirtualYPosition + referenceRow.Height) - _vertScrollBar.ViewportSize;
+
+        UpdateScrollBarValues(newScrollVal);
 
         UpdateYPositionRows;
       finally
@@ -3275,45 +3224,10 @@ begin
     if rowIsChanged then
       OnSelectionInfoChanged;
   end;
-
-
-
-////        var topVirtualYPosition: Single := -1;
-//
-//        if _view.ViewCount > 0 then
-//        begin
-//          var spaceLeftToBottom: Single := StopY - referenceRow.VirtualYPosition;
-//          AlignRowsFromReferenceToBottom(referenceRow, {var} spaceLeftToBottom);
-//
-//          var spaceToFill: Single := referenceRow.VirtualYPosition-startY;
-//          AlignRowsAboveReference(referenceRow, {var} spaceToFill);
-//
-////          topVirtualYPosition := referenceRow.VirtualYPosition;
-////          if referenceRow.ViewPortIndex > 0 then
-////          begin
-////            var ix2: Integer;
-////            for ix2 := referenceRow.ViewPortIndex - 1 downto 0 do
-////              begin
-////                var viewListIndex := _view.ActiveViewRows[ix2].ViewListIndex;
-////                var info := _view.RowLoadedInfo(viewListIndex);
-////                if info.RowIsInActiveView then
-////                  topVirtualYPosition := topVirtualYPosition - info.GetCalculatedHeight;
-////              end;
-////          end;
-//        end;
-//
-////        AfterRowHeightsChanged(topVirtualYPosition);
 end;
 
 procedure TScrollControlWithRows.RealignContentStart;
 begin
-  {$IFDEF DEBUG}
-  {$IFNDEF WEBASSEMBLY}
-  S0;
-  {$ENDIF}
-  {$ENDIF}
-//  var isRealStart := _realignState in [TRealignState.Waiting, TRealignState.RealignDone];
-
   inherited;
 
   if IsMasterSynchronizer then
@@ -3321,13 +3235,6 @@ begin
 
   if _view = nil then
     GenerateView;
-
-//  if (_view <> nil) and isRealStart then
-//    _totalDataHeight := _view.TotalDataHeight(get_rowHeightDefault);
-
-//  _newLoadedTreeRows := CList<IDCRow>.Create;
-//  if (_rowHeightSynchronizer <> nil) then
-//    _rowHeightSynchronizer._newLoadedTreeRows := CList<IDCRow>.Create;
 end;
 
 function TScrollControlWithRows.RealignContentTime: Integer;
@@ -3376,15 +3283,6 @@ begin
 
   if IsMasterSynchronizer then
     _rowHeightSynchronizer.RealignFinished;
-
-  {$IFDEF DEBUG}
-  {$IFNDEF WEBASSEMBLY}
-  E0;
-  E1;
-  E2;
-  E3;
-  {$ENDIF}
-  {$ENDIF}
 end;
 
 procedure TScrollControlWithRows.RefreshControl(const DataChanged: Boolean = False);
@@ -3397,13 +3295,6 @@ begin
 
   inherited;
 end;
-
-//function TScrollControlWithRows.RequestedOrActualCurrent: Integer;
-//begin
-//  if (_waitForRepaintInfo <> nil) and (_waitForRepaintInfo.Current <> -1) then
-//    Result := _waitForRepaintInfo.Current else
-//    Result := _selectioninfo.ViewListIndex;
-//end;
 
 function TScrollControlWithRows.RequestedOrActualDataItem: CObject;
 begin
@@ -3837,12 +3728,14 @@ end;
 procedure TDCRow.UpdateSelectionVisibility(const SelectionInfo: IRowSelectionInfo; OwnerIsFocused: Boolean);
 begin
   var isSelected := SelectionInfo.IsSelected(get_DataIndex);
+  var selectionStaysTheSame := isSelected = (_selectionRect <> nil);
+
   if isSelected then
     UpdateSelectionRect(OwnerIsFocused)
   else if _selectionRect <> nil then
     FreeAndNil(_selectionRect);
 
-  if get_UseBuffering then
+  if get_UseBuffering and not selectionStaysTheSame then
     ControlAsRowLayout.ResetBuffer;
 end;
 
@@ -3856,7 +3749,7 @@ begin
   if _control <> nil then
   begin
     var rowLayout := ControlAsRowLayout;
-    rowLayout.UseBuffering := False;
+    rowLayout.ResetBuffer;
     rowLayout.HandleParentChildVisualisation(False, False, 0);
   end;
 
@@ -4514,88 +4407,5 @@ begin
   var tc := &Type.GetTypeCode(GetItemType);
   Result := not ((tc = TypeCode.Object) or GetItemType.IsInterfaceType or GetItemType.IsArray);
 end;
-
-
-{$IFDEF DEBUG}
-{$IFNDEF WEBASSEMBLY}
-procedure TScrollControlWithRows.S0;
-begin
-  if (_logs = nil) and ((_rowHeightSynchronizer = nil) or (_rowHeightSynchronizer._logs = nil)) then
-    Exit;
-
-  _stopwatch0.Start;
-end;
-
-procedure TScrollControlWithRows.S1;
-begin
-  if (_logs = nil) and ((_rowHeightSynchronizer = nil) or (_rowHeightSynchronizer._logs = nil)) then
-    Exit;
-
-  _stopwatch1.Start;
-end;
-
-procedure TScrollControlWithRows.S2;
-begin
-  if (_logs = nil) and ((_rowHeightSynchronizer = nil) or (_rowHeightSynchronizer._logs = nil)) then
-    Exit;
-
-  _stopwatch2.Start;
-end;
-
-procedure TScrollControlWithRows.S3;
-begin
-  if (_logs = nil) and ((_rowHeightSynchronizer = nil) or (_rowHeightSynchronizer._logs = nil)) then
-    Exit;
-
-  _stopwatch3.Start;
-end;
-
-procedure TScrollControlWithRows.E0(Pause: Boolean);
-begin
-  if (_logs = nil) and ((_rowHeightSynchronizer = nil) or (_rowHeightSynchronizer._logs = nil)) then
-    Exit;
-
-  _stopwatch0.Stop;
-  if not Pause and not SyncIsMasterSynchronizer then
-    _stopwatch0.Reset;
-end;
-
-procedure TScrollControlWithRows.E1(Pause: Boolean);
-begin
-  if (_logs = nil) and ((_rowHeightSynchronizer = nil) or (_rowHeightSynchronizer._logs = nil)) then
-    Exit;
-
-  _stopwatch1.Stop;
-  if not Pause and (_stopwatch1.ElapsedMilliseconds > 0) then
-  begin
-    Log('Stopwatch 1: ' + _stopwatch1.ElapsedMilliseconds.ToString);
-    _stopwatch1.Reset;
-  end;
-end;
-
-procedure TScrollControlWithRows.E2(Pause: Boolean);
-begin
-  if (_logs = nil) and ((_rowHeightSynchronizer = nil) or (_rowHeightSynchronizer._logs = nil)) then
-    Exit;
-
-  _stopwatch2.Stop;
-  if not Pause and (_stopwatch2.ElapsedMilliseconds > 0) then
-  begin
-    Log('Stopwatch 2: ' + _stopwatch2.ElapsedMilliseconds.ToString);
-    _stopwatch2.Reset;
-  end;
-end;
-
-procedure TScrollControlWithRows.E3(Pause: Boolean);
-begin
-  if (_logs = nil) and ((_rowHeightSynchronizer = nil) or (_rowHeightSynchronizer._logs = nil)) then
-    Exit;
-
-  _stopwatch3.Stop;
-  if not Pause and (_stopwatch3.ElapsedMilliseconds > 0) then
-    Log('Stopwatch 3: ' + _stopwatch3.ElapsedMilliseconds.ToString);
-end;
-{$ENDIF}
-{$ENDIF}
 
 end.
