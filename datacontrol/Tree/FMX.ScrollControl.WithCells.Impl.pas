@@ -176,7 +176,7 @@ type
 
     procedure FastColumnAlignAfterColumnChange;
 
-    procedure ClearTreeSorts;
+    function  ClearTreeSorts: Boolean;
     procedure ClearTreeFilters;
     procedure UpdateHeaderRowControls;
 
@@ -2052,18 +2052,24 @@ begin
   {$ENDIF}
 end;
 
-procedure TScrollControlWithCells.ClearTreeSorts;
+function TScrollControlWithCells.ClearTreeSorts: Boolean;
 begin
+  Result := False;
+
   var sorts := _view.GetSortDescriptions;
   if (sorts <> nil) and (sorts.Count > 0) then
   begin
     var sortIx: Integer;
     for sortIx := sorts.Count - 1 downto 0 do
       if Interfaces.Supports<ITreeSortDescription>(sorts[sortIx])  then
+      begin
         sorts.RemoveAt(sortIx);
+        Result := True;
+      end;
   end;
 
-  GetInitializedWaitForRefreshInfo.SortDescriptions := sorts;
+  if Result then
+    GetInitializedWaitForRefreshInfo.SortDescriptions := sorts;
 end;
 
 procedure TScrollControlWithCells.ClearTreeFilters;
@@ -2709,6 +2715,10 @@ begin
       args.RequestValueForSorting := RequestForSort;
 
       _cellFormatting(Self, args);
+
+      if not Result and args.FormatCellAfterScrolling and IsScrolling then
+        _view.NotifyRowControlsNeedReload(Cell.Row, True {force reload after scrolling is done});
+
       Value := args.Value;
       Result := args.FormattingApplied;
     finally

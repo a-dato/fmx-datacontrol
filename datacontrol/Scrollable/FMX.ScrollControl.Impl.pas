@@ -855,7 +855,7 @@ begin
   var posIntTotal := IfThen(wasAbove, _mouseWheelDistanceTotal, -_mouseWheelDistanceTotal);
   var posIntToGo := IfThen(wasAbove, _mouseWheelDistanceToGo, -_mouseWheelDistanceToGo);
 
-  var scrollSpeed := posIntTotal / 3;
+  var scrollSpeed := posIntTotal / 3.5;
   var scrollPart := Round(CMath.Min(scrollSpeed, posIntToGo * 0.7));
 
   // otherwise scrolling looks like its going backwards and too fast..

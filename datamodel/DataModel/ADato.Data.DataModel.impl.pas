@@ -441,7 +441,7 @@ type
     _parser           : IDataModelParser;
     _validatePosition: TValidatePosition;
 
-    _cachedProperties: Dictionary<CString, _PropertyInfo>;
+    _cachedProperties: Dictionary<Integer {hash}, _PropertyInfo>;
 
     // Events
     {$IFDEF DELPHI}
@@ -1210,7 +1210,7 @@ begin
   (_columns as INotifyCollectionChanged).CollectionChanged += @ColumnsChanged;
   {$ENDIF}
 
-  _cachedProperties := CDictionary<CString, _PropertyInfo>.Create;
+  _cachedProperties := CDictionary<Integer {hash}, _PropertyInfo>.Create;
 
   _validIndexIndex := -1;
   _validChildIndexIndex := -1;
@@ -1666,6 +1666,7 @@ var
   childRow: IDataRow;
   _rowList: List<IDataRow>;
   {$ENDIF}
+
 begin
   Result := 0;
   i := RowIndex(Row) + 1;
@@ -2201,11 +2202,11 @@ begin
   begin
     t := DoGetRowObjectType(Row);
 
-    var key := CString.Concat(t.Name, '_', Column.Name);
-    if not _cachedProperties.TryGetValue(key, prop) then
+    var int := t.GetHashCode + Column.Index;
+    if not _cachedProperties.TryGetValue(int, prop) then
     begin
       prop := t.GetProperty(Column.Name);
-      _cachedProperties.Add(key, prop {can be nil})
+      _cachedProperties.Add(int, prop {can be nil})
     end;
 
     if prop <> nil then

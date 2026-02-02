@@ -102,6 +102,8 @@ type
   DCCellChangedEventArgs = DCCellChangeEventArgs;
 
   DCCellFormattingEventArgs = class(DCCellEventArgs)
+  private
+    _formatRowCellAfterScrolling: Boolean;
   public
     Value: CObject;
     FormattingApplied: Boolean;
@@ -110,6 +112,7 @@ type
       False: Convert e.Value to a string calling: var text: string := e.Value.ToString(_Format, nil);}
 
     constructor Create(const ACell: IDCTreeCell; const AValue: CObject); reintroduce;
+    property FormatCellAfterScrolling: Boolean read _formatRowCellAfterScrolling write _formatRowCellAfterScrolling;
   end;
 
 //  TCellUserEventType = (Mouse, Key);
@@ -353,6 +356,7 @@ constructor DCCellFormattingEventArgs.Create(const ACell: IDCTreeCell; const AVa
 begin
   inherited Create(ACell);
   Value := AValue;
+  _formatRowCellAfterScrolling := False;
 end;
 
 { DCCellLoadingEventArgs }

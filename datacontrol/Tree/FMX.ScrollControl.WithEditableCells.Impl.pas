@@ -1011,9 +1011,11 @@ begin
     Exit(False);
 
   // clear all sorts!!
-  ClearTreeSorts;
-  UpdateHeaderRowControls;
-  ForceImmeditiateRealignContent;
+  if ClearTreeSorts then
+  begin
+    UpdateHeaderRowControls;
+    ForceImmeditiateRealignContent;
+  end;
 
   if newItem = nil then
   begin
@@ -1105,19 +1107,13 @@ begin
   Result := _editingInfo.IsNew;
   if Result then
   begin
+    _resetRowDataItem := False;
+    _selectionInfo.UpdateLastSelection(_editingInfo.EditItemDataIndex, _view.GetViewListIndex(_editingInfo.EditItemDataIndex), newDataItem);
+
     // let the view know that we started with editing
     _view.StartEdit(_editingInfo.EditItem);
 
-//    CalculateScrollBarMax;
-
-    Self.DataItem := newDataItem;
-//    _forceCurrentIntoView := True;
-//    var requestedSelection := _selectionInfo.Clone as ITreeSelectionInfo;
-//    requestedSelection.UpdateLastSelection(newDataIndex, newViewListIndex, newDataItem);
-//    ScrollSelectedIntoView(requestedSelection);
-//
-//    for var row in _view.ActiveViewRows do
-//      VisualizeRowSelection(row);
+    RealignFromSelectionChange;
   end;
 end;
 
@@ -1178,7 +1174,14 @@ begin
     _view.RecalcSortedRows;
 
     if _view.ViewCount > 0 then
-      Self.Current := CMath.Max(0, CMath.Min(_view.ViewCount -1, currentIndex)) else
+    begin
+      var ixDel := CMath.Max(0, CMath.Min(_view.ViewCount -1, currentIndex));
+
+      _resetRowDataItem := False;
+      _selectionInfo.UpdateLastSelection( _view.GetDataIndex(ixDel), ixDel, _view.GetViewList[ixDel]);
+      RealignFromSelectionChange;
+    end
+    else
       Self.Current := -1;
   end;
 end;

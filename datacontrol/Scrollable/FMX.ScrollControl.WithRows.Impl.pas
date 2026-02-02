@@ -674,7 +674,11 @@ begin
   ChangeUpdatedSort := CurrentViewListIndex <> newViewListIndex;
   if not ChangeUpdatedSort then
   begin
-    OnSelectionInfoChanged;
+    // only if still available in view..
+    // check if OnSelectionInfoChanged is the right thing here..
+//    if _view.GetActiveRowIfExists(newViewListIndex) <> nil then
+//      OnSelectionInfoChanged;
+
     Exit;
   end;
 
@@ -2668,7 +2672,7 @@ begin
 
       _model.ObjectContext := convertedDataItem;
     end
-    else if (GetDataModelView <> nil) and (Self.DataItem <> nil) and (Self.DataItem.IsOfType<IDataRowView>) then
+    else if (GetDataModelView <> nil) and (_selectionInfo.DataItem <> nil) and (_selectionInfo.DataItem.IsOfType<IDataRowView>) then
       GetDataModelView.CurrencyManager.Current := Self.DataItem.AsType<IDataRowView>.ViewIndex;
   finally
     AtomicDecrement(_internalSelectCount);
@@ -3097,10 +3101,13 @@ begin
   try
     StartScrolling;
     try
-      var isInRealignProcess := _realignState <> TRealignState.RealignDone;
+      var isInRealignProcess := not (_realignState in [TRealignState.Waiting, TRealignState.RealignDone]);
 
       if not isInRealignProcess then
+      begin
+        _realignContentRequested := False;
         RealignContentStart;
+      end;
 
       _referenceRowViewListIndex := _selectionInfo.ViewListIndex;
       RealignContent;
@@ -3156,7 +3163,8 @@ begin
 
     InitRow(Result);
 
-    AlignBottomToTop := SameValue(Result.VirtualYPosition + prevRefHeight, _vertScrollBar.Value + _vertScrollBar.ViewportSize, 0.5);
+    // for lowest row of new row added below..
+    AlignBottomToTop := Result.VirtualYPosition + prevRefHeight >= _vertScrollBar.Value + _vertScrollBar.ViewportSize - 1;
     if not existed or (prevRefHeight <> Result.Height) then
     begin
       if AlignBottomToTop then
@@ -3197,7 +3205,7 @@ begin
         var spaceLeftToBottom: Single := StopY - referenceRow.VirtualYPosition;
         AlignRowsFromReferenceToBottom(referenceRow, {var} spaceLeftToBottom);
 
-        var spaceToFill: Single := referenceRow.VirtualYPosition - startY + CMath.Max(spaceLeftToBottom, 0); 
+        var spaceToFill: Single := referenceRow.VirtualYPosition - startY + CMath.Max(spaceLeftToBottom, 0);
         var heightChangeAboveRef: Single;
         AlignRowsAboveReference(referenceRow, {var} spaceToFill, {out} heightChangeAboveRef);
 

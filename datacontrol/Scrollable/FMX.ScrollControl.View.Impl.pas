@@ -742,6 +742,25 @@ begin
   Result.VirtualYPosition := yPos;
   Assert(Result.DataItem <> nil);
 
+  if _activeRows.Count > 0 then
+  begin
+    var clearAll := False;
+    if (PreferedIndex < _performanceVar_activeStartViewListIndex) and (_activeRows[0].ViewListIndex <> Result.ViewListIndex + 1) then
+      clearAll := True
+    else if (PreferedIndex > _performanceVar_activeStartViewListIndex) and (_activeRows[_activeRows.Count - 1].ViewListIndex <> Result.ViewListIndex - 1) then
+      clearAll := True;
+
+    if clearAll then
+    begin
+      var ix: Integer;
+      for ix := _activeRows.Count - 1 downto 0 do
+      begin
+        var row := _activeRows[ix];
+        RemoveRowFromActiveView(row);
+      end;
+    end;
+  end;
+
   if PreferedIndex < _performanceVar_activeStartViewListIndex then
     AddNewRowToActiveRows(Result, 0) else
     AddNewRowToActiveRows(Result, -1);
