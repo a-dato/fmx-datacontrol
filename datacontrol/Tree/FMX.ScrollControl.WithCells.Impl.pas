@@ -1587,7 +1587,7 @@ begin
 
     if _selectionInfo.IsChecked(treeRow.DataIndex) then
       _selectionInfo.Deselect(treeRow.DataIndex) else
-      _selectionInfo.AddToSelection(treeRow.DataIndex, treeRow.ViewListIndex, treeRow.DataItem, TreeOption_MultiSelect in _options);
+      _selectionInfo.AddToSelection(treeRow.DataIndex, treeRow.ViewListIndex, treeRow.DataItem, (TreeOption_MultiSelect in _options) and not (TreeOption_KeepCurrentSelection in _options));
 
     _selectionInfo.BeginUpdate;
     try
@@ -2142,7 +2142,12 @@ begin
   if not AutoMultiSelectColumnShowing then
     Exit;
 
-  if not (ssCtrl in Shift) and not (ssShift in Shift) and (OldRow <> GetActiveRow) and not _selectionInfo.IsSelected(OldRow.DataIndex) then
+  var doHide: Boolean;
+  if (TDCTreeOption.KeepCurrentSelection in _options) then
+    doHide := not _selectionInfo.IsMultiSelection else
+    doHide := not (ssCtrl in Shift) and not (ssShift in Shift) and (OldRow <> GetActiveRow) and not _selectionInfo.IsSelected(OldRow.DataIndex);
+
+  if doHide then
   begin
     _autoMultiSelectColumn.Visualisation.Visible := False;
     (GetInitializedWaitForRefreshInfo as IDCControlWaitForRepaintInfo).ColumnsChanged;

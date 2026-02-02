@@ -4243,7 +4243,16 @@ begin
   BeginUpdate;
   try
     if not ExpandCurrentSelection then
-      ClearMultiSelections;
+      ClearMultiSelections
+    else begin
+      // add single selection if needed
+      var prevInfo: IRowSelectionInfo := nil;
+      if (_lastSelectedViewListIndex <> -1) {and not _multiSelection.ContainsKey(_lastSelectedDataIndex)} then
+        prevInfo := Clone;
+
+      if prevInfo <> nil then
+        _multiSelection[prevInfo.DataIndex] := prevInfo;
+    end;
 
     UpdateLastSelection(DataIndex, ViewListIndex, DataItem);
 
