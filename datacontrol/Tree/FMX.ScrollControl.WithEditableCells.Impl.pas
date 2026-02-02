@@ -482,14 +482,14 @@ begin
   // check insert new row
   else if KeysImplyToAddRow then
   begin
-    if CheckCanChangeRow and TryAddRow(InsertPosition.After) then
+    if CheckCanChangeRow and ((not CanRealignScrollCheck) or TryAddRow(InsertPosition.After)) then
       Key := 0;
   end
 
   // check delete edit
   else if (Key = vkDelete) and (ssCtrl in Shift) and (TDCTreeOption.AllowDeleteRows in _options) then
   begin
-    if CheckCanChangeRow and TryDeleteSelectedRows then
+    if CheckCanChangeRow and ((not CanRealignScrollCheck) or TryDeleteSelectedRows) then
       Key := 0;
   end
 
