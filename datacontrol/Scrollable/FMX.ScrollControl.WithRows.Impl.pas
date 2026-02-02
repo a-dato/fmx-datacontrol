@@ -883,6 +883,10 @@ end;
 
 procedure TScrollControlWithRows.DoRowAligned(const ARow: IDCRow);
 begin
+//  {$IFDEF DEBUG}
+//  Exit;
+//  {$ENDIF}
+
   {$IFNDEF WEBASSEMBLY}
   if Assigned(_rowAligned) then
   begin
@@ -2073,7 +2077,7 @@ begin
 
   PerformanceRoutineLoadedRow(Row);
   Row.Control.Width := CalculateRowControlWidth(False);
-  Row.UseBuffering := True;
+  Row.UseBuffering := IsScrolling;
 
   CreateAndSynchronizeSynchronizerRow(Row);
 
@@ -3126,7 +3130,7 @@ begin
   if _view <> nil then
     for var row in _view.ActiveViewRows do
     begin
-//      row.UseBuffering := True;
+      row.UseBuffering := False;
       PerformanceRoutineLoadedRow(row);
     end;
 

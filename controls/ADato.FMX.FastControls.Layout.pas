@@ -316,6 +316,8 @@ end;
 
 procedure TAdaptableBitmapLayout.LoadBitmap;
 begin
+//  var isBeforePaint := (Self.Canvas = nil) or (Self.Canvas.BeginSceneCount = 0);
+
   var scale := Self.Scene.GetSceneScale;
   if (_bitmap <> nil) and (_bitmap.BitmapScale <> scale) then
     _resetBufferRequired := True;
@@ -341,7 +343,8 @@ begin
         _bitmap := TBitmap.Create(logicalW, logicalH);
         _bitmap.CanvasQuality := TCanvasQuality.HighPerformance;
         _bitmap.BitmapScale := scale;
-      end;
+      end else
+        _bitmap.Clear(0);
 
       if _bitmap.Canvas.BeginScene then
       try

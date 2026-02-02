@@ -1305,7 +1305,6 @@ begin
     var treeRow := row as IDCTreeRow;
     treeRow.Control.Width := rowWidth;
     treeRow.Control.Position.X := 0.0;
-//    treeRow.UpdatePositionAndWidthInnerRowControl;
 
     if hasFrozenColumns then
     begin
@@ -2693,6 +2692,9 @@ end;
 
 function TScrollControlWithCells.DoCellFormatting(const Cell: IDCTreeCell; RequestForSort: Boolean; var Value: CObject) : Boolean;
 begin
+//  {$IFDEF DEBUG}
+//  Exit(False);
+//  {$ENDIF}
   Result := False;
 
   if Assigned(_cellFormatting) then
@@ -2712,6 +2714,9 @@ end;
 
 procedure TScrollControlWithCells.DoCellLoaded(const Cell: IDCTreeCell; RequestForSort: Boolean; var PerformanceModeWhileScrolling: Boolean; var OverrideRowHeight: Single);
 begin
+//  {$IFDEF DEBUG}
+//  Exit;
+//  {$ENDIF}
   if Assigned(_CellLoaded) then
   begin
     var args := DCCellLoadedEventArgs.Create(Cell, TDCTreeOption.ShowVertGrid in  _options, PerformanceModeWhileScrolling);
@@ -2737,6 +2742,9 @@ end;
 function TScrollControlWithCells.DoCellLoading(const Cell: IDCTreeCell; RequestForSort: Boolean; var PerformanceModeWhileScrolling: Boolean; var OverrideRowHeight: Single) : Boolean;
 begin
   Result := True; // LoadDefaultData
+//  {$IFDEF DEBUG}
+//  Exit(True);
+//  {$ENDIF}
 
   if Assigned(_CellLoading) then
   begin
@@ -2854,6 +2862,10 @@ end;
 
 procedure TScrollControlWithCells.DoRowLoaded(const ARow: IDCRow);
 begin
+//  {$IFDEF DEBUG}
+//  Exit;
+//  {$ENDIF}
+
   inherited;
 
   if not ARow.IsHeaderRow and not ARow.Enabled then
@@ -3279,6 +3291,14 @@ begin
       propName := cell.Column.SubPropertyName;
       infoClass := cell.Column.SubInfoControlClass;
     end;
+
+//    {$IFDEF DEBUG}
+//    if (Cell.Index >= 3) and (infoClass = TInfoControlClass.Text) and (ctrl <> nil) then
+//    begin
+//      (ctrl as ICaption).Text := 'test';
+//      Exit;
+//    end;
+//    {$ENDIF}
 
     var cellValue: CObject;
     _localCheckSetInDefaultData := False;
