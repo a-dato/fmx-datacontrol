@@ -64,7 +64,7 @@ type
 
     function  TryBeginEditWithUserKey(const OriginalValue: CObject; const UserKey: CString): Boolean;
 
-    function  ParseValue(var AValue: CObject): Boolean;
+//    function  ParseValue(var AValue: CObject): Boolean;
 
     property Cell: IDCTreeCell read get_Cell;
     property ContainsFocus: Boolean read get_ContainsFocus;

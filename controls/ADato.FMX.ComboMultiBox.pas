@@ -40,11 +40,20 @@ uses
 
   FMX.ScrollControl.DataControl.Impl,
   FMX.ScrollControl.Events,
-  ADato.FMX.FastControls.Text;
+  ADato.FMX.FastControls.Text,
+  FMX.ScrollControl.ControlClasses.Intf,
+  FMX.ScrollControl.ControlClasses;
 
 type
-  TComboMultiBox = class(TLayout)
+  TComboMultiBoxEditControlImpl = class(TEditControlImpl)
+    function  get_Value: CObject; override;
+    procedure set_Value(const Value: CObject); override;
+  end;
+
+  TComboMultiBox = class(TLayout, IDCEditControl)
   protected
+    _editControl: IDCEditControl;
+
     {$IFNDEF WEBASSEMBLY}
     _dropDownButton: TControl;
     _clearButton: TControl;
@@ -52,6 +61,7 @@ type
     {$ENDIF}
     _txt: TFastText;
     _beforeDropDown: TProc;
+    _popupClosed: TProc;
     _cellSelected: CellSelectedEvent;
     _showNoneSelected: Boolean;
     _inClearClick: Boolean;
@@ -60,22 +70,23 @@ type
     procedure DropDownButtonClick(Sender: TObject);
     procedure UpdateDisplayText;
 
-    procedure set_Items(Value: IList);
-
     procedure OnClosePopup(Sender: TObject; var Action: TCloseAction);
     procedure MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Single); override;
     procedure KeyDown(var Key: Word; var KeyChar: WideChar; Shift: TShiftState); override;
 
     procedure CellSelectedEvent(const Sender: TObject; e: DCCellSelectedEventArgs);
 
+    function  get_items: IList;
+    procedure set_Items(Value: IList);
     function  get_SelectedItems: IList;
     procedure set_SelectedItems(const Value: IList);
-    function  get_items: IList;
 
     function  CreateBackground: TControl; virtual;
     function  CreateText: TFastText; virtual;
     function  CreateDropDownButton: TControl; virtual;
     function  CreateClearButton: TControl; virtual;
+
+    function get_EditControl: IDCEditControl;
 
   public
     constructor Create(AOwner: TComponent); override;
@@ -87,9 +98,11 @@ type
     function  InClearClick: Boolean;
 
     property  TextControl: TFastText read _txt;
+    property  EditControl: IDCEditControl read get_EditControl implements IDCEditControl;
 
   public
     property BeforeDropDown: TProc read _beforeDropDown write _beforeDropDown;
+    property DropDownClosed: TProc read _popupClosed write _popupClosed;
     property Items: IList read get_items write set_Items;
     property SelectedItems: IList read get_SelectedItems write set_SelectedItems;
     property CellSelected: CellSelectedEvent read _cellSelected write _cellSelected;
@@ -110,6 +123,7 @@ begin
   _inClearClick := True;
   try
     set_SelectedItems(nil);
+    UpdateDisplayText;
   finally
     _inClearClick := False;
   end;
@@ -118,6 +132,8 @@ end;
 constructor TComboMultiBox.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
+
+  _editControl := TComboMultiBoxEditControlImpl.Create(Self);
 
   CanFocus := True;
 
@@ -220,7 +236,9 @@ begin
     _popupMenu.Height := Round(CMath.Min(_popupMenu.DataControl.DataList.Count, 8)*_popupMenu.DataControl.RowHeightFixed + _popupMenu.lyFilter.Height);
 
     _popupMenu.edSearch.SetFocus;
-  end;
+  end
+  else if Assigned(_popupClosed) then
+    _popupClosed();
 end;
 
 procedure TComboMultiBox.DropDownButtonClick(Sender: TObject);
@@ -231,8 +249,9 @@ end;
 procedure TComboMultiBox.OnClosePopup(Sender: TObject; var Action: TCloseAction);
 begin
   UpdateDisplayText;
-  if Assigned(OnExit) then
-    OnExit(Self);
+
+  if Assigned(_popupClosed) then
+    _popupClosed();
 end;
 
 procedure TComboMultiBox.CellSelectedEvent(const Sender: TObject; e: DCCellSelectedEventArgs);
@@ -271,6 +290,11 @@ begin
   _txt.Text := CStringToString(s);
 
   _clearButton.Enabled := (selected <> nil) and (selected.Count > 0);
+end;
+
+function TComboMultiBox.get_EditControl: IDCEditControl;
+begin
+  Result := _editControl;
 end;
 
 function TComboMultiBox.get_items: IList;
@@ -325,6 +349,21 @@ begin
   end;
 
   _popupMenu.DataControl.AssignSelection(Value);
+end;
+
+{ TMemoEditControlImpl }
+
+function TComboMultiBoxEditControlImpl.get_Value: CObject;
+begin
+  if _control is TComboMultiBox then
+    Result := TComboMultiBox(_control).SelectedItems else
+    Result := nil;
+end;
+
+procedure TComboMultiBoxEditControlImpl.set_Value(const Value: CObject);
+begin
+  if _control is TComboMultiBox then
+    TComboMultiBox(_control).SelectedItems := Value.AsType<IList>;
 end;
 
 end.

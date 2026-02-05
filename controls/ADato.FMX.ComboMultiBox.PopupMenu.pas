@@ -163,6 +163,17 @@ begin
     set_IsOpen(False);
     Key := 0;
   end
+  else if (Key = vkSpace) or (KeyChar = ' ') then
+  begin
+    if not DataControl.SlowItemIsSelected(DataControl.DataItem) then
+      DataControl.SelectItem(DataControl.DataItem, False) else
+      DataControl.DeselectItem(DataControl.DataItem);
+
+    TreeCellSelected(DataControl, nil);
+
+    Key := 0;
+    Exit;
+  end
   else if (Key in [vkDown, vkUp, vkPrior, vkNext, vkSpace]) or ((Key = vkA) and (ssCtrl in Shift)) then
     DataControl.KeyDown({var} Key, KeyChar, Shift);
 

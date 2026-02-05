@@ -79,6 +79,7 @@ type
     function  GetHorzScroll(const Key: Word; Shift: TShiftState): TRightLeftScroll;
     procedure OnExpandCollapseHierarchy(Sender: TObject);
     procedure ProcessColumnVisibilityRules;
+    procedure CheckNoScrollingColumnContainsData;
 
     procedure CreateDefaultColumns;
     procedure ShowHeaderPopupMenu(const LayoutColumn: IDCTreeLayoutColumn);
@@ -228,6 +229,8 @@ type
     procedure TryScrollToCellByKey(var Key: Word; var KeyChar: WideChar);
 
     function  TextForSizeCalc(const Text: string): string;
+
+    procedure DoDataItemChangedInternal(const DataItem: CObject); override;
 
     function  CalculateRowControlWidth(const ForceRealContentWidth: Boolean): Single; override;
     function  CalculateRowHeight(const Row: IDCTreeRow): Single;
@@ -1017,8 +1020,17 @@ uses
 
 { TScrollControlWithCells }
 
-procedure TScrollControlWithCells.ProcessColumnVisibilityRules;
+procedure TScrollControlWithCells.AfterScrolling;
 begin
+  inherited;
+  CheckNoScrollingColumnContainsData;
+end;
+
+procedure TScrollControlWithCells.CheckNoScrollingColumnContainsData;
+begin
+  if _scrollingType <> TScrollingType.None then
+    Exit;
+
   var currentClmns := _treeLayout.FlatColumns;
   var clmn: IDCTreeLayoutColumn;
   for clmn in currentClmns do
@@ -1031,6 +1043,24 @@ begin
   if not _autoFitColumns and not _treeLayout.RecalcRequired {in case column is hidden by user} then
     Exit;
 
+  // when comes here from ProcessColumnVisibilityRules, than realigning is not done yet, and realignstate is "AfterRealign"
+  if _realignState = TRealignState.RealignDone then
+    ExecuteAfterRealignOnly(False);
+
+//  _stopwatch.Start;
+//  _stopwatch.Stop;
+//  _stopwatchPaint.Start;
+//  _stopwatchPaint.Stop;
+end;
+
+procedure TScrollControlWithCells.ProcessColumnVisibilityRules;
+begin
+  CheckNoScrollingColumnContainsData;
+  if not _autoFitColumns and not _treeLayout.RecalcRequired {in case column is hidden by user} then
+    Exit;
+
+  var currentClmns := _treeLayout.FlatColumns;
+
   if _autoFitColumns then
     _treeLayout.RecalcColumnWidthsAutoFit;
 
@@ -1038,7 +1068,6 @@ begin
 
   if _treeLayout.FlatColumns.Count = 0 then
     Exit;
-
   var selInfo := (_selectionInfo as ITreeSelectionInfo);
   var lastFlatColumn := _treeLayout.FlatColumns[_treeLayout.FlatColumns.Count - 1];
   if selInfo.SelectedLayoutColumn > lastFlatColumn.Index then
@@ -1144,12 +1173,6 @@ begin
   Result := inherited;
 end;
 {$ENDIF}
-
-procedure TScrollControlWithCells.AfterScrolling;
-begin
-  inherited;
-
-end;
 
 procedure TScrollControlWithCells.AfterRealignContent;
 begin
@@ -1586,8 +1609,18 @@ begin
     var checkBox := treeCell.InfoControl as IIsChecked;
 
     if _selectionInfo.IsChecked(treeRow.DataIndex) then
-      _selectionInfo.Deselect(treeRow.DataIndex) else
-      _selectionInfo.AddToSelection(treeRow.DataIndex, treeRow.ViewListIndex, treeRow.DataItem, (TreeOption_MultiSelect in _options) and not (TreeOption_KeepCurrentSelection in _options));
+      _selectionInfo.Deselect(treeRow.DataIndex)
+    else if not (TreeOption_MultiSelect in _options) then
+      _selectionInfo.AddToSelection(treeRow.DataIndex, treeRow.ViewListIndex, treeRow.DataItem, False)
+    else if not (TreeOption_KeepCurrentSelection in _options) then
+      _selectionInfo.AddToSelection(treeRow.DataIndex, treeRow.ViewListIndex, treeRow.DataItem, _selectionInfo.IsChecked(currentRow.DataIndex))
+    else
+    begin
+      _selectionInfo.Select(treeRow.DataIndex, treeRow.ViewListIndex, treeRow.DataItem);
+      _selectionInfo.UpdateLastSelection(treeRow.DataIndex, treeRow.ViewListIndex, treeRow.DataItem);
+//      var keepSelection := (TreeOption_MultiSelect in _options) and ((TreeOption_KeepCurrentSelection in _options) <> _selectionInfo.IsChecked(currentRow.DataIndex));
+//      _selectionInfo.AddToSelection(treeRow.DataIndex, treeRow.ViewListIndex, treeRow.DataItem, keepSelection);
+    end;
 
     _selectionInfo.BeginUpdate;
     try
@@ -1597,6 +1630,7 @@ begin
     end;
 
     DoCellChanged(nil, treeCell);
+    CheckHideAutoMultiSelectColumn(currentRow, Shift);
     Exit;
   end;
 
@@ -2130,9 +2164,7 @@ begin
     var checkBoxCell := (Row as IDCTreeRow).Cells[selectionCheckBoxColumn.Index];
     var checkBox := checkBoxCell.InfoControl as IIsChecked;
 
-    if (TreeOption_MultiSelect in _options) then
-      checkBox.IsChecked := _selectionInfo.IsChecked(Row.DataIndex) else
-      checkBox.IsChecked := _selectionInfo.IsSelected(Row.DataIndex);
+    checkBox.IsChecked := IsSelected(Row.DataIndex);
   finally
     dec(_selectionCheckBoxUpdateCount);
   end;
@@ -2149,8 +2181,8 @@ begin
     Exit;
 
   var doHide: Boolean;
-  if (TDCTreeOption.KeepCurrentSelection in _options) then
-    doHide := not _selectionInfo.IsMultiSelection else
+  doHide := not _selectionInfo.IsMultiSelection;
+  if not doHide and not (TDCTreeOption.KeepCurrentSelection in _options) then
     doHide := not (ssCtrl in Shift) and not (ssShift in Shift) and (OldRow <> GetActiveRow) and not _selectionInfo.IsSelected(OldRow.DataIndex);
 
   if doHide then
@@ -2933,6 +2965,23 @@ begin
 
   Result := treeRow;
 end;
+
+procedure TScrollControlWithCells.DoDataItemChangedInternal(const DataItem: CObject);
+begin
+  inherited;
+
+  var treeRow: IDCTreeRow;
+  if not interfaces.Supports<IDCTreeRow>(GetActiveRow, treeRow) then
+    Exit;
+
+  var cell := GetActiveCell;
+  if cell <> nil then
+    cell.LayoutColumn.Width := 0; // clear to reset!
+
+  treeRow.ContentCellSizes.Clear;
+  ExecuteAfterRealignOnly(False);
+end;
+
 
 function TScrollControlWithCells.TextForSizeCalc(const Text: string): string;
 begin

@@ -103,6 +103,7 @@ type
     function  HasSelection: Boolean;
     function  IsChecked(const DataIndex: Integer): Boolean;
     function  IsSelected(const DataIndex: Integer): Boolean;
+    function  IsCurrentSelection(const DataIndex: Integer): Boolean;
 
     function  GetSelectionInfo(const DataIndex: Integer): IRowSelectionInfo;
 
@@ -118,7 +119,7 @@ type
 
     procedure UpdateLastSelection(const DataIndex, ViewListIndex: Integer; const DataItem: CObject);
 
-    procedure UpdateSingleSelection(const DataIndex, ViewListIndex: Integer; const DataItem: CObject; KeepCurrentSelection: Boolean);
+    procedure UpdateSingleSelection(const DataIndex, ViewListIndex: Integer; const DataItem: CObject; ClearMultiSelection: Boolean);
     procedure AddToSelection(const DataIndex, ViewListIndex: Integer; const DataItem: CObject; ExpandCurrentSelection: Boolean);
     procedure Deselect(const DataIndex: Integer);
     function  Select(const DataIndex, ViewListIndex: Integer; const DataItem: CObject) : Boolean;
