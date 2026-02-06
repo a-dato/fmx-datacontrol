@@ -61,7 +61,9 @@ type
     function  get_IsPrinting: Boolean;
     procedure set_IsPrinting(const Value: Boolean);
 
-    procedure OnSelectionInfoChanged;
+    procedure OnDataItemChanged;
+    procedure OnSelectedItemsChanged;
+
     function  SelectionCount: Integer;
     function  IsSelected(const DataIndex: Integer): Boolean;
     function  SelectedItems: List<CObject>;
@@ -82,34 +84,52 @@ type
   end;
 
   TDataIndexArray = array of Integer;
+
+  TRowDataItemInfo = record
+  public
+    DataIndex: Integer;
+    ViewListIndex: Integer;
+    DataItem: CObject;
+
+    constructor Create(ADataIndex, AViewListindex: Integer; const ADataItem: CObject);
+
+    function IsEmpty: Boolean;
+    function Clone: TRowDataItemInfo;
+
+    function IsEqualTo(ADataIndex, AViewListindex: Integer; const ADataItem: CObject): Boolean;
+
+    class function Empty: TRowDataItemInfo; static;
+  end;
+
   IRowSelectionInfo = interface
     ['{FC3AA96A-7C9A-4965-8329-3AC17AE28728}']
     function  get_DataIndex: Integer;
     function  get_DataItem: CObject;
     function  get_ViewListIndex: Integer;
-    function  get_IsMultiSelection: Boolean;
-    function  get_ForceScrollToSelection: Boolean;
-    procedure set_ForceScrollToSelection(const Value: Boolean);
     function  get_EventTrigger: TSelectionEventTrigger;
     procedure set_EventTrigger(const Value: TSelectionEventTrigger);
     function  get_NotSelectableDataIndexes: TDataIndexArray;
     procedure set_NotSelectableDataIndexes(const Value: TDataIndexArray);
+    function  get_Tag: Integer;
+    procedure set_Tag(const Value: Integer);
 
     procedure Clear;
     procedure ClearAllSelections;
     procedure ClearMultiSelections;
 
-    function  CanSelect(const DataIndex: Integer): Boolean;
-    function  HasSelection: Boolean;
-    function  IsChecked(const DataIndex: Integer): Boolean;
-    function  IsSelected(const DataIndex: Integer): Boolean;
-    function  IsCurrentSelection(const DataIndex: Integer): Boolean;
+    function  CanFocus(const DataIndex: Integer): Boolean;
 
-    function  GetSelectionInfo(const DataIndex: Integer): IRowSelectionInfo;
+    function  IsFocused(const DataIndex: Integer): Boolean;   // current dataitem
+    function  IsSelected(const DataIndex: Integer): Boolean;  // multi selection
+
+    function  HasFocusedItem: Boolean;    // current dataitem
+    function  HasSelectedItems: Boolean; // multi selection
 
     function  SelectedRowCount: Integer;
     function  SelectedDataItems: List<CObject>;
-    function  SelectedDataIndexes: List<Integer>;
+    function  SelectedDataIndexes: TDataIndexArray;
+
+    function  GetRowInfo(const DataIndex: Integer): TRowDataItemInfo;
 
     procedure BeginUpdate;
     procedure EndUpdate(IgnoreChangeEvent: Boolean = False);
@@ -117,20 +137,21 @@ type
     function  Clone: IRowSelectionInfo;
     function  SelectionType: TSelectionType;
 
-    procedure UpdateLastSelection(const DataIndex, ViewListIndex: Integer; const DataItem: CObject);
+    procedure SetFocusedItem(const DataIndex, ViewListIndex: Integer; const DataItem: CObject);
 
-    procedure UpdateSingleSelection(const DataIndex, ViewListIndex: Integer; const DataItem: CObject; ClearMultiSelection: Boolean);
-    procedure AddToSelection(const DataIndex, ViewListIndex: Integer; const DataItem: CObject; ExpandCurrentSelection: Boolean);
-    procedure Deselect(const DataIndex: Integer);
-    function  Select(const DataIndex, ViewListIndex: Integer; const DataItem: CObject) : Boolean;
-    procedure SelectedRowClicked(const DataIndex: Integer);
+    procedure RemoveFromSelection(const DataIndex: Integer);
+    function  AddToSelection(const DataIndex, ViewListIndex: Integer; const DataItem: CObject) : Boolean;
+
+//    procedure UpdateLastSelection(const DataIndex, ViewListIndex: Integer; const DataItem: CObject);
+//    procedure UpdateSingleSelection(const DataIndex, ViewListIndex: Integer; const DataItem: CObject; ClearMultiSelection: Boolean);
+//    procedure AddToSelection(const DataIndex, ViewListIndex: Integer; const DataItem: CObject; ExpandCurrentSelection: Boolean);
 
     property DataIndex: Integer read get_DataIndex;
     property DataItem: CObject read get_DataItem;
     property ViewListIndex: Integer read get_ViewListIndex;
-    property IsMultiSelection: Boolean read get_IsMultiSelection;
-//    property ForceScrollToSelection: Boolean read get_ForceScrollToSelection write set_ForceScrollToSelection;
     property LastSelectionEventTrigger: TSelectionEventTrigger read get_EventTrigger write set_EventTrigger;
+
+    property Tag: Integer read get_Tag write set_Tag;
 
     property NotSelectableDataIndexes: TDataIndexArray read get_NotSelectableDataIndexes write set_NotSelectableDataIndexes;
   end;
@@ -415,6 +436,37 @@ end;
 function TResetViewRec.RecalcSortedRows: Boolean;
 begin
   Result := _doRecalcSortedRows;
+end;
+
+{ TRowDataItemInfo }
+
+function TRowDataItemInfo.Clone: TRowDataItemInfo;
+begin
+  Result.DataIndex := Self.DataIndex;
+  Result.ViewListindex := Self.ViewListindex;
+  Result.DataItem := Self.DataItem;
+end;
+
+constructor TRowDataItemInfo.Create(ADataIndex, AViewListindex: Integer; const ADataItem: CObject);
+begin
+  DataIndex := ADataIndex;
+  ViewListindex := AViewListindex;
+  DataItem := ADataItem;
+end;
+
+class function TRowDataItemInfo.Empty: TRowDataItemInfo;
+begin
+  Result := TRowDataItemInfo.Create(-1, -1, nil);
+end;
+
+function TRowDataItemInfo.IsEmpty: Boolean;
+begin
+  Result := DataIndex = -1;
+end;
+
+function TRowDataItemInfo.IsEqualTo(ADataIndex, AViewListindex: Integer; const ADataItem: CObject): Boolean;
+begin
+  Result := (DataIndex = ADataIndex) and (ViewListIndex = AViewListindex) and (DataItem = ADataItem);
 end;
 
 end.

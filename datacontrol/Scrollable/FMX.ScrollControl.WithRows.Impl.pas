@@ -225,8 +225,10 @@ type
     procedure DoMouseLeave; override;
 
     function  HasViewRows: Boolean;
-    
-    procedure OnSelectionInfoChanged; virtual;
+
+    procedure OnDataItemChanged; virtual;
+    procedure OnSelectedItemsChanged; virtual;
+
     function  CreateSelectioninfoInstance: IRowSelectionInfo; virtual;
     procedure InternalSetCurrent(const Index: Integer; const EventTrigger: TSelectionEventTrigger; Shift: TShiftState; SortOrFilterChanged: Boolean = False); virtual;
     function  TrySelectItem(const RequestedSelectionInfo: IRowSelectionInfo; Shift: TShiftState): Boolean; virtual;
@@ -274,8 +276,6 @@ type
     function  GetActiveRow: IDCRow;
 
   protected
-    _resetRowDataItem: Boolean;
-
     procedure OnViewChanged(Sender: TObject; e: EventArgs); virtual;
     procedure DataModelViewRowChanged(const Sender: IBaseInterface; Args: RowChangedEventArgs);
     procedure DataModelViewRowPropertiesChanged(Sender: TObject; Args: RowPropertiesChangedEventArgs); virtual;
@@ -318,16 +318,17 @@ type
     function  GetDataModel: IDataModel;
 
     // start public selection
+    function  MultiSelectEnabled: Boolean;
     procedure SelectAll; virtual;
-    procedure ClearSelections; virtual;
-    procedure ClearCurrentSelection; {virtual;}
+    procedure ClearSelectedItems; virtual;
+    procedure ClearCurrentFocused; virtual;
 
     function  CanRealignContent: Boolean; override;
 
-    procedure SelectItem(const DataItem: CObject; ClearOtherSelections: Boolean = False);
-    procedure DeselectItem(const DataItem: CObject);
-    procedure ToggleDataItemSelection; overload;
-    procedure ToggleDataItemSelection(const Item: CObject); overload;
+    procedure AddToSelection(const DataItem: CObject; ClearMultiSelection: Boolean = False);
+    procedure RemoveFromSelection(const DataItem: CObject);
+//    procedure ToggleDataItemSelection; overload;
+//    procedure ToggleDataItemSelection(const Item: CObject); overload;
 
     function  IsSelected(const DataIndex: Integer): Boolean;
     function  SlowItemIsSelected(const DataItem: CObject): Boolean;
@@ -422,8 +423,9 @@ type
     procedure UpdateControlVisibility;
   protected
     _selectionRect: TRectangle;
+    _selectionRectIsMultiSelect: Boolean;
 
-    procedure UpdateSelectionRect(OwnerIsFocused: Boolean; IsCurrentSelection: Boolean);
+    procedure UpdateSelectionRect(OwnerIsFocused: Boolean; IsCurrentFocused: Boolean);
 
   public
     constructor Create(const RowsControl: IRowsControl); reintroduce;
@@ -448,49 +450,48 @@ type
 
   TRowSelectionInfo = class(TInterfacedObject, IRowSelectionInfo)
   protected
-    {$IFNDEF WEBASSEMBLY}[unsafe]{$ENDIF}_rowsControl: IRowsControl;
+    [unsafe] _rowsControl: IRowsControl;
 
-    _lastSelectedDataIndex: Integer;
-    _lastSelectedViewListIndex: Integer;
-    _lastSelectedDataItem: CObject;
-    _forceScrollToSelection: Boolean;
-
-    _selectionChanged: Boolean;
-    _updateCount: Integer;
-
-    _EventTrigger: TSelectionEventTrigger;
+    _focusedItem: TRowDataItemInfo;
+    _eventTrigger: TSelectionEventTrigger;
     _notSelectableDataIndexes: TDataIndexArray;
+    _tag: Integer;
+
+    _updateCount: Integer;
+    _focusedChanged: Boolean;
+    _multiSelectChanged: Boolean;
 
     function  get_DataIndex: Integer;
     function  get_DataItem: CObject;
     function  get_ViewListIndex: Integer;
-    function  get_IsMultiSelection: Boolean;
-    function  get_ForceScrollToSelection: Boolean;
-    procedure set_ForceScrollToSelection(const Value: Boolean);
     function  get_EventTrigger: TSelectionEventTrigger;
     procedure set_EventTrigger(const Value: TSelectionEventTrigger);
     function  get_NotSelectableDataIndexes: TDataIndexArray;
     procedure set_NotSelectableDataIndexes(const Value: TDataIndexArray);
+    function  get_Tag: Integer;
+    procedure set_Tag(const Value: Integer);
 
   protected
-    _multiSelection: Dictionary<Integer {DataIndex}, IRowSelectionInfo>;
+    _multiSelection: Dictionary<Integer {DataIndex}, TRowDataItemInfo>;
 
-    function  CreateInstance: IRowSelectionInfo; virtual;
     function  Clone: IRowSelectionInfo; virtual;
 
-    procedure DoSelectionInfoChanged;
-    procedure UpdateLastSelection(const DataIndex, ViewListIndex: Integer; const DataItem: CObject);
+    procedure DoDataItemChanged;
+    procedure DoMultiSelectChanged;
+//    procedure SetFocusedItem(const DataIndex, ViewListIndex: Integer; const DataItem: CObject);
 
   public
     constructor Create(const RowsControl: IRowsControl); reintroduce;
 
     function  SelectionType: TSelectionType;
 
-    procedure UpdateSingleSelection(const DataIndex, ViewListIndex: Integer; const DataItem: CObject; ClearMultiSelection: Boolean);
-    procedure AddToSelection(const DataIndex, ViewListIndex: Integer; const DataItem: CObject; ExpandCurrentSelection: Boolean);
-    procedure Deselect(const DataIndex: Integer);
-    function  Select(const DataIndex, ViewListIndex: Integer; const DataItem: CObject) : Boolean;
-    procedure SelectedRowClicked(const DataIndex: Integer);
+    procedure SetFocusedItem(const DataIndex, ViewListIndex: Integer; const DataItem: CObject);
+
+//    procedure UpdateSingleSelection(const DataIndex, ViewListIndex: Integer; const DataItem: CObject; ClearMultiSelection: Boolean);
+//    procedure AddToSelection(const DataIndex, ViewListIndex: Integer; const DataItem: CObject; ExpandCurrentSelection: Boolean);
+
+    procedure RemoveFromSelection(const DataIndex: Integer);
+    function  AddToSelection(const DataIndex, ViewListIndex: Integer; const DataItem: CObject) : Boolean;
 
     procedure BeginUpdate;
     procedure EndUpdate(IgnoreChangeEvent: Boolean = False);
@@ -499,15 +500,19 @@ type
     procedure ClearAllSelections;
     procedure ClearMultiSelections; virtual;
 
-    function  CanSelect(const DataIndex: Integer): Boolean;
-    function  HasSelection: Boolean;
-    function  IsChecked(const DataIndex: Integer): Boolean;
-    function  IsSelected(const DataIndex: Integer): Boolean;
-    function  IsCurrentSelection(const DataIndex: Integer): Boolean;
-    function  GetSelectionInfo(const DataIndex: Integer): IRowSelectionInfo;
+    function  CanFocus(const DataIndex: Integer): Boolean;
+
+    function  IsFocused(const DataIndex: Integer): Boolean;   // current dataitem
+    function  IsSelected(const DataIndex: Integer): Boolean;  // multi selection
+
+    function  HasFocusedItem: Boolean;    // current dataitem
+    function  HasSelectedItems: Boolean; // multi selection
+
     function  SelectedRowCount: Integer;
     function  SelectedDataItems: List<CObject>;
-    function  SelectedDataIndexes: List<Integer>;
+    function  SelectedDataIndexes: TDataIndexArray;
+
+    function  GetRowInfo(const DataIndex: Integer): TRowDataItemInfo;
   end;
 
   TWaitForRepaintInfo = class(TInterfacedObject, IWaitForRepaintInfo)
@@ -696,6 +701,9 @@ begin
   // this is problematic when we want to keep the filtered out item in the view for niceness purpose
 //  var ix := _view.GetViewListIndex(DataItem);
 
+  if _view = nil then
+    Exit; // nothing to do
+
   var di := ConvertToDataItem(DataItem);
 
   var currentRow: IDCRow := nil;
@@ -821,6 +829,11 @@ begin
       DDService.BeginDragDrop(Self.Root as TCommonCustomForm, D, Wasm.FMX.Graphics.TBitmap(row.Control.MakeScreenshot));
     {$ENDIF}
   end;
+end;
+
+function TScrollControlWithRows.MultiSelectEnabled: Boolean;
+begin
+  Result := TDCTreeOption.MultiSelect in _options;
 end;
 
 procedure TScrollControlWithRows.DoMouseLeave;
@@ -969,7 +982,7 @@ begin
     Exit(-1);
 
   var di := _view.GetDataIndex(Result);
-  while not _selectionInfo.CanSelect(di) do
+  while not _selectionInfo.CanFocus(di) do
   begin
     if Increase then
     begin
@@ -1099,11 +1112,20 @@ begin
     GetDataModelView.RowPropertiesChanged += DataModelViewRowPropertiesChanged;
     {$ENDIF}
 
-    Self.Current := GetDataModelView.CurrencyManager.Current;
+    var dmv := GetDataModelView;
+    if dmv.CurrencyManager.Current <> -1 then
+    begin
+      var drv := dmv.Rows[dmv.CurrencyManager.Current];
+      _selectionInfo.SetFocusedItem(drv.Row.get_Index, drv.ViewIndex, drv);
+    end;
   end
   else if _model <> nil then
+  begin
     // Set current position, if any
-    GetInitializedWaitForRefreshInfo.DataItem := _model.ObjectContext;
+    var viewIx := _view.GetViewListIndex(_model.ObjectContext);
+    if viewIx <> -1 then
+      _selectionInfo.SetFocusedItem(_view.GetDataIndex(_model.ObjectContext), viewIx, _model.ObjectContext);
+  end;
 end;
 
 function TScrollControlWithRows.GetActiveRow: IDCRow;
@@ -1175,8 +1197,10 @@ begin
     Result := 1;
 end;
 
-procedure TScrollControlWithRows.SelectItem(const DataItem: CObject; ClearOtherSelections: Boolean = False);
+procedure TScrollControlWithRows.AddToSelection(const DataItem: CObject; ClearMultiSelection: Boolean = False);
 begin
+//  Assert(MultiSelectEnabled);
+
   if _view = nil then
     GenerateView;
 
@@ -1185,19 +1209,26 @@ begin
   if (dataIndex = -1) or IsSelected(dataIndex) then
     Exit;
 
+  if not (TDCTreeOption.MultiSelect in _options) then
+  begin
+    // for example radio buttons..
+    _selectionInfo.SetFocusedItem(dataIndex, ix, DataItem);
+    Exit;
+  end;
+
   // for example when items are reset (set to nil) and after that this Select Item is called.
   if (_waitForRepaintInfo <> nil) and (TTreeRowState.RowChanged in _waitForRepaintInfo.RowStateFlags) then
     _waitForRepaintInfo.RowStateFlags := _waitForRepaintInfo.RowStateFlags - [TTreeRowState.RowChanged];
 
-  if ClearOtherSelections then
-    ClearSelections;
+  if ClearMultiSelection then
+    _selectionInfo.ClearMultiSelections;
 
-  _selectionInfo.AddToSelection(dataIndex, ix, _view.GetViewList[ix] {should be datarowview}, TDCTreeOption.MultiSelect in _options);
+  _selectionInfo.AddToSelection(dataIndex, ix, _view.GetViewList[ix] {should be datarowview});
 
   RefreshControl(True);
 end;
 
-procedure TScrollControlWithRows.DeselectItem(const DataItem: CObject);
+procedure TScrollControlWithRows.RemoveFromSelection(const DataItem: CObject);
 begin
   if _view = nil then Exit;
 
@@ -1206,26 +1237,26 @@ begin
   if dataIndex = -1 then Exit;
 
   if _selectionInfo.IsSelected(dataIndex) then
-    _selectionInfo.Deselect(dataIndex);
+    _selectionInfo.RemoveFromSelection(dataIndex);
 end;
 
-procedure TScrollControlWithRows.ToggleDataItemSelection;
-begin
-  ToggleDataItemSelection(get_DataItem);
-end;
+//procedure TScrollControlWithRows.ToggleDataItemSelection;
+//begin
+//  ToggleDataItemSelection(get_DataItem);
+//end;
 
-procedure TScrollControlWithRows.ToggleDataItemSelection(const Item: CObject);
-begin
-  if _view = nil then Exit;
-
-  var ix := _view.GetViewListIndex(Item);
-  var dataIndex := _view.GetDataIndex(ix);
-  if dataIndex = -1 then Exit;
-
-  if not _selectionInfo.IsSelected(dataIndex) then
-    _selectionInfo.AddToSelection(dataIndex, ix, Item, True) else
-    _selectionInfo.Deselect(dataIndex);
-end;
+//procedure TScrollControlWithRows.ToggleDataItemSelection(const Item: CObject);
+//begin
+//  if _view = nil then Exit;
+//
+//  var ix := _view.GetViewListIndex(Item);
+//  var dataIndex := _view.GetDataIndex(ix);
+//  if dataIndex = -1 then Exit;
+//
+//  if not _selectionInfo.IsSelected(dataIndex) then
+//    _selectionInfo.AddToSelection(dataIndex, ix, Item, True) else
+//    _selectionInfo.RemoveFromSelection(dataIndex);
+//end;
 
 function TScrollControlWithRows.get_Current: Integer;
 begin
@@ -1234,7 +1265,6 @@ end;
 
 function TScrollControlWithRows.get_DataItem: CObject;
 begin
-  ValidateSelectionInfo;
   Result := _selectionInfo.DataItem;
 end;
 
@@ -1331,15 +1361,18 @@ begin
   end;
 end;
 
-procedure TScrollControlWithRows.ClearCurrentSelection;
+procedure TScrollControlWithRows.ClearCurrentFocused;
 begin
   if _selectionInfo <> nil then
-    _selectionInfo.UpdateSingleSelection(-1, -1, nil, TDCTreeOption.KeepCurrentSelection in _Options);
+  begin
+    var rowInfo := TRowDataItemInfo.Empty;
+    _selectionInfo.SetFocusedItem(rowInfo.DataIndex, rowInfo.ViewListIndex, rowInfo.DataItem);
+  end;
 end;
 
-procedure TScrollControlWithRows.ClearSelections;
+procedure TScrollControlWithRows.ClearSelectedItems;
 begin
-  if not _selectionInfo.HasSelection then
+  if not _selectionInfo.HasSelectedItems then
     Exit;
 
   _selectionInfo.LastSelectionEventTrigger := TSelectionEventTrigger.External;
@@ -1347,9 +1380,6 @@ begin
   try
     var cln := _selectionInfo.Clone;
     _selectionInfo.ClearMultiSelections;
-
-    _resetRowDataItem := False;
-    _selectionInfo.UpdateLastSelection(-1, -1, nil);
   finally
     _selectionInfo.EndUpdate;
   end;
@@ -1747,6 +1777,7 @@ begin
   end;
 
   _selectionInfo.NotSelectableDataIndexes := arr;
+  RefreshControl(True);
 end;
 
 procedure TScrollControlWithRows.set_Options(const Value: TDCTreeOptions);
@@ -1845,7 +1876,7 @@ begin
     var syncSelInfo := _rowHeightSynchronizer._selectionInfo;
     _selectionInfo.BeginUpdate;
     try
-      _selectionInfo.UpdateLastSelection(syncSelInfo.DataIndex, syncSelInfo.ViewListIndex, syncSelInfo.DataItem);
+      _selectionInfo.SetFocusedItem(syncSelInfo.DataIndex, syncSelInfo.ViewListIndex, syncSelInfo.DataItem);
     finally
       _selectionInfo.EndUpdate(True {do ignore events});
     end;
@@ -2133,7 +2164,7 @@ begin
   end;
 
   var row := GetRowByLocalY(MousePos.Y);
-  _hoverRect.Visible := (row <> nil) and {(_selectionType <> TSelectionType.HideSelection) and} _selectionInfo.CanSelect(row.DataIndex);
+  _hoverRect.Visible := (row <> nil) and {(_selectionType <> TSelectionType.HideSelection) and} _selectionInfo.CanFocus(row.DataIndex);
   if not _hoverRect.Visible then
     Exit;
 
@@ -2340,7 +2371,7 @@ begin
     begin
       _selectionInfo.BeginUpdate;
       try
-        _selectionInfo.UpdateLastSelection(parentRow.DataIndex, parentRow.ViewListIndex, parentRow.DataItem);
+        _selectionInfo.SetFocusedItem(parentRow.DataIndex, parentRow.ViewListIndex, parentRow.DataItem);
       finally
         _selectionInfo.EndUpdate(True);
       end;
@@ -2496,7 +2527,7 @@ begin
   begin
     _selectionInfo.BeginUpdate;
     try
-      _selectionInfo.UpdateLastSelection(parentRow.DataIndex, parentRow.ViewListIndex, parentRow.DataItem);
+      _selectionInfo.SetFocusedItem(parentRow.DataIndex, parentRow.ViewListIndex, parentRow.DataItem);
     finally
       _selectionInfo.EndUpdate(True);
     end;
@@ -2599,7 +2630,6 @@ begin
   end;
 end;
 
-
 procedure TScrollControlWithRows.ValidateSelectionInfo;
 begin
   if (_view = nil) or (_view.ViewCount = 0) then
@@ -2607,17 +2637,9 @@ begin
 
   if ViewIsDataModelView then
   begin
-    // for example ClearSelections should clear all select!!
-    // therefor also when _selectionInfo.ViewListIndex = -1
-    if not _resetRowDataItem {and (_selectionInfo.ViewListIndex <> -1)} then
-      Exit;
 
-    _resetRowDataItem := False;
   end else
   begin
-    if (_selectionInfo.ViewListIndex <> -1) then
-      Exit;
-
     if ((_model = nil) or (_model.ObjectContext = nil)) then
       Exit;
   end;
@@ -2633,7 +2655,7 @@ begin
       if dmv.CurrencyManager.Current <> -1 then
       begin
         var drv := dmv.Rows[dmv.CurrencyManager.Current];
-        _selectionInfo.UpdateLastSelection(drv.Row.get_Index, drv.ViewIndex, drv);
+        _selectionInfo.SetFocusedItem(drv.Row.get_Index, drv.ViewIndex, drv);
       end;
     end else
     begin
@@ -2641,19 +2663,27 @@ begin
       var diIndex := _view.GetViewListIndex(di);
       var diViewIndex := _view.GetViewListIndex(diIndex);
 
-      _selectionInfo.UpdateLastSelection(diIndex, diViewIndex, di);
+      _selectionInfo.SetFocusedItem(diIndex, diViewIndex, di);
     end;
   finally
     _selectionInfo.EndUpdate(True {Ignore events at this point});
   end;
 end;
 
-procedure TScrollControlWithRows.OnSelectionInfoChanged;
+procedure TScrollControlWithRows.OnSelectedItemsChanged;
 begin
   if SyncIsMasterSynchronizer then
     Exit;
 
-  ValidateSelectionInfo;
+  var row: IDCRow;
+  for row in _view.ActiveViewRows do
+    VisualizeRowSelection(row);
+end;
+
+procedure TScrollControlWithRows.OnDataItemChanged;
+begin
+  if SyncIsMasterSynchronizer then
+    Exit;
 
   AtomicIncrement(_internalSelectCount);
   try
@@ -2695,7 +2725,7 @@ begin
     VisualizeRowSelection(row);
 
   if IsMasterSynchronizer then
-    _rowHeightSynchronizer.OnSelectionInfoChanged;
+    _rowHeightSynchronizer.OnDataItemChanged;
 end;
 
 function TScrollControlWithRows.ConvertedDataItem: CObject;
@@ -2786,14 +2816,13 @@ begin
 
   var doIgnoreMaster := TryStartIgnoreMasterSynchronizer(True);
   try
-    _resetRowDataItem := True;
     ResetView;
 
     // in case of a revert of a newly added item..
     if _selectionInfo.ViewListIndex > _view.ViewCount - 1 then
     begin
 //      _mustShowSelectionInRealign := False;
-      ClearSelections;
+      ClearSelectedItems;
     end;
   finally
     StopIgnoreMasterSynchronizer(doIgnoreMaster);
@@ -2806,7 +2835,7 @@ procedure TScrollControlWithRows.PrepareView;
   begin
     ScrolControlWithRows._selectionInfo.BeginUpdate;
     try
-      ScrolControlWithRows._selectionInfo.UpdateLastSelection(ScrolControlWithRows._view.GetDataIndex(ViewListIndex), ViewListIndex, ScrolControlWithRows._view.GetViewList[ViewListIndex]);
+      ScrolControlWithRows._selectionInfo.SetFocusedItem(ScrolControlWithRows._view.GetDataIndex(ViewListIndex), ViewListIndex, ScrolControlWithRows._view.GetViewList[ViewListIndex]);
     finally
       ScrolControlWithRows._selectionInfo.EndUpdate(True {ignore events});
     end;
@@ -2930,7 +2959,7 @@ begin
       var dataIndex := _view.GetDataIndex(viewListIndex);
 
       if dataIndex <> -1 then
-        _selectionInfo.AddToSelection(dataIndex, viewListIndex, item, True);
+        _selectionInfo.AddToSelection(dataIndex, viewListIndex, item);
     end;
   finally
     _selectionInfo.EndUpdate;
@@ -2969,37 +2998,44 @@ begin
   if CObject.Equals(get_DataItem, DataIndex) and ((ssCtrl in Shift) = (_selectionInfo.SelectedRowCount > 1)) and (_selectionInfo.ViewListIndex = ViewListIndex {insert before and than go down}) then
   begin
     if (_selectionInfo.SelectedRowCount > 1) then
-      _selectionInfo.Deselect(DataIndex);
+      _selectionInfo.RemoveFromSelection(DataIndex);
 
     Exit;
   end;
 
-  if (TDCTreeOption.MultiSelect in _options) and (ssShift in Shift) then
+  if (TDCTreeOption.MultiSelect in _options) then
   begin
     var lastSelectedIndex := _selectionInfo.ViewListIndex;
-
-    var vlIndex := lastSelectedIndex;
-    while vlIndex <> ViewListIndex do
+    if (ssShift in Shift) then
     begin
-      _selectionInfo.AddToSelection(_view.GetDataIndex(vlIndex), vlIndex, _view.GetViewList[vlIndex], True);
+      var vlIndex := lastSelectedIndex;
+      while vlIndex <> ViewListIndex do
+      begin
+        _selectionInfo.AddToSelection(_view.GetDataIndex(vlIndex), vlIndex, _view.GetViewList[vlIndex]);
 
-      if lastSelectedIndex < ViewListIndex then
-        inc(vlIndex) else
-        dec(vlIndex);
-    end;
+        if lastSelectedIndex < ViewListIndex then
+          inc(vlIndex) else
+          dec(vlIndex);
+      end;
 
-    _selectionInfo.AddToSelection(DataIndex, ViewListIndex, DataItem, True);
-  end
-  else if (ssCtrl in Shift) and (_selectionInfo.LastSelectionEventTrigger = TSelectionEventTrigger.Click) then
-  begin
-    if not _selectionInfo.IsChecked(DataIndex) then
-      _selectionInfo.AddToSelection(DataIndex, ViewListIndex, DataItem, True {ExpandCurrentSelection}) else
-      _selectionInfo.Deselect(DataIndex);
-  end
-  else if TDCTreeOption.KeepCurrentSelection in _Options then
-    _selectionInfo.UpdateLastSelection(DataIndex, ViewListIndex, DataItem) // keep multi selection..
-  else
-    _selectionInfo.UpdateSingleSelection(DataIndex, ViewListIndex, DataItem, not (TDCTreeOption.MultiSelect in _Options));
+      _selectionInfo.AddToSelection(DataIndex, ViewListIndex, DataItem);
+    end
+    else if (ssCtrl in Shift) and (_selectionInfo.LastSelectionEventTrigger = TSelectionEventTrigger.Click) then
+    begin
+      if not _selectionInfo.IsSelected(DataIndex) then
+      begin
+        if not _selectionInfo.IsSelected(_selectionInfo.DataIndex) then
+          _selectionInfo.AddToSelection(_selectionInfo.DataIndex, _selectionInfo.ViewListIndex, _selectionInfo.DataItem);
+
+        _selectionInfo.AddToSelection(DataIndex, ViewListIndex, DataItem)
+      end else
+        _selectionInfo.RemoveFromSelection(DataIndex);
+    end
+    else if not (TDCTreeOption.KeepCurrentSelection in _Options) and not _selectionInfo.IsSelected(DataIndex) then
+      _selectionInfo.ClearMultiSelections;    
+  end;
+
+  _selectionInfo.SetFocusedItem(DataIndex, ViewListIndex, DataItem);
 end;
 
 procedure TScrollControlWithRows.InternalSetCurrent(const Index: Integer; const EventTrigger: TSelectionEventTrigger; Shift: TShiftState; SortOrFilterChanged: Boolean = False);
@@ -3007,7 +3043,7 @@ begin
   _selectionInfo.LastSelectionEventTrigger := EventTrigger;
 
   var requestedSelection := _selectionInfo.Clone;
-  requestedSelection.UpdateLastSelection(_view.GetDataIndex(Index), Index, _view.GetViewList[Index]);
+  requestedSelection.SetFocusedItem(_view.GetDataIndex(Index), Index, _view.GetViewList[Index]);
   TrySelectItem(requestedSelection, Shift);
 end;
 
@@ -3037,8 +3073,8 @@ begin
   if _view = nil then Exit;
 
   if TDCTreeOption.MultiSelect in _options then
-    Result := _selectionInfo.IsChecked(DataIndex) else
-    Result := _selectionInfo.IsSelected(DataIndex);
+    Result := _selectionInfo.IsSelected(DataIndex) else
+    Result := _selectionInfo.IsFocused(DataIndex); // for radio buttons..
 end;
 
 procedure TScrollControlWithRows.DoViewLoadingStart(const startY, StopY: Single; const ReferenceRow: IDCRow);
@@ -3089,6 +3125,8 @@ procedure TScrollControlWithRows.RealignFromSelectionChange;
 begin
   var goMaster := TryStartMasterSynchronizer(True);
   try
+    var val := _vertScrollBar.Value;
+
     StartScrolling;
     try
       var isInRealignProcess := not (_realignState in [TRealignState.Waiting, TRealignState.RealignDone]);
@@ -3107,6 +3145,8 @@ begin
     finally
       StopScrolling;
     end;
+
+    RefreshControl; // update UseBuffering..
   finally
     StopMasterSynchronizer(goMaster);
   end;
@@ -3225,7 +3265,7 @@ begin
     _referenceRowViewListIndex := -1;
 
     if rowIsChanged then
-      OnSelectionInfoChanged;
+      OnDataItemChanged;
   end;
 end;
 
@@ -3383,7 +3423,7 @@ begin
   begin
     _selectionInfo.BeginUpdate;
     try
-      _selectionInfo.UpdateLastSelection(RequestedSelectionInfo.DataIndex, RequestedSelectionInfo.ViewListIndex, RequestedSelectionInfo.DataItem);
+      _selectionInfo.SetFocusedItem(RequestedSelectionInfo.DataIndex, RequestedSelectionInfo.ViewListIndex, RequestedSelectionInfo.DataItem);
     finally
       _selectionInfo.EndUpdate(True {ignore change event})
     end;
@@ -3429,12 +3469,12 @@ begin
       var list := _view.GetViewList;
       var viewIndex: Integer;
       for viewIndex := 0 to list.Count - 1 do
-        _selectionInfo.AddToSelection(_view.GetDataIndex(viewIndex), viewIndex, list[viewIndex], True);
+        _selectionInfo.AddToSelection(_view.GetDataIndex(viewIndex), viewIndex, list[viewIndex]);
     end;
 
     // keep current selected item
     if cln.DataIndex <> -1 then
-      _selectionInfo.AddToSelection(cln.DataIndex, cln.ViewListIndex, cln.DataItem, True);
+      _selectionInfo.AddToSelection(cln.DataIndex, cln.ViewListIndex, cln.DataItem);
   finally
     _selectionInfo.EndUpdate;
   end;
@@ -3445,10 +3485,13 @@ begin
   if _view = nil then
     Exit(nil);
 
-  var dataIndexes := _selectionInfo.SelectedDataIndexes;
+  var dataIndexes: List<Integer> := CList<Integer>.Create;
+  for var ix in _selectionInfo.SelectedDataIndexes do
+    dataIndexes.Add(ix);
+
   if dataIndexes.Count = 0 then
     Exit(nil);
-
+    
   dataIndexes.Sort;
 
   Result := CList<CObject>.Create(dataIndexes.Count);
@@ -3470,12 +3513,13 @@ begin
   if _view = nil then
     Exit(nil);
 
-  var dataIndexes := _selectionInfo.SelectedDataIndexes;
+  var dataIndexes: List<Integer> := CList<Integer>.Create;
+  for var ix in _selectionInfo.SelectedDataIndexes do
+    dataIndexes.Add(ix);
+
   if dataIndexes.Count = 0 then
     Exit(nil);
-
-  dataIndexes.Sort;
-
+    
   Result := CList<T>.Create(dataIndexes.Count);
 
   var ix: Integer;
@@ -3705,7 +3749,7 @@ begin
     _control.Visible := get_IsHeaderRow or (_virtualYPosition <> -1);
 end;
 
-procedure TDCRow.UpdateSelectionRect(OwnerIsFocused: Boolean; IsCurrentSelection: Boolean);
+procedure TDCRow.UpdateSelectionRect(OwnerIsFocused: Boolean; IsCurrentFocused: Boolean);
 begin
   if _selectionRect = nil then
   begin
@@ -3724,25 +3768,33 @@ begin
   end;
 
   _selectionRect.BringToFront;
-  _selectionRect.Opacity := IfThen(IsCurrentSelection, 0.3, 0.1);
-  if not IsCurrentSelection then
+  _selectionRect.Opacity := IfThen(IsCurrentFocused, 0.3, 0.1);
+  if not IsCurrentFocused then
     _selectionRect.Fill.Color := DEFAULT_ROW_SELECTION_MULTISELECT_COLOR
   else if OwnerIsFocused then
     _selectionRect.Fill.Color := DEFAULT_ROW_SELECTION_ACTIVE_COLOR
   else
     _selectionRect.Fill.Color := DEFAULT_ROW_SELECTION_INACTIVE_COLOR;
+
+  _selectionRectIsMultiSelect := not IsCurrentFocused;
 end;
 
 procedure TDCRow.UpdateSelectionVisibility(const SelectionInfo: IRowSelectionInfo; OwnerIsFocused: Boolean);
-begin
-  var isSelected := SelectionInfo.IsSelected(get_DataIndex);
-  var isCurrentSelected := isSelected and SelectionInfo.IsCurrentSelection(get_DataIndex);
-  var selectionStaysTheSame := isSelected = (_selectionRect <> nil);
-
-  if isSelected then
-    UpdateSelectionRect(OwnerIsFocused, isCurrentSelected)
+begin                                  
+  var isCurrentDataItem := SelectionInfo.IsFocused(get_DataIndex);
+  var isPartOfSelection := SelectionInfo.IsSelected(get_DataIndex);
+  
+  var selectionStaysTheSame := False; 
+  if isCurrentDataItem or isPartOfSelection then
+  begin
+    UpdateSelectionRect(OwnerIsFocused, isCurrentDataItem);
+    selectionStaysTheSame := True;
+  end
   else if _selectionRect <> nil then
-    FreeAndNil(_selectionRect);
+  begin
+    FreeAndNil(_selectionRect);       
+    selectionStaysTheSame := True;
+  end;
 
   if get_UseBuffering and not selectionStaysTheSame then
     ControlAsRowLayout.ResetBuffer;
@@ -4017,27 +4069,36 @@ begin
   inherited Create;
 
   _rowsControl := RowsControl;
-  _multiSelection := CDictionary<Integer {ViewListIndex}, IRowSelectionInfo>.Create;
-  ClearAllSelections;
+  _multiSelection := CDictionary<Integer {ViewListIndex}, TRowDataItemInfo>.Create;
+  _focusedItem := TRowDataItemInfo.Empty;
 end;
 
 procedure TRowSelectionInfo.BeginUpdate;
 begin
-  _selectionChanged := False;
+  _multiSelectChanged := False;
+  _focusedChanged := False;
   inc(_updateCount);
 end;
 
 procedure TRowSelectionInfo.EndUpdate(IgnoreChangeEvent: Boolean = False);
 begin
   dec(_updateCount);
+  if IgnoreChangeEvent then
+    Exit;
 
-  if (_updateCount = 0) and _selectionChanged and not IgnoreChangeEvent then
-    DoSelectionInfoChanged;
+  if (_updateCount = 0) then
+  begin
+    if _focusedChanged then
+      DoDataItemChanged;
+
+    if _multiSelectChanged then
+      DoMultiSelectChanged;
+  end;
 end;
 
-function TRowSelectionInfo.CanSelect(const DataIndex: Integer): Boolean;
+function TRowSelectionInfo.CanFocus(const DataIndex: Integer): Boolean;
 begin
-  Result := not TArray.Contains<Integer>(_notSelectableDataIndexes, DataIndex);
+  Result := (DataIndex <> -1) and not TArray.Contains<Integer>(_notSelectableDataIndexes, DataIndex);
 end;
 
 procedure TRowSelectionInfo.Clear;
@@ -4050,12 +4111,10 @@ procedure TRowSelectionInfo.ClearAllSelections;
 begin
   ClearMultiSelections;
 
-  if _lastSelectedDataIndex <> -1 then
+  if not _focusedItem.IsEmpty then
   begin
-    _lastSelectedDataIndex := -1;
-    _lastSelectedViewListIndex := -1;
-    _lastSelectedDataItem := nil;
-    _selectionChanged := True;
+    _focusedItem := TRowDataItemInfo.Empty;
+    _focusedChanged := True;
   end;
 end;
 
@@ -4064,21 +4123,31 @@ begin
   if _multiSelection.Count > 0 then
   begin
     _multiSelection.Clear;
-    _selectionChanged := True;
+    _multiSelectChanged := True;
   end;
 end;
 
-function TRowSelectionInfo.GetSelectionInfo(const DataIndex: Integer): IRowSelectionInfo;
+function TRowSelectionInfo.GetRowInfo(const DataIndex: Integer): TRowDataItemInfo;
 begin
-  if (_lastSelectedDataIndex = DataIndex) then
-    Result := Self
+  if (_focusedItem.DataIndex = DataIndex) then
+    Result := _focusedItem
   else if not _multiSelection.TryGetValue(DataIndex, Result) then
-    Result := nil;
+    Result := TRowDataItemInfo.Empty;
 end;
 
 function TRowSelectionInfo.get_ViewListIndex: Integer;
 begin
-  Result := _lastSelectedViewListIndex;
+  Result := _focusedItem.ViewListIndex;
+end;
+
+function TRowSelectionInfo.HasFocusedItem: Boolean;
+begin
+  Result := not _focusedItem.IsEmpty;
+end;
+
+function TRowSelectionInfo.HasSelectedItems: Boolean;
+begin
+  Result := SelectedRowCount > 0;
 end;
 
 function TRowSelectionInfo.get_EventTrigger: TSelectionEventTrigger;
@@ -4088,22 +4157,12 @@ end;
 
 function TRowSelectionInfo.get_DataIndex: Integer;
 begin
-  Result := _lastSelectedDataIndex;
+  Result := _focusedItem.DataIndex;
 end;
 
 function TRowSelectionInfo.get_DataItem: CObject;
 begin
-  Result := _lastSelectedDataItem;
-end;
-
-function TRowSelectionInfo.get_ForceScrollToSelection: Boolean;
-begin
-  Result := _forceScrollToSelection;
-end;
-
-function TRowSelectionInfo.get_IsMultiSelection: Boolean;
-begin
-  Result := _multiSelection.Count > 1;
+  Result := _focusedItem.DataItem;
 end;
 
 function TRowSelectionInfo.get_NotSelectableDataIndexes: TDataIndexArray;
@@ -4111,24 +4170,19 @@ begin
   Result := _notSelectableDataIndexes;
 end;
 
-function TRowSelectionInfo.HasSelection: Boolean;
+function TRowSelectionInfo.get_Tag: Integer;
 begin
-  Result := (_lastSelectedDataItem <> nil) or get_IsMultiSelection;
+  Result := _tag;
 end;
 
-function TRowSelectionInfo.IsChecked(const DataIndex: Integer): Boolean;
+function TRowSelectionInfo.IsFocused(const DataIndex: Integer): Boolean;
 begin
-  Result := _multiSelection.ContainsKey(DataIndex);
-end;
-
-function TRowSelectionInfo.IsCurrentSelection(const DataIndex: Integer): Boolean;
-begin
-  Result := (_lastSelectedDataIndex = DataIndex);
+  Result := _focusedItem.DataIndex = DataIndex;
 end;
 
 function TRowSelectionInfo.IsSelected(const DataIndex: Integer): Boolean;
 begin
-  Result := IsCurrentSelection(DataIndex) or IsChecked(DataIndex);
+  Result := _multiSelection.ContainsKey(DataIndex);
 end;
 
 function TRowSelectionInfo.SelectedRowCount: Integer;
@@ -4148,70 +4202,49 @@ begin
   _EventTrigger := Value;
 end;
 
-procedure TRowSelectionInfo.set_ForceScrollToSelection(const Value: Boolean);
-begin
-  _forceScrollToSelection := Value;
-end;
-
 procedure TRowSelectionInfo.set_NotSelectableDataIndexes(const Value: TDataIndexArray);
 begin
   _notSelectableDataIndexes := Value;
 end;
 
+procedure TRowSelectionInfo.set_Tag(const Value: Integer);
+begin
+  _tag := Value;
+end;
+
 function TRowSelectionInfo.Clone: IRowSelectionInfo;
 begin
-  Result := CreateInstance;
-  (Result as IRowSelectionInfo).UpdateSingleSelection(_lastSelectedDataIndex, _lastSelectedViewListIndex, _lastSelectedDataItem, False);
-
+  Result := TRowSelectionInfo.Create(nil {clones don't get the treecontrol, for they dopn't need to make changes});
+  TRowSelectionInfo(Result)._focusedItem := Self._focusedItem.Clone;
   Result.LastSelectionEventTrigger := _EventTrigger;
   Result.NotSelectableDataIndexes := _notSelectableDataIndexes;
+  Result.Tag := _tag;
 end;
 
-function TRowSelectionInfo.CreateInstance: IRowSelectionInfo;
+procedure TRowSelectionInfo.RemoveFromSelection(const DataIndex: Integer);
 begin
-  Result := TRowSelectionInfo.Create(nil {clones don't get the treecontrol, for they dopn't need to make changes});
-end;
-
-procedure TRowSelectionInfo.Deselect(const DataIndex: Integer);
-begin
-  // UpdateLastSelection triggers DoSelectionInfoChanged
+  // SetFocusedItem triggers DoSelectionInfoChanged
   // therefore works with Update locks
   BeginUpdate;
   try
-    var lastSelectedIsDeselect := _lastSelectedDataIndex = DataIndex;
-
-    if lastSelectedIsDeselect then
-    begin
-      var item: IRowSelectionInfo;
-      for item in _multiSelection.Values do
-        if item.DataIndex <> DataIndex then
-        begin
-          UpdateLastSelection(item.DataIndex, item.ViewListIndex, item.DataItem);
-          lastSelectedIsDeselect := False;
-          Break
-        end;
-    end;
-
     if _multiSelection.Remove(DataIndex) then
-      _selectionChanged := True;
-
-    if lastSelectedIsDeselect then
-      UpdateLastSelection(-1, -1, nil);
+      _multiSelectChanged := True;
   finally
-    EndUpdate; //(True {do not scroll lastselected into view, because it can be out of view, causing scroll action});
+    EndUpdate;
   end;
 end;
 
-function TRowSelectionInfo.Select(const DataIndex, ViewListIndex: Integer; const DataItem: CObject) : Boolean;
+function TRowSelectionInfo.AddToSelection(const DataIndex, ViewListIndex: Integer; const DataItem: CObject) : Boolean;
 begin
   BeginUpdate;
   try
     if not _multiSelection.ContainsKey(DataIndex) then
     begin
       Result := True;
-      var info: IRowSelectionInfo := CreateInstance as IRowSelectionInfo;
-      info.UpdateSingleSelection(DataIndex, ViewListIndex, DataItem, False);
-      _multiSelection[DataIndex] := info;
+
+      var rowInfo := TRowDataItemInfo.Create(DataIndex, ViewListIndex, DataItem);
+      _multiSelection[DataIndex] := rowInfo;
+      _multiSelectChanged := True;
     end else
       Result := False;
   finally
@@ -4219,7 +4252,7 @@ begin
   end;
 end;
 
-procedure TRowSelectionInfo.DoSelectionInfoChanged;
+procedure TRowSelectionInfo.DoDataItemChanged;
 begin
   // check if we are dealing with clone
   if _rowsControl = nil then
@@ -4227,52 +4260,67 @@ begin
 
   if _updateCount > 0 then
   begin
-    _selectionChanged := True;
+    _focusedChanged := True;
     Exit;
   end;
 
-  _rowsControl.OnSelectionInfoChanged;
+  _rowsControl.OnDataItemChanged;
 end;
 
-procedure TRowSelectionInfo.UpdateSingleSelection(const DataIndex, ViewListIndex: Integer; const DataItem: CObject; ClearMultiSelection: Boolean);
+procedure TRowSelectionInfo.DoMultiSelectChanged;
 begin
-  if not CanSelect(DataIndex) then
+  // check if we are dealing with clone
+  if _rowsControl = nil then
     Exit;
 
-  if not ClearMultiSelection then
-    ClearMultiSelections;
-
-  UpdateLastSelection(DataIndex, ViewListIndex, DataItem);
-end;
-
-procedure TRowSelectionInfo.AddToSelection(const DataIndex, ViewListIndex: Integer; const DataItem: CObject; ExpandCurrentSelection: Boolean);
-begin
-  if not CanSelect(DataIndex) then
+  if _updateCount > 0 then
+  begin
+    _multiSelectChanged := True;
     Exit;
-
-  BeginUpdate;
-  try
-    if not ExpandCurrentSelection then
-      ClearMultiSelections
-    else begin
-      // add single selection if needed
-      var prevInfo: IRowSelectionInfo := nil;
-      if (_lastSelectedViewListIndex <> -1) {and not _multiSelection.ContainsKey(_lastSelectedDataIndex)} then
-        prevInfo := Clone;
-
-      if prevInfo <> nil then
-        _multiSelection[prevInfo.DataIndex] := prevInfo;
-    end;
-
-    UpdateLastSelection(DataIndex, ViewListIndex, DataItem);
-
-    var info: IRowSelectionInfo := CreateInstance as IRowSelectionInfo;
-    info.UpdateSingleSelection(DataIndex, ViewListIndex, DataItem, False);
-    _multiSelection[info.DataIndex] := info;
-  finally
-    EndUpdate;
   end;
+
+  _rowsControl.OnSelectedItemsChanged;
 end;
+
+//procedure TRowSelectionInfo.UpdateSingleSelection(const DataIndex, ViewListIndex: Integer; const DataItem: CObject; ClearMultiSelection: Boolean);
+//begin
+//  if not CanSelect(DataIndex) then
+//    Exit;
+//
+//  if not ClearMultiSelection then
+//    ClearMultiSelections;
+//
+//  SetFocusedItem(DataIndex, ViewListIndex, DataItem);
+//end;
+
+//procedure TRowSelectionInfo.AddToSelection(const DataIndex, ViewListIndex: Integer; const DataItem: CObject; ExpandCurrentSelection: Boolean);
+//begin
+//  if not CanSelect(DataIndex) then
+//    Exit;
+//
+//  BeginUpdate;
+//  try
+//    if not ExpandCurrentSelection then
+//      ClearMultiSelections
+//    else begin
+//      // add single selection if needed
+//      var prevInfo: IRowSelectionInfo := nil;
+//      if (_lastSelectedViewListIndex <> -1) {and not _multiSelection.ContainsKey(_lastSelectedDataIndex)} then
+//        prevInfo := Clone;
+//
+//      if prevInfo <> nil then
+//        _multiSelection[prevInfo.DataIndex] := prevInfo;
+//    end;
+//
+//    SetFocusedItem(DataIndex, ViewListIndex, DataItem);
+//
+//    var info: IRowSelectionInfo := CreateInstance as IRowSelectionInfo;
+//    info.UpdateSingleSelection(DataIndex, ViewListIndex, DataItem, False);
+//    _multiSelection[info.DataIndex] := info;
+//  finally
+//    EndUpdate;
+//  end;
+//end;
 
 function TRowSelectionInfo.SelectedDataItems: List<CObject>;
 begin
@@ -4280,52 +4328,59 @@ begin
 
   if _multiSelection.Count > 0 then
   begin
-    var item: IRowSelectionInfo;
-    for item in _multiSelection.Values do
-      Result.Add(item.DataItem)
+    var rowInfo: TRowDataItemInfo;
+    for rowInfo in _multiSelection.Values do
+      Result.Add(rowInfo.DataItem)
+  end;
+end;
+
+function TRowSelectionInfo.SelectedDataIndexes: TDataIndexArray;
+begin
+  SetLength(Result, _multiSelection.Count);
+
+  var rowInfo: TRowDataItemInfo;
+  var ix := 0;
+  for rowInfo in _multiSelection.Values do
+  begin
+    Result[ix] := rowInfo.DataIndex;
+    inc(ix);
+  end;
+end;
+
+procedure TRowSelectionInfo.SetFocusedItem(const DataIndex, ViewListIndex: Integer; const DataItem: CObject);
+begin
+  if CanFocus(DataIndex) then
+  begin
+    if _focusedItem.IsEqualTo(DataIndex, ViewListIndex, DataItem) then
+      Exit;
+
+    _focusedItem := TRowDataItemInfo.Create(DataIndex, ViewListIndex, DataItem)
   end
-  else if _lastSelectedDataItem <> nil then
-    Result.Add(_lastSelectedDataItem);
-end;
-
-function TRowSelectionInfo.SelectedDataIndexes: List<Integer>;
-begin
-  Result := CList<Integer>.Create;
-
-  if _multiSelection.Count > 0 then
+  else
   begin
-    var item: IRowSelectionInfo;
-    for item in _multiSelection.Values do
-      Result.Add(item.DataIndex)
-  end;
-end;
+    if _focusedItem.IsEmpty then
+      Exit;
 
-procedure TRowSelectionInfo.SelectedRowClicked(const DataIndex: Integer);
-begin
-  if not CanSelect(DataIndex) or (_lastSelectedDataIndex = DataIndex) then
-    Exit;
-
-  var selectionInfo: IRowSelectionInfo;
-  if not _multiSelection.TryGetValue(DataIndex, selectionInfo) then
-    Exit;
-
-  UpdateLastSelection(selectionInfo.DataIndex, selectionInfo.ViewListIndex, selectionInfo.DataItem);
-end;
-
-procedure TRowSelectionInfo.UpdateLastSelection(const DataIndex, ViewListIndex: Integer; const DataItem: CObject);
-begin
-  if not CanSelect(DataIndex) then
-  begin
-    UpdateLastSelection(-1, -1, nil);
-    Exit;
+    _focusedItem := TRowDataItemInfo.Empty
   end;
 
-  _lastSelectedDataIndex := DataIndex;
-  _lastSelectedViewListIndex := ViewListIndex;
-  _lastSelectedDataItem := DataItem;
-
-  DoSelectionInfoChanged;
+  DoDataItemChanged;
 end;
+
+//procedure TRowSelectionInfo.SetFocusedItem(const DataIndex, ViewListIndex: Integer; const DataItem: CObject);
+//begin
+//  if not CanSelect(DataIndex) then
+//  begin
+//    SetFocusedItem(-1, -1, nil);
+//    Exit;
+//  end;
+//
+//  _lastSelectedDataIndex := DataIndex;
+//  _lastSelectedViewListIndex := ViewListIndex;
+//  _lastSelectedDataItem := DataItem;
+//
+//  DoSelectionInfoChanged;
+//end;
 
 { TWaitForRepaintInfo }
 procedure TWaitForRepaintInfo.ClearSelectionInfo;

@@ -195,11 +195,11 @@ type
     procedure PerformanceRoutineLoadedRow(const Row: IDCRow); override;
     procedure DoRowLoaded(const ARow: IDCRow); override;
 
-    function  CreateSelectioninfoInstance: IRowSelectionInfo; override;
-    procedure OnSelectionInfoChanged; override;
+    procedure OnDataItemChanged; override;
+    procedure OnSelectedItemsChanged; override;
     procedure VisualizeRowSelection(const Row: IDCRow); override;
     procedure HandleRowChildRelation(const Row: IDCRow; IsOpenParent, IsOpenChild: Boolean); override;
-    procedure CheckCorrectColumnSelection( const SelectionInfo: ITreeSelectionInfo; const Row: IDCTreeRow);
+    procedure CheckCorrectColumnSelection( const SelectionInfo: IRowSelectionInfo; const Row: IDCTreeRow);
 
     function  AutoMultiSelectColumnShowing: Boolean;
     procedure CheckShowAutoMultiSelectColumn;
@@ -708,6 +708,8 @@ type
     procedure UpdateCellControlsByRow(const Cell: IDCTreeCell);
     procedure UpdateCellControlsPositions(const Cell: IDCTreeCell; ForceIsValid: Boolean = False);
     procedure UpdateColumnContainsData(const ContainsData: TColumnContainsData; const CellDataExample: CObject);
+
+    function  IndentPerLevel: Single;
   end;
 
   TExpandButton = class(TLayout)
@@ -822,7 +824,7 @@ type
   protected
     _selectionRect: TControl;
 
-    procedure UpdateSelectionRect(OwnerIsFocused: Boolean);
+    procedure UpdateSelectionRect(OwnerIsFocused: Boolean; IsCurrentFocused: Boolean);
 
     function  InPerformanceMode: Boolean;
     procedure TogglePerformanceMode(const Activate: Boolean);
@@ -831,7 +833,7 @@ type
     constructor Create(const ARow: IDCRow; const LayoutColumn: IDCTreeLayoutColumn);
     destructor Destroy; override;
 
-    procedure UpdateSelectionVisibility(const RowIsSelected: Boolean; const SelectionInfo: ITreeSelectionInfo; OwnerIsFocused: Boolean);
+    procedure UpdateSelectionVisibility(const RowIsSelected: Boolean; const SelectionInfo: IRowSelectionInfo; OwnerIsFocused: Boolean);
 
     function  IsHeaderCell: Boolean; virtual;
 
@@ -921,28 +923,6 @@ type
     procedure CreateHeaderControls(const Owner: IColumnsControl);
 
     property ContentControl: TControl read get_ContentControl;
-  end;
-
-  TTreeSelectionInfo = class(TRowSelectionInfo, ITreeSelectionInfo)
-  private
-    _lastSelectedLayoutColumn: Integer;
-    _SelectedLayoutColumns: List<Integer>;
-
-    function  get_SelectedLayoutColumn: Integer;
-    procedure set_SelectedLayoutColumn(const Value: Integer);
-    function  get_SelectedLayoutColumns: List<Integer>;
-
-  protected
-    function  CreateInstance: IRowSelectionInfo; override;
-    function  Clone: IRowSelectionInfo; override;
-
-  public
-    constructor Create(const RowsControl: IRowsControl); reintroduce;
-
-    procedure Clear; override;
-    procedure ClearMultiSelections; override;
-
-    function ColumnIsSelected(const ClmnIndex: Integer): Boolean;
   end;
 
   TDataControlWaitForRepaintInfo = class(TWaitForRepaintInfo, IDCControlWaitForRepaintInfo)
@@ -1068,10 +1048,9 @@ begin
 
   if _treeLayout.FlatColumns.Count = 0 then
     Exit;
-  var selInfo := (_selectionInfo as ITreeSelectionInfo);
   var lastFlatColumn := _treeLayout.FlatColumns[_treeLayout.FlatColumns.Count - 1];
-  if selInfo.SelectedLayoutColumn > lastFlatColumn.Index then
-    selInfo.SelectedLayoutColumn := lastFlatColumn.Index;
+  if _selectionInfo.Tag > lastFlatColumn.Index then
+    _selectionInfo.Tag := lastFlatColumn.Index;
 
   if _view <> nil then
   begin
@@ -1455,10 +1434,8 @@ begin
   if (row = nil) or (row.Cells.Count = 0) then
     Exit(nil);
 
-  var treeSelection := _selectionInfo as ITreeSelectionInfo;
-
-  CheckCorrectColumnSelection(treeSelection, row);
-  Result := row.Cells[treeSelection.SelectedLayoutColumn];
+  CheckCorrectColumnSelection(_selectionInfo, row);
+  Result := row.Cells[_selectionInfo.Tag];
 end;
 
 function TScrollControlWithCells.GetCellByControl(const Control: TControl): IDCTreeCell;
@@ -1494,8 +1471,6 @@ begin
     Result := _treeLayout.LayoutColumns[FromColumnIndex];
     Exit;
   end;
-
-  var treeSelectionInfo := _selectionInfo as ITreeSelectionInfo;
 
   var flatColumn: IDCTreeLayoutColumn;
   if horzScroll = TRightLeftScroll.FullLeft then
@@ -1597,7 +1572,7 @@ begin
   var flatColumn := GetSelectableFlatColumnByMouseX(X);
   if flatColumn = nil then
   begin
-    var flatIx := (_selectionInfo as ITreeSelectionInfo).SelectedLayoutColumn;
+    var flatIx := _selectionInfo.Tag;
     if _treeLayout.LayoutColumns.Count > flatIx - 1 then
       flatColumn := _treeLayout.LayoutColumns[flatIx] else
       flatColumn := _treeLayout.FlatColumns[0];
@@ -1608,25 +1583,30 @@ begin
     var treeCell := treeRow.Cells[flatColumn.Index];
     var checkBox := treeCell.InfoControl as IIsChecked;
 
-    if _selectionInfo.IsChecked(treeRow.DataIndex) then
-      _selectionInfo.Deselect(treeRow.DataIndex)
-    else if not (TreeOption_MultiSelect in _options) then
-      _selectionInfo.AddToSelection(treeRow.DataIndex, treeRow.ViewListIndex, treeRow.DataItem, False)
-    else if not (TreeOption_KeepCurrentSelection in _options) then
-      _selectionInfo.AddToSelection(treeRow.DataIndex, treeRow.ViewListIndex, treeRow.DataItem, _selectionInfo.IsChecked(currentRow.DataIndex))
-    else
-    begin
-      _selectionInfo.Select(treeRow.DataIndex, treeRow.ViewListIndex, treeRow.DataItem);
-      _selectionInfo.UpdateLastSelection(treeRow.DataIndex, treeRow.ViewListIndex, treeRow.DataItem);
-//      var keepSelection := (TreeOption_MultiSelect in _options) and ((TreeOption_KeepCurrentSelection in _options) <> _selectionInfo.IsChecked(currentRow.DataIndex));
-//      _selectionInfo.AddToSelection(treeRow.DataIndex, treeRow.ViewListIndex, treeRow.DataItem, keepSelection);
-    end;
-
     _selectionInfo.BeginUpdate;
     try
-      (_selectionInfo as ITreeSelectionInfo).SelectedLayoutColumn := flatColumn.Index;
+      if _selectionInfo.IsSelected(treeRow.DataIndex) then
+        _selectionInfo.RemoveFromSelection(treeRow.DataIndex)
+      else if (TreeOption_MultiSelect in _options) then
+      begin
+        _selectionInfo.AddToSelection(treeRow.DataIndex, treeRow.ViewListIndex, treeRow.DataItem);
+        _selectionInfo.SetFocusedItem(treeRow.DataIndex, treeRow.ViewListIndex, treeRow.DataItem);
+      end
+      else
+      begin
+        // radio button mode!
+        // No multiselect, but we have a selection checkbox column
+
+        if not _selectionInfo.IsFocused(treeRow.DataIndex) then
+          _selectionInfo.SetFocusedItem(treeRow.DataIndex, treeRow.ViewListIndex, treeRow.DataItem) else
+          ClearCurrentFocused;
+      end;
+
+      // only update current column if no column selected yet...
+      if _selectionInfo.Tag <= -1 then
+        _selectionInfo.Tag := flatColumn.Index;
     finally
-      _selectionInfo.EndUpdate(True {ignore events});
+      _selectionInfo.EndUpdate;
     end;
 
     DoCellChanged(nil, treeCell);
@@ -1634,9 +1614,9 @@ begin
     Exit;
   end;
 
-  var requestedSelection := _selectionInfo.Clone as ITreeSelectionInfo;
-  requestedSelection.UpdateLastSelection(clickedRow.DataIndex, clickedRow.ViewListIndex, clickedRow.DataItem);
-  requestedSelection.SelectedLayoutColumn := flatColumn.Index;
+  var requestedSelection := _selectionInfo.Clone;
+  requestedSelection.SetFocusedItem(clickedRow.DataIndex, clickedRow.ViewListIndex, clickedRow.DataItem);
+  requestedSelection.Tag := flatColumn.Index;
 
   TrySelectItem(requestedSelection, Shift);
 
@@ -1660,7 +1640,7 @@ end;
 
 procedure TScrollControlWithCells.VisualizeRowSelection(const Row: IDCRow);
 begin
-  CheckCorrectColumnSelection(_selectionInfo as ITreeSelectionInfo, nil);
+  CheckCorrectColumnSelection(_selectionInfo, nil);
 
   inherited;
   UpdateSelectionCheckboxes(Row);
@@ -1706,7 +1686,17 @@ begin
   end;
 
   if flatColumn.Column.SortType = TSortType.None then
+  begin
+    var selClmn := SelectionCheckBoxColumn;
+    if flatColumn = selClmn then
+    begin
+      if _selectionInfo.SelectedRowCount < _view.ViewCount then
+        SelectAll else
+        ClearSelectedItems;
+    end;
+
     Exit;
+  end;
 
   var sortDirection: ListSortDirection;
   if flatColumn.ActiveSort <> nil then
@@ -1858,8 +1848,7 @@ procedure TScrollControlWithCells.UpdateSelectedColumn(const Column: Integer);
 begin
   _selectionInfo.BeginUpdate;
   try
-//    _selectionInfo.ClearAllSelections;
-    (_selectionInfo as ITreeSelectionInfo).SelectedLayoutColumn := Column;
+    _selectionInfo.Tag := Column;
   finally
     _selectionInfo.EndUpdate;
   end;
@@ -1928,7 +1917,7 @@ var
   dataValues: Dictionary<CObject, CString>;
 begin
   {$IFNDEF WEBASSEMBLY}
-  (_selectionInfo as ITreeSelectionInfo).SelectedLayoutColumn := LayoutColumn.Index;
+  _selectionInfo.Tag := LayoutColumn.Index;
 
   // Popup form will be created once, then reused for any column
   if _frmHeaderPopupMenu = nil then
@@ -2052,14 +2041,13 @@ begin
     TfrmFMXPopupMenuDataControl.TPopupResult.ptHideColumn:
     begin
       // check if is last flat
-      var treeSelectionInfo := (_selectionInfo as ITreeSelectionInfo);
-      if treeSelectionInfo.SelectedLayoutColumn = _treeLayout.FlatColumns.Count - 1 then
+      if _selectionInfo.Tag = _treeLayout.FlatColumns.Count - 1 then
       begin
         // if last column, then do nothing
-        if treeSelectionInfo.SelectedLayoutColumn = 0 then
+        if _selectionInfo.Tag = 0 then
           Exit;
 
-        treeSelectionInfo.SelectedLayoutColumn := treeSelectionInfo.SelectedLayoutColumn - 1;
+        _selectionInfo.Tag := _selectionInfo.Tag - 1;
       end;
 
       flatColumn.Column.CustomHidden := True;
@@ -2181,9 +2169,9 @@ begin
     Exit;
 
   var doHide: Boolean;
-  doHide := not _selectionInfo.IsMultiSelection;
+  doHide := not _selectionInfo.HasSelectedItems;
   if not doHide and not (TDCTreeOption.KeepCurrentSelection in _options) then
-    doHide := not (ssCtrl in Shift) and not (ssShift in Shift) and (OldRow <> GetActiveRow) and not _selectionInfo.IsSelected(OldRow.DataIndex);
+    doHide := not (ssCtrl in Shift) and not (ssShift in Shift) and (OldRow <> GetActiveRow) and (OldRow <> nil) and not _selectionInfo.IsSelected(OldRow.DataIndex);
 
   if doHide then
   begin
@@ -2199,7 +2187,7 @@ begin
   if (_autoMultiSelectColumn = nil) or _autoMultiSelectColumn.Visualisation.Visible then
     Exit;
 
-  if (_autoMultiSelectColumn.Visualisation.Visible or _selectionInfo.IsMultiSelection {only visible by 2 or more selected}) then
+  if (_autoMultiSelectColumn.Visualisation.Visible or _selectionInfo.HasSelectedItems {only visible by 2 or more selected}) then
   begin
     _autoMultiSelectColumn.Visualisation.Visible := True;
     (GetInitializedWaitForRefreshInfo as IDCControlWaitForRepaintInfo).ColumnsChanged;
@@ -2208,14 +2196,31 @@ begin
   end;
 end;
 
-procedure TScrollControlWithCells.OnSelectionInfoChanged;
+procedure TScrollControlWithCells.OnSelectedItemsChanged;
 begin
   inherited;
 
-  if _horzScrollBar.Visible and (_selectionType = TSelectionType.CellSelection) and ((_selectionInfo as ITreeSelectionInfo).SelectedLayoutColumn <> -1) then
+  var clmn := SelectionCheckBoxColumn;
+  if clmn = nil then
+    Exit;
+
+  for var row in _view.ActiveViewRows do
   begin
-    var treeSelectionInfo := _selectionInfo as ITreeSelectionInfo;
-    var currentFlatColumn := _treeLayout.LayoutColumns[treeSelectionInfo.SelectedLayoutColumn];
+    var treeRowCells := (row as IDCTreeRow).Cells;
+
+    var checkBoxCell: IDCTreeCell;
+    if treeRowCells.TryGetValue(clmn.Index, checkBoxCell) then
+      (checkBoxCell.InfoControl as IIsChecked).IsChecked := _selectionInfo.IsSelected(row.DataIndex);
+  end;
+end;
+
+procedure TScrollControlWithCells.OnDataItemChanged;
+begin
+  inherited;
+
+  if _horzScrollBar.Visible and (_selectionType = TSelectionType.CellSelection) and (_selectionInfo.Tag <> -1) then
+  begin
+    var currentFlatColumn := _treeLayout.LayoutColumns[_selectionInfo.Tag];
     if not currentFlatColumn.Column.Frozen {those are always visible} then
     begin
       if (currentFlatColumn.Width > _horzScrollBar.ViewportSize) or (currentFlatColumn.Left < _horzScrollBar.Value) then
@@ -2227,7 +2232,7 @@ begin
 
   CheckShowAutoMultiSelectColumn;
 
-  if not _selectionInfo.HasSelection then
+  if not _selectionInfo.HasFocusedItem then
     Exit;
 
   var cell := GetActiveCell;
@@ -2242,21 +2247,20 @@ end;
 
 procedure TScrollControlWithCells.SelectAll;
 begin
-  var selInfo := _selectionInfo as ITreeSelectionInfo;
-  selInfo.BeginUpdate;
+  _selectionInfo.BeginUpdate;
   try
     inherited;
 
     if _selectionType = TSelectionType.CellSelection then
-    begin
-      var flatClmn: IDCTreeLayoutColumn;
-      for flatClmn in _treeLayout.FlatColumns do
-        if (flatClmn.Width > 0) and flatClmn.Column.Selectable and not selInfo.SelectedLayoutColumns.Contains(flatClmn.Index) then
-          selInfo.SelectedLayoutColumns.Add(flatClmn.Index);
-    end;
+//    begin
+//      var flatClmn: IDCTreeLayoutColumn;
+//      for flatClmn in _treeLayout.FlatColumns do
+//        if (flatClmn.Width > 0) and flatClmn.Column.Selectable and not _selectionInfo.Tag.Contains(flatClmn.Index) then
+          _selectionInfo.Tag := -2;  // select all columns..
+//    end;
 
   finally
-    selInfo.EndUpdate;
+    _selectionInfo.EndUpdate;
   end;
 end;
 
@@ -2301,8 +2305,7 @@ procedure TScrollControlWithCells.SetColumnSelectionIfNoneExists;
 begin
   _selectionInfo.BeginUpdate;
   Try
-    var treeSelectionInfo := _selectionInfo as ITreeSelectionInfo;
-    treeSelectionInfo.SelectedLayoutColumn := -1;
+    _selectionInfo.Tag := -1;
   finally
     _selectionInfo.EndUpdate(True {ignore events});
   end;
@@ -2405,7 +2408,7 @@ begin
   // selectedcolumn is not valid anymore, select another one
   var flatColumn := FlatColumnByColumn(Column);
   if (flatColumn <> nil) and (flatColumn.HideColumnInView or not flatColumn.Column.Visible) then
-    if (_selectionInfo as ITreeSelectionInfo).SelectedLayoutColumn = flatColumn.Index then
+    if _selectionInfo.Tag = flatColumn.Index then
       SetColumnSelectionIfNoneExists;
 end;
 
@@ -2484,11 +2487,6 @@ begin
   {$ENDIF}
 end;
 
-function TScrollControlWithCells.CreateSelectioninfoInstance: IRowSelectionInfo;
-begin
-  Result := TTreeSelectionInfo.Create(Self);
-end;
-
 function TScrollControlWithCells.GetInitializedWaitForRefreshInfo: IWaitForRepaintInfo;
 begin
   // _waitForRepaintInfo is nilled after RealignContent
@@ -2538,9 +2536,9 @@ begin
   Result := nil;
   if _treeLayout = nil then Exit;
 
-  var selectedLayoutColumn := (_selectionInfo as ITreeSelectionInfo).SelectedLayoutColumn;
-  if (selectedLayoutColumn = -1) or (_treeLayout.LayoutColumns.Count = 0) then Exit;
-  Result := _treeLayout.LayoutColumns[selectedLayoutColumn];
+  var Tag := _selectionInfo.Tag;
+  if (Tag = -1) or (_treeLayout.LayoutColumns.Count = 0) then Exit;
+  Result := _treeLayout.LayoutColumns[Tag];
 end;
 
 procedure TScrollControlWithCells.HandleMultiSelectOptionChanged;
@@ -2589,13 +2587,12 @@ begin
   begin
     HandleMultiSelectOptionChanged;
 
-    if (_selectionInfo as ITreeSelectionInfo).SelectedLayoutColumn = 0 then
+    if _selectionInfo.Tag = 0 then
     begin
       _selectionInfo.BeginUpdate;
       try
-        var selTreeInfo := (_selectionInfo as ITreeSelectionInfo);
-        selTreeInfo.SelectedLayoutColumn := -1;
-        CheckCorrectColumnSelection(selTreeInfo, GetActiveRow as IDCTreeRow);
+        _selectionInfo.Tag := -1;
+        CheckCorrectColumnSelection(_selectionInfo, GetActiveRow as IDCTreeRow);
       finally
         _selectionInfo.EndUpdate(True);
       end;
@@ -2740,6 +2737,7 @@ begin
 //  {$ENDIF}
   Result := False;
 
+  _stopwatch.Start;
   if Assigned(_cellFormatting) then
   begin
     var args := DCCellFormattingEventArgs.Create(Cell, Value);
@@ -2748,8 +2746,10 @@ begin
 
       _cellFormatting(Self, args);
 
+      _stopwatchPaint.Start;
       if not Result and args.FormatCellAfterScrolling and IsScrolling then
         _view.NotifyRowControlsNeedReload(Cell.Row, True {force reload after scrolling is done});
+      _stopwatchPaint.Stop;
 
       Value := args.Value;
       Result := args.FormattingApplied;
@@ -2757,6 +2757,7 @@ begin
       args.Free;
     end;
   end;
+  _stopwatch.Stop;
 end;
 
 procedure TScrollControlWithCells.DoCellLoaded(const Cell: IDCTreeCell; RequestForSort: Boolean; var PerformanceModeWhileScrolling: Boolean; var OverrideRowHeight: Single);
@@ -2764,6 +2765,7 @@ begin
 //  {$IFDEF DEBUG}
 //  Exit;
 //  {$ENDIF}
+  _stopwatch.Start;
   if Assigned(_CellLoaded) then
   begin
     var args := DCCellLoadedEventArgs.Create(Cell, TDCTreeOption.ShowVertGrid in  _options, PerformanceModeWhileScrolling);
@@ -2773,6 +2775,7 @@ begin
 
       _CellLoaded(Self, args);
 
+      _stopwatchPaint.Start;
       if args.OverrideRowHeight <> -1 {> ManualRowHeight} then
         OverrideRowHeight := args.OverrideRowHeight;
 
@@ -2780,10 +2783,12 @@ begin
         _view.NotifyRowControlsNeedReload(Cell.Row, True {force reload after scrolling is done});
 
       {var} PerformanceModeWhileScrolling := args.PerformanceModeWhileScrolling;
+      _stopwatchPaint.Stop;
     finally
       args.Free;
     end;
   end;
+  _stopwatch.Stop;
 end;
 
 function TScrollControlWithCells.DoCellLoading(const Cell: IDCTreeCell; RequestForSort: Boolean; var PerformanceModeWhileScrolling: Boolean; var OverrideRowHeight: Single) : Boolean;
@@ -2792,6 +2797,7 @@ begin
 //  {$IFDEF DEBUG}
 //  Exit(True);
 //  {$ENDIF}
+  _stopwatch.Start;
 
   if Assigned(_CellLoading) then
   begin
@@ -2803,6 +2809,7 @@ begin
       _CellLoading(Self, args);
       Result := args.LoadDefaultData;
 
+      _stopwatchPaint.Start;
       if args.OverrideRowHeight <> -1 {> ManualRowHeight} then
         OverrideRowHeight := args.OverrideRowHeight;
 
@@ -2810,10 +2817,14 @@ begin
         _view.NotifyRowControlsNeedReload(Cell.Row, True {force reload after scrolling is done});
 
       {var} PerformanceModeWhileScrolling := args.PerformanceModeWhileScrolling;
+
+      _stopwatchPaint.Stop;
     finally
       args.Free;
     end;
   end;
+
+  _stopwatch.Stop;
 end;
 
 procedure TScrollControlWithCells.DoCellSelected(const Cell: IDCTreeCell; EventTrigger: TSelectionEventTrigger);
@@ -2955,7 +2966,7 @@ begin
   if not treeRow.IsDummyRowForChanging then
     Exit(treeRow);
 
-  var flatColumnIx := (FromSelectionInfo as ITreeSelectionInfo).SelectedLayoutColumn;
+  var flatColumnIx := FromSelectionInfo.Tag;
 
   if (flatColumnIx <> -1) then
   begin
@@ -2975,7 +2986,7 @@ begin
     Exit;
 
   var cell := GetActiveCell;
-  if cell <> nil then
+  if (cell <> nil) and (cell.Column.WidthType = TDCColumnWidthType.AlignToContent) then
     cell.LayoutColumn.Width := 0; // clear to reset!
 
   treeRow.ContentCellSizes.Clear;
@@ -3011,13 +3022,16 @@ begin
 //  end;
 end;
 
-procedure TScrollControlWithCells.CheckCorrectColumnSelection(const SelectionInfo: ITreeSelectionInfo; const Row: IDCTreeRow);
+procedure TScrollControlWithCells.CheckCorrectColumnSelection(const SelectionInfo: IRowSelectionInfo; const Row: IDCTreeRow);
 begin
-  if (SelectionInfo.SelectedLayoutColumn = -1) or ((Row <> nil) and not Row.Cells.ContainsKey(SelectionInfo.SelectedLayoutColumn)) then
+  if _treeLayout = nil then
+    Exit;
+
+  if (SelectionInfo.Tag = -1) or ((Row <> nil) and not Row.Cells.ContainsKey(SelectionInfo.Tag)) then
   begin
     SelectionInfo.BeginUpdate;
     try
-      SelectionInfo.SelectedLayoutColumn := GetFlatColumnByKey(vkHome, [], -1).Index; // get first valid column
+      SelectionInfo.Tag := GetFlatColumnByKey(vkHome, [], -1).Index; // get first valid column
     finally
       SelectionInfo.EndUpdate(True {ignore events});
     end;
@@ -3030,12 +3044,12 @@ function TScrollControlWithCells.TrySelectItem(const RequestedSelectionInfo: IRo
   begin
     _selectionInfo.BeginUpdate;
     try
-      if _selectionInfo.IsChecked(_selectionInfo.DataIndex) then
-        _selectionInfo.Deselect(_selectionInfo.DataIndex)
+      if _selectionInfo.IsSelected(_selectionInfo.DataIndex) then
+        _selectionInfo.RemoveFromSelection(_selectionInfo.DataIndex)
       else
       begin
         var row := GetActiveRow;
-        _selectionInfo.AddToSelection(row.DataIndex, row.ViewListIndex, row.DataItem, False);
+        _selectionInfo.AddToSelection(row.DataIndex, row.ViewListIndex, row.DataItem);
       end;
     finally
       _selectionInfo.EndUpdate(not CanRealignContent);
@@ -3044,18 +3058,16 @@ function TScrollControlWithCells.TrySelectItem(const RequestedSelectionInfo: IRo
 
 begin
   Result := False;
-  if (_treeLayout = nil { will get here later again}) or not _selectionInfo.CanSelect(RequestedSelectionInfo.DataIndex) then
+  if (_treeLayout = nil { will get here later again}) or not _selectionInfo.CanFocus(RequestedSelectionInfo.DataIndex) then
     Exit;
 
-  var currentSelection := _selectionInfo as ITreeSelectionInfo;
-  var requestedSelection := RequestedSelectionInfo as ITreeSelectionInfo;
 
-  var rowChange := currentSelection.DataIndex <> requestedSelection.DataIndex;
-  var rowAlreadySelected := not rowChange or currentSelection.IsSelected(requestedSelection.DataIndex);
-  var clmnChange := currentSelection.SelectedLayoutColumn <> requestedSelection.SelectedLayoutColumn;
-  var clmnAlreadySelected := not clmnChange or currentSelection.SelectedLayoutColumns.Contains(requestedSelection.SelectedLayoutColumn);
+  var rowChange := _selectionInfo.DataIndex <> RequestedSelectionInfo.DataIndex;
+  var rowAlreadySelected := not rowChange or _selectionInfo.IsSelected(RequestedSelectionInfo.DataIndex);
+  var clmnChange := _selectionInfo.Tag <> RequestedSelectionInfo.Tag;
+  var clmnAlreadySelected := not clmnChange;
 
-  if not currentSelection.IsMultiSelection then
+  if not _selectionInfo.HasSelectedItems then
   begin
     // not changed for example when sorting/filtering activated
     if (ssShift in Shift) and rowAlreadySelected and clmnAlreadySelected then
@@ -3071,11 +3083,11 @@ begin
       ScrollSelectedIntoView(RequestedSelectionInfo);
 
       // ignore change event, for no row change took place
-      currentSelection.BeginUpdate;
+      _selectionInfo.BeginUpdate;
       try
-        currentSelection.SelectedLayoutColumn := requestedSelection.SelectedLayoutColumn;
+        _selectionInfo.Tag := RequestedSelectionInfo.Tag;
       finally
-        currentSelection.EndUpdate(True);
+        _selectionInfo.EndUpdate(True);
       end;
 
       DoCellSelected(GetActiveCell, _selectionInfo.LastSelectionEventTrigger);
@@ -3105,21 +3117,21 @@ begin
   var customShift := Shift;
 
   // old activecell
-  CheckCorrectColumnSelection(currentSelection, GetActiveRow as IDCTreeRow);
+  CheckCorrectColumnSelection(_selectionInfo, GetActiveRow as IDCTreeRow);
 
-  var dummyOldRow := ProvideRowForChanging(currentSelection) as IDCTreeRow;
+  var dummyOldRow := ProvideRowForChanging(_selectionInfo) as IDCTreeRow;
   var oldCell: IDCTreeCell := nil;
   if dummyOldRow <> nil then
-    dummyOldRow.Cells.TryGetValue(currentSelection.SelectedLayoutColumn, oldCell);
+    dummyOldRow.Cells.TryGetValue(_selectionInfo.Tag, oldCell);
 
   // new activecell
-  if requestedSelection.SelectedLayoutColumn = -1 then
-    requestedSelection.SelectedLayoutColumn := currentSelection.SelectedLayoutColumn;
+  if RequestedSelectionInfo.Tag = -1 then
+    RequestedSelectionInfo.Tag := _selectionInfo.Tag;
 
-  var dummyNewRow := ProvideRowForChanging(requestedSelection) as IDCTreeRow;
+  var dummyNewRow := ProvideRowForChanging(RequestedSelectionInfo) as IDCTreeRow;
   var newCell: IDCTreeCell := nil;
   if dummyNewRow <> nil then
-    newCell := dummyNewRow.Cells[requestedSelection.SelectedLayoutColumn];
+    newCell := dummyNewRow.Cells[RequestedSelectionInfo.Tag];
 
   var ignoreSelectionChanges := not CanRealignContent;
   if not DoCellCanChange(oldCell, newCell) then
@@ -3136,18 +3148,18 @@ begin
   try
     if SelectionType <> TSelectionType.CellSelection then
     begin
-      InternalDoSelectRow(requestedSelection.DataIndex, requestedSelection.ViewListIndex, requestedSelection.DataItem, Shift);
-      currentSelection.SelectedLayoutColumn := requestedSelection.SelectedLayoutColumn;
+      InternalDoSelectRow(RequestedSelectionInfo.DataIndex, RequestedSelectionInfo.ViewListIndex, RequestedSelectionInfo.DataItem, Shift);
+      _selectionInfo.Tag := RequestedSelectionInfo.Tag;
     end
     else begin
       if not rowAlreadySelected then
-        InternalDoSelectRow(requestedSelection.DataIndex, requestedSelection.ViewListIndex, requestedSelection.DataItem, customShift)
+        InternalDoSelectRow(RequestedSelectionInfo.DataIndex, RequestedSelectionInfo.ViewListIndex, RequestedSelectionInfo.DataItem, customShift)
       else if not (ssShift in Shift) and clmnAlreadySelected and (not clmnChange or (ssCtrl in Shift)) then
-        InternalDoSelectRow(requestedSelection.DataIndex, requestedSelection.ViewListIndex, requestedSelection.DataItem, customShift);
+        InternalDoSelectRow(RequestedSelectionInfo.DataIndex, RequestedSelectionInfo.ViewListIndex, RequestedSelectionInfo.DataItem, customShift);
 
       if (ssShift in Shift) or (not (ssCtrl in Shift)) or (_selectionInfo.LastSelectionEventTrigger = TSelectionEventTrigger.Key) then
       begin
-        InternalDoSelectColumn(requestedSelection.SelectedLayoutColumn, customShift);
+        InternalDoSelectColumn(RequestedSelectionInfo.Tag, customShift);
 
         var row := GetActiveRow;
         if row <> nil then // delete makes row = nil
@@ -3165,8 +3177,7 @@ end;
 
 procedure TScrollControlWithCells.UpdateScrollAndSelectionByKey(var Key: Word; Shift: TShiftState);
 begin
-  var treeSelectionInfo := _selectionInfo as ITreeSelectionInfo;
-  var flatColumn := GetFlatColumnByKey(Key, Shift, (_selectionInfo as ITreeSelectionInfo).SelectedLayoutColumn);
+  var flatColumn := GetFlatColumnByKey(Key, Shift, _selectionInfo.Tag);
   var rowViewListIndex := GetRowViewListIndexByKey(Key, Shift);
 
   if rowViewListIndex = -1 then
@@ -3179,13 +3190,13 @@ begin
     Exit;
   end;
 
-  if (treeSelectionInfo.SelectedLayoutColumn <> flatColumn.Index) then
+  if (_selectionInfo.Tag <> flatColumn.Index) then
   begin
     _selectionInfo.LastSelectionEventTrigger := TSelectionEventTrigger.Key;
 
-    var requestedSelection := _selectionInfo.Clone as ITreeSelectionInfo;
-    requestedSelection.UpdateLastSelection(_view.GetDataIndex(rowViewListIndex), rowViewListIndex, _view.GetViewList[rowViewListIndex]);
-    requestedSelection.SelectedLayoutColumn := flatColumn.Index;
+    var requestedSelection := _selectionInfo.Clone;
+    requestedSelection.SetFocusedItem(_view.GetDataIndex(rowViewListIndex), rowViewListIndex, _view.GetViewList[rowViewListIndex]);
+    requestedSelection.Tag := flatColumn.Index;
 
     if TrySelectItem(requestedSelection, Shift) then
       Key := 0;
@@ -3205,40 +3216,40 @@ end;
 
 procedure TScrollControlWithCells.InternalDoSelectColumn(const LayoutColumnIndex: Integer; Shift: TShiftState);
 begin
-  var treeSelectionInfo := _selectionInfo as ITreeSelectionInfo;
-  if (ssShift in Shift) then
-  begin
-    var currentLayoutFlatIndex := FlatColumnIndexByLayoutIndex(treeSelectionInfo.SelectedLayoutColumn);
-    var requestedLayoutFlatIndex := FlatColumnIndexByLayoutIndex(LayoutColumnIndex);
-
-    var index := currentLayoutFlatIndex;
-    if requestedLayoutFlatIndex <> index then
-    begin
-      while requestedLayoutFlatIndex <> index do
-      begin
-        if not treeSelectionInfo.SelectedLayoutColumns.Contains(index) then
-          treeSelectionInfo.SelectedLayoutColumns.Add(index);
-
-        if requestedLayoutFlatIndex < index then
-          dec(index) else
-          inc(index);
-      end;
-
-      if not treeSelectionInfo.SelectedLayoutColumns.Contains(LayoutColumnIndex) then
-        treeSelectionInfo.SelectedLayoutColumns.Add(LayoutColumnIndex);
-
-      treeSelectionInfo.SelectedLayoutColumn := LayoutColumnIndex;
-    end;
-  end
-  else if not treeSelectionInfo.SelectedLayoutColumns.Contains(LayoutColumnIndex) or (treeSelectionInfo.SelectedLayoutColumns.Count > 1) then
-  begin
-    if (treeSelectionInfo.SelectedLayoutColumns.Contains(LayoutColumnIndex)) and (ssCtrl in Shift) then
-      Exit; // keep current columns selected
-
-    treeSelectionInfo.SelectedLayoutColumns.Clear;
-    treeSelectionInfo.SelectedLayoutColumns.Add(LayoutColumnIndex);
-    treeSelectionInfo.SelectedLayoutColumn := LayoutColumnIndex;
-  end;
+//  if (ssShift in Shift) then
+//  begin
+//    var currentLayoutFlatIndex := FlatColumnIndexByLayoutIndex(_selectionInfo.Tag);
+//    var requestedLayoutFlatIndex := FlatColumnIndexByLayoutIndex(LayoutColumnIndex);
+//
+//    var index := currentLayoutFlatIndex;
+//    if requestedLayoutFlatIndex <> index then
+//    begin
+//      while requestedLayoutFlatIndex <> index do
+//      begin
+//        if not _selectionInfo.SelectedLayoutColumns.Contains(index) then
+//          _selectionInfo.SelectedLayoutColumns.Add(index);
+//
+//        if requestedLayoutFlatIndex < index then
+//          dec(index) else
+//          inc(index);
+//      end;
+//
+//      if not _selectionInfo.SelectedLayoutColumns.Contains(LayoutColumnIndex) then
+//        _selectionInfo.SelectedLayoutColumns.Add(LayoutColumnIndex);
+//
+//      _selectionInfo.Tag := LayoutColumnIndex;
+//    end;
+//  end
+//  else if not _selectionInfo.SelectedLayoutColumns.Contains(LayoutColumnIndex) or (_selectionInfo.SelectedLayoutColumns.Count > 1) then
+//  begin
+//    if (_selectionInfo.SelectedLayoutColumns.Contains(LayoutColumnIndex)) and (ssCtrl in Shift) then
+//      Exit; // keep current columns selected
+//
+//    _selectionInfo.SelectedLayoutColumns.Clear;
+//    _selectionInfo.SelectedLayoutColumns.Add(LayoutColumnIndex);
+//    _selectionInfo.Tag := LayoutColumnIndex;
+//  end;
+  _selectionInfo.Tag := LayoutColumnIndex;
 end;
 
 function TScrollControlWithCells.IsScrollingHideColumnsFromIndexStored: Boolean;
@@ -3487,7 +3498,7 @@ begin
   // checkbox selection
   if Cell.Column.IsSelectionColumn then
   begin
-    Cell.InfoControl.Visible := _selectionInfo.CanSelect(Cell.Row.DataIndex);
+    Cell.InfoControl.Visible := _selectionInfo.CanFocus(Cell.Row.DataIndex);
     Cell.LayoutColumn.UpdateColumnContainsData(TColumnContainsData.Yes, Cell.Data {True / False});
   end
   else if LoadDefaultData and (not IsFastScrolling or not PerformanceModeWhileScrolling) then
@@ -3628,6 +3639,8 @@ begin
   else begin
     if Cell.ExpandButton <> nil then
       Result := Result + Cell.ExpandButton.Width + _cellLeftRightPadding;
+
+    Result := Result + (Cell.LayoutColumn.IndentPerLevel * cell.Row.ParentCount);
 
     // give a little extra space to editable AlignToContent columns
     // for example with dropdown, it has space to drop down itself + scrollbar width
@@ -3863,7 +3876,6 @@ begin
   var setExpanded := not drv.DataView.IsExpanded[drv.Row];
 
   var row := _view.GetActiveRowIfExists(viewListIndex) as IDCTreeRow;
-  var selInfo := _selectionInfo as ITreeSelectionInfo;
 
   var ix: Integer;
   for ix := 0 to _treeLayout.FlatColumns.Count - 1 do
@@ -3871,11 +3883,11 @@ begin
     var flatColumn := _treeLayout.FlatColumns[ix];
     if row.Cells[flatColumn.Index].ExpandButton = Sender then
     begin
-      selInfo.BeginUpdate;
+      _selectionInfo.BeginUpdate;
       try
-        selInfo.SelectedLayoutColumn := _treeLayout.FlatColumns[ix].Index;
+        _selectionInfo.Tag := _treeLayout.FlatColumns[ix].Index;
       finally
-        selInfo.EndUpdate(True);
+        _selectionInfo.EndUpdate(True);
       end;
 
       Break;
@@ -4873,6 +4885,11 @@ begin
   end;
 end;
 
+function TTreeLayoutColumn.IndentPerLevel: Single;
+begin
+  Result := CMath.Max(get_Column.Indent, CELL_MIN_INDENT) + _treeControl.CellLeftRightPadding
+end;
+
 procedure TTreeLayoutColumn.UpdateCellControlsPositions(const Cell: IDCTreeCell; ForceIsValid: Boolean = False);
 begin
   Assert(not _HideColumnInView);
@@ -4911,16 +4928,14 @@ begin
     end;
   end
   else begin
-    var indentPerLevel := CMath.Max(Cell.Column.Indent, CELL_MIN_INDENT) + _treeControl.CellLeftRightPadding;
-
     if Cell.ExpandButton <> nil then
     begin
       cell.ExpandButton.Position.Y := _treeControl.CellTopBottomPadding;
-      cell.ExpandButton.Position.X := _treeControl.CellLeftRightPadding + (indentPerLevel * cell.Row.ParentCount);
-      spaceUsed := indentPerLevel * (cell.Row.ParentCount {can be 0} + 1);
+      cell.ExpandButton.Position.X := _treeControl.CellLeftRightPadding + (IndentPerLevel * cell.Row.ParentCount);
+      spaceUsed := IndentPerLevel * (cell.Row.ParentCount {can be 0} + 1);
     end
     else if Cell.Column.ShowHierarchy or (Cell.Column.Indent > 0) then
-      spaceUsed := indentPerLevel * (cell.Row.ParentCount {can be 0});
+      spaceUsed := IndentPerLevel * (cell.Row.ParentCount {can be 0});
   end;
 
   var validMain := (Cell.InfoControl <> nil) and (Cell.InfoControl.Visible or ForceIsValid);
@@ -5968,14 +5983,13 @@ begin
     _subInfoControl.Opacity := IfThen(not Activate, 1, 0);
 end;
 
-procedure TDCTreeCell.UpdateSelectionRect(OwnerIsFocused: Boolean);
+procedure TDCTreeCell.UpdateSelectionRect(OwnerIsFocused: Boolean; IsCurrentFocused: Boolean);
 begin
   if _selectionRect = nil then
   begin
     var rect := TRectangle.Create(get_Control);
     rect.Align := TAlignLayout.Contents;
     rect.Sides := [];
-    rect.Opacity := 0.3;
     rect.HitTest := False;
 
     _selectionRect := rect;
@@ -5984,22 +5998,27 @@ begin
   end;
 
   var clr: TAlphaColor;
-  if OwnerIsFocused then
-    clr := DEFAULT_ROW_SELECTION_ACTIVE_COLOR else
+  _selectionRect.Opacity := IfThen(IsCurrentFocused, 0.3, 0.1);
+  if not IsCurrentFocused then
+    clr := DEFAULT_ROW_SELECTION_MULTISELECT_COLOR
+  else if OwnerIsFocused then
+    clr := DEFAULT_ROW_SELECTION_ACTIVE_COLOR
+  else
     clr := DEFAULT_ROW_SELECTION_INACTIVE_COLOR;
 
   (_selectionRect as TRectangle).Fill.Color := clr;
 end;
 
-procedure TDCTreeCell.UpdateSelectionVisibility(const RowIsSelected: Boolean; const SelectionInfo: ITreeSelectionInfo; OwnerIsFocused: Boolean);
+procedure TDCTreeCell.UpdateSelectionVisibility(const RowIsSelected: Boolean; const SelectionInfo: IRowSelectionInfo; OwnerIsFocused: Boolean);
 begin
-  if not RowIsSelected or not SelectionInfo.ColumnIsSelected(get_LayoutColumn.Index) then
+  if not RowIsSelected or (SelectionInfo.Tag <> get_LayoutColumn.Index) then
   begin
     FreeAndNil(_selectionRect);
     Exit;
   end;
 
-  UpdateSelectionRect(OwnerIsFocused);
+  var isCurrentDataItem := SelectionInfo.IsFocused(get_Row.DataIndex);
+  UpdateSelectionRect(OwnerIsFocused, isCurrentDataItem);
 end;
 
 { TDCTreeRow }
@@ -6074,20 +6093,29 @@ end;
 
 procedure TDCTreeRow.UpdateSelectionVisibility(const SelectionInfo: IRowSelectionInfo; OwnerIsFocused: Boolean);
 begin
-  var rowWasSelected := _selectionRect <> nil;
+  var rowWasSelected := (_selectionRect <> nil) and not _selectionRectIsMultiSelect;
 
   inherited;
 
-  var rowIsSelected := _selectionRect <> nil;
+  var rowIsSelected := (_selectionRect <> nil) and not _selectionRectIsMultiSelect;
+
   if (not rowWasSelected and not rowIsSelected) or (SelectionInfo.SelectionType <> TSelectionType.CellSelection) then
     Exit;
 
   if rowIsSelected then
-    _selectionRect.Opacity := 0.0; // make cell selection more visible
+  begin
+    if not SelectionInfo.IsSelected(_dataIndex) then
+      _selectionRect.Opacity := 0.0 // make cell selection more visible
+    else
+    begin
+      _selectionRect.Opacity := 0.1;
+      _selectionRect.Fill.Color := DEFAULT_ROW_SELECTION_MULTISELECT_COLOR;
+    end;
+  end;
 
   var cell: IDCTreeCell;
   for cell in _cells.Values do
-    cell.UpdateSelectionVisibility(rowIsSelected, SelectionInfo as ITreeSelectionInfo, OwnerIsFocused);
+    cell.UpdateSelectionVisibility(rowIsSelected, SelectionInfo, OwnerIsFocused);
 end;
 
 //function TDCTreeRow.get_InnerRowControl: TControl;
@@ -6177,68 +6205,6 @@ end;
 procedure THeaderCell.set_SortControl(const Value: TControl);
 begin
   _sortControl := Value;
-end;
-
-{ TTreeSelectionInfo }
-
-procedure TTreeSelectionInfo.Clear;
-begin
-  _lastSelectedLayoutColumn := -1;
-  inherited;
-end;
-
-procedure TTreeSelectionInfo.ClearMultiSelections;
-begin
-  inherited;
-
-  if _SelectedLayoutColumns = nil then
-    Exit;
-
-  _SelectedLayoutColumns.Clear;
-  _SelectedLayoutColumns.Add(_lastSelectedLayoutColumn);
-end;
-
-function TTreeSelectionInfo.ColumnIsSelected(const ClmnIndex: Integer): Boolean;
-begin
-  Result := (get_SelectedLayoutColumn = ClmnIndex) or _SelectedLayoutColumns.Contains(ClmnIndex);
-end;
-
-function TTreeSelectionInfo.Clone: IRowSelectionInfo;
-begin
-  Result := inherited Clone;
-  (Result as ITreeSelectionInfo).SelectedLayoutColumn := _lastSelectedLayoutColumn;
-end;
-
-constructor TTreeSelectionInfo.Create(const RowsControl: IRowsControl);
-begin
-  inherited;
-
-  _SelectedLayoutColumns := CList<Integer>.Create;
-  _lastSelectedLayoutColumn := -1;
-end;
-
-function TTreeSelectionInfo.CreateInstance: IRowSelectionInfo;
-begin
-  Result := TTreeSelectionInfo.Create(nil {clones don't get the treecontrol, for they dopn't need to make changes});
-end;
-
-function TTreeSelectionInfo.get_SelectedLayoutColumn: Integer;
-begin
-  Result := _lastSelectedLayoutColumn;
-end;
-
-function TTreeSelectionInfo.get_SelectedLayoutColumns: List<Integer>;
-begin
-  Result := _SelectedLayoutColumns;
-end;
-
-procedure TTreeSelectionInfo.set_SelectedLayoutColumn(const Value: Integer);
-begin
-  if _lastSelectedLayoutColumn <> Value then
-  begin
-    _lastSelectedLayoutColumn := Value;
-    DoSelectionInfoChanged;
-  end;
 end;
 
 { TDCTreeCheckboxColumn }

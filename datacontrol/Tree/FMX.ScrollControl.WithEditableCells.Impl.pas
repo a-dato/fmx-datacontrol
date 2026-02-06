@@ -421,7 +421,7 @@ begin
   var dummyOldRow := ProvideRowForChanging(_selectionInfo) as IDCTreeRow;
   if dummyOldRow = nil then Exit(True);
 
-  var oldCell := dummyOldRow.Cells[(_selectionInfo as ITreeSelectionInfo).SelectedLayoutColumn];
+  var oldCell := dummyOldRow.Cells[_selectionInfo.Tag];
   Result := DoCellCanChange(oldCell, nil);
 end;
 
@@ -647,9 +647,9 @@ begin
 
   _selectionInfo.LastSelectionEventTrigger := TSelectionEventTrigger.Internal;
 
-  var requestedSelection := _selectionInfo.Clone as ITreeSelectionInfo;
-  requestedSelection.UpdateLastSelection(cell.Row.DataIndex, cell.Row.ViewListIndex, cell.Row.DataItem);
-  requestedSelection.SelectedLayoutColumn := FlatColumnByColumn(cell.Column).Index;
+  var requestedSelection := _selectionInfo.Clone;
+  requestedSelection.SetFocusedItem(cell.Row.DataIndex, cell.Row.ViewListIndex, cell.Row.DataItem);
+  requestedSelection.Tag := FlatColumnByColumn(cell.Column).Index;
 
   if TrySelectItem(requestedSelection, []) then
   begin
@@ -912,7 +912,8 @@ begin
   begin
     // check if row change came through if it was needed
     var newCell := GetActiveCell;
-    if (newCell <> nil) and (newCell.Row = clickedRow) and not newCell.Column.ReadOnly then
+    var clmn := GetFlatColumnByMouseX(X);
+    if (newCell <> nil) and (newCell.Row = clickedRow) and (newCell.LayoutColumn = clmn) and not newCell.Column.ReadOnly then
     begin
       if not newCell.Column.IsSelectionColumn and (newCell.Column.InfoControlClass = TInfoControlClass.CheckBox) then
         (newCell.InfoControl as IIsChecked).IsChecked := not (newCell.InfoControl as IIsChecked).IsChecked
@@ -1107,8 +1108,7 @@ begin
   Result := _editingInfo.IsNew;
   if Result then
   begin
-    _resetRowDataItem := False;
-    _selectionInfo.UpdateLastSelection(_editingInfo.EditItemDataIndex, _view.GetViewListIndex(_editingInfo.EditItemDataIndex), newDataItem);
+    _selectionInfo.SetFocusedItem(_editingInfo.EditItemDataIndex, _view.GetViewListIndex(_editingInfo.EditItemDataIndex), newDataItem);
 
     // let the view know that we started with editing
     _view.StartEdit(_editingInfo.EditItem);
@@ -1146,7 +1146,10 @@ begin
     Exit(True);
   end;
 
-  var dataIndexes: List<Integer> := CList<Integer>.Create(_selectionInfo.SelectedDataIndexes);
+  var dataIndexes: List<Integer> := CList<Integer>.Create;
+  for var ix in _selectionInfo.SelectedDataIndexes do
+    dataIndexes.Add(ix);
+
   dataIndexes.Sort(function(const x, y: Integer): Integer begin Result := -CInteger(x).CompareTo(y); end);
 
   Result := False;
@@ -1179,8 +1182,7 @@ begin
     begin
       var ixDel := CMath.Max(0, CMath.Min(_view.ViewCount -1, currentIndex));
 
-      _resetRowDataItem := False;
-      _selectionInfo.UpdateLastSelection( _view.GetDataIndex(ixDel), ixDel, _view.GetViewList[ixDel]);
+      _selectionInfo.SetFocusedItem( _view.GetDataIndex(ixDel), ixDel, _view.GetViewList[ixDel]);
       RealignFromSelectionChange;
     end
     else
@@ -1635,7 +1637,8 @@ begin
 
     _selectionInfo.BeginUpdate;
     try
-      _selectionInfo.UpdateSingleSelection(_editingInfo.EditItemDataIndex, ix, _editingInfo.EditItem, TDCTreeOption.KeepCurrentSelection in _Options);
+      _selectionInfo.SetFocusedItem(_editingInfo.EditItemDataIndex, ix, _editingInfo.EditItem);
+      _selectionInfo.ClearMultiSelections;
     finally
       _selectionInfo.EndUpdate(True);
     end;

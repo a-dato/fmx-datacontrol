@@ -390,6 +390,8 @@ type
     procedure UpdateCellControlsPositions(const Cell: IDCTreeCell; ForceIsValid: Boolean = False);
     procedure UpdateColumnContainsData(const ContainsData: TColumnContainsData; const CellDataExample: CObject);
 
+    function  IndentPerLevel: Single;
+
     property Column: IDCTreeColumn read get_Column;
     property Index: Integer read get_Index write set_Index;
     property Left: Single read get_Left write set_Left;
@@ -444,18 +446,6 @@ type
 //    property TotalWidth: Single read get_TotalWidth;
   end;
 
-  ITreeSelectionInfo = interface(IRowSelectionInfo)
-    ['{09E6C833-FFAD-49E5-BE3C-DE8F87CB3C1F}']
-    function  get_SelectedLayoutColumn: Integer;
-    procedure set_SelectedLayoutColumn(const Value: Integer);
-    function  get_SelectedLayoutColumns: List<Integer>;
-
-    function ColumnIsSelected(const ClmnIndex: Integer): Boolean;
-
-    property SelectedLayoutColumns: List<Integer> read get_SelectedLayoutColumns;
-    property SelectedLayoutColumn: Integer read get_SelectedLayoutColumn write set_SelectedLayoutColumn;
-  end;
-
   IDCTreeCell = interface(IBaseInterface)
     ['{F0A049EA-A0A8-409C-95E7-B663C1FBBC78}']
     function  get_Column: IDCTreeColumn;
@@ -491,7 +481,7 @@ type
     procedure set_PerformanceModeWhileScrolling(const Value: Boolean);
 
     function  IsHeaderCell: Boolean;
-    procedure UpdateSelectionVisibility(const RowIsSelected: Boolean; const SelectionInfo: ITreeSelectionInfo; OwnerIsFocused: Boolean);
+    procedure UpdateSelectionVisibility(const RowIsSelected: Boolean; const SelectionInfo: IRowSelectionInfo; OwnerIsFocused: Boolean);
 
     procedure ClearCellForReassignment;
     procedure CheckPerformanceRoutine(GoPerformanceMode: Boolean);

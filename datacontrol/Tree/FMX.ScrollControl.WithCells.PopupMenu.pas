@@ -307,7 +307,7 @@ begin
     _dataControl.AssignSelection(Selected as IList);
 
   if SelectNullValue then
-    _dataControl.SelectItem(NO_VALUE, False);
+    _dataControl.AddToSelection(NO_VALUE, False);
 end;
 
 procedure TfrmFMXPopupMenuDataControl.LoadDateRange(const Start: CDateTime; const Stop: CDateTime; ShowTimeValue: Boolean);
@@ -389,7 +389,7 @@ begin
   begin
     if cbSelectAll.IsChecked then
       _dataControl.SelectAll else
-      _dataControl.ClearSelections;
+      _dataControl.ClearSelectedItems;
   end);
 end;
 

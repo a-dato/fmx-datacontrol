@@ -219,7 +219,7 @@ begin
   try
     if Value = nil then
     begin
-      _control.ClearSelections;
+      _control.ClearSelectedItems;
 
       if _control.GetDataModelView <> nil then
         _control.GetDataModelView.CurrencyManager.Current := -1;
@@ -234,7 +234,7 @@ begin
     end else
       l := Value.AsType<IList>;
 
-    _control.ClearSelections;
+    _control.ClearSelectedItems;
     var item: CObject;
     for item in data do
     begin
@@ -243,7 +243,7 @@ begin
 
       if (l <> nil) and (l.IndexOf(cvItem) <> -1) then
       begin
-        _control.SelectItem(cvItem);
+        _control.AddToSelection(cvItem);
         _currentItem := item;
       end;
     end;

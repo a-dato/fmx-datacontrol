@@ -335,7 +335,7 @@ procedure TComboMultiBox.set_SelectedItems(const Value: IList);
 begin
   if (Value = nil) or (Value.Count = 0) then
   begin
-    _popupMenu.DataControl.ClearSelections;
+    _popupMenu.DataControl.ClearSelectedItems;
     Exit;
   end;
 

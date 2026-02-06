@@ -166,8 +166,8 @@ begin
   else if (Key = vkSpace) or (KeyChar = ' ') then
   begin
     if not DataControl.SlowItemIsSelected(DataControl.DataItem) then
-      DataControl.SelectItem(DataControl.DataItem, False) else
-      DataControl.DeselectItem(DataControl.DataItem);
+      DataControl.AddToSelection(DataControl.DataItem, False) else
+      DataControl.RemoveFromSelection(DataControl.DataItem);
 
     TreeCellSelected(DataControl, nil);
 
@@ -183,8 +183,7 @@ end;
 
 procedure TfrmComboMultiBoxPopup.CancelChanges;
 begin
-  DataControl.ClearSelections;
-
+  DataControl.ClearSelectedItems;
   if _oldSelection <> nil then
     DataControl.AssignSelection(_oldSelection as IList);
 end;
@@ -230,7 +229,7 @@ begin
   begin
     if cbSelectAll.IsChecked then
       DataControl.SelectAll else
-      DataControl.ClearSelections;
+      DataControl.ClearSelectedItems;
   end);
 end;
 
