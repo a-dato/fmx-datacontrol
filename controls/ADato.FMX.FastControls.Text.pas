@@ -391,10 +391,6 @@ begin
     _layout.TopLeft := (Self.Parent as TControl).LocalToAbsolute({TPointF.Create(0, 0}TPointF.Create(0, 15));
   {$ENDIF}
 
-  {$IFDEF DEBUG}
-  StopwatchText2.Start;
-  {$ENDIF}
-
   inherited;
 
   if not _ignoreDefaultPaint then
@@ -435,10 +431,6 @@ begin
     Canvas.Stroke.Color := _layout.Color;
     Canvas.DrawLine(PointF(_textBounds.Left, _textBounds.Bottom), PointF(_textBounds.Right, _textBounds.Bottom), AbsoluteOpacity);
   end;
-
-  {$IFDEF DEBUG}
-  StopwatchText2.Stop;
-  {$ENDIF}
 end;
 
 procedure TFastText.DoResized;
@@ -583,9 +575,6 @@ begin
   if not _recalcNeeded then
     Exit;
 
-  {$IFDEF DEBUG}
-  StopwatchText1.Start;
-  {$ENDIF}
   _recalcNeeded := False;
 
   var maxInternalWidth := _maxWidth - Padding.Left - Padding.Right - _internalLeftPadding - _internalRightPadding;
@@ -597,10 +586,6 @@ begin
 
   if _autoWidth then
     Self.Width := TextWidthWithPadding;
-
-  {$IFDEF DEBUG}
-  StopwatchText1.Stop;
-  {$ENDIF}
 end;
 
 procedure TFastText.SetStyledSettings(const Value: TStyledSettings);

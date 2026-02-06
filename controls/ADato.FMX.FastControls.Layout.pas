@@ -109,10 +109,6 @@ end;
 
 procedure TBackgroundControl.Paint;
 begin
-  {$IFDEF DEBUG}
-  StopwatchBackground.Start;
-  {$ENDIF}
-
   if FFillColor <> TAlphaColors.Null then
   begin
     Canvas.Fill.Color := FFillColor;
@@ -152,10 +148,6 @@ begin
         Canvas.DrawRect(GetShapeRect, XRadius, YRadius, FCorners, AbsoluteOpacity, TCornerType.Round);
     end;
   end;
-
-  {$IFDEF DEBUG}
-  StopwatchBackground.Stop;
-  {$ENDIF}
 end;
 
 procedure TBackgroundControl.DoInternalChanged;
@@ -326,10 +318,6 @@ begin
   begin
     _resetBufferRequired := False;
 
-    {$IFDEF DEBUG}
-    StopwatchLayout1.Start;
-    {$ENDIF}
-
     _creatingBitmap := True;
     try
       var logicalW: Integer := Ceil(Self.Width * scale);
@@ -355,9 +343,6 @@ begin
     finally
       _creatingBitmap := False;
     end;
-    {$IFDEF DEBUG}
-    StopwatchLayout1.Stop;
-    {$ENDIF}
   end;
 end;
 
@@ -394,14 +379,8 @@ begin
     Exit;
   end;
 
-  {$IFDEF DEBUG}
-  StopwatchLayout2.Start;
-  {$ENDIF}
   var destRect := RectF(0, 0, Self.Width, Self.Height);
   Canvas.DrawBitmap(_bitmap, RectF(0, 0, _bitmap.Width, _bitmap.Height), destRect, 1.0, False);
-  {$IFDEF DEBUG}
-  StopwatchLayout2.Stop;
-  {$ENDIF}
 end;
 
 procedure TAdaptableBitmapLayout.PaintChildren;
