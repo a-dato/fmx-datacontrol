@@ -144,8 +144,6 @@ type
 //    _tickAtStart: Integer;
 
     {$IFDEF DEBUG}
-    _stopwatch: TStopwatch;
-    _stopwatchPaint: TStopwatch;
     _debugCheck: Boolean;
     {$ENDIF}
 
@@ -217,8 +215,6 @@ type
   public
     procedure TurnWheel;
     property OnLog: TDoLog write _onLog;
-    property Stopwatch: TStopwatch read _stopwatch;
-    property StopwatchPaint: TStopwatch read _stopwatchPaint;
   {$ENDIF}
 
   public
@@ -236,7 +232,7 @@ uses
   {$ELSE}
   Wasm.System.Math,
   {$ENDIF}
-  FMX.ControlCalculations;
+  FMX.ControlCalculations, ADato.TraceEvents.intf;
 
 { TScrollControl }
 
@@ -249,8 +245,6 @@ begin
 
   {$IFDEF DEBUG}
   _debugCheck := True;
-  _stopwatch := TStopwatch.Create;
-  _stopwatchPaint := TStopwatch.Create;
   {$ENDIF}
 
   Self.HitTest := True;
@@ -387,7 +381,7 @@ begin
     SetBasicVertScrollBarValues;
     DoRealignContent;
   end;
- end;
+end;
 
 procedure TScrollControl.BeforeRealignContent;
 begin
@@ -430,9 +424,7 @@ begin
     restartAgain := True;
   end else
   begin
-    if _scrollingType <> TScrollingType.Other then
-      AfterScrolling;
-
+    AfterScrolling;
     Exit;
   end;
 
@@ -870,12 +862,13 @@ begin
   end;
 
   var wasAbove := _mouseWheelDistanceToGo > 0;
+  var scrollPart: Integer;
 
   var posIntTotal := IfThen(wasAbove, _mouseWheelDistanceTotal, -_mouseWheelDistanceTotal);
   var posIntToGo := IfThen(wasAbove, _mouseWheelDistanceToGo, -_mouseWheelDistanceToGo);
 
   var scrollSpeed := posIntTotal / 3.5;
-  var scrollPart := Round(CMath.Min(scrollSpeed, posIntToGo * 0.7));
+  scrollPart := Round(CMath.Min(scrollSpeed, posIntToGo * 0.7));
 
   // otherwise scrolling looks like its going backwards and too fast..
   if scrollPart > 75 then
@@ -885,6 +878,7 @@ begin
     scrollPart := -scrollPart;
 
   _mouseWheelDistanceToGo := _mouseWheelDistanceToGo - scrollPart;
+
   var isAbove := _mouseWheelDistanceToGo > 0;
 
   if (wasAbove <> isAbove) or ((_mouseWheelDistanceToGo > -1) and (_mouseWheelDistanceToGo < 1)) or SameValue(scrollPart, 0, 0.5) then
@@ -983,7 +977,9 @@ procedure TScrollControl.PaintChildren;
 begin
   var stopwatch := TStopwatch.StartNew;
 
+  EventTracer.StartTimer('TScrollControl', 'Tree-PaintChildren');
   inherited;
+  EventTracer.PauseTimer('TScrollControl', 'Tree-PaintChildren');
 
   stopwatch.Stop;
   _paintTime := stopwatch.ElapsedMilliseconds;
@@ -1111,9 +1107,13 @@ procedure TScrollControl.ScrollManualTryAnimated;
 begin
   _mouseWheelSmoothScrollTimer.Enabled := False;
 
-  if IsFastScrolling then
+  if IsFastScrolling {$IFDEF DEBUG}or True {$ENDIF} then
   begin
     ScrollManualInstant(_mouseWheelDistanceToGo);
+
+    RestartWaitForRealignTimer(True {WAIT}, True);
+    TryStartWaitForRealignTimer;
+
     Exit;
   end;
 

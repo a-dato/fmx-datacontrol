@@ -91,7 +91,7 @@ type
 implementation
 
 uses
-  FMX.Forms, FMX.Text, System.Rtti, System.Math.Vectors;
+  FMX.Forms, FMX.Text, System.Rtti, System.Math.Vectors, ADato.TraceEvents.intf;
 
 { TBackgroundControl }
 
@@ -275,6 +275,9 @@ begin
   inherited;
 
   _useBuffering := False;
+  {$IFDEF DEBUG}
+  _useBuffering := True;
+  {$ENDIF}
   _resetBufferRequired := True;
 end;
 
@@ -311,6 +314,7 @@ procedure TAdaptableBitmapLayout.LoadBitmap;
 begin
 //  var isBeforePaint := (Self.Canvas = nil) or (Self.Canvas.BeginSceneCount = 0);
 
+  EventTracer.StartTimer('TAdaptableBitmapLayout', 'LoadBitmap');
   var scale := Self.Scene.GetSceneScale;
   if (_bitmap <> nil) and (_bitmap.BitmapScale <> scale) then
     _resetBufferRequired := True;
@@ -345,6 +349,7 @@ begin
       _creatingBitmap := False;
     end;
   end;
+  EventTracer.PauseTimer('TAdaptableBitmapLayout', 'LoadBitmap');
 end;
 
 function TAdaptableBitmapLayout.ObjectAtPoint(P: TPointF): IControl;
@@ -367,28 +372,35 @@ begin
   LoadBitmap;
   if ShouldInheritPaint then
   begin
+    EventTracer.StartTimer('TAdaptableBitmapLayout', 'Painting');
     inherited;
+    EventTracer.PauseTimer('TAdaptableBitmapLayout', 'Painting');
     Exit;
   end;
 end;
 
 procedure TAdaptableBitmapLayout.Paint;
 begin
+  EventTracer.StartTimer('TAdaptableBitmapLayout', 'Paint');
   if ShouldInheritPaint then
   begin
     inherited;
+    EventTracer.PauseTimer('TAdaptableBitmapLayout', 'Paint');
     Exit;
   end;
 
   var destRect := RectF(0, 0, Self.Width, Self.Height);
   Canvas.DrawBitmap(_bitmap, RectF(0, 0, _bitmap.Width, _bitmap.Height), destRect, 1.0, False);
+    EventTracer.PauseTimer('TAdaptableBitmapLayout', 'Paint');
 end;
 
 procedure TAdaptableBitmapLayout.PaintChildren;
 begin
   if ShouldInheritPaint then
   begin
+    EventTracer.StartTimer('TAdaptableBitmapLayout', 'PaintChildren');
     inherited;
+    EventTracer.PauseTimer('TAdaptableBitmapLayout', 'PaintChildren');
     Exit;
   end;
 end;
@@ -401,7 +413,9 @@ procedure TAdaptableBitmapLayout.AfterPaint;
 begin
   if ShouldInheritPaint then
   begin
+    EventTracer.StartTimer('TAdaptableBitmapLayout', 'AfterPaint');
     inherited;
+    EventTracer.PauseTimer('TAdaptableBitmapLayout', 'AfterPaint');
     Exit;
   end;
 end;
@@ -427,6 +441,11 @@ begin
 
   if get_UseBuffering = Value then
     Exit;
+
+  {$IFDEF DEBUG}
+  if _useBuffering then
+    Exit;
+  {$ENDIF}
 
   _useBuffering := Value;
 

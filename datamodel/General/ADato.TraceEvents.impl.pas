@@ -209,6 +209,11 @@ end;
 
 procedure TEventTraceToFile.EndGroupFile(const AGroup: string; const DeleteFile: Boolean = False);
 begin
+  {$IFDEF LYNXX}
+  RemoveTraceItem(AGroup, True);
+  Exit;
+  {$ENDIF}
+
   RemoveTraceItem(AGroup, DeleteFile);
 end;
 
