@@ -2737,7 +2737,6 @@ begin
 //  {$ENDIF}
   Result := False;
 
-  _stopwatch.Start;
   if Assigned(_cellFormatting) then
   begin
     var args := DCCellFormattingEventArgs.Create(Cell, Value);
@@ -2746,10 +2745,8 @@ begin
 
       _cellFormatting(Self, args);
 
-      _stopwatchPaint.Start;
       if not Result and args.FormatCellAfterScrolling and IsScrolling then
         _view.NotifyRowControlsNeedReload(Cell.Row, True {force reload after scrolling is done});
-      _stopwatchPaint.Stop;
 
       Value := args.Value;
       Result := args.FormattingApplied;
@@ -2757,7 +2754,6 @@ begin
       args.Free;
     end;
   end;
-  _stopwatch.Stop;
 end;
 
 procedure TScrollControlWithCells.DoCellLoaded(const Cell: IDCTreeCell; RequestForSort: Boolean; var PerformanceModeWhileScrolling: Boolean; var OverrideRowHeight: Single);
@@ -2765,7 +2761,7 @@ begin
 //  {$IFDEF DEBUG}
 //  Exit;
 //  {$ENDIF}
-  _stopwatch.Start;
+
   if Assigned(_CellLoaded) then
   begin
     var args := DCCellLoadedEventArgs.Create(Cell, TDCTreeOption.ShowVertGrid in  _options, PerformanceModeWhileScrolling);
@@ -2775,7 +2771,6 @@ begin
 
       _CellLoaded(Self, args);
 
-      _stopwatchPaint.Start;
       if args.OverrideRowHeight <> -1 {> ManualRowHeight} then
         OverrideRowHeight := args.OverrideRowHeight;
 
@@ -2783,12 +2778,10 @@ begin
         _view.NotifyRowControlsNeedReload(Cell.Row, True {force reload after scrolling is done});
 
       {var} PerformanceModeWhileScrolling := args.PerformanceModeWhileScrolling;
-      _stopwatchPaint.Stop;
     finally
       args.Free;
     end;
   end;
-  _stopwatch.Stop;
 end;
 
 function TScrollControlWithCells.DoCellLoading(const Cell: IDCTreeCell; RequestForSort: Boolean; var PerformanceModeWhileScrolling: Boolean; var OverrideRowHeight: Single) : Boolean;
@@ -2797,8 +2790,6 @@ begin
 //  {$IFDEF DEBUG}
 //  Exit(True);
 //  {$ENDIF}
-  _stopwatch.Start;
-
   if Assigned(_CellLoading) then
   begin
     var args := DCCellLoadingEventArgs.Create(Cell, TDCTreeOption.ShowVertGrid in  _options, PerformanceModeWhileScrolling);
@@ -2809,7 +2800,6 @@ begin
       _CellLoading(Self, args);
       Result := args.LoadDefaultData;
 
-      _stopwatchPaint.Start;
       if args.OverrideRowHeight <> -1 {> ManualRowHeight} then
         OverrideRowHeight := args.OverrideRowHeight;
 
@@ -2818,13 +2808,10 @@ begin
 
       {var} PerformanceModeWhileScrolling := args.PerformanceModeWhileScrolling;
 
-      _stopwatchPaint.Stop;
     finally
       args.Free;
     end;
   end;
-
-  _stopwatch.Stop;
 end;
 
 procedure TScrollControlWithCells.DoCellSelected(const Cell: IDCTreeCell; EventTrigger: TSelectionEventTrigger);
