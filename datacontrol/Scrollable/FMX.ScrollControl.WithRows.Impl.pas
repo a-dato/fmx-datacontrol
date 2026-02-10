@@ -2094,6 +2094,7 @@ begin
     if Row.Control = nil then
     begin
       var ly := TRowLayout.Create(_content, CreateRowBackground);
+      ly.OriginalBackgroundColorIsNull := False; // !! saves a lot of time, because clearing bitmap is not needed..
 //      ly.ClipChildren := True; // costs a lot of time , while we can also do this on lower level..
       ly.HitTest := False;
       ly.Align := TAlignLayout.None;

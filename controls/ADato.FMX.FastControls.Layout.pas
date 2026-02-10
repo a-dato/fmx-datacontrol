@@ -15,6 +15,8 @@ type
     _bitmap: TBitmap;
 
     _useBuffering: Boolean;
+    _originalBackgroundColorIsNull: Boolean;
+
     _resetBufferRequired: Boolean;
     _creatingBitmap: Boolean;
 
@@ -42,6 +44,7 @@ type
     procedure ResetBuffer;
 
     property UseBuffering: Boolean read get_UseBuffering write set_UseBuffering default True;
+    property OriginalBackgroundColorIsNull: Boolean read _originalBackgroundColorIsNull write _originalBackgroundColorIsNull default True;
   end;
 
   TBackgroundControl = class(TControl, IBackgroundControl)
@@ -275,10 +278,8 @@ begin
   inherited;
 
   _useBuffering := False;
-  {$IFDEF DEBUG}
-  _useBuffering := True;
-  {$ENDIF}
   _resetBufferRequired := True;
+  _originalBackgroundColorIsNull := True;
 end;
 
 destructor TAdaptableBitmapLayout.Destroy;
@@ -330,13 +331,16 @@ begin
 
       if (_bitmap = nil) or (_bitmap.Width <> logicalW) or (_bitmap.Height <> logicalH) or (_bitmap.BitmapScale <> scale) then
         FreeAndNil(_bitmap);
-
+//
       if (_bitmap = nil) then
       begin
         _bitmap := TBitmap.Create(logicalW, logicalH);
         _bitmap.CanvasQuality := TCanvasQuality.HighPerformance;
         _bitmap.BitmapScale := scale;
-      end else
+      end
+
+      // try to have a background color, because clearing will cost a lot of time!!
+      else if OriginalBackgroundColorIsNull then
         _bitmap.Clear(0);
 
       if _bitmap.Canvas.BeginScene then
@@ -372,35 +376,28 @@ begin
   LoadBitmap;
   if ShouldInheritPaint then
   begin
-    EventTracer.StartTimer('TAdaptableBitmapLayout', 'Painting');
     inherited;
-    EventTracer.PauseTimer('TAdaptableBitmapLayout', 'Painting');
     Exit;
   end;
 end;
 
 procedure TAdaptableBitmapLayout.Paint;
 begin
-  EventTracer.StartTimer('TAdaptableBitmapLayout', 'Paint');
   if ShouldInheritPaint then
   begin
     inherited;
-    EventTracer.PauseTimer('TAdaptableBitmapLayout', 'Paint');
     Exit;
   end;
 
   var destRect := RectF(0, 0, Self.Width, Self.Height);
   Canvas.DrawBitmap(_bitmap, RectF(0, 0, _bitmap.Width, _bitmap.Height), destRect, 1.0, False);
-    EventTracer.PauseTimer('TAdaptableBitmapLayout', 'Paint');
 end;
 
 procedure TAdaptableBitmapLayout.PaintChildren;
 begin
   if ShouldInheritPaint then
   begin
-    EventTracer.StartTimer('TAdaptableBitmapLayout', 'PaintChildren');
     inherited;
-    EventTracer.PauseTimer('TAdaptableBitmapLayout', 'PaintChildren');
     Exit;
   end;
 end;
@@ -413,9 +410,7 @@ procedure TAdaptableBitmapLayout.AfterPaint;
 begin
   if ShouldInheritPaint then
   begin
-    EventTracer.StartTimer('TAdaptableBitmapLayout', 'AfterPaint');
     inherited;
-    EventTracer.PauseTimer('TAdaptableBitmapLayout', 'AfterPaint');
     Exit;
   end;
 end;
@@ -441,11 +436,6 @@ begin
 
   if get_UseBuffering = Value then
     Exit;
-
-  {$IFDEF DEBUG}
-  if _useBuffering then
-    Exit;
-  {$ENDIF}
 
   _useBuffering := Value;
 

@@ -428,8 +428,15 @@ begin
 
   if _hover and _underlineOnHover and not _mouseIsDown then
   begin
+    var xPos := 0.0;
+    case get_HorzTextAlign of
+      TTextAlign.Center: xPos := (Self.Width - _textBounds.Width) / 2;
+      TTextAlign.Leading: xPos := Padding.Left + _internalLeftPadding;
+      TTextAlign.Trailing: xPos := Self.Width - _textBounds.Width - Padding.Right - _internalRightPadding;
+    end;
+
     Canvas.Stroke.Color := _layout.Color;
-    Canvas.DrawLine(PointF(_textBounds.Left, _textBounds.Bottom), PointF(_textBounds.Right, _textBounds.Bottom), AbsoluteOpacity);
+    Canvas.DrawLine(PointF(xPos + _textBounds.Left, _textBounds.Bottom), PointF(xPos + _textBounds.Right, _textBounds.Bottom), AbsoluteOpacity);
   end;
 end;
 

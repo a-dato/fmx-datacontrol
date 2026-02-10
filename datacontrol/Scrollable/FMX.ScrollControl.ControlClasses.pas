@@ -509,12 +509,9 @@ end;
 
 procedure TDataControlClassFactory.HandleRowBackground(const RowRect: IBackgroundControl; AlternateAvailable: Boolean; Alternate: Boolean);
 begin
-  if not AlternateAvailable then
-    RowRect.FillColor := TAlphaColors.Null
-  else if Alternate then
-    RowRect.FillColor := DEFAULT_GREY_COLOR
-  else
-    RowRect.FillColor := DEFAULT_WHITE_COLOR;
+  if not AlternateAvailable or not Alternate then
+    RowRect.FillColor := DEFAULT_WHITE_COLOR else
+    RowRect.FillColor := DEFAULT_GREY_COLOR;
 end;
 
 procedure TDataControlClassFactory.HandleRowChildRelation(const RowLayout: IRowLayout; IsOpenParent, IsOpenChild: Boolean; AWidth: Single);
