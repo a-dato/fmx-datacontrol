@@ -61,7 +61,7 @@ type
     function  get_IsPrinting: Boolean;
     procedure set_IsPrinting(const Value: Boolean);
 
-    procedure OnDataItemChanged;
+    procedure OnCurrentChanged;
     procedure OnSelectedItemsChanged;
 
     function  SelectionCount: Integer;

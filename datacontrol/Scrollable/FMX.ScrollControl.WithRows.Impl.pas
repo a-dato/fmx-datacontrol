@@ -226,7 +226,7 @@ type
 
     function  HasViewRows: Boolean;
 
-    procedure OnDataItemChanged; virtual;
+    procedure OnCurrentChanged; virtual;
     procedure OnSelectedItemsChanged; virtual;
 
     function  CreateSelectioninfoInstance: IRowSelectionInfo; virtual;
@@ -555,7 +555,7 @@ type
 
 const
   ANI_DURATION = 0.3;
-  ANI_DELAY = 0.2;
+  ANI_DELAY = 0;
 
 implementation
 
@@ -2689,7 +2689,7 @@ begin
     VisualizeRowSelection(row);
 end;
 
-procedure TScrollControlWithRows.OnDataItemChanged;
+procedure TScrollControlWithRows.OnCurrentChanged;
 begin
   if SyncIsMasterSynchronizer then
     Exit;
@@ -2734,7 +2734,7 @@ begin
     VisualizeRowSelection(row);
 
   if IsMasterSynchronizer then
-    _rowHeightSynchronizer.OnDataItemChanged;
+    _rowHeightSynchronizer.OnCurrentChanged;
 end;
 
 function TScrollControlWithRows.ConvertedDataItem: CObject;
@@ -3282,7 +3282,7 @@ begin
     _referenceRowViewListIndex := -1;
 
     if rowIsChanged then
-      OnDataItemChanged;
+      OnCurrentChanged;
   end;
 end;
 
@@ -4258,7 +4258,11 @@ end;
 
 procedure TRowSelectionInfo.set_Tag(const Value: Integer);
 begin
+  if _tag = Value then
+    Exit;
+
   _tag := Value;
+  _focusedChanged := True;
 end;
 
 function TRowSelectionInfo.Clone: IRowSelectionInfo;
@@ -4313,7 +4317,7 @@ begin
     Exit;
   end;
 
-  _rowsControl.OnDataItemChanged;
+  _rowsControl.OnCurrentChanged;
 end;
 
 procedure TRowSelectionInfo.DoMultiSelectChanged;
