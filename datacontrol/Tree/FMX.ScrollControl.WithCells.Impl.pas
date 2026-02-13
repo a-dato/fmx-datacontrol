@@ -161,7 +161,6 @@ type
     _selectionCheckBoxUpdateCount: Integer;
 //    procedure OnSelectionCheckBoxChange(Sender: TObject);
     procedure UpdateSelectionCheckboxes(const Row: IDCRow);
-    function  SelectionCheckBoxColumn: IDCTreeLayoutColumn;
 
     procedure SetColumnSelectionIfNoneExists;
     procedure set_AutoCenterTree(const Value: Boolean);
@@ -180,6 +179,7 @@ type
     function  ClearTreeSorts: Boolean;
     procedure ClearTreeFilters;
     procedure UpdateHeaderRowControls;
+    function  SelectionCheckBoxColumn: IDCTreeLayoutColumn;
 
     function  DoCreateNewRow: IDCRow; override;
     function  DoCreateNewCell(const ARow: IDCRow; const LayoutColumn: IDCTreeLayoutColumn): IDCTreeCell; virtual;
@@ -995,7 +995,7 @@ uses
   , app.PropertyDescriptor.intf
   {$ENDIF}
   , FMX.ScrollControl.ControlClasses,
-  System.Generics.Collections;
+  System.Generics.Collections, ADato.TraceEvents.intf;
 
 
 { TScrollControlWithCells }
@@ -1155,11 +1155,13 @@ end;
 
 procedure TScrollControlWithCells.AfterRealignContent;
 begin
+  EventTracer.StartTimer('TREE', 'AfterRealignContent');
   inherited;
 
   if _columns.Count = 0 then
     Exit;
 
+  EventTracer.StartTimer('TREE', 'ProcessColumnVisibilityRules');
   AssignWidthsToAlignColumns;
 
   ProcessColumnVisibilityRules;
@@ -1167,6 +1169,7 @@ begin
   UpdateHorzScrollbar;
 
   UpdatePositionAndWidthCells;
+  EventTracer.PauseTimer('TREE', 'ProcessColumnVisibilityRules');
 
   PositionTree;
 
@@ -1174,6 +1177,7 @@ begin
 
   if DefaultLayout <> nil then
     EndDefaultTextLayout;
+  EventTracer.PauseTimer('TREE', 'AfterRealignContent');
 end;
 
 procedure TScrollControlWithCells.AssignWidthsToAlignColumns;
@@ -2732,9 +2736,6 @@ end;
 
 function TScrollControlWithCells.DoCellFormatting(const Cell: IDCTreeCell; RequestForSort: Boolean; var Value: CObject) : Boolean;
 begin
-//  {$IFDEF DEBUG}
-//  Exit(False);
-//  {$ENDIF}
   Result := False;
 
   if Assigned(_cellFormatting) then
@@ -2761,7 +2762,6 @@ begin
 //  {$IFDEF DEBUG}
 //  Exit;
 //  {$ENDIF}
-
   if Assigned(_CellLoaded) then
   begin
     var args := DCCellLoadedEventArgs.Create(Cell, TDCTreeOption.ShowVertGrid in  _options, PerformanceModeWhileScrolling);
@@ -2787,9 +2787,7 @@ end;
 function TScrollControlWithCells.DoCellLoading(const Cell: IDCTreeCell; RequestForSort: Boolean; var PerformanceModeWhileScrolling: Boolean; var OverrideRowHeight: Single) : Boolean;
 begin
   Result := True; // LoadDefaultData
-//  {$IFDEF DEBUG}
-//  Exit(True);
-//  {$ENDIF}
+
   if Assigned(_CellLoading) then
   begin
     var args := DCCellLoadingEventArgs.Create(Cell, TDCTreeOption.ShowVertGrid in  _options, PerformanceModeWhileScrolling);
@@ -2798,6 +2796,7 @@ begin
       args.OverrideRowHeight := OverrideRowHeight;
 
       _CellLoading(Self, args);
+
       Result := args.LoadDefaultData;
 
       if args.OverrideRowHeight <> -1 {> ManualRowHeight} then
@@ -2807,7 +2806,6 @@ begin
         _view.NotifyRowControlsNeedReload(Cell.Row, True {force reload after scrolling is done});
 
       {var} PerformanceModeWhileScrolling := args.PerformanceModeWhileScrolling;
-
     finally
       args.Free;
     end;
@@ -3133,26 +3131,17 @@ begin
 
   _selectionInfo.BeginUpdate;
   try
-    if SelectionType <> TSelectionType.CellSelection then
+    InternalDoSelectRow(RequestedSelectionInfo.DataIndex, RequestedSelectionInfo.ViewListIndex, RequestedSelectionInfo.DataItem, Shift);
+
+    if SelectionType = TSelectionType.CellSelection then
     begin
-      InternalDoSelectRow(RequestedSelectionInfo.DataIndex, RequestedSelectionInfo.ViewListIndex, RequestedSelectionInfo.DataItem, Shift);
+      InternalDoSelectColumn(RequestedSelectionInfo.Tag, customShift);
+
+      var row := GetActiveRow;
+      if row <> nil then // delete makes row = nil
+        VisualizeRowSelection(row);
+    end else
       _selectionInfo.Tag := RequestedSelectionInfo.Tag;
-    end
-    else begin
-      if not rowAlreadySelected then
-        InternalDoSelectRow(RequestedSelectionInfo.DataIndex, RequestedSelectionInfo.ViewListIndex, RequestedSelectionInfo.DataItem, customShift)
-      else if not (ssShift in Shift) and clmnAlreadySelected and (not clmnChange or (ssCtrl in Shift)) then
-        InternalDoSelectRow(RequestedSelectionInfo.DataIndex, RequestedSelectionInfo.ViewListIndex, RequestedSelectionInfo.DataItem, customShift);
-
-      if (ssShift in Shift) or (not (ssCtrl in Shift)) or (_selectionInfo.LastSelectionEventTrigger = TSelectionEventTrigger.Key) then
-      begin
-        InternalDoSelectColumn(RequestedSelectionInfo.Tag, customShift);
-
-        var row := GetActiveRow;
-        if row <> nil then // delete makes row = nil
-          VisualizeRowSelection(row);
-      end;
-    end;
   finally
     _selectionInfo.EndUpdate(ignoreSelectionChanges);
   end;
@@ -3354,58 +3343,51 @@ begin
       infoClass := cell.Column.SubInfoControlClass;
     end;
 
-//    {$IFDEF DEBUG}
-//    if (Cell.Index >= 3) and (infoClass = TInfoControlClass.Text) and (ctrl <> nil) then
-//    begin
-//      (ctrl as ICaption).Text := 'test';
-//      Exit;
-//    end;
-//    {$ENDIF}
+    if propName <> nil then
+      EventTracer.StartTimer('TREE', 'LoadDefaultDataIntoControl_' + propName);
 
     var cellValue: CObject;
     _localCheckSetInDefaultData := False;
     if ctrl <> nil then
     begin
+      EventTracer.StartTimer('TREE', 'ProvideCellData');
       cellValue := ProvideCellData(cell, propName, IsSubProp);
+      EventTracer.PauseTimer('TREE', 'ProvideCellData');
 
       if infoClass = TInfoControlClass.Text then
       begin
+        EventTracer.StartTimer('TREE', 'DoCellFormatting');
         var cellText: CString;
         if DoCellFormatting(cell, False, {var} cellValue) then
-          celltext := cellValue.ToString(True) else
+        begin
+          celltext := cellValue.ToString(True);
+          EventTracer.PauseTimer('TREE', 'DoCellFormatting');
+        end
+        else
+        begin
+          EventTracer.PauseTimer('TREE', 'DoCellFormatting');
+          EventTracer.StartTimer('TREE', 'GetFormattedValue');
           celltext := cell.Column.GetFormattedValue(cell, cellValue);
+          EventTracer.PauseTimer('TREE', 'GetFormattedValue');
+        end;
 
         (ctrl as ICaption).Text := CStringToString(celltext);
       end
       else if infoClass = TInfoControlClass.CheckBox then
       begin
+        EventTracer.StartTimer('TREE', 'DoCellFormatting CheckBox');
         DoCellFormatting(cell, False, {var} cellValue);
         (ctrl as IIsChecked).IsChecked := cellValue.GetValue<Boolean>(False);
         _localCheckSetInDefaultData := True;
+        EventTracer.PauseTimer('TREE', 'DoCellFormatting CheckBox');
       end;
-
-      {$IFDEF APP_PLATFORM}
-//      Assert(False, ' Code needs checking');
-//      if not CString.IsNullOrEmpty(propName) and not formatApplied and (cellValue <> nil) and (_app <> nil) and (cell.Column.InfoControlClass = TInfoControlClass.Text) then
-//      begin
-//        var item_type := GetItemType;
-//        if item_type <> nil then
-//        begin
-//          var prop := item_type.PropertyByName(propName);
-//          var descr: IPropertyDescriptor;
-//          if Interfaces.Supports<IPropertyDescriptor>(prop, descr) and (descr.Formatter <> nil) then
-//          begin
-//            (ctrl as ICaption).Text := CStringToString(descr.Formatter.Format(nil {Context}, cellValue, nil));
-//            Exit;
-//          end;
-//        end;
-//      end;
-      {$ENDIF}
     end;
 
     if (cellValue <> nil) then
       cell.LayoutColumn.UpdateColumnContainsData(TColumnContainsData.Yes, cell.Data);
 
+    if propName <> nil then
+      EventTracer.PauseTimer('TREE', 'LoadDefaultDataIntoControl_' + propName);
   except
     LoadDefaultDataIntoControl(Cell, IsSubProp);
   end;
@@ -3485,8 +3467,16 @@ begin
   // checkbox selection
   if Cell.Column.IsSelectionColumn then
   begin
-    Cell.InfoControl.Visible := _selectionInfo.CanFocus(Cell.Row.DataIndex);
+    EventTracer.StartTimer('TREE', 'DefaultData IsSelectionColumn');
+    if Cell.InfoControl.Visible <> _selectionInfo.CanFocus(Cell.Row.DataIndex) then
+    begin
+      if Cell.InfoControl.Visible then
+        Cell.InfoControl.Visible := False else
+        Cell.InfoControl.Visible := True;
+    end;
+
     Cell.LayoutColumn.UpdateColumnContainsData(TColumnContainsData.Yes, Cell.Data {True / False});
+    EventTracer.PauseTimer('TREE', 'DefaultData IsSelectionColumn');
   end
   else if LoadDefaultData and (not IsFastScrolling or not PerformanceModeWhileScrolling) then
   begin
@@ -3498,6 +3488,7 @@ end;
 
 procedure TScrollControlWithCells.InnerInitRow(const Row: IDCRow; RowHeightNeedsRecalc: Boolean = False);
 begin
+  EventTracer.StartTimer('TREE', 'InnerInitRow');
   var cell: IDCTreeCell;
   var treeRow := Row as IDCTreeRow;
 
@@ -3522,6 +3513,7 @@ begin
   begin
     var performanceModeWhileScrolling := False; //moreThan3Columns and (flatColumn.Column.InfoControlClass <> TInfoControlClass.Text) and not flatColumn.Column.IsSelectionColumn;
 
+    EventTracer.StartTimer('TREE', 'DoCreateNewCell');
     if not treeRow.Cells.TryGetValue(flatColumn.Index, cell) then
     begin
       cell := DoCreateNewCell(Row, flatColumn);
@@ -3533,14 +3525,22 @@ begin
       if (cell.SubInfoControl <> nil) then
         cell.SubInfoControl.Visible := True;
     end;
+    EventTracer.PauseTimer('TREE', 'DoCreateNewCell');
 
+    EventTracer.StartTimer('TREE', 'DoCellLoading');
     var loadDefaultData := DoCellLoading(cell, False, {var} performanceModeWhileScrolling, {var} manualHeight);
+    EventTracer.PauseTimer('TREE', 'DoCellLoading');
 
+    EventTracer.StartTimer('TREE', 'PrepareCellControls');
     PrepareCellControls(Cell);
+    EventTracer.PauseTimer('TREE', 'PrepareCellControls');
     TryLoadDataIntoCellControls(Cell, loadDefaultData, performanceModeWhileScrolling);
 
+    EventTracer.StartTimer('TREE', 'DoCellLoaded');
     DoCellLoaded(cell, False, {var} performanceModeWhileScrolling, {var} manualHeight);
+    EventTracer.PauseTimer('TREE', 'DoCellLoaded');
 
+    EventTracer.StartTimer('TREE', 'performanceModeWhileScrolling');
     Cell.PerformanceModeWhileScrolling := performanceModeWhileScrolling;
 
     if (flatColumn.ContainsData = TColumnContainsData.Unknown) then
@@ -3549,8 +3549,10 @@ begin
       if ctrlData <> nil then
         flatColumn.UpdateColumnContainsData(TColumnContainsData.Yes, ctrlData)
     end;
+    EventTracer.PauseTimer('TREE', 'performanceModeWhileScrolling');
   end;
 
+  EventTracer.StartTimer('TREE', 'CalculateRowHeight');
   if manualHeight <> -1 then
     Row.Control.Height := Ceil(manualHeight)
   else begin
@@ -3560,8 +3562,11 @@ begin
       Row.Control.Height := CalculateRowHeight(Row as IDCTreeRow) else
       Row.Control.Height := cachedHeight;
   end;
+  EventTracer.PauseTimer('TREE', 'CalculateRowHeight');
 
   inherited;
+
+  EventTracer.PauseTimer('TREE', 'InnerInitRow');
 end;
 
 function TScrollControlWithCells.CalculateCellWidth(const LayoutColumn: IDCTreeLayoutColumn; const Cell: IDCTreeCell): Single;
@@ -4930,7 +4935,9 @@ begin
   begin
     validMain := ForceIsValid or (Length((Cell.InfoControl as ICaption).Text) > 0);
     (Cell.InfoControl as ITextSettings).TextSettings.HorzAlign := Cell.LayoutColumn.CalculatedHorzAlign;
-    Cell.InfoControl.Visible := validMain; // not neccessary, but for performance...
+    if not validMain and Cell.InfoControl.Visible then
+      Cell.InfoControl.Visible := validMain else // not neccessary, but for performance...
+      Cell.InfoControl.Visible := validMain; // not neccessary, but for performance...
   end;
 
   var validSub := (Cell.SubInfoControl <> nil) and (Cell.SubInfoControl.Visible or ForceIsValid);

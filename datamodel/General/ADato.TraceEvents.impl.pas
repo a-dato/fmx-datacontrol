@@ -209,6 +209,11 @@ end;
 
 procedure TEventTraceToFile.EndGroupFile(const AGroup: string; const DeleteFile: Boolean = False);
 begin
+  {$IFDEF LYNXX}
+  RemoveTraceItem(AGroup, True);
+  Exit;
+  {$ENDIF}
+
   RemoveTraceItem(AGroup, DeleteFile);
 end;
 
@@ -299,6 +304,19 @@ procedure TEventTraceToFile.StopTimers(const Group: string);
 begin
   var timerPair: KeyValuePair<string, TStopWatch>;
   for timerPair in FTimers do
+    if timerPair.Value.IsRunning then
+      timerPair.Value.Stop;
+
+  var l: List<KeyValuePair<string, TStopWatch>> := CList<KeyValuePair<string, TStopWatch>>.Create(FTimers.Count);
+  for timerPair in FTimers do
+    l.Add(timerPair);
+
+  l.Sort(function(const X,Y: KeyValuePair<string, TStopWatch>): Integer
+    begin
+      Result := CString.Compare(X.Key, Y.Key);
+    end);
+
+  for timerPair in l do
     TraceMessageInternal(Group, Format('Timer stopped: %s, elapsed time: %d', [timerPair.Key, timerPair.Value.ElapsedMilliseconds]), TLevel.Normal);
 
   FTimers.Clear

@@ -1064,6 +1064,8 @@ type
     _RowIndex: Integer;
     _ColumnIndex: Integer;
 
+    function Clone: ICellReference;
+
     // Property getters setters
     procedure set_ColumnIndex(const Value : Integer);
     function  get_ColumnIndex: Integer;
@@ -1089,8 +1091,11 @@ type
     _rangeStart: ICellReference;
     _rangeEnd: ICellReference;
 
+    function  Clone: IRangeSelection;
     function  IsCellInRange(const Cell: ITreeCell) : Boolean;
     function  IsRowInRange(const Row: ITreeRow) : Boolean;
+    function  SplitOnCell(const Cell: ITreeCell) : TSplitSelection;
+    function  SplitOnRow(const Row: ITreeRow) : TSplitSelection;
 
     function  get_RangeStart: ICellReference;
     procedure set_RangeStart(const Value: ICellReference);
@@ -1682,6 +1687,7 @@ type
     function  IsRowSelected(const Row: ITreeRow): Boolean; virtual;
     procedure StartSelection(const Cell: ITreeCell); virtual;
     procedure SelectRow(const Row: ITreeRow); virtual;
+    procedure DeSelectCell(const Cell: ITreeCell); virtual;
     procedure DeSelectRow(const Row: ITreeRow); virtual;
     procedure ScrollCurrentRowIntoView;
     function  ScrollSelectionIntoView: Boolean;
@@ -2004,7 +2010,7 @@ uses
   ADato.Controls.Tree.SplitterForm,
   ADato.Controls.Tree.Cell.Impl,
   ADato_Renderer_impl,
-  Scaling, ADato.TraceEvents.intf, System.Rtti;
+  Scaling, ADato.TraceEvents.intf, System.Rtti, System.TypInfo;
 
 {$IFDEF DEBUG}
 procedure Skip;
@@ -3067,18 +3073,21 @@ begin
 end;
 
 procedure TCustomTreeControl.DeSelectRow(const Row: ITreeRow);
-var
-  changed: Boolean;
-  i: Integer;
-
 begin
-  changed := False;
-  i := 0;
+  var changed := False;
+  var i := 0;
   while i < _rangeSelections.Count do
   begin
-    if(_rangeSelections[i].IsRowInRange(Row)) then
+    if _rangeSelections[i].IsRowInRange(Row) then
     begin
-      _rangeSelections.RemoveAt(i);
+      var split := _rangeSelections[i].SplitOnRow(Row);
+      if split[0] <> nil then
+      begin
+        _rangeSelections[i] := split[0];
+        if split[1] <> nil then
+          _rangeSelections.Insert(i + 1, split[1]);
+      end else
+        _rangeSelections.RemoveAt(i);
       changed := True;
     end else
       inc(i);
@@ -3088,6 +3097,31 @@ begin
     DoSelectionChanged;
 end;
 
+
+procedure TCustomTreeControl.DeSelectCell(const Cell: ITreeCell);
+begin
+  if TreeOption.GoRowSelection in Options then
+    DeSelectRow(Cell.Row)
+  else
+  begin
+    Assert(False, 'Not implemented');
+
+    var changed := False;
+    var i := 0;
+    while i < _rangeSelections.Count do
+    begin
+      if _rangeSelections[i].IsCellInRange(Cell) then
+      begin
+        _rangeSelections.RemoveAt(i);
+        changed := True;
+      end else
+        inc(i);
+    end;
+
+    if changed then
+      DoSelectionChanged;
+  end;
+end;
 
 procedure TCustomTreeControl.StartSelection(const Cell: ITreeCell);
 var
@@ -7270,7 +7304,11 @@ begin
   try
     Result := False;
 
-    if (RowIndex < 0) or ((Current = RowIndex) and (CellIndex = _Column)) then Exit;
+    if (RowIndex < 0) then
+      Exit;
+
+//    // Same cell clicked again
+//    var sameCell := (Current = RowIndex) and (CellIndex = _Column);
 
     // A cell can be selected before the control is initialized !
     if (_InternalState - [TreeState.Refresh]) <> [] then
@@ -7401,7 +7439,13 @@ begin
           StartSelection(oldCell);
 
         if newCell <> nil then
-          StartSelection(newCell);
+        begin
+          if IsCellSelected(newCell) then
+            DeSelectCell(newCell) else
+            StartSelection(newCell)
+        end
+        else if (Cell <> nil) and IsCellSelected(Cell) then
+          DeSelectCell(Cell);
       end // kv: 28-6-2011 old code replaced: if _MouseDownHitInfo = nil then
       else if (_MouseDownHitInfo = nil) or (_MouseDownHitInfo.Cell = nil) or not IsCellSelected(_MouseDownHitInfo.Cell) then
         ClearSelection(True);
@@ -10914,6 +10958,11 @@ begin
   _ColumnIndex := ColumnIndex;
 end;
 
+function CellReference.Clone: ICellReference;
+begin
+  Result := CellReference.Create(_RowIndex, _ColumnIndex);
+end;
+
 procedure CellReference.set_ColumnIndex(const Value : Integer);
 begin
   _ColumnIndex := Value;
@@ -10974,6 +11023,13 @@ begin
   _rangeEnd := Value;
 end;
 
+function RangeSelection.Clone: IRangeSelection;
+begin
+  Result := RangeSelection.Create;
+  Result.RangeStart := _rangeStart.Clone;
+  Result.RangeEnd := _rangeEnd.Clone;
+end;
+
 function RangeSelection.IsCellInRange(const Cell: ITreeCell) : Boolean;
 var
   i1: Integer;
@@ -11023,11 +11079,8 @@ begin
 end;
 
 function RangeSelection.IsRowInRange(const Row: ITreeRow) : Boolean;
-var
-  i1: Integer;
-
 begin
-  i1 := Row.Index;
+  var i1 := Row.Index;
 
   Result := (
               (
@@ -11048,6 +11101,64 @@ begin
                 _rangeStart.ColumnIndex = -1 // Row select?
               )
             );
+end;
+
+function RangeSelection.SplitOnCell(const Cell: ITreeCell) : TSplitSelection;
+begin
+
+end;
+
+function RangeSelection.SplitOnRow(const Row: ITreeRow) : TSplitSelection;
+begin
+  if _rangeStart.ColumnIndex <> -1 then
+    Exit;
+
+  if _rangeStart.RowIndex = _rangeEnd.RowIndex then
+    Exit; // Single row selection, remove selection
+
+  if _rangeStart.RowIndex < _rangeEnd.RowIndex then
+  begin
+    var row_index := Row.Index;
+    if (row_index = _rangeStart.RowIndex) then
+    begin
+      Result[0] := Clone;
+      Result[0].RangeStart.RowIndex := row_index + 1;
+    end
+    else if (row_index = _rangeEnd.RowIndex) then
+    begin
+      Result[0] := Clone;
+      Result[0].RangeEnd.RowIndex := row_index - 1;
+    end
+    else // Split
+    begin
+      Result[0] := Clone;
+      Result[1] := Clone;
+      Result[0].RangeEnd.RowIndex := row_index - 1;
+      Result[1].RangeStart.RowIndex := row_index + 1;
+    end;
+  end
+  // Reverse selection
+  else // if _rangeStart.RowIndex > _rangeEnd.RowIndex then
+  begin
+    var row_index := Row.Index;
+    if (row_index = _rangeStart.RowIndex) then
+    begin
+      Result[0] := Clone;
+      Result[0].RangeStart.RowIndex := row_index - 1;
+    end
+    else if (row_index = _rangeEnd.RowIndex) then
+    begin
+      Result[0] := Clone;
+      Result[0].RangeEnd.RowIndex := row_index + 1;
+    end
+    else // Split
+    begin
+      Result[0] := Clone;
+      Result[1] := Clone;
+      Result[0].RangeEnd.RowIndex := row_index + 1;
+      Result[1].RangeStart.RowIndex := row_index - 1;
+    end;
+  end;
 end;
 
 function RangeSelectionComparer.Compare(const L, R: IRangeSelection) : Integer;
@@ -12165,7 +12276,6 @@ var
         Result.Add(CellData, DisplayText);
     end;
   end;
-
 
 var
   cell: ITreeCell;
@@ -14471,26 +14581,23 @@ function TTreeRowList.GetColumnValues(const Column: ITreeLayoutColumn; Filtered:
 var
   cell: ITreeCell;
   cellData: CObject;
-  cellItem: CObject;
-  cellItems: IList;
-  cellItemIndex: Integer;
   columnIndex: Integer;
   contentItem: ICellData;
+  l: IList;
   i: Integer;
   dataItem: CObject;
   stringData: Dictionary<CString, Byte>;
-  displayText: CString;
   cellIndex: Integer;
   formatApplied: Boolean;
   formattedData: CObject;
   treeRow: ITreeRow; // Must be a method level variable to ensure proper locking of cell objects
 
-  function GetCount: Integer;
-  begin
-    if Filtered and (_sortedData <> nil) then
-      Result := _sortedData.Count else
-      Result := _data.Count;
-  end;
+//  function GetCount: Integer;
+//  begin
+//    if Filtered and (_sortedData <> nil) then
+//      Result := _sortedData.Count else
+//      Result := _data.Count;
+//  end;
 
   function GetNextRow: Boolean;
   begin
@@ -14526,37 +14633,53 @@ var
     end;
   end;
 
-  function GetNextItem : Boolean;
+//  function GetNextItem : Boolean;
+//  begin
+//    if cellItems <> nil then
+//    begin
+//      inc(cellItemIndex);
+//      if cellItemIndex < cellItems.Count then
+//      begin
+//        cellItem := cellItems[cellItemIndex];
+//        Exit(True);
+//      end
+//      else
+//      begin
+//        cellItem := nil;
+//        cellItems := nil;
+//        Exit(False);
+//      end;
+//    end
+//    else if cellItem = nil then
+//    begin
+//      if (cellData <> nil) and cellData.IsInterface and Interfaces.Supports(cellData, IList, cellItems) then
+//      begin
+//        cellItemIndex := -1;
+//        Exit(GetNextItem);
+//      end;
+//
+//      cellItem := cellData;
+//      Exit(True);
+//    end;
+//
+//    cellItem := nil;
+//    Exit(False);
+//  end;
+
+  procedure AddItem(const CellData: CObject; const DisplayText: CString);
   begin
-    if cellItems <> nil then
+    if not CString.IsNullOrEmpty(DisplayText) and not Result.ContainsKey(CellData) then
     begin
-      inc(cellItemIndex);
-      if cellItemIndex < cellItems.Count then
+      if DistinctItems then
       begin
-        cellItem := cellItems[cellItemIndex];
-        Exit(True);
-      end
-      else
-      begin
-        cellItem := nil;
-        cellItems := nil;
-        Exit(False);
-      end;
-    end
-    else if cellItem = nil then
-    begin
-      if (cellData <> nil) and cellData.IsInterface and Interfaces.Supports(cellData, IList, cellItems) then
-      begin
-        cellItemIndex := -1;
-        Exit(GetNextItem);
-      end;
-
-      cellItem := cellData;
-      Exit(True);
+        if not stringData.ContainsKey(DisplayText) then
+        begin
+          stringData.Add(DisplayText, 0);
+          Result.Add(CellData, DisplayText);
+        end;
+      end else
+        Result.Add(CellData, DisplayText);
     end;
-
-    cellItem := nil;
-    Exit(False);
   end;
 
 begin
@@ -14580,39 +14703,60 @@ begin
   begin
     cellData := GetCellData(dataItem, Column.Column.PropertyName, columnIndex);
     if cellData = nil then
-      cellData := GetFormattedData(cell, contentItem, dataItem, nil, True {Return cell data}, formatApplied);
-
-    while GetNextItem do
     begin
-      if cellItem <> nil then
-      begin
-        // maybe there is only text in the cell, no data!
-        formattedData := GetFormattedData(cell, contentItem, dataItem, cellItem, False {Return formatted}, formatApplied);
-
-        if formattedData = nil then
-          formattedData := cellItem;
-
-        displayText := formattedData.ToString
-      end
-      else
-      begin
-        cellItem := NO_VALUE;
-        displayText := NO_VALUE;
-      end;
-
-      if not Result.ContainsKey(cellItem) then
-      begin
-        if DistinctItems then
-        begin
-          if not stringData.ContainsKey(displayText) then
-          begin
-            stringData.Add(displayText, 0);
-            Result.Add(cellItem, displayText);
-          end;
-        end else
-          Result.Add(cellItem, displayText);
-      end;
+      cellData := GetFormattedData(cell, contentItem, dataItem, nil, True {Return cell data}, formatApplied);
+      if cellData = nil then
+        continue;
     end;
+
+    // multi select properties
+    if cellData.TryAsType<IList>(l) then
+    begin
+      for var o in l do
+        AddItem(o, o.ToString);
+    end
+    else if cellData.IsString then
+      AddItem(cellData, cellData.ToString)
+    else
+    begin
+      // maybe there is only text in the cell, no data!
+      formattedData := GetFormattedData(cell, contentItem, dataItem, cellData, False {Return formatted}, formatApplied);
+      if formattedData = nil then
+        continue;
+      AddItem(cellData, formattedData.ToString);
+    end;
+
+//    while GetNextItem do
+//    begin
+//      if cellItem <> nil then
+//      begin
+//        // maybe there is only text in the cell, no data!
+//        formattedData := GetFormattedData(cell, contentItem, dataItem, cellItem, False {Return formatted}, formatApplied);
+//
+//        if formattedData = nil then
+//          formattedData := cellItem;
+//
+//        displayText := formattedData.ToString
+//      end
+//      else
+//      begin
+//        cellItem := NO_VALUE;
+//        displayText := NO_VALUE;
+//      end;
+//
+//      if not Result.ContainsKey(cellItem) then
+//      begin
+//        if DistinctItems then
+//        begin
+//          if not stringData.ContainsKey(displayText) then
+//          begin
+//            stringData.Add(displayText, 0);
+//            Result.Add(cellItem, displayText);
+//          end;
+//        end else
+//          Result.Add(cellItem, displayText);
+//      end;
+//    end;
   end;
 end;
 

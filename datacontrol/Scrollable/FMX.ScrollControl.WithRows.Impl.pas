@@ -336,6 +336,8 @@ type
     function  SelectionCount: Integer;
     function  SelectedItems: List<CObject>; overload;
     function  SelectedItems<T>: List<T>; overload;
+    function  SelectedOrCurrent: List<CObject>; overload;
+    function  SelectedOrCurrent<T>: List<T>; overload;
     function  DraggedItems: List<CObject>;
 
     procedure AssignSelection(const SelectedItems: IList);
@@ -847,7 +849,9 @@ procedure TScrollControlWithRows.DoRealignContent;
 begin
   var goMaster := TryStartMasterSynchronizer(True);
   try
+    EventTracer.StartTimer('TREE', 'DoRealignContent');
     inherited;
+    EventTracer.PauseTimer('TREE', 'DoRealignContent');
   finally
     StopMasterSynchronizer(goMaster);
   end;
@@ -2066,6 +2070,7 @@ end;
 
 procedure TScrollControlWithRows.InitRow(const Row: IDCRow);
 begin
+  EventTracer.StartTimer('TREE', 'InitRow');
   var rowInfo := _view.RowLoadedInfo(Row.ViewListIndex);
   var isFastScrollbarScrolling := IsFastScrolling(True);
   var rowNeedsReload := IsPrinting or Row.IsScrollingIntoView or not rowInfo.InnerCellsAreApplied or (rowInfo.ControlNeedsResizeSoft and (GetScrollingType <> TScrollingType.WithScrollBar));
@@ -2083,11 +2088,13 @@ begin
   else if rowNeedsReload then
     oldRowHeight := _view.GetRowHeight(Row.ViewListIndex);
 
+
   if rowNeedsReload then
   begin
     if Row.Control = nil then
     begin
       var ly := TRowLayout.Create(_content, CreateRowBackground);
+      ly.OriginalBackgroundColorIsNull := False; // !! saves a lot of time, because clearing bitmap is not needed..
 //      ly.ClipChildren := True; // costs a lot of time , while we can also do this on lower level..
       ly.HitTest := False;
       ly.Align := TAlignLayout.None;
@@ -2140,6 +2147,8 @@ begin
   // if user tells in CellLoading / CellLoaded that a cell control should be loaded after scrolling is done (for performance)
   if rowInfo.ReloadAfterScroll then
     RestartWaitForRealignTimer(True, True {only realign when scrolling stopped});
+
+  EventTracer.PauseTimer('TREE', 'InitRow');
 end;
 
 procedure TScrollControlWithRows.UpdateAndIgnoreVertScrollbar(const NewValue: Single);
@@ -3005,20 +3014,28 @@ begin
 
   if (TDCTreeOption.MultiSelect in _options) then
   begin
+    if _selectionInfo.DataIndex = DataIndex then
+      Exit;
+
     var lastSelectedIndex := _selectionInfo.ViewListIndex;
     if (ssShift in Shift) then
     begin
-      var vlIndex := lastSelectedIndex;
-      while vlIndex <> ViewListIndex do
-      begin
-        _selectionInfo.AddToSelection(_view.GetDataIndex(vlIndex), vlIndex, _view.GetViewList[vlIndex]);
+      var bothAlreadySelected := _selectionInfo.IsSelected(_selectionInfo.DataIndex) and _selectionInfo.IsSelected(DataIndex);
+      if bothAlreadySelected then
+        _selectionInfo.RemoveFromSelection(_selectionInfo.DataIndex)
+      else begin
+        var vlIndex := lastSelectedIndex;
+        while vlIndex <> ViewListIndex do
+        begin
+          _selectionInfo.AddToSelection(_view.GetDataIndex(vlIndex), vlIndex, _view.GetViewList[vlIndex]);
 
-        if lastSelectedIndex < ViewListIndex then
-          inc(vlIndex) else
-          dec(vlIndex);
+          if lastSelectedIndex < ViewListIndex then
+            inc(vlIndex) else
+            dec(vlIndex);
+        end;
+
+        _selectionInfo.AddToSelection(DataIndex, ViewListIndex, DataItem);
       end;
-
-      _selectionInfo.AddToSelection(DataIndex, ViewListIndex, DataItem);
     end
     else if (ssCtrl in Shift) and (_selectionInfo.LastSelectionEventTrigger = TSelectionEventTrigger.Click) then
     begin
@@ -3032,7 +3049,7 @@ begin
         _selectionInfo.RemoveFromSelection(DataIndex);
     end
     else if not (TDCTreeOption.KeepCurrentSelection in _Options) and not _selectionInfo.IsSelected(DataIndex) then
-      _selectionInfo.ClearMultiSelections;    
+      _selectionInfo.ClearMultiSelections;
   end;
 
   _selectionInfo.SetFocusedItem(DataIndex, ViewListIndex, DataItem);
@@ -3491,7 +3508,7 @@ begin
 
   if dataIndexes.Count = 0 then
     Exit(nil);
-    
+
   dataIndexes.Sort;
 
   Result := CList<CObject>.Create(dataIndexes.Count);
@@ -3508,6 +3525,22 @@ begin
   end;
 end;
 
+function TScrollControlWithRows.SelectedOrCurrent: List<CObject>;
+begin
+  if _view = nil then
+    Exit(nil);
+
+  if not _selectionInfo.HasSelectedItems then
+  begin
+    if not _selectionInfo.HasFocusedItem then
+      Exit(nil);
+
+    Result := CList<CObject>.Create;
+    Result.Add(ConvertedDataItem);
+  end else
+    Result := SelectedItems;
+end;
+
 function TScrollControlWithRows.SelectedItems<T>: List<T>;
 begin
   if _view = nil then
@@ -3519,7 +3552,7 @@ begin
 
   if dataIndexes.Count = 0 then
     Exit(nil);
-    
+
   Result := CList<T>.Create(dataIndexes.Count);
 
   var ix: Integer;
@@ -3535,6 +3568,22 @@ begin
     else if ViewIsDataModelView and item.TryAsType<IDataRow>(dr) and dr.Data.TryAsType<T>(item_T) then
       Result.Add(item_t);
   end;
+end;
+
+function TScrollControlWithRows.SelectedOrCurrent<T>: List<T>;
+begin
+  if _view = nil then
+    Exit(nil);
+
+  if not _selectionInfo.HasSelectedItems then
+  begin
+    if not _selectionInfo.HasFocusedItem then
+      Exit(nil);
+
+    Result := CList<T>.Create;
+    Result.Add(ConvertedDataItem.AsType<T>);
+  end else
+    Result := SelectedItems<T>;
 end;
 
 function TScrollControlWithRows.SelectedRowIfInView: IDCRow;

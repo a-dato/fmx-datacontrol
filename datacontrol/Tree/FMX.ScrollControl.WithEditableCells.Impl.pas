@@ -512,9 +512,22 @@ begin
     Key := 0;
   end
 
-  // else inherited
   else
   begin
+    var cell := GetActiveCell;
+
+    // checkbox select with space key
+    if (Key = 0) and KeyChar.IsWhiteSpace and (cell <> nil) and (cell.Column.IsSelectionColumn or (not CanEditCell(cell) and (SelectionCheckBoxColumn <> nil))) then
+    begin
+      if _selectionInfo.IsSelected(cell.Row.DataIndex) then
+        _selectionInfo.RemoveFromSelection(cell.Row.DataIndex) else
+        _selectionInfo.AddToSelection(cell.Row.DataIndex, cell.Row.ViewListIndex, cell.Row.DataItem);
+
+      KeyChar := #0;
+      Exit;
+    end;
+
+    // else inherited
     if ssAlt in Shift then
       Exit;
 
@@ -644,6 +657,7 @@ begin
     Exit;
 
   var cell := GetCellByControl(Sender as TControl);
+  if cell = nil then Exit; // view not visible yet..
 
   _selectionInfo.LastSelectionEventTrigger := TSelectionEventTrigger.Internal;
 

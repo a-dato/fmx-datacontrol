@@ -44,6 +44,7 @@ type
   ICellImageList = {$IFDEF DOTNET}public{$ENDIF} interface;
   ICellReference = {$IFDEF DOTNET}public{$ENDIF} interface;
   IHeaderRowList = {$IFDEF DOTNET}public{$ENDIF} interface;
+  IRangeSelection = {$IFDEF DOTNET}public{$ENDIF} interface;
   ITreeControl = {$IFDEF DOTNET}public{$ENDIF} interface;
   ITreeColumn = {$IFDEF DOTNET}public{$ENDIF} interface;
   ITreeColumnList = {$IFDEF DOTNET}public{$ENDIF} interface;
@@ -1996,21 +1997,24 @@ type
   end;
 
   ICellReference = {$IFDEF DOTNET}public{$ENDIF} interface(IBaseInterface)
-  {$IFDEF DELPHI}
+    {$IFDEF DELPHI}
     ['{B3F311CD-0576-4CF2-8F9C-E7274BC2794C}']
     procedure set_ColumnIndex(const Value: Integer);
     function  get_ColumnIndex: Integer;
     procedure set_RowIndex(const Value : Integer);
     function  get_RowIndex: Integer;
-  {$ENDIF}
+    {$ENDIF}
 
-   property ColumnIndex: Integer
+    function Clone: ICellReference;
+    property ColumnIndex: Integer
       read {$IFDEF DELPHI}get_ColumnIndex{$ENDIF}
       write {$IFDEF DELPHI}set_ColumnIndex{$ENDIF};
-   property RowIndex: Integer
+    property RowIndex: Integer
       read {$IFDEF DELPHI}get_RowIndex{$ENDIF}
       write {$IFDEF DELPHI}set_RowIndex{$ENDIF};
   end;
+
+  TSplitSelection = array[0..1] of IRangeSelection;
 
   IRangeSelection = {$IFDEF DOTNET}public{$ENDIF} interface(IBaseInterface)
   {$IFDEF DELPHI}
@@ -2021,8 +2025,12 @@ type
     procedure set_RangeEnd(const Value: ICellReference);
   {$ENDIF}
 
+    function Clone: IRangeSelection;
     function IsCellInRange(const Cell: ITreeCell) : Boolean;
     function IsRowInRange(const Row: ITreeRow) : Boolean;
+
+    function SplitOnCell(const Cell: ITreeCell) : TSplitSelection;
+    function SplitOnRow(const Row: ITreeRow) : TSplitSelection;
 
     property RangeStart: ICellReference
       read {$IFDEF DELPHI}get_RangeStart{$ENDIF}

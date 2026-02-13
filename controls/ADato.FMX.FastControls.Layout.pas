@@ -15,6 +15,8 @@ type
     _bitmap: TBitmap;
 
     _useBuffering: Boolean;
+    _originalBackgroundColorIsNull: Boolean;
+
     _resetBufferRequired: Boolean;
     _creatingBitmap: Boolean;
 
@@ -42,6 +44,7 @@ type
     procedure ResetBuffer;
 
     property UseBuffering: Boolean read get_UseBuffering write set_UseBuffering default True;
+    property OriginalBackgroundColorIsNull: Boolean read _originalBackgroundColorIsNull write _originalBackgroundColorIsNull default True;
   end;
 
   TBackgroundControl = class(TControl, IBackgroundControl)
@@ -91,7 +94,7 @@ type
 implementation
 
 uses
-  FMX.Forms, FMX.Text, System.Rtti, System.Math.Vectors;
+  FMX.Forms, FMX.Text, System.Rtti, System.Math.Vectors, ADato.TraceEvents.intf;
 
 { TBackgroundControl }
 
@@ -276,6 +279,7 @@ begin
 
   _useBuffering := False;
   _resetBufferRequired := True;
+  _originalBackgroundColorIsNull := True;
 end;
 
 destructor TAdaptableBitmapLayout.Destroy;
@@ -311,6 +315,7 @@ procedure TAdaptableBitmapLayout.LoadBitmap;
 begin
 //  var isBeforePaint := (Self.Canvas = nil) or (Self.Canvas.BeginSceneCount = 0);
 
+  EventTracer.StartTimer('TAdaptableBitmapLayout', 'LoadBitmap');
   var scale := Self.Scene.GetSceneScale;
   if (_bitmap <> nil) and (_bitmap.BitmapScale <> scale) then
     _resetBufferRequired := True;
@@ -326,13 +331,16 @@ begin
 
       if (_bitmap = nil) or (_bitmap.Width <> logicalW) or (_bitmap.Height <> logicalH) or (_bitmap.BitmapScale <> scale) then
         FreeAndNil(_bitmap);
-
+//
       if (_bitmap = nil) then
       begin
         _bitmap := TBitmap.Create(logicalW, logicalH);
         _bitmap.CanvasQuality := TCanvasQuality.HighPerformance;
         _bitmap.BitmapScale := scale;
-      end else
+      end
+
+      // try to have a background color, because clearing will cost a lot of time!!
+      else if OriginalBackgroundColorIsNull then
         _bitmap.Clear(0);
 
       if _bitmap.Canvas.BeginScene then
@@ -345,6 +353,7 @@ begin
       _creatingBitmap := False;
     end;
   end;
+  EventTracer.PauseTimer('TAdaptableBitmapLayout', 'LoadBitmap');
 end;
 
 function TAdaptableBitmapLayout.ObjectAtPoint(P: TPointF): IControl;
