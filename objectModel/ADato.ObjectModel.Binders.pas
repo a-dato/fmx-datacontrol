@@ -1033,7 +1033,7 @@ begin
 
   // do not set Visibility, for code can already make controls (in)visible
   // it is better to interfere with the Opacity
-  _control.Opacity := IfThen(IsVisible, IfThen(IsEditable, 1, DISABLED_OPACITY), 0);
+  _control.Opacity := IfThen(IsVisible, 1, 0);
 end;
 
 { TControlBinding }

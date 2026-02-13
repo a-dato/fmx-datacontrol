@@ -195,7 +195,7 @@ type
     procedure PerformanceRoutineLoadedRow(const Row: IDCRow); override;
     procedure DoRowLoaded(const ARow: IDCRow); override;
 
-    procedure OnDataItemChanged; override;
+    procedure OnCurrentChanged; override;
     procedure OnSelectedItemsChanged; override;
     procedure VisualizeRowSelection(const Row: IDCRow); override;
     procedure HandleRowChildRelation(const Row: IDCRow; IsOpenParent, IsOpenChild: Boolean); override;
@@ -1462,7 +1462,7 @@ function TScrollControlWithCells.GetFlatColumnByKey(const Key: Word; Shift: TShi
 
   function CanSelectLayoutColumn(const LyColumn: IDCTreeLayoutColumn): Boolean;
   begin
-    Result := (LyColumn.Column.CustomWidth <> 0) and LyColumn.Column.Selectable and _treeLayout.FlatColumns.Contains(LyColumn);
+    Result := not SameValue(LyColumn.Width, 0) and (LyColumn.Column.CustomWidth <> 0) and LyColumn.Column.Selectable and _treeLayout.FlatColumns.Contains(LyColumn);
   end;
 
 begin
@@ -2218,7 +2218,7 @@ begin
   end;
 end;
 
-procedure TScrollControlWithCells.OnDataItemChanged;
+procedure TScrollControlWithCells.OnCurrentChanged;
 begin
   inherited;
 
@@ -2246,7 +2246,8 @@ begin
     cell := GetActiveCell; // can still be nil..
   end;
 
-  DoCellSelected(cell, _selectionInfo.LastSelectionEventTrigger);
+  if cell <> nil then
+    DoCellSelected(cell, _selectionInfo.LastSelectionEventTrigger);
 end;
 
 procedure TScrollControlWithCells.SelectAll;
@@ -2294,7 +2295,7 @@ begin
     _horzScrollBar.ValueRange.BeginUpdate;
     try
       _horzScrollBar.Min := frozenColumnWidth;
-      _horzScrollBar.Max := rowCtrlWidth + _treeLayout.ContentOverFlow;
+      _horzScrollBar.Max := rowCtrlWidth + _treeLayout.ContentOverFlow + IfThen(_vertScrollBar.Visible, _vertScrollBar.Width, 0);
       _horzScrollBar.ViewportSize := rowCtrlWidth - frozenColumnWidth;
     finally
       _horzScrollBar.ValueRange.EndUpdate;
@@ -3225,6 +3226,10 @@ begin
 //    _selectionInfo.SelectedLayoutColumns.Add(LayoutColumnIndex);
 //    _selectionInfo.Tag := LayoutColumnIndex;
 //  end;
+
+  if _selectionInfo.Tag = LayoutColumnIndex then
+    Exit;
+
   _selectionInfo.Tag := LayoutColumnIndex;
 end;
 

@@ -336,6 +336,7 @@ begin
   if (Value = nil) or (Value.Count = 0) then
   begin
     _popupMenu.DataControl.ClearSelectedItems;
+    UpdateDisplayText;
     Exit;
   end;
 
@@ -349,6 +350,7 @@ begin
   end;
 
   _popupMenu.DataControl.AssignSelection(Value);
+  UpdateDisplayText;
 end;
 
 { TMemoEditControlImpl }
