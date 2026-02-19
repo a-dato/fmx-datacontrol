@@ -329,9 +329,11 @@ begin
       var logicalW: Integer := Ceil(Self.Width * scale);
       var logicalH: Integer := Ceil(Self.Height * scale);
 
-      if (_bitmap = nil) or (_bitmap.Width <> logicalW) or (_bitmap.Height <> logicalH) or (_bitmap.BitmapScale <> scale) then
+      var reload := True; // for later: make it possible to do not fully reload to save time. In that case the full bitmap needs to be overwritten by the new bitmap
+
+      if reload or (_bitmap = nil) or (_bitmap.Width <> logicalW) or (_bitmap.Height <> logicalH) or (_bitmap.BitmapScale <> scale) then
         FreeAndNil(_bitmap);
-//
+
       if (_bitmap = nil) then
       begin
         _bitmap := TBitmap.Create(logicalW, logicalH);

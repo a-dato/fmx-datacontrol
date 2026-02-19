@@ -511,7 +511,7 @@ type
     function  HasSelectedItems: Boolean; // multi selection
 
     function  SelectedRowCount: Integer;
-    function  SelectedDataItems: List<CObject>;
+//    function  SelectedDataItems: List<CObject>;
     function  SelectedDataIndexes: TDataIndexArray;
 
     function  GetRowInfo(const DataIndex: Integer): TRowDataItemInfo;
@@ -793,43 +793,48 @@ end;
 
 procedure TScrollControlWithRows.MouseMove(Shift: TShiftState; X, Y: Single);
 begin
-  if not _canDragDrop then
-    inherited;
-
   UpdateHoverRect(PointF(X, Y - _content.Position.Y));
 
-  if _canDragDrop and MouseIsDown then
-  begin
-    var moved := (X > _mousePositionOnMouseDown.X + 5) or (X < _mousePositionOnMouseDown.X - 5) or (Y < _mousePositionOnMouseDown.Y + 5) or (Y < _mousePositionOnMouseDown.Y - 5);
-    if not moved then
-      Exit;
+  var dragDropStarted := False;
+  try
+    if _canDragDrop and MouseIsDown then
+    begin
+      var moved := (X > _mousePositionOnMouseDown.X + 5) or (X < _mousePositionOnMouseDown.X - 5) or (Y < _mousePositionOnMouseDown.Y + 5) or (Y < _mousePositionOnMouseDown.Y - 5);
+      if not moved then
+        Exit;
 
-    var row := GetRowByLocalY(Y - _content.Position.Y);
-    if (row <> nil) and not _selectionInfo.IsSelected(row.DataIndex) then
-      _dragObject := ConvertToDataItem(row.DataItem)
-    else
-      row := GetActiveRow;
+      var row := GetRowByLocalY(Y - _content.Position.Y);
+      if (row <> nil) and not _selectionInfo.IsSelected(row.DataIndex) then
+        _dragObject := ConvertToDataItem(row.DataItem)
+      else
+        row := GetActiveRow;
 
-    if row = nil then
-      Exit;
+      if row = nil then
+        Exit;
 
-//    Self.Root.BeginInternalDrag(Self, bm);
+  //    Self.Root.BeginInternalDrag(Self, bm);
 
-    // copied from FMX.Forms => .Root.BeginInternalDrag(Self, bm);
-    var D: TDragObject;
-    var DDService: IFMXDragDropService;
+      // copied from FMX.Forms => .Root.BeginInternalDrag(Self, bm);
+      var D: TDragObject;
+      var DDService: IFMXDragDropService;
 
-    Self.Root.SetCaptured(nil);
-    D.Source := row.Control;
-    D.Files := nil;
-    D.Data := TValue.From<IList>(DraggedItems as IList);
-    {$IFNDEF WEBASSEMBLY}
-    if TPlatformServices.Current.SupportsPlatformService(IFMXDragDropService, DDService) then
-      DDService.BeginDragDrop(Self.Root as TCommonCustomForm, D, FMX.Graphics.TBitmap(row.Control.MakeScreenshot));
-    {$ELSE}
-    if TPlatformServices.Current.SupportsPlatformService<IFMXDragDropService>(DDService) then
-      DDService.BeginDragDrop(Self.Root as TCommonCustomForm, D, Wasm.FMX.Graphics.TBitmap(row.Control.MakeScreenshot));
-    {$ENDIF}
+      Self.Root.SetCaptured(nil);
+      D.Source := row.Control;
+      D.Files := nil;
+      D.Data := TValue.From<IList>(DraggedItems as IList);
+      {$IFNDEF WEBASSEMBLY}
+      if TPlatformServices.Current.SupportsPlatformService(IFMXDragDropService, DDService) then
+        DDService.BeginDragDrop(Self.Root as TCommonCustomForm, D, FMX.Graphics.TBitmap(row.Control.MakeScreenshot));
+      {$ELSE}
+      if TPlatformServices.Current.SupportsPlatformService<IFMXDragDropService>(DDService) then
+        DDService.BeginDragDrop(Self.Root as TCommonCustomForm, D, Wasm.FMX.Graphics.TBitmap(row.Control.MakeScreenshot));
+      {$ENDIF}
+
+      dragDropStarted := True;
+    end;
+  finally
+    if not dragDropStarted then
+      inherited;
   end;
 end;
 
@@ -1118,17 +1123,19 @@ begin
 
     var dmv := GetDataModelView;
     if dmv.CurrencyManager.Current <> -1 then
-    begin
-      var drv := dmv.Rows[dmv.CurrencyManager.Current];
-      _selectionInfo.SetFocusedItem(drv.Row.get_Index, drv.ViewIndex, drv);
-    end;
+      set_Current(dmv.CurrencyManager.Current); // scroll to selected item..
+//    begin
+//      var drv := dmv.Rows[dmv.CurrencyManager.Current];
+//      _selectionInfo.SetFocusedItem(drv.Row.get_Index, drv.ViewIndex, drv);
+//    end;
   end
   else if _model <> nil then
   begin
     // Set current position, if any
     var viewIx := _view.GetViewListIndex(_model.ObjectContext);
     if viewIx <> -1 then
-      _selectionInfo.SetFocusedItem(_view.GetDataIndex(_model.ObjectContext), viewIx, _model.ObjectContext);
+      set_Current(viewIx);  // scroll to selected item..
+//      _selectionInfo.SetFocusedItem(_view.GetDataIndex(_model.ObjectContext), viewIx, _model.ObjectContext);
   end;
 end;
 
@@ -1172,16 +1179,6 @@ begin
     _options := _options - [TDCTreeOption.KeepCurrentSelection]
   else if not (TDCTreeOption.KeepCurrentSelection in OldFlags) and (TDCTreeOption.KeepCurrentSelection in NewFlags) and not (TDCTreeOption.MultiSelect in NewFlags) then
     set_Options(_options + [TDCTreeOption.MultiSelect]);
-
-//  begin
-//    if (TDCTreeOption.MultiSelect in NewFlags) then
-//      _multiSelectSorter := TTreeMultiSelectSortDescription.Create(Self)
-//    else begin
-//      _multiSelectSorter := nil;
-//      if (_selectionInfo <> nil) then
-//        _selectionInfo.ClearMultiSelections;
-//    end;
-//  end;
 
   if ((TDCTreeOption.AlternatingRowBackground in OldFlags) <> (TDCTreeOption.AlternatingRowBackground in NewFlags)) then
   begin
@@ -1974,7 +1971,9 @@ begin
   if _view = nil then
     Exit;
 
-  PrepareView;
+  if Self.Name = 'TreeControl' then
+    PrepareView else
+    PrepareView;
 
   inherited;
 
@@ -2146,7 +2145,7 @@ begin
 
   // if user tells in CellLoading / CellLoaded that a cell control should be loaded after scrolling is done (for performance)
   if rowInfo.ReloadAfterScroll then
-    RestartWaitForRealignTimer(True, True {only realign when scrolling stopped});
+    RestartWaitForRealignTimer(True {only realign when scrolling stopped});
 
   EventTracer.PauseTimer('TREE', 'InitRow');
 end;
@@ -2918,7 +2917,9 @@ begin
     if IsMasterSynchronizer then
       UpdateSelectionInfo(_rowHeightSynchronizer, viewIndex);
 
-//    _referenceRowViewListIndex := viewIndex;
+    // row changed of datamodelview?
+    if _view.GetActiveRowIfExists(viewIndex) = nil then
+      _referenceRowViewListIndex := viewIndex;
   end;
 end;
 
@@ -4335,58 +4336,6 @@ begin
   _rowsControl.OnSelectedItemsChanged;
 end;
 
-//procedure TRowSelectionInfo.UpdateSingleSelection(const DataIndex, ViewListIndex: Integer; const DataItem: CObject; ClearMultiSelection: Boolean);
-//begin
-//  if not CanSelect(DataIndex) then
-//    Exit;
-//
-//  if not ClearMultiSelection then
-//    ClearMultiSelections;
-//
-//  SetFocusedItem(DataIndex, ViewListIndex, DataItem);
-//end;
-
-//procedure TRowSelectionInfo.AddToSelection(const DataIndex, ViewListIndex: Integer; const DataItem: CObject; ExpandCurrentSelection: Boolean);
-//begin
-//  if not CanSelect(DataIndex) then
-//    Exit;
-//
-//  BeginUpdate;
-//  try
-//    if not ExpandCurrentSelection then
-//      ClearMultiSelections
-//    else begin
-//      // add single selection if needed
-//      var prevInfo: IRowSelectionInfo := nil;
-//      if (_lastSelectedViewListIndex <> -1) {and not _multiSelection.ContainsKey(_lastSelectedDataIndex)} then
-//        prevInfo := Clone;
-//
-//      if prevInfo <> nil then
-//        _multiSelection[prevInfo.DataIndex] := prevInfo;
-//    end;
-//
-//    SetFocusedItem(DataIndex, ViewListIndex, DataItem);
-//
-//    var info: IRowSelectionInfo := CreateInstance as IRowSelectionInfo;
-//    info.UpdateSingleSelection(DataIndex, ViewListIndex, DataItem, False);
-//    _multiSelection[info.DataIndex] := info;
-//  finally
-//    EndUpdate;
-//  end;
-//end;
-
-function TRowSelectionInfo.SelectedDataItems: List<CObject>;
-begin
-  Result := CList<CObject>.Create;
-
-  if _multiSelection.Count > 0 then
-  begin
-    var rowInfo: TRowDataItemInfo;
-    for rowInfo in _multiSelection.Values do
-      Result.Add(rowInfo.DataItem)
-  end;
-end;
-
 function TRowSelectionInfo.SelectedDataIndexes: TDataIndexArray;
 begin
   SetLength(Result, _multiSelection.Count);
@@ -4420,21 +4369,6 @@ begin
   DoDataItemChanged;
 end;
 
-//procedure TRowSelectionInfo.SetFocusedItem(const DataIndex, ViewListIndex: Integer; const DataItem: CObject);
-//begin
-//  if not CanSelect(DataIndex) then
-//  begin
-//    SetFocusedItem(-1, -1, nil);
-//    Exit;
-//  end;
-//
-//  _lastSelectedDataIndex := DataIndex;
-//  _lastSelectedViewListIndex := ViewListIndex;
-//  _lastSelectedDataItem := DataItem;
-//
-//  DoSelectionInfoChanged;
-//end;
-
 { TWaitForRepaintInfo }
 procedure TWaitForRepaintInfo.ClearSelectionInfo;
 begin
@@ -4442,18 +4376,6 @@ begin
   _current := -1;
   _rowStateFlags := _rowStateFlags - [RowChanged];
 end;
-
-//procedure TWaitForRepaintInfo.ClearIrrelevantInfo;
-//begin
-//  _rowStateFlags := _rowStateFlags - [SortChanged, FilterChanged];
-//
-//  // ONLY KEEP CURRENT
-//  // we use current to reselect a item at that position after for example a refresh of the treecontrol
-//
-//  _dataItem := nil;
-//  _sortDescriptions := nil;
-//  _filterDescriptions := nil;
-//end;
 
 constructor TWaitForRepaintInfo.Create(const Owner: IRefreshControl);
 begin

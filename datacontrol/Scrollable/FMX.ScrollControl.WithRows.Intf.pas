@@ -126,7 +126,7 @@ type
     function  HasSelectedItems: Boolean; // multi selection
 
     function  SelectedRowCount: Integer;
-    function  SelectedDataItems: List<CObject>;
+//    function  SelectedDataItems: List<CObject>;
     function  SelectedDataIndexes: TDataIndexArray;
 
     function  GetRowInfo(const DataIndex: Integer): TRowDataItemInfo;

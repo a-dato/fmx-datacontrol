@@ -1474,6 +1474,7 @@ constructor TGlyphControl.Create(AOwner: TComponent);
 begin
   inherited;
   _imageControl := TImageControlImpl.Create(Self);
+  AutoHide := False;
 end;
 
 function TGlyphControl.get_ImageControl: IImageControl;

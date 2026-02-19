@@ -297,6 +297,8 @@ type
     procedure SelectAll; override;
     function  RadioInsteadOfCheck: Boolean;
 
+    function  GetCellByMousePos(const Point: TPointF): IDCTreeCell;
+
     property  Layout: IDCTreeLayout read get_Layout;
     property  HeaderRow: IDCHeaderRow read _headerRow;
     property  SelectedColumn: IDCTreeLayoutColumn read get_SelectedColumn;
@@ -1439,7 +1441,9 @@ begin
     Exit(nil);
 
   CheckCorrectColumnSelection(_selectionInfo, row);
-  Result := row.Cells[_selectionInfo.Tag];
+  if _selectionInfo.Tag <> -1 then
+    Result := row.Cells[_selectionInfo.Tag] else
+    Result := nil;
 end;
 
 function TScrollControlWithCells.GetCellByControl(const Control: TControl): IDCTreeCell;
@@ -1498,7 +1502,11 @@ begin
       dec(flatIndex);
 
     if (flatIndex < 0) or (flatIndex > _treeLayout.FlatColumns.Count - 1) then
-      Exit(_treeLayout.LayoutColumns[FromColumnIndex]); // nothing to do
+    begin
+      if FromColumnIndex <> -1 then
+        Exit(_treeLayout.LayoutColumns[FromColumnIndex]) else // nothing to do
+        Exit(nil);
+    end;
 
     flatColumn := _treeLayout.FlatColumns[flatIndex];
   end;
@@ -1638,7 +1646,7 @@ begin
   begin
     cell.CheckPerformanceRoutine(performanceModeNeeded);
     if cell.PerformanceModeWhileScrolling and performanceModeNeeded then
-      RestartWaitForRealignTimer(True, True {only realign when scrolling stopped});
+      RestartWaitForRealignTimer(True {only realign when scrolling stopped});
   end;
 end;
 
@@ -3017,7 +3025,9 @@ begin
   begin
     SelectionInfo.BeginUpdate;
     try
-      SelectionInfo.Tag := GetFlatColumnByKey(vkHome, [], -1).Index; // get first valid column
+      var clmn := GetFlatColumnByKey(vkHome, [], -1);
+      if clmn <> nil then
+        SelectionInfo.Tag := clmn.Index; // get first valid column
     finally
       SelectionInfo.EndUpdate(True {ignore events});
     end;
@@ -3355,25 +3365,25 @@ begin
     _localCheckSetInDefaultData := False;
     if ctrl <> nil then
     begin
-      EventTracer.StartTimer('TREE', 'ProvideCellData');
+      EventTracer.StartTimer('TREE', 'ProvideCellData_' + propName);
       cellValue := ProvideCellData(cell, propName, IsSubProp);
-      EventTracer.PauseTimer('TREE', 'ProvideCellData');
+      EventTracer.PauseTimer('TREE', 'ProvideCellData_' + propName);
 
       if infoClass = TInfoControlClass.Text then
       begin
-        EventTracer.StartTimer('TREE', 'DoCellFormatting');
+        EventTracer.StartTimer('TREE', 'DoCellFormatting_' + propName);
         var cellText: CString;
         if DoCellFormatting(cell, False, {var} cellValue) then
         begin
           celltext := cellValue.ToString(True);
-          EventTracer.PauseTimer('TREE', 'DoCellFormatting');
+          EventTracer.PauseTimer('TREE', 'DoCellFormatting_' + propName);
         end
         else
         begin
-          EventTracer.PauseTimer('TREE', 'DoCellFormatting');
-          EventTracer.StartTimer('TREE', 'GetFormattedValue');
+          EventTracer.PauseTimer('TREE', 'DoCellFormatting_' + propName);
+          EventTracer.StartTimer('TREE', 'GetFormattedValue_' + propName);
           celltext := cell.Column.GetFormattedValue(cell, cellValue);
-          EventTracer.PauseTimer('TREE', 'GetFormattedValue');
+          EventTracer.PauseTimer('TREE', 'GetFormattedValue_' + propName);
         end;
 
         (ctrl as ICaption).Text := CStringToString(celltext);
@@ -3414,6 +3424,23 @@ begin
     if (xDiffSinceLastMove < -10) or (xDiffSinceLastMove > 10) then
       _horzScrollBar.Value := _horzScrollBar.Value - (xDiffSinceLastMove - xAlreadyMovedSinceMouseDown);
   end;
+end;
+
+function TScrollControlWithCells.GetCellByMousePos(const Point: TPointF): IDCTreeCell;
+begin
+  if (_view = nil) or (_treeLayout = nil) then
+    Exit(nil);
+
+  var row := GetRowByLocalY(Point.Y);
+  if row = nil then
+    Exit(nil);
+
+  var clmn := GetFlatColumnByMouseX(Point.X);
+  if clmn = nil then
+    Exit(nil);
+
+  if (clmn = nil) or not (row as IDCTreeRow).Cells.TryGetValue(clmn.Index, Result) then
+    Exit(nil);
 end;
 
 function TScrollControlWithCells.RadioInsteadOfCheck: Boolean;
