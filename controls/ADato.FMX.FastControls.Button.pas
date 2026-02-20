@@ -334,7 +334,7 @@ uses
   Wasm.System.Math,
   Wasm.System.Actions,
   Wasm.FMX.Controls
-  {$ENDIF}, FMX.ScrollControl.ControlClasses;
+  {$ENDIF}, FMX.ScrollControl.ControlClasses, LynxX.Colors;
 
 { TADatoClickLayout }
 
@@ -1066,8 +1066,8 @@ begin
 
   if _hover and (get_TagType = TTagType.NoBounds) then
   begin
-    Canvas.Fill.Color := TAlphaColor($FFC3CBE6);
-    Canvas.FillRect(outerRect, get_Radius, get_Radius, AllCorners, 0.6 * IfThen(MouseIsDown, 0.5, 1));
+    Canvas.Fill.Color := TLynxXColors.HoverColor;
+    Canvas.FillRect(outerRect, get_Radius, get_Radius, AllCorners, AbsoluteOpacity * IfThen(MouseIsDown, 0.8, 1));
   end;
 
   inherited;
