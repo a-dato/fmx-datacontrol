@@ -201,25 +201,25 @@ begin
     Exit;
 
   var field := DatasetDatamodel1.FieldByName(s);
-  if field.DataType in [TFieldType.ftDate, TFieldType.ftDateTime] then
-  begin
-    var dateTimeEditor := TAdatoDateTimeEdit.Create(e.Cell.Control);
-
-    if field.DataType = TFieldType.ftDate then
-    begin
-      dateTimeEditor.Kind := TDateTimeEditKind.Date;
-      e.MinEditorWidth := 150;
-    end
-    else
-    begin
-      dateTimeEditor.Kind := TDateTimeEditKind.DateTime;
-      e.MinEditorWidth := 200;
-    end;
-
-    dateTimeEditor.DateTime := e.Value.AsType<CDateTime>;
-    e.Editor := dateTimeEditor;
-  end
-  else if field.DataType in [TFieldType.ftMemo, TFieldType.ftWideMemo] then
+//  if field.DataType in [TFieldType.ftDate, TFieldType.ftDateTime] then
+//  begin
+//    var dateTimeEditor := TAdatoDateTimeEdit.Create(e.Cell.Control);
+//
+//    if field.DataType = TFieldType.ftDate then
+//    begin
+//      dateTimeEditor.Kind := TDateTimeEditKind.Date;
+//      e.MinEditorWidth := 150;
+//    end
+//    else
+//    begin
+//      dateTimeEditor.Kind := TDateTimeEditKind.DateTime;
+//      e.MinEditorWidth := 200;
+//    end;
+//
+//    dateTimeEditor.DateTime := e.Value.AsType<CDateTime>;
+//    e.Editor := dateTimeEditor;
+//  end else
+  if field.DataType in [TFieldType.ftMemo, TFieldType.ftWideMemo] then
     e.MultilineEdit := True;
 end;
 
