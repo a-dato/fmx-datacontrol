@@ -1,7 +1,7 @@
 program Inspector;
 
 uses
-System.StartUpCopy,
+  System.StartUpCopy,
   FMX.Forms,
   Main in 'Main.pas' {frmInspector},
   Login in 'Login.pas' {frmLogin},

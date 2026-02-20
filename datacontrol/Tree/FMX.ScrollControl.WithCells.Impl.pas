@@ -2230,7 +2230,7 @@ procedure TScrollControlWithCells.OnCurrentChanged;
 begin
   inherited;
 
-  if _horzScrollBar.Visible and (_selectionType = TSelectionType.CellSelection) and (_selectionInfo.Tag <> -1) then
+  if _horzScrollBar.Visible and (_treeLayout <> nil) and (_selectionType = TSelectionType.CellSelection) and (_selectionInfo.Tag <> -1) then
   begin
     var currentFlatColumn := _treeLayout.LayoutColumns[_selectionInfo.Tag];
     if not currentFlatColumn.Column.Frozen {those are always visible} then
