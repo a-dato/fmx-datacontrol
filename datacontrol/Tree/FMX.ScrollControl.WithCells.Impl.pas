@@ -3054,112 +3054,116 @@ function TScrollControlWithCells.TrySelectItem(const RequestedSelectionInfo: IRo
 
 begin
   Result := False;
-  if (_treeLayout = nil { will get here later again}) or not _selectionInfo.CanFocus(RequestedSelectionInfo.DataIndex) then
-    Exit;
-
-
-  var rowChange := _selectionInfo.DataIndex <> RequestedSelectionInfo.DataIndex;
-  var rowAlreadySelected := not rowChange or _selectionInfo.IsSelected(RequestedSelectionInfo.DataIndex);
-  var clmnChange := _selectionInfo.Tag <> RequestedSelectionInfo.Tag;
-  var clmnAlreadySelected := not clmnChange;
-
-  if not _selectionInfo.HasSelectedItems then
-  begin
-    // not changed for example when sorting/filtering activated
-    if (ssShift in Shift) and rowAlreadySelected and clmnAlreadySelected then
-    begin
-      // nothing special to do
-      ScrollSelectedIntoView(RequestedSelectionInfo);
-      DoCellSelected(GetActiveCell, _selectionInfo.LastSelectionEventTrigger);
-      Exit;
-    end
-    else if (SelectionType <> TSelectionType.CellSelection) and not rowChange then
-    begin
-      // nothing special to do
-      ScrollSelectedIntoView(RequestedSelectionInfo);
-
-      // ignore change event, for no row change took place
-      _selectionInfo.BeginUpdate;
-      try
-        _selectionInfo.Tag := RequestedSelectionInfo.Tag;
-      finally
-        _selectionInfo.EndUpdate(True);
-      end;
-
-      DoCellSelected(GetActiveCell, _selectionInfo.LastSelectionEventTrigger);
-
-      if (ssCtrl in Shift) and (_selectionInfo.LastSelectionEventTrigger = TSelectionEventTrigger.Click) then
-        UpdateCurrentRowCheckedState;
-
-      Exit(True);
-    end
-    else if not rowChange and not clmnChange then
-    begin
-      // nothing special to do
-      ScrollSelectedIntoView(RequestedSelectionInfo);
-
-      // nothing special to do
-      DoCellSelected(GetActiveCell, _selectionInfo.LastSelectionEventTrigger);
-
-      if (ssCtrl in Shift) and (_selectionInfo.LastSelectionEventTrigger = TSelectionEventTrigger.Click) then
-        UpdateCurrentRowCheckedState;
-
-      Exit(True);
-    end;
-  end;
-
-  // Okay, we now know for sure that we have a changed cell..
-  // old row can be scrolled out of view. So always work with dummy rows
-  var customShift := Shift;
-
-  // old activecell
-  CheckCorrectColumnSelection(_selectionInfo, GetActiveRow as IDCTreeRow);
-
-  var dummyOldRow := ProvideRowForChanging(_selectionInfo) as IDCTreeRow;
-  var oldCell: IDCTreeCell := nil;
-  if dummyOldRow <> nil then
-    dummyOldRow.Cells.TryGetValue(_selectionInfo.Tag, oldCell);
-
-  // new activecell
-  if RequestedSelectionInfo.Tag = -1 then
-    RequestedSelectionInfo.Tag := _selectionInfo.Tag;
-
-  var dummyNewRow := ProvideRowForChanging(RequestedSelectionInfo) as IDCTreeRow;
-  var newCell: IDCTreeCell := nil;
-  if dummyNewRow <> nil then
-    newCell := dummyNewRow.Cells[RequestedSelectionInfo.Tag];
-
-  var ignoreSelectionChanges := not CanRealignContent;
-  if not DoCellCanChange(oldCell, newCell) then
-    Exit;
-
-  // DoCellCanChange can trigger a ViewReset
-  // since we are selecting, we can ignore any set of the dataitem..
-  if _waitForRepaintInfo <> nil then
-    _waitForRepaintInfo.ClearSelectionInfo;
-
-  DoCellChanging(oldCell, newCell);
-
-  _selectionInfo.BeginUpdate;
   try
-    InternalDoSelectRow(RequestedSelectionInfo.DataIndex, RequestedSelectionInfo.ViewListIndex, RequestedSelectionInfo.DataItem, Shift);
+    if (_treeLayout = nil { will get here later again}) or not _selectionInfo.CanFocus(RequestedSelectionInfo.DataIndex) then
+      Exit;
 
-    if SelectionType = TSelectionType.CellSelection then
+
+    var rowChange := _selectionInfo.DataIndex <> RequestedSelectionInfo.DataIndex;
+    var rowAlreadySelected := not rowChange or _selectionInfo.IsSelected(RequestedSelectionInfo.DataIndex);
+    var clmnChange := _selectionInfo.Tag <> RequestedSelectionInfo.Tag;
+    var clmnAlreadySelected := not clmnChange;
+
+    if not _selectionInfo.HasSelectedItems then
     begin
-      InternalDoSelectColumn(RequestedSelectionInfo.Tag, customShift);
+      // not changed for example when sorting/filtering activated
+      if (ssShift in Shift) and rowAlreadySelected and clmnAlreadySelected then
+      begin
+        // nothing special to do
+        ScrollSelectedIntoView(RequestedSelectionInfo);
+        DoCellSelected(GetActiveCell, _selectionInfo.LastSelectionEventTrigger);
+        Exit;
+      end
+      else if (SelectionType <> TSelectionType.CellSelection) and not rowChange then
+      begin
+        // nothing special to do
+        ScrollSelectedIntoView(RequestedSelectionInfo);
 
-      var row := GetActiveRow;
-      if row <> nil then // delete makes row = nil
-        VisualizeRowSelection(row);
-    end else
-      _selectionInfo.Tag := RequestedSelectionInfo.Tag;
+        // ignore change event, for no row change took place
+        _selectionInfo.BeginUpdate;
+        try
+          _selectionInfo.Tag := RequestedSelectionInfo.Tag;
+        finally
+          _selectionInfo.EndUpdate(True);
+        end;
+
+        DoCellSelected(GetActiveCell, _selectionInfo.LastSelectionEventTrigger);
+
+        if (ssCtrl in Shift) and (_selectionInfo.LastSelectionEventTrigger = TSelectionEventTrigger.Click) then
+          UpdateCurrentRowCheckedState;
+
+        Exit(True);
+      end
+      else if not rowChange and not clmnChange then
+      begin
+        // nothing special to do
+        ScrollSelectedIntoView(RequestedSelectionInfo);
+
+        // nothing special to do
+        DoCellSelected(GetActiveCell, _selectionInfo.LastSelectionEventTrigger);
+
+        if (ssCtrl in Shift) and (_selectionInfo.LastSelectionEventTrigger = TSelectionEventTrigger.Click) then
+          UpdateCurrentRowCheckedState;
+
+        Exit(True);
+      end;
+    end;
+
+    // Okay, we now know for sure that we have a changed cell..
+    // old row can be scrolled out of view. So always work with dummy rows
+    var customShift := Shift;
+
+    // old activecell
+    CheckCorrectColumnSelection(_selectionInfo, GetActiveRow as IDCTreeRow);
+
+    var dummyOldRow := ProvideRowForChanging(_selectionInfo) as IDCTreeRow;
+    var oldCell: IDCTreeCell := nil;
+    if dummyOldRow <> nil then
+      dummyOldRow.Cells.TryGetValue(_selectionInfo.Tag, oldCell);
+
+    // new activecell
+    if RequestedSelectionInfo.Tag = -1 then
+      RequestedSelectionInfo.Tag := _selectionInfo.Tag;
+
+    var dummyNewRow := ProvideRowForChanging(RequestedSelectionInfo) as IDCTreeRow;
+    var newCell: IDCTreeCell := nil;
+    if dummyNewRow <> nil then
+      newCell := dummyNewRow.Cells[RequestedSelectionInfo.Tag];
+
+    var ignoreSelectionChanges := not CanRealignContent;
+    if not DoCellCanChange(oldCell, newCell) then
+      Exit;
+
+    // DoCellCanChange can trigger a ViewReset
+    // since we are selecting, we can ignore any set of the dataitem..
+    if _waitForRepaintInfo <> nil then
+      _waitForRepaintInfo.ClearSelectionInfo;
+
+    DoCellChanging(oldCell, newCell);
+
+    _selectionInfo.BeginUpdate;
+    try
+      InternalDoSelectRow(RequestedSelectionInfo.DataIndex, RequestedSelectionInfo.ViewListIndex, RequestedSelectionInfo.DataItem, Shift);
+
+      if SelectionType = TSelectionType.CellSelection then
+      begin
+        InternalDoSelectColumn(RequestedSelectionInfo.Tag, customShift);
+
+        var row := GetActiveRow;
+        if row <> nil then // delete makes row = nil
+          VisualizeRowSelection(row);
+      end else
+        _selectionInfo.Tag := RequestedSelectionInfo.Tag;
+    finally
+      _selectionInfo.EndUpdate(ignoreSelectionChanges);
+    end;
+
+    DoCellChanged(oldCell, newCell);
+
+    Result := True;
   finally
-    _selectionInfo.EndUpdate(ignoreSelectionChanges);
+    _selectionInfo.LastSelectionEventTrigger := TSelectionEventTrigger.External;
   end;
-
-  DoCellChanged(oldCell, newCell);
-
-  Result := True;
 end;
 
 procedure TScrollControlWithCells.UpdateScrollAndSelectionByKey(var Key: Word; Shift: TShiftState);

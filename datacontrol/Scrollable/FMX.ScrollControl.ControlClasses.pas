@@ -322,6 +322,7 @@ type
     procedure DoResized; override;
   public
     constructor Create(AOwner: TComponent; Background: IBackgroundControl); reintroduce;
+    destructor Destroy; override;
 
     procedure Paint; override;
     function  Background: IBackgroundControl;
@@ -1493,6 +1494,8 @@ constructor TRowLayout.Create(AOwner: TComponent; Background: IBackgroundControl
 begin
   inherited Create(AOwner);
 
+  //Assert(TThread.CurrentThread.ThreadID = MainThreadID);
+
   _rect := Background;
 //  _rect.AsControl.ClipChildren := True;
   _rect.AsControl.HitTest := False;
@@ -1500,6 +1503,13 @@ begin
   Self.AddObject(_rect.AsControl);
 
   _rect.AsControl.SendToBack;
+end;
+
+destructor TRowLayout.Destroy;
+begin
+  //Assert(TThread.CurrentThread.ThreadID = MainThreadID);
+
+  inherited;
 end;
 
 procedure TRowLayout.DoResized;

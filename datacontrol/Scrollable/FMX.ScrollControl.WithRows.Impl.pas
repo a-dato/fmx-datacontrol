@@ -1213,7 +1213,9 @@ begin
   if not (TDCTreeOption.MultiSelect in _options) then
   begin
     // for example radio buttons..
+    set_Current(ix);
     _selectionInfo.SetFocusedItem(dataIndex, ix, DataItem);
+
     Exit;
   end;
 
@@ -3508,7 +3510,16 @@ begin
     dataIndexes.Add(ix);
 
   if dataIndexes.Count = 0 then
+  begin
+    if not (TreeOption_MultiSelect in  _options) and _selectionInfo.HasFocusedItem then
+    begin
+      Result := CList<CObject>.Create(1);
+      Result.Add(ConvertToDataItem(_selectionInfo.DataItem));
+      Exit;
+    end;
+
     Exit(nil);
+  end;
 
   dataIndexes.Sort;
 
@@ -3552,7 +3563,16 @@ begin
     dataIndexes.Add(ix);
 
   if dataIndexes.Count = 0 then
+  begin
+    if not (TreeOption_MultiSelect in  _options) and _selectionInfo.HasFocusedItem then
+    begin
+      Result := CList<T>.Create(1);
+      Result.Add(ConvertToDataItem(_selectionInfo.DataItem).AsType<T>);
+      Exit;
+    end;
+
     Exit(nil);
+  end;
 
   Result := CList<T>.Create(dataIndexes.Count);
 
@@ -4249,6 +4269,9 @@ end;
 
 procedure TRowSelectionInfo.set_EventTrigger(const Value: TSelectionEventTrigger);
 begin
+  if _EventTrigger = Value then
+    Exit;
+
   _EventTrigger := Value;
 end;
 
