@@ -1780,7 +1780,16 @@ begin
   end;
 
   _selectionInfo.NotSelectableDataIndexes := arr;
-  RefreshControl(True);
+
+  if (_selectionInfo.DataIndex <> -1) and TArray.Contains<Integer>(arr, _selectionInfo.DataIndex) then
+  begin
+    _selectionInfo.BeginUpdate;
+    try
+      _selectionInfo.SetFocusedItem(-1, -1, nil);
+    finally
+      _selectionInfo.EndUpdate(True {ignore});
+    end;
+  end;
 end;
 
 procedure TScrollControlWithRows.set_Options(const Value: TDCTreeOptions);
@@ -2088,7 +2097,6 @@ begin
   end
   else if rowNeedsReload then
     oldRowHeight := _view.GetRowHeight(Row.ViewListIndex);
-
 
   if rowNeedsReload then
   begin
@@ -3368,6 +3376,8 @@ end;
 
 procedure TScrollControlWithRows.ResetView(const FromViewListIndex: Integer = -1; ClearOneRowOnly: Boolean = False);
 begin
+  Assert(_realignState <> TRealignState.Realigning);
+
   if _view = nil then
   begin
     _resetViewRec := TResetViewRec.CreateNull;
