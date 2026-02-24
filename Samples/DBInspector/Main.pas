@@ -419,10 +419,23 @@ procedure TfrmInspector.CopySelectedItemsToClipBoard(DataControl: TDataControl);
 begin
   var sb: StringBuilder := CStringBuilder.Create;
 
-  for var o in DataControl.SelectedItems do
+  if DataControl.SelectedItems <> nil then
+  begin
+    for var o in DataControl.SelectedItems do
+    begin
+      var item: IDbItem;
+      if o.TryGetValue<IDBItem>(item) then
+      begin
+        if sb.Length > 0 then
+          sb.Append(', ');
+        sb.Append(item.Name);
+      end;
+    end;
+  end
+  else
   begin
     var item: IDbItem;
-    if o.TryGetValue<IDBItem>(item) then
+    if DataControl.DataItem.TryGetValue<IDBItem>(item) then
     begin
       if sb.Length > 0 then
         sb.Append(', ');
