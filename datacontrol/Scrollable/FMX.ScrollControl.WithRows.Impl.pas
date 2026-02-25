@@ -526,6 +526,7 @@ type
 
     _current: Integer;
     _dataItem: CObject;
+    _scrollItemIntoView: Boolean;
     _sortDescriptions: List<IListSortDescription>;
     _filterDescriptions: List<IListFilterDescription>;
 
@@ -536,6 +537,8 @@ type
     procedure set_Current(const Value: Integer);
     function  get_DataItem: CObject;
     procedure set_DataItem(const Value: CObject);
+    function  get_ScrollItemIntoView: Boolean;
+    procedure set_ScrollItemIntoView(const Value: Boolean);
     function  get_SortDescriptions: List<IListSortDescription>;
     procedure set_SortDescriptions(const Value: List<IListSortDescription>);
     function  get_FilterDescriptions: List<IListFilterDescription>;
@@ -549,6 +552,7 @@ type
     property RowStateFlags: TTreeRowStateFlags read get_RowStateFlags;
     property Current: Integer read get_Current write set_Current;
     property DataItem: CObject read get_DataItem write set_DataItem;
+    property ScrollItemIntoView: Boolean read get_ScrollItemIntoView write set_ScrollItemIntoView;
     property SortDescriptions: List<IListSortDescription> read get_SortDescriptions write set_SortDescriptions;
     property FilterDescriptions: List<IListFilterDescription> read get_FilterDescriptions write set_FilterDescriptions;
   end;
@@ -1614,18 +1618,12 @@ begin
   else begin
     if _rowHeightDefault = -1 {dynamic height} then
     begin
-      var txt := DataControlClassFactory.CreateText(Self);
-      try
-        (txt as ICaption).Text := 'Ag';
-        // KV: XXX
-        // _rowHeightDefault := TextControlHeight(txt, (txt as ITextSettings).TextSettings, 'Ag') + (2*ROW_CONTENT_MARGIN);
+      var txtIntf := DataControlClassFactory.CreateText(Self) as ITextControl;
+      txtIntf.Text := 'Ag';
 
-        if (_rowHeightMax > 0) and (_rowHeightMax < _rowHeightDefault) then
-          _rowHeightDefault := _rowHeightMax;
-      finally
-        // KV: XXX
-        // txt.Free;
-      end;
+      _rowHeightDefault := txtIntf.TextHeightWithPadding + (2*ROW_CONTENT_MARGIN);
+      if (_rowHeightMax > 0) and (_rowHeightMax < _rowHeightDefault) then
+        _rowHeightDefault := _rowHeightMax;
     end;
 
     Result := _rowHeightDefault;
@@ -2877,8 +2875,15 @@ begin
     end;
   end;
 
-  // must be below bestDefault/bestFixed
-  _view.Prepare(get_rowHeightDefault);
+  // (1) _view.Prepare must be below bestDefault/bestFixed
+  // (2) CalculateScrollBarMax is needed, because the Max scrollbar is taken in Provide Reference Row if dataitem is set.
+
+  var oldDefaultHeight := _view.DefaultRowHeight;
+  if not SameValue(oldDefaultHeight, get_rowHeightDefault) then
+  begin
+    _view.Prepare(get_rowHeightDefault);
+    CalculateScrollBarMax;
+  end;
 
   if _waitForRepaintInfo = nil then
     Exit;
@@ -2927,8 +2932,11 @@ begin
     if IsMasterSynchronizer then
       UpdateSelectionInfo(_rowHeightSynchronizer, viewIndex);
 
-    // row changed of datamodelview?
-    if _view.GetActiveRowIfExists(viewIndex) = nil then
+//    // row changed of datamodelview?
+//    if _view.GetActiveRowIfExists(viewIndex) = nil then
+//      _referenceRowViewListIndex := viewIndex;
+
+    if _waitForRepaintInfo.ScrollItemIntoView then
       _referenceRowViewListIndex := viewIndex;
   end;
 end;
@@ -3226,8 +3234,16 @@ begin
     if not existed or (prevRefHeight <> Result.Height) then
     begin
       if AlignBottomToTop then
-        startY := startY + (Result.Height - prevRefHeight) else
-        startY := CMath.Min(_vertScrollBar.Max - _vertScrollBar.ViewportSize, Result.VirtualYPosition);
+        startY := startY + (Result.Height - prevRefHeight)
+      else begin
+        if (Result.VirtualYPosition < _vertScrollBar.ViewportSize) then
+        begin
+          if (_vertScrollBar.Value > Result.VirtualYPosition) then
+            startY := Result.VirtualYPosition;
+        end
+        else if _vertScrollBar.Max - _vertScrollBar.ViewportSize < Result.VirtualYPosition then
+          startY := _vertScrollBar.Max - _vertScrollBar.ViewportSize;
+      end;
     end;
   end else
   begin
@@ -4406,6 +4422,7 @@ end;
 procedure TWaitForRepaintInfo.ClearSelectionInfo;
 begin
   _dataItem := nil;
+  _scrollItemIntoView := True;
   _current := -1;
   _rowStateFlags := _rowStateFlags - [RowChanged];
 end;
@@ -4427,6 +4444,11 @@ begin
   Result := _dataItem;
 end;
 
+function TWaitForRepaintInfo.get_ScrollItemIntoView: Boolean;
+begin
+  Result := _scrollItemIntoView;
+end;
+
 function TWaitForRepaintInfo.get_FilterDescriptions: List<IListFilterDescription>;
 begin
   Result := _filterDescriptions;
@@ -4445,7 +4467,10 @@ end;
 procedure TWaitForRepaintInfo.set_Current(const Value: Integer);
 begin
   if Value <> -1 then
+  begin
     _dataItem := nil;
+    _scrollItemIntoView := True;
+  end;
 
   _current := Value;
   _rowStateFlags := _rowStateFlags + [TTreeRowState.RowChanged];
@@ -4456,12 +4481,20 @@ end;
 procedure TWaitForRepaintInfo.set_DataItem(const Value: CObject);
 begin
   if Value <> nil then
+  begin
     _current := -1;
+    _scrollItemIntoView := True;
+  end;
 
   _dataItem := Value;
   _rowStateFlags := _rowStateFlags + [TTreeRowState.RowChanged];
   if _owner.IsInitialized then
     _owner.RefreshControl;
+end;
+
+procedure TWaitForRepaintInfo.set_ScrollItemIntoView(const Value: Boolean);
+begin
+  _scrollItemIntoView := Value;
 end;
 
 procedure TWaitForRepaintInfo.set_FilterDescriptions(const Value: List<IListFilterDescription>);

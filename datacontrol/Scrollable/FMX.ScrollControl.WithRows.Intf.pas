@@ -264,6 +264,8 @@ type
     procedure set_Current(const Value: Integer);
     function  get_DataItem: CObject;
     procedure set_DataItem(const Value: CObject);
+    function  get_ScrollItemIntoView: Boolean;
+    procedure set_ScrollItemIntoView(const Value: Boolean);
     function  get_SortDescriptions: List<IListSortDescription>;
     procedure set_SortDescriptions(const Value: List<IListSortDescription>);
     function  get_FilterDescriptions: List<IListFilterDescription>;
@@ -272,9 +274,11 @@ type
     procedure ClearSelectionInfo;
 
     property RowStateFlags: TTreeRowStateFlags read get_RowStateFlags write set_RowStateFlags;
-    property Current: Integer read get_Current write set_Current;
 
+    property Current: Integer read get_Current write set_Current;
     property DataItem: CObject read get_DataItem write set_DataItem;
+    property ScrollItemIntoView: Boolean read get_ScrollItemIntoView write set_ScrollItemIntoView;
+
     property SortDescriptions: List<IListSortDescription> read get_SortDescriptions write set_SortDescriptions;
     property FilterDescriptions: List<IListFilterDescription> read get_FilterDescriptions write set_FilterDescriptions;
   end;

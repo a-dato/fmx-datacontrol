@@ -31,8 +31,8 @@ object frmFMXPopupMenuDataControl: TfrmFMXPopupMenuDataControl
     Enabled = False
     Interval = 250
     OnTimer = Timer1Timer
-    Left = 91
-    Top = 259
+    Left = 27
+    Top = 267
   end
   object lyListBoxBackGround: TLayout
     Align = Top

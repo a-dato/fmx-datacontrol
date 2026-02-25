@@ -3942,7 +3942,7 @@ begin
     if loadDefaultData then
     begin
       Result := Cell.Column.ProvideCellData(cell, cell.Column.PropertyName);
-      if not DoCellFormatting(cell, True, {var} Result) and (Cell.Column.SortType = TSortType.Displaytext) then
+      if (Cell.Column.SortType = TSortType.Displaytext) and not DoCellFormatting(cell, True, {var} Result) then
         Result := Cell.Column.GetFormattedValue(cell, Result);
     end else
     begin
@@ -4953,7 +4953,11 @@ begin
       headerCell.SortControl.Position.X := startYPos;
       headerCell.SortControl.Width := HEADER_IMG_SIZE;
       headerCell.SortControl.Height := HEADER_IMG_SIZE;
+
+      startYPos := startYPos - HEADER_IMG_SIZE - (2*_treeControl.CellLeftRightPadding);
     end;
+
+    headerCell.InfoControl.Padding.Right := Cell.Control.Width - CELL_MIN_INDENT - (2*_treeControl.CellLeftRightPadding) - startYPos;
   end
   else begin
     if Cell.ExpandButton <> nil then
