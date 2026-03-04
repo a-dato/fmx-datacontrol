@@ -250,7 +250,7 @@ type
     function  CalculateAverageRowHeight: Single;
     procedure DoContentResized(WidthChanged, HeightChanged: Boolean); override;
 
-    procedure CheckVertScrollbarVisibility;
+    procedure CheckVertScrollbarVisibility; virtual;
     procedure CalculateScrollBarMax; override;
     procedure InternalDoSelectRow(const DataIndex, ViewListIndex: Integer; const DataItem: CObject; Shift: TShiftState);
 
@@ -2837,8 +2837,8 @@ begin
     // in case of a revert of a newly added item..
     if _selectionInfo.ViewListIndex > _view.ViewCount - 1 then
     begin
-//      _mustShowSelectionInRealign := False;
       ClearSelectedItems;
+      ClearCurrentFocused;
     end;
   finally
     StopIgnoreMasterSynchronizer(doIgnoreMaster);

@@ -81,6 +81,7 @@ type
   public
     constructor Create(AOwner: TComponent); override;
     procedure Paint; override;
+    procedure DoPaint; override;
 
     property Corners: TCorners read GetCorners write SetCorners;
     property Sides: TSides read GetSides write SetSides;
@@ -119,6 +120,16 @@ begin
   end;
 
   inherited;
+end;
+
+procedure TBackgroundControl.DoInternalChanged;
+begin
+  Repaint;
+end;
+
+procedure TBackgroundControl.DoPaint;
+begin
+  inherited;
 
   var drawStroke := (FStrokeColor <> TAlphaColors.Null) and (FSides <> []);
   if drawStroke then
@@ -151,11 +162,6 @@ begin
         Canvas.DrawRect(GetShapeRect, XRadius, YRadius, FCorners, AbsoluteOpacity, TCornerType.Round);
     end;
   end;
-end;
-
-procedure TBackgroundControl.DoInternalChanged;
-begin
-  Repaint;
 end;
 
 function TBackgroundControl.GetCorners: TCorners;
