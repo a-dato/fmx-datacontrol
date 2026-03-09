@@ -305,8 +305,8 @@ type
 
     procedure TriggerFilterOrSortChanged(FilterChanged, SortChanged: Boolean);
 
-    procedure AddSortDescription(const Sort: IListSortDescription; const ClearOtherSort: Boolean);
-    procedure AddFilterDescription(const Filter: IListFilterDescription; const ClearOtherFlters: Boolean);
+    procedure AddSortDescription(const Sort: IListSortDescription; const ClearOtherSort: Boolean; const TreeSortsOnly: Boolean = True);
+    procedure AddFilterDescription(const Filter: IListFilterDescription; const ClearOtherFlters: Boolean; const TreeSortsOnly: Boolean = True);
 
     procedure DoDataItemChangedInternal(const DataItem: CObject); virtual;
     procedure DoDataItemChanged(const CurrentViewListIndex: Integer; const DataItem: CObject; out ChangeUpdatedSort: Boolean); virtual;
@@ -348,6 +348,9 @@ type
     procedure CollapseCurrentRow;
     function  CurrentRowIsExpanded: Boolean;
     // end public expand/collapse
+
+    function GetSorts: List<IListSortDescription>;
+    function GetFilters: List<IListFilterDescription>;
 
     function SortActive: Boolean;
     function FiltersActive: Boolean;
@@ -1024,6 +1027,16 @@ begin
   end;
 end;
 
+function TScrollControlWithRows.GetSorts: List<IListSortDescription>;
+begin
+  if GetInitializedWaitForRefreshInfo.SortDescriptions <> nil then
+    Exit(GetInitializedWaitForRefreshInfo.SortDescriptions);
+
+  if (_view <> nil) then
+    Exit(_view.GetSortDescriptions) else
+    Exit(nil);
+end;
+
 function TScrollControlWithRows.GetRowByLocalY(const Y: Single): IDCRow;
 begin
   if (_view = nil) or (Y < 0) then
@@ -1058,6 +1071,16 @@ begin
     Result := _dataModelView
   else if interfaces.Supports<IDataModel>(_dataList, dm) then
     Result := dm.DefaultView;
+end;
+
+function TScrollControlWithRows.GetFilters: List<IListFilterDescription>;
+begin
+  if GetInitializedWaitForRefreshInfo.FilterDescriptions <> nil then
+    Exit(GetInitializedWaitForRefreshInfo.FilterDescriptions);
+
+  if (_view <> nil) then
+    Exit(_view.GetFilterDescriptions) else
+    Exit(nil);
 end;
 
 function TScrollControlWithRows.MasterSynchronizer: TScrollControlWithRows;
@@ -1434,7 +1457,8 @@ end;
 
 function TScrollControlWithRows.SortActive: Boolean;
 begin
-  Result := (_view <> nil) and (_view.GetSortDescriptions <> nil) and (_view.GetSortDescriptions.Count > 0)
+  var sorts := GetSorts;
+  Result := (sorts <> nil) and (sorts.Count > 0);
 end;
 
 function TScrollControlWithRows.TryStartIgnoreMasterSynchronizer(CheckSyncVisibility: Boolean): Boolean;
@@ -1489,7 +1513,8 @@ end;
 
 function TScrollControlWithRows.FiltersActive: Boolean;
 begin
-  Result := (_view <> nil) and (_view.GetFilterDescriptions <> nil) and (_view.GetFilterDescriptions.Count > 0)
+  var filters := GetFilters;
+  Result := (filters <> nil) and (filters.Count > 0);
 end;
 
 function TScrollControlWithRows.FitRowsDownwards(StartIndex: Integer): Integer;
@@ -2335,14 +2360,17 @@ procedure TScrollControlWithRows.AnimateRow(const Row: IDCRow; StartY, StopY: Si
   begin
     Row.UseBuffering := False;
     Row.Control.Position.Y := StartY;
+
+    var delay := CMath.Max(ANI_DELAY + ExtraDelay, 0.01);
+
     if AnimateOpacity then
-      Row.Control.AnimateFloatDelay('Position.Y', StopY, ANI_DURATION, ANI_DELAY + ExtraDelay, TAnimationType.Out, TInterpolationType.Quadratic) else
-      Row.Control.AnimateFloatDelay('Position.Y', StopY, ANI_DURATION, ANI_DELAY + ExtraDelay, TAnimationType.InOut, TInterpolationType.Quadratic);
+      Row.Control.AnimateFloatDelay('Position.Y', StopY, ANI_DURATION, delay, TAnimationType.Out, TInterpolationType.Quadratic) else
+      Row.Control.AnimateFloatDelay('Position.Y', StopY, ANI_DURATION, delay, TAnimationType.InOut, TInterpolationType.Quadratic);
 
     if AnimateOpacity then
     begin
       Row.Control.Opacity := IfThen(Hide, Row.Control.Opacity, 0);
-      Row.Control.AnimateFloatDelay('Opacity', IfThen(Hide, 0, 1), ANI_DURATION, ANI_DELAY + ExtraDelay, TAnimationType.InOut, TInterpolationType.Quadratic);
+      Row.Control.AnimateFloatDelay('Opacity', IfThen(Hide, 0, 1), ANI_DURATION, delay, TAnimationType.InOut, TInterpolationType.Quadratic);
     end
     else if Hide then
       Row.Control.Opacity := 0;
@@ -2838,7 +2866,16 @@ begin
     if _selectionInfo.ViewListIndex > _view.ViewCount - 1 then
     begin
       ClearSelectedItems;
-      ClearCurrentFocused;
+
+      if _view.ViewCount = 0 then
+        ClearCurrentFocused
+      else
+      begin
+        var viewListIndex := _view.ViewCount - 1;
+        var dataIndex := _view.GetDataIndex(viewListIndex);
+        var dataItem := _view.GetViewList[viewListIndex];
+        _selectionInfo.SetFocusedItem(dataIndex, viewListIndex, dataItem);
+      end;
     end;
   finally
     StopIgnoreMasterSynchronizer(doIgnoreMaster);
@@ -3758,22 +3795,23 @@ end;
 
 // start sorting and filtering
 
-procedure TScrollControlWithRows.AddFilterDescription(const Filter: IListFilterDescription; const ClearOtherFlters: Boolean);
+procedure TScrollControlWithRows.AddFilterDescription(const Filter: IListFilterDescription; const ClearOtherFlters: Boolean; const TreeSortsOnly: Boolean = True);
 begin
   var filters: List<IListFilterDescription> := CList<IListFilterDescription>.Create;
 
   if Filter <> nil then
     filters.Add(Filter);
 
-  if (_view <> nil) and (_view.GetFilterDescriptions <> nil) then
+  var existingFilters := GetFilters;
+  if existingFilters <> nil then
   begin
     var filterDescription: IListFilterDescription;
-    for filterDescription in _view.GetFilterDescriptions do
-      if not ClearOtherFlters or not Interfaces.Supports<ITreeFilterDescription>(filterDescription) {external sort} then
+    for filterDescription in existingFilters do
+      if (not ClearOtherFlters or (TreeSortsOnly and not Interfaces.Supports<ITreeFilterDescription>(filterDescription) {external sort})) and not filters.Contains(filterDescription) then
         filters.Add(filterDescription);
 
     // clear here already, to free existing sorts
-    if ClearOtherFlters then
+    if ClearOtherFlters and (_view <> nil) and (_view.GetFilterDescriptions <> nil) then
       _view.GetFilterDescriptions.Clear;
   end;
 
@@ -3799,21 +3837,22 @@ begin
   end;
 end;
 
-procedure TScrollControlWithRows.AddSortDescription(const Sort: IListSortDescription; const ClearOtherSort: Boolean);
+procedure TScrollControlWithRows.AddSortDescription(const Sort: IListSortDescription; const ClearOtherSort: Boolean; const TreeSortsOnly: Boolean = True);
 begin
   var sorts: List<IListSortDescription> := CList<IListSortDescription>.Create;
   if Sort <> nil then
     sorts.Add(Sort);
 
-  if (_view <> nil) and (_view.GetSortDescriptions <> nil) then
+  var existingSorts := GetSorts;
+  if existingSorts <> nil then
   begin
     var sortDescription: IListSortDescription;
-    for sortDescription in _view.GetSortDescriptions do
-      if not ClearOtherSort or not Interfaces.Supports<ITreeSortDescription>(sortDescription) {external sort} then
+    for sortDescription in existingSorts do
+      if (not ClearOtherSort or (TreeSortsOnly and not Interfaces.Supports<ITreeSortDescription>(sortDescription) {external sort})) and not sorts.Contains(sortDescription) then
         sorts.Add(sortDescription);
 
     // clear here already, to free existing sorts
-    if ClearOtherSort then
+    if ClearOtherSort and (_view <> nil) and (_view.GetSortDescriptions <> nil)  then
       _view.GetSortDescriptions.Clear;
   end;
 

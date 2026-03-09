@@ -224,9 +224,6 @@ type
 
     procedure UpdateHoverRect(MousePos: TPointF); override;
 
-    function  FlatColumnByColumn(const Column: IDCTreeColumn): IDCTreeLayoutColumn;
-    function  FlatColumnIndexByLayoutIndex(const LayoutIndex: Integer): Integer;
-
     procedure TryScrollToCellByKey(var Key: Word; var KeyChar: WideChar);
 
     function  TextForSizeCalc(const Text: string): string;
@@ -294,6 +291,9 @@ type
     procedure UpdateColumnFilter(const Column: IDCTreeColumn; const Start: CDateTime; const Stop: CDateTime); overload;
 
     procedure UpdateSelectedColumn(const Column: Integer);
+
+    function  FlatColumnByColumn(const Column: IDCTreeColumn): IDCTreeLayoutColumn;
+    function  FlatColumnIndexByLayoutIndex(const LayoutIndex: Integer): Integer;
 
     procedure SelectAll; override;
     function  RadioInsteadOfCheck: Boolean;
