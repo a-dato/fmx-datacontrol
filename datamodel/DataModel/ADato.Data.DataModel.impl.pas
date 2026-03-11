@@ -3937,6 +3937,9 @@ begin
     var s: string;
     if (dataModelRow.Data <> nil) then
       s := CStringToString(dataModelRow.Data.ToString);
+
+    if s = '3.2.2.1 E-Hardware 400V, 380V und 415V, 3NPE 50/60Hz' then
+      s := CStringToString(dataModelRow.Data.ToString);
     {$ENDIF}
 
     rowProps := GetRowProperties(dataModelRow);
