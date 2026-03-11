@@ -429,7 +429,7 @@ type
     function  HasFrozenColumns: Boolean;
     function  ContentOverFlow: Integer;
     function  FrozenColumnWidth: Single;
-    function  RecalcRequired: Boolean;
+    function  RecalcIsRequired: Boolean;
 
     procedure UpdateLayoutColumnList;
     procedure ForceRecalc;

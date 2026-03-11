@@ -1129,7 +1129,7 @@ begin
 
     RealignFromSelectionChange;
 
-    GetActiveRow.UseBuffering := False;
+//    GetActiveRow.UseBuffering := False;
   end;
 end;
 
@@ -1385,6 +1385,13 @@ begin
       var val := _cellEditor.Value;
       var cell := _cellEditor.Cell;
       if not DoCellParsing(cell, True, {var} val) or CObject.Equals(val, _cellEditor.OriginalValue) then
+      begin
+        CancelEdit(True);
+        Exit(False);
+      end;
+
+      var formattedVal: CObject := _cellEditor.OriginalValue;
+      if (_cellEditor.OriginalValue <> nil) and DoCellFormatting(cell, False, {var} formattedVal) and CObject.Equals(val, formattedVal) then
       begin
         CancelEdit(True);
         Exit(False);
@@ -1819,7 +1826,7 @@ begin
       GetDataModelView.DataModel.BeginEdit(ARow.DataItem.AsType<IDataRowView>.Row);
     end;
 
-    ARow.UseBuffering := False;
+//    ARow.UseBuffering := False;
     _editingInfo.StartRowEdit(ARow.DataIndex, DataItem, IsNew);
 
     _view.StartEdit(_editingInfo.EditItem);
@@ -1910,7 +1917,7 @@ begin
 
     DoDataItemChanged(ARow.ViewListIndex, editItem, {out} ChangeUpdatedSort);
 
-    ARow.UseBuffering := True;
+//    ARow.UseBuffering := True;
   end;
 end;
 

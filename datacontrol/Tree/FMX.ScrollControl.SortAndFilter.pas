@@ -169,8 +169,8 @@ procedure TTreeSortDescription.SortCompleted;
 begin
   inherited;
 
-  if _filterCell <> nil then
-    _filterCell.InfoControl.Dispose;
+  if (_filterCell <> nil) and (_filterCell.InfoControl <> nil) then
+    _filterCell.InfoControl.Control.Free;
 
   _filterCell := nil;
   _filterRow := nil;

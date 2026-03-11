@@ -81,6 +81,7 @@ type
   public
     constructor Create(AOwner: TComponent); override;
     procedure Paint; override;
+    procedure DoPaint; override;
 
     property Corners: TCorners read GetCorners write SetCorners;
     property Sides: TSides read GetSides write SetSides;
@@ -119,6 +120,16 @@ begin
   end;
 
   inherited;
+end;
+
+procedure TBackgroundControl.DoInternalChanged;
+begin
+  Repaint;
+end;
+
+procedure TBackgroundControl.DoPaint;
+begin
+  inherited;
 
   var drawStroke := (FStrokeColor <> TAlphaColors.Null) and (FSides <> []);
   if drawStroke then
@@ -151,11 +162,6 @@ begin
         Canvas.DrawRect(GetShapeRect, XRadius, YRadius, FCorners, AbsoluteOpacity, TCornerType.Round);
     end;
   end;
-end;
-
-procedure TBackgroundControl.DoInternalChanged;
-begin
-  Repaint;
 end;
 
 function TBackgroundControl.GetCorners: TCorners;
@@ -312,6 +318,22 @@ begin
 end;
 
 procedure TAdaptableBitmapLayout.LoadBitmap;
+
+  procedure CheckChild(const Control: TControl);
+  begin
+    // required for checkboxes!
+
+    if Control is TStyledControl then
+    begin
+      var stCtrl := TStyledControl(Control);
+      if stCtrl.StyleState <> TStyleState.Applied then
+        stCtrl.ApplyStyleLookup;
+    end;
+
+    for var ctrl in Control.Controls do
+      CheckChild(ctrl);
+  end;
+
 begin
 //  var isBeforePaint := (Self.Canvas = nil) or (Self.Canvas.BeginSceneCount = 0);
 
@@ -323,6 +345,11 @@ begin
   if get_UseBuffering and _resetBufferRequired then
   begin
     _resetBufferRequired := False;
+
+    EventTracer.StartTimer('TAdaptableBitmapLayout', 'CheckChild');
+    for var child in Self.Controls do
+      CheckChild(child);
+    EventTracer.PauseTimer('TAdaptableBitmapLayout', 'CheckChild');
 
     _creatingBitmap := True;
     try
@@ -347,7 +374,11 @@ begin
 
       if _bitmap.Canvas.BeginScene then
       try
+        {$IFDEF DEBUG}
         PaintTo(_bitmap.Canvas, TRectF.Create(0, 0, Self.Width, Self.Height));
+        {$ELSE}
+        PaintTo(_bitmap.Canvas, TRectF.Create(0, 0, Self.Width, Self.Height));
+        {$ENDIF}
       finally
         _bitmap.Canvas.EndScene;
       end;

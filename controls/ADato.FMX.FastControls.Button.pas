@@ -47,6 +47,7 @@ type
     Stop: TPointF;
     constructor Create(const AStart, AStop: TPointF);
 
+    function Width: Single;
     function IsEmpty: Boolean;
   end;
 
@@ -134,7 +135,7 @@ type
     procedure SetTagPosition(const LeftTop: TPointF; const WidthWithPadding: Single);
     procedure UpdateBoundsByRowNo(const RowNo, RowCount: Integer);
 
-    function  GetUnderline: TADatoLineF;
+    function  GetUnderline: TADatoLineF; virtual;
 
     procedure PaintBitmap;
 
@@ -158,7 +159,7 @@ type
     _text: string;
     _subText: string;
     _swabTextSubText: Boolean;
-    _imagename: string;
+    _imageName: string;
     _imageSizeInt: Single;
     _imagePosition: TImagePosition;
     _imagePositionMargin: Integer;
@@ -210,7 +211,7 @@ type
     property SubText: string read get_SubText write set_SubText;
     property SwabTextSubText: Boolean read _swabTextSubText write set_SwabTextSubText default False;
 
-    property Imagename: string read _imagename write set_Imagename;
+    property Imagename: string read _imageName write set_Imagename;
     property ImagePosition: TImagePosition read _imagePosition write set_ImagePosition default TImagePosition.Left;
     property ImagePositionMargin: Integer read _imagePositionMargin write set_ImagePositionMargin default 3;
 
@@ -294,6 +295,7 @@ type
     destructor Destroy; override;
 
     procedure PrepareForPaint; override;
+    function  GetUnderline: TADatoLineF; override;
     function  CalcWidth: Single;
 
     procedure DoExternalClick;
@@ -1117,7 +1119,7 @@ end;
 
 function TFastButton.get_ContentHorzAlign: TTextAlign;
 begin
-  if get_ImagePosition = TImagePosition.Center then
+  if (get_ImagePosition = TImagePosition.Center) and (Length(Config.Imagename) > 0) and (Self.Images <> nil) then
     Result := TTextAlign.Center else
     Result := _contentHorzAlign;
 end;
@@ -1171,8 +1173,11 @@ end;
 
 procedure TFastButton.SetEnabled(const Value: Boolean);
 begin
-  inherited;
-  RepaintNeeded;
+  if Enabled <> Value then
+  begin
+    inherited;
+    RepaintNeeded;
+  end;
 end;
 
 procedure TFastButton.SetIsChecked(const Value: Boolean);
@@ -1377,6 +1382,14 @@ begin
   Result := System.Math.Min(10, System.Math.Max(5, (Self.Height - _innerBounds.Height)/2));
 end;
 
+function TFastButton.GetUnderline: TADatoLineF;
+begin
+  if _recalcNeeded then
+    Calculate;
+
+  Result := inherited;
+end;
+
 { TFastButtonConfig }
 
 constructor TFastButtonConfig.Create(Collection: TCollection);
@@ -1449,9 +1462,9 @@ end;
 
 procedure TFastButtonConfig.set_Imagename(const Value: string);
 begin
-  if _Imagename <> Value then
+  if _imageName <> Value then
   begin
-    _Imagename := Value;
+    _imageName := Value;
     AskForRecalc(TChangeType.DoRepaint);
   end
 end;
@@ -1539,6 +1552,11 @@ end;
 function TADatoLineF.IsEmpty: Boolean;
 begin
   Result := Start = Stop;
+end;
+
+function TADatoLineF.Width: Single;
+begin
+  Result := Stop.X - Start.X;
 end;
 
 end.

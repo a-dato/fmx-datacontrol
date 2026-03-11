@@ -206,6 +206,7 @@ type
     procedure CheckHideAutoMultiSelectColumn(const OldRow: IDCRow; const Shift: TShiftState);
 
     function  GetInitializedWaitForRefreshInfo: IWaitForRepaintInfo; override;
+    procedure CheckVertScrollbarVisibility; override;
 
     procedure InternalDoSelectColumn(const LayoutColumnIndex: Integer; Shift: TShiftState);
     function  TrySelectItem(const RequestedSelectionInfo: IRowSelectionInfo; Shift: TShiftState): Boolean; override;
@@ -222,9 +223,6 @@ type
     function  GetCellControlData(const Cell: IDCTreeCell): CObject;
 
     procedure UpdateHoverRect(MousePos: TPointF); override;
-
-    function  FlatColumnByColumn(const Column: IDCTreeColumn): IDCTreeLayoutColumn;
-    function  FlatColumnIndexByLayoutIndex(const LayoutIndex: Integer): Integer;
 
     procedure TryScrollToCellByKey(var Key: Word; var KeyChar: WideChar);
 
@@ -293,6 +291,9 @@ type
     procedure UpdateColumnFilter(const Column: IDCTreeColumn; const Start: CDateTime; const Stop: CDateTime); overload;
 
     procedure UpdateSelectedColumn(const Column: Integer);
+
+    function  FlatColumnByColumn(const Column: IDCTreeColumn): IDCTreeLayoutColumn;
+    function  FlatColumnIndexByLayoutIndex(const LayoutIndex: Integer): Integer;
 
     procedure SelectAll; override;
     function  RadioInsteadOfCheck: Boolean;
@@ -762,7 +763,7 @@ type
     function  HasFrozenColumns: Boolean;
     function  ContentOverFlow: Integer;
     function  FrozenColumnWidth: Single;
-    function  RecalcRequired: Boolean;
+    function  RecalcIsRequired: Boolean;
 
     procedure SetTreeIsScrolling(const IsScrolling: Boolean);
   end;
@@ -1010,7 +1011,7 @@ end;
 
 procedure TScrollControlWithCells.CheckNoScrollingColumnContainsData;
 begin
-  if _scrollingType <> TScrollingType.None then
+  if (_scrollingType <> TScrollingType.None) or (_treeLayout = nil) then
     Exit;
 
   var currentClmns := _treeLayout.FlatColumns;
@@ -1022,23 +1023,18 @@ begin
       _treeLayout.ForceRecalc;
     end;
 
-  if not _autoFitColumns and not _treeLayout.RecalcRequired {in case column is hidden by user} then
+  if not _autoFitColumns and not _treeLayout.RecalcIsRequired {in case column is hidden by user} then
     Exit;
 
   // when comes here from ProcessColumnVisibilityRules, than realigning is not done yet, and realignstate is "AfterRealign"
   if _realignState = TRealignState.RealignDone then
     ExecuteAfterRealignOnly(False);
-
-//  _stopwatch.Start;
-//  _stopwatch.Stop;
-//  _stopwatchPaint.Start;
-//  _stopwatchPaint.Stop;
 end;
 
 procedure TScrollControlWithCells.ProcessColumnVisibilityRules;
 begin
   CheckNoScrollingColumnContainsData;
-  if not _autoFitColumns and not _treeLayout.RecalcRequired {in case column is hidden by user} then
+  if not _autoFitColumns and not _treeLayout.RecalcIsRequired {in case column is hidden by user} then
     Exit;
 
   var currentClmns := _treeLayout.FlatColumns;
@@ -2334,7 +2330,7 @@ begin
 
   _treeLayout.ResetColumnDataAvailability(True);
 
-  if _treeLayout.RecalcRequired then
+  if _treeLayout.RecalcIsRequired then
   begin
     _treeLayout.RecalcColumnWidthsBasic;
     InitHeader;
@@ -2498,6 +2494,16 @@ begin
   {$ELSE}
   (_columns as INotifyCollectionChanged).CollectionChanged += @ColumnsChanged;
   {$ENDIF}
+end;
+
+procedure TScrollControlWithCells.CheckVertScrollbarVisibility;
+begin
+  var wasVisible := _vertScrollBar.Visible;
+
+  inherited;
+
+  if (wasVisible <> _vertScrollBar.Visible) and (_treeLayout <> nil) then
+    _treeLayout.ForceRecalc;
 end;
 
 function TScrollControlWithCells.GetInitializedWaitForRefreshInfo: IWaitForRepaintInfo;
@@ -2890,6 +2896,7 @@ end;
 function TScrollControlWithCells.FlatColumnByColumn(const Column: IDCTreeColumn): IDCTreeLayoutColumn;
 begin
   Result := nil;
+  if Column = nil then Exit;
 
   var flatClmn: IDCTreeLayoutColumn;
   if _treeLayout <> nil then
@@ -3294,7 +3301,7 @@ begin
       _headerRow.ContentControl.OnMouseUp := @OnHeaderMouseUp;
       {$ENDIF}
 
-      if _treeLayout.RecalcRequired then
+      if _treeLayout.RecalcIsRequired then
         _treeLayout.RecalcColumnWidthsBasic;
 
       var flatColumn: IDCTreeLayoutColumn;
@@ -3942,7 +3949,7 @@ begin
     if loadDefaultData then
     begin
       Result := Cell.Column.ProvideCellData(cell, cell.Column.PropertyName);
-      if not DoCellFormatting(cell, True, {var} Result) and (Cell.Column.SortType = TSortType.Displaytext) then
+      if (Cell.Column.SortType = TSortType.Displaytext) and not DoCellFormatting(cell, True, {var} Result) then
         Result := Cell.Column.GetFormattedValue(cell, Result);
     end else
     begin
@@ -4953,7 +4960,11 @@ begin
       headerCell.SortControl.Position.X := startYPos;
       headerCell.SortControl.Width := HEADER_IMG_SIZE;
       headerCell.SortControl.Height := HEADER_IMG_SIZE;
+
+      startYPos := startYPos - HEADER_IMG_SIZE - (2*_treeControl.CellLeftRightPadding);
     end;
+
+    headerCell.InfoControl.Padding.Right := Cell.Control.Width - CELL_MIN_INDENT - (2*_treeControl.CellLeftRightPadding) - startYPos;
   end
   else begin
     if Cell.ExpandButton <> nil then
@@ -5286,23 +5297,6 @@ procedure TTreeLayoutColumn.set_ActiveSort(const Value: IListSortDescription);
 begin
   _activeSort := Value;
 end;
-
-//procedure TTreeLayoutColumn.set_CustomHidden(const Value: Boolean);
-//begin
-//  if _userHidColumn <> Value then
-//  begin
-//    _userHidColumn := Value;
-//    _column.Visualisation.Visible := False;
-//    _treeControl.ColumnVisibilityChanged(_column);
-//  end;
-//end;
-//
-//procedure TTreeLayoutColumn.set_CustomWidth(const Value: Single);
-//begin
-//  if not SameValue(_userWidth, _width) then
-//    _userWidth := Value else
-//    _userWidth := -1;
-//end;
 
 procedure TTreeLayoutColumn.set_HideColumnInView(const Value: Boolean);
 begin
@@ -5705,7 +5699,7 @@ begin
   end;
 end;
 
-function TDCTreeLayout.RecalcRequired: Boolean;
+function TDCTreeLayout.RecalcIsRequired: Boolean;
 begin
   Result := _recalcRequired;
 end;
