@@ -4239,6 +4239,7 @@ end;
 procedure TRowSelectionInfo.Clear;
 begin
   ClearAllSelections;
+  _Tag := -1;
   SetLength(_notSelectableDataIndexes, 0);
 end;
 
