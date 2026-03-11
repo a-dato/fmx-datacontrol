@@ -2896,6 +2896,7 @@ end;
 function TScrollControlWithCells.FlatColumnByColumn(const Column: IDCTreeColumn): IDCTreeLayoutColumn;
 begin
   Result := nil;
+  if Column = nil then Exit;
 
   var flatClmn: IDCTreeLayoutColumn;
   if _treeLayout <> nil then
