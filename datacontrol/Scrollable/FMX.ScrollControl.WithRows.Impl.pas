@@ -861,9 +861,7 @@ procedure TScrollControlWithRows.DoRealignContent;
 begin
   var goMaster := TryStartMasterSynchronizer(True);
   try
-    EventTracer.StartTimer('TREE', 'DoRealignContent');
     inherited;
-    EventTracer.PauseTimer('TREE', 'DoRealignContent');
   finally
     StopMasterSynchronizer(goMaster);
   end;
@@ -2103,7 +2101,6 @@ end;
 
 procedure TScrollControlWithRows.InitRow(const Row: IDCRow);
 begin
-  EventTracer.StartTimer('TREE', 'InitRow');
   var rowInfo := _view.RowLoadedInfo(Row.ViewListIndex);
   var isFastScrollbarScrolling := IsFastScrolling(True);
   var rowNeedsReload := IsPrinting or Row.IsScrollingIntoView or not rowInfo.InnerCellsAreApplied or (rowInfo.ControlNeedsResizeSoft and (GetScrollingType <> TScrollingType.WithScrollBar));
@@ -2179,8 +2176,6 @@ begin
   // if user tells in CellLoading / CellLoaded that a cell control should be loaded after scrolling is done (for performance)
   if rowInfo.ReloadAfterScroll then
     RestartWaitForRealignTimer(True {only realign when scrolling stopped});
-
-  EventTracer.PauseTimer('TREE', 'InitRow');
 end;
 
 procedure TScrollControlWithRows.UpdateAndIgnoreVertScrollbar(const NewValue: Single);

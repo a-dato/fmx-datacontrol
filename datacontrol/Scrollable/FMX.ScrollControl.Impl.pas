@@ -503,6 +503,8 @@ begin
     Exit;
   end;
 
+  EventTracer.StartTimer('TScrollControl', 'AA_TOTAL');
+
   RealignContentStart;      // timeless 1/40
   try
     BeforeRealignContent;   // timeless 1/40
@@ -511,6 +513,8 @@ begin
   finally
     RealignFinished;        // immens 20/40
   end;
+
+  EventTracer.PauseTimer('TScrollControl', 'AA_TOTAL');
 
   _scrollStopWatch_scrollbar := TStopwatch.StartNew;
 end;
@@ -811,7 +815,7 @@ begin
 
   Handled := True;
 
-  if not CanRealignContent or not CanRealignScrollCheck then
+  if not CanRealignContent then
     Exit;
 
   var wasGoUp := _mouseWheelDistanceTotal > 0;
@@ -835,6 +839,10 @@ begin
     _mouseWheelDistanceToGo := _mouseWheelDistanceToGo + delta;
     _mouseWheelDistanceTotal := _mouseWheelDistanceTotal + delta;
   end;
+
+  // must go after _mouseWheelDistanceToGo :=, because otherwise _PaintTIme can be set to -1 and the scrolling will be killed...
+  if not CanRealignScrollCheck then
+    Exit;
 
   _lastMouseWheel3 := _lastMouseWheel2;
   _lastMouseWheel2 := _lastMouseWheel1;
@@ -971,7 +979,6 @@ end;
 procedure TScrollControl.Paint;
 begin
   // Paint itself won't cost any millisecond..
-
   inherited;
   if _paintTime = -1 then
     _paintTime := 0;
@@ -979,26 +986,34 @@ end;
 
 procedure TScrollControl.PaintChildren;
 begin
+  EventTracer.StartTimer('TScrollControl', 'AA_TOTAL');
   var stopwatch := TStopwatch.StartNew;
 
-  EventTracer.StartTimer('TScrollControl', 'Tree-PaintChildren');
+  EventTracer.StartTimer('TScrollControl', 'AA-PaintChildren');
   inherited;
-  EventTracer.PauseTimer('TScrollControl', 'Tree-PaintChildren');
+  EventTracer.PauseTimer('TScrollControl', 'AA-PaintChildren');
 
   stopwatch.Stop;
   _paintTime := stopwatch.ElapsedMilliseconds;
+
+  EventTracer.PauseTimer('TScrollControl', 'AA_TOTAL');
 end;
 
 procedure TScrollControl.Painting;
 begin
   BeforePainting;
+
+  EventTracer.StartTimer('TScrollControl', 'AA_TOTAL');
   inherited;
+  EventTracer.PauseTimer('TScrollControl', 'AA_TOTAL');
 end;
 
 procedure TScrollControl.PrepareForPaint;
 begin
   BeforePainting;
+  EventTracer.StartTimer('TScrollControl', 'AA_TOTAL');
   inherited;
+  EventTracer.PauseTimer('TScrollControl', 'AA_TOTAL');
 end;
 
 procedure TScrollControl.RealignContent;
@@ -1113,7 +1128,7 @@ procedure TScrollControl.ScrollManualTryAnimated;
 begin
   _mouseWheelSmoothScrollTimer.Enabled := False;
 
-  if IsFastScrolling {$IFDEF DEBUG}or True {$ENDIF} then
+  if IsFastScrolling then
   begin
     ScrollManualInstant(_mouseWheelDistanceToGo);
 
