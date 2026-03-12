@@ -3070,16 +3070,16 @@ begin
 
   if (TDCTreeOption.MultiSelect in _options) then
   begin
-    if _selectionInfo.DataIndex = DataIndex then
+    if (_selectionInfo.DataIndex = DataIndex) and not (ssCtrl in Shift) and not (ssShift in Shift) then
       Exit;
 
     var lastSelectedIndex := _selectionInfo.ViewListIndex;
     if (ssShift in Shift) then
     begin
-      var bothAlreadySelected := _selectionInfo.IsSelected(_selectionInfo.DataIndex) and _selectionInfo.IsSelected(DataIndex);
-      if bothAlreadySelected then
-        _selectionInfo.RemoveFromSelection(_selectionInfo.DataIndex)
-      else begin
+//      var bothAlreadySelected := _selectionInfo.IsSelected(_selectionInfo.DataIndex) and _selectionInfo.IsSelected(DataIndex);
+//      if bothAlreadySelected then
+//        _selectionInfo.RemoveFromSelection(_selectionInfo.DataIndex)
+//      else begin
         var vlIndex := lastSelectedIndex;
         while vlIndex <> ViewListIndex do
         begin
@@ -3091,13 +3091,14 @@ begin
         end;
 
         _selectionInfo.AddToSelection(DataIndex, ViewListIndex, DataItem);
-      end;
+//      end;
     end
     else if (ssCtrl in Shift) and (_selectionInfo.LastSelectionEventTrigger = TSelectionEventTrigger.Click) then
     begin
       if not _selectionInfo.IsSelected(DataIndex) then
       begin
-        if not _selectionInfo.IsSelected(_selectionInfo.DataIndex) then
+        // only add previous to selection if nothing was selected yet...~!!!
+        if (_selectionInfo.SelectedRowCount = 0) and not _selectionInfo.IsSelected(_selectionInfo.DataIndex) then
           _selectionInfo.AddToSelection(_selectionInfo.DataIndex, _selectionInfo.ViewListIndex, _selectionInfo.DataItem);
 
         _selectionInfo.AddToSelection(DataIndex, ViewListIndex, DataItem)

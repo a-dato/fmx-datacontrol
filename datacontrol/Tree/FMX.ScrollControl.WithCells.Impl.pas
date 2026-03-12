@@ -1222,6 +1222,7 @@ end;
 
 procedure TScrollControlWithCells.UpdateHorzScrollbar;
 begin
+  var wasVisible := _horzScrollBar.Visible;
   var contentOverflow := _treeLayout.ContentOverFlow;
   if contentOverflow > 0 then
   begin
@@ -2226,7 +2227,7 @@ procedure TScrollControlWithCells.OnCurrentChanged;
 begin
   inherited;
 
-  if _horzScrollBar.Visible and (_treeLayout <> nil) and (_selectionType = TSelectionType.CellSelection) and (_selectionInfo.Tag <> -1) then
+  if _horzScrollBar.Visible and (_treeLayout <> nil) and (_selectionType = TSelectionType.CellSelection) and (_selectionInfo.Tag >= 0) then
   begin
     var currentFlatColumn := _treeLayout.LayoutColumns[_selectionInfo.Tag];
     if not currentFlatColumn.Column.Frozen {those are always visible} then
@@ -4873,8 +4874,13 @@ begin
   // max width of text
   var maxWidth: Single;
   if cell.Column.CustomWidth > 0 then
-    maxWidth := cell.Column.CustomWidth else
-    maxWidth := IfThen(cell.Column.WidthMax > 0, cell.Column.WidthMax, -1);
+    maxWidth := cell.Column.CustomWidth
+  else if cell.Column.WidthMax > 0 then
+    maxWidth := cell.Column.WidthMax
+  else if cell.Column.WidthType = TDCColumnWidthType.Pixel then
+    maxWidth := cell.Column.Width
+  else
+    maxWidth := 9999;
 
   maxWidth := maxWidth - (2*_treeControl.CellLeftRightPadding);
 
