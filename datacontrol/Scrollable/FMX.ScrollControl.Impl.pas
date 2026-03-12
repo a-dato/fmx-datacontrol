@@ -426,7 +426,10 @@ begin
   begin
     // still scrolling, so nothing to do now
     if _timerDoRealignWhenScrollingStopped and (_mouseWheelDistanceToGo <> 0) then
+    begin
+      _mouseWheelSmoothScrollTimer.Enabled := True;
       Exit;
+    end;
 
     AfterScrolling;
     Exit;
@@ -697,10 +700,15 @@ begin
   _lastMousePos := PointF(X, Y);
 
   _mouseIsSticking := False;
-  _customHintTimer.Enabled := False;
-  _customHintTimer.Enabled := True;
 
-  DoHintChange(True);
+  if not IsScrolling then
+  begin
+    _customHintTimer.Enabled := False;
+    _customHintTimer.Enabled := True;
+
+    DoHintChange(True);
+  end else
+    DoHintChange(False {hide if visible} );
 
   if not _clickEnable then
     Exit;
