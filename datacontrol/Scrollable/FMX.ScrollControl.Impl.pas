@@ -398,7 +398,7 @@ end;
 
 function TScrollControl.CanRealignScrollCheck(ForceOnScrollbarEnds: Boolean = False): Boolean;
 begin
-  Result := (_paintTime <> -1) and (not _scrollStopWatch_scrollbar.IsRunning or (_scrollStopWatch_scrollbar.ElapsedMilliseconds > RealignContentTime));
+  Result := (not IsFastScrolling(False) or (_paintTime <> -1)) and (not _scrollStopWatch_scrollbar.IsRunning or (_scrollStopWatch_scrollbar.ElapsedMilliseconds > RealignContentTime));
 
   if not Result and ForceOnScrollbarEnds then
   begin
@@ -506,18 +506,26 @@ begin
     Exit;
   end;
 
-  EventTracer.StartTimer('TScrollControl', 'AA_TOTAL');
+  EventTracer.StartTimer('TScrollControl', 'AA_DoRealignContent');
 
   RealignContentStart;      // timeless 1/40
   try
     BeforeRealignContent;   // timeless 1/40
+
+    EventTracer.StartTimer('TScrollControl', 'AA_RealignContent');
     RealignContent;         // costs 15/40
+    EventTracer.PauseTimer('TScrollControl', 'AA_RealignContent');
+
+    EventTracer.StartTimer('TScrollControl', 'AA_AfterRealignContent');
     AfterRealignContent;    // costs 5/40
+    EventTracer.PauseTimer('TScrollControl', 'AA_AfterRealignContent');
   finally
+    EventTracer.StartTimer('TScrollControl', 'AA_RealignFinished');
     RealignFinished;        // immens 20/40
+    EventTracer.PauseTimer('TScrollControl', 'AA_RealignFinished');
   end;
 
-  EventTracer.PauseTimer('TScrollControl', 'AA_TOTAL');
+  EventTracer.PauseTimer('TScrollControl', 'AA_DoRealignContent');
 
   _scrollStopWatch_scrollbar := TStopwatch.StartNew;
 end;
@@ -856,7 +864,7 @@ begin
   _lastMouseWheel2 := _lastMouseWheel1;
   _lastMouseWheel1 := Environment.TickCount;
 
-  ScrollManualTryAnimated;
+  _mouseWheelSmoothScrollTimer.Enabled := True;
 end;
 
 procedure TScrollControl.MouseWheelSmoothScrollingTimer(Sender: TObject);
@@ -994,7 +1002,6 @@ end;
 
 procedure TScrollControl.PaintChildren;
 begin
-  EventTracer.StartTimer('TScrollControl', 'AA_TOTAL');
   var stopwatch := TStopwatch.StartNew;
 
   EventTracer.StartTimer('TScrollControl', 'AA-PaintChildren');
@@ -1003,25 +1010,23 @@ begin
 
   stopwatch.Stop;
   _paintTime := stopwatch.ElapsedMilliseconds;
-
-  EventTracer.PauseTimer('TScrollControl', 'AA_TOTAL');
 end;
 
 procedure TScrollControl.Painting;
 begin
   BeforePainting;
 
-  EventTracer.StartTimer('TScrollControl', 'AA_TOTAL');
+  EventTracer.StartTimer('TScrollControl', 'AA_Painting');
   inherited;
-  EventTracer.PauseTimer('TScrollControl', 'AA_TOTAL');
+  EventTracer.PauseTimer('TScrollControl', 'AA_Painting');
 end;
 
 procedure TScrollControl.PrepareForPaint;
 begin
   BeforePainting;
-  EventTracer.StartTimer('TScrollControl', 'AA_TOTAL');
+  EventTracer.StartTimer('TScrollControl', 'AA_PrepareForPaint');
   inherited;
-  EventTracer.PauseTimer('TScrollControl', 'AA_TOTAL');
+  EventTracer.PauseTimer('TScrollControl', 'AA_PrepareForPaint');
 end;
 
 procedure TScrollControl.RealignContent;

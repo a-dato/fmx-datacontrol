@@ -373,7 +373,8 @@ uses
   {$ENDIF}
   FMX.ControlCalculations,
   ADato.Collections.Specialized,
-  System.Reflection, FMX.Text, FMX.ScrollControl.ControlClasses;
+  System.Reflection, FMX.Text, FMX.ScrollControl.ControlClasses,
+  ADato.TraceEvents.intf;
 
 { TScrollControlWithEditableCells }
 
@@ -580,42 +581,47 @@ end;
 
 procedure TScrollControlWithEditableCells.LoadDefaultDataIntoControl(const Cell: IDCTreeCell; const IsSubProp: Boolean);
 begin
-  inc(_updateCount);
+  EventTracer.StartTimer('TDataControl', Self.ClassName + '.LoadDefaultDataIntoControl');
   try
-    inherited;
+    inc(_updateCount);
+    try
+      inherited;
 
-    var isCheckBox :=
-      (not IsSubProp and (Cell.Column.InfoControlClass = TInfoControlClass.CheckBox)) or
-      (IsSubProp and (Cell.Column.SubInfoControlClass = TInfoControlClass.CheckBox));
+      var isCheckBox :=
+        (not IsSubProp and (Cell.Column.InfoControlClass = TInfoControlClass.CheckBox)) or
+        (IsSubProp and (Cell.Column.SubInfoControlClass = TInfoControlClass.CheckBox));
 
-    if isCheckBox and not Cell.Column.IsSelectionColumn then
-    begin
-      var ctrl := Cell.InfoControl;
-      var chkCtrl := (ctrl as IISChecked);
+      if isCheckBox and not Cell.Column.IsSelectionColumn then
+      begin
+        var ctrl := Cell.InfoControl;
+        var chkCtrl := (ctrl as IISChecked);
 
-      if _localCheckSetInDefaultData {Cell.Column.HasPropertyAttached} then
-        UpdateColumnCheck(cell.Row.DataIndex, Cell.Column, chkCtrl.IsChecked);
+        if _localCheckSetInDefaultData {Cell.Column.HasPropertyAttached} then
+          UpdateColumnCheck(cell.Row.DataIndex, Cell.Column, chkCtrl.IsChecked);
 
-      ctrl.Tag := Cell.Row.ViewListIndex;
+        ctrl.Tag := Cell.Row.ViewListIndex;
 
-      {$IFNDEF WEBASSEMBLY}
-      var cb: ICheckBoxControl;
-      var rb: IRadioButtonControl;
-      if Interfaces.Supports<ICheckBoxControl>(ctrl, cb) then
-        cb.OnChange := OnNonPropertyCheckBoxChange
-      else if Interfaces.Supports<IRadioButtonControl>(ctrl, rb) then
-        rb.OnChange := OnNonPropertyCheckBoxChange;
-      {$ELSE}
-      if ctrl is TCheckBox then
-        (ctrl as TCheckBox).OnChange := @OnNonPropertyCheckBoxChange else
-        (ctrl as TRadioButton).OnChange := @OnNonPropertyCheckBoxChange;
-      {$ENDIF}
+        {$IFNDEF WEBASSEMBLY}
+        var cb: ICheckBoxControl;
+        var rb: IRadioButtonControl;
+        if Interfaces.Supports<ICheckBoxControl>(ctrl, cb) then
+          cb.OnChange := OnNonPropertyCheckBoxChange
+        else if Interfaces.Supports<IRadioButtonControl>(ctrl, rb) then
+          rb.OnChange := OnNonPropertyCheckBoxChange;
+        {$ELSE}
+        if ctrl is TCheckBox then
+          (ctrl as TCheckBox).OnChange := @OnNonPropertyCheckBoxChange else
+          (ctrl as TRadioButton).OnChange := @OnNonPropertyCheckBoxChange;
+        {$ENDIF}
 
-      chkCtrl.IsChecked := _checkedItems.ContainsKey(Cell.Column) and _checkedItems[Cell.Column].Contains(cell.Row.DataIndex);
+        chkCtrl.IsChecked := _checkedItems.ContainsKey(Cell.Column) and _checkedItems[Cell.Column].Contains(cell.Row.DataIndex);
+      end;
+
+    finally
+      dec(_updateCount);
     end;
-
   finally
-    dec(_updateCount);
+    EventTracer.PauseTimer('TDataControl', Self.ClassName + '.LoadDefaultDataIntoControl');
   end;
 end;
 
@@ -1368,13 +1374,18 @@ end;
 
 function TScrollControlWithEditableCells.ProvideCellData(const Cell: IDCTreeCell; const PropName: CString; const IsSubProp: Boolean): CObject;
 begin
-  if (Cell.Column.InfoControlClass = TInfoControlClass.CheckBox) and not Cell.Column.IsSelectionColumn and not Cell.Column.HasPropertyAttached then
-    Exit(_checkedItems.ContainsKey(Cell.Column) and _checkedItems[Cell.Column].Contains(Cell.Row.DataIndex));
+  EventTracer.StartTimer('TDataControl', Self.ClassName + '.ProvideCellData');
+  try
+    if (Cell.Column.InfoControlClass = TInfoControlClass.CheckBox) and not Cell.Column.IsSelectionColumn and not Cell.Column.HasPropertyAttached then
+      Exit(_checkedItems.ContainsKey(Cell.Column) and _checkedItems[Cell.Column].Contains(Cell.Row.DataIndex));
 
-  Result := inherited;
+    Result := inherited;
 
-  if (Result = nil) and IsNew and (_cellEditor <> nil) and (_cellEditor.Cell = Cell) then
-    Result := _cellEditor.Value;
+    if (Result = nil) and IsNew and (_cellEditor <> nil) and (_cellEditor.Cell = Cell) then
+      Result := _cellEditor.Value;
+  finally
+    EventTracer.PauseTimer('TDataControl', Self.ClassName + '.ProvideCellData');
+  end;
 end;
 
 function TScrollControlWithEditableCells.EndEditCell(out ChangeUpdatedSort: Boolean): Boolean;

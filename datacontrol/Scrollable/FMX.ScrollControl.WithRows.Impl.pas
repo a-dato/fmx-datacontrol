@@ -485,6 +485,8 @@ type
     procedure DoMultiSelectChanged;
 //    procedure SetFocusedItem(const DataIndex, ViewListIndex: Integer; const DataItem: CObject);
 
+    procedure DoChanged;
+
   public
     constructor Create(const RowsControl: IRowsControl); reintroduce;
 
@@ -1934,7 +1936,10 @@ begin
     dItem := drv.Row.Data;
 
   if CObject.Equals(dItem, Context) then
+  begin
+    set_DataItem(nil);
     Exit;
+  end;
 
   if (Context = nil) then
   begin
@@ -2101,81 +2106,92 @@ end;
 
 procedure TScrollControlWithRows.InitRow(const Row: IDCRow);
 begin
-  var rowInfo := _view.RowLoadedInfo(Row.ViewListIndex);
-  var isFastScrollbarScrolling := IsFastScrolling(True);
-  var rowNeedsReload := IsPrinting or Row.IsScrollingIntoView or not rowInfo.InnerCellsAreApplied or (rowInfo.ControlNeedsResizeSoft and (GetScrollingType <> TScrollingType.WithScrollBar));
+  EventTracer.StartTimer('TDataControl', Self.ClassName + '.InitRow');
+  try
+    var rowInfo := _view.RowLoadedInfo(Row.ViewListIndex);
+    var isFastScrollbarScrolling := IsFastScrolling(True);
+    var rowNeedsReload := IsPrinting or Row.IsScrollingIntoView or not rowInfo.InnerCellsAreApplied or (rowInfo.ControlNeedsResizeSoft and (GetScrollingType <> TScrollingType.WithScrollBar));
 
-  var oldRowHeight: Single := -1;
+    var oldRowHeight: Single := -1;
 
-  if rowInfo.ReloadAfterScroll and not isFastScrollbarScrolling {(_scrollingType = TScrollingType.None)} then
-  begin
-    oldRowHeight := _view.GetRowHeight(Row.ViewListIndex);
-
-    // row height will be reset
-    rowInfo := _view.NotifyRowControlsNeedReload(Row, False {reset force realign this row});
-    rowNeedsReload := True;
-  end
-  else if rowNeedsReload then
-    oldRowHeight := _view.GetRowHeight(Row.ViewListIndex);
-
-  if rowNeedsReload then
-  begin
-    if Row.Control = nil then
+    if rowInfo.ReloadAfterScroll and not isFastScrollbarScrolling {(_scrollingType = TScrollingType.None)} then
     begin
-      var ly := TRowLayout.Create(_content, CreateRowBackground);
-      ly.OriginalBackgroundColorIsNull := False; // !! saves a lot of time, because clearing bitmap is not needed..
-//      ly.ClipChildren := True; // costs a lot of time , while we can also do this on lower level..
-      ly.HitTest := False;
-      ly.Align := TAlignLayout.None;
+      oldRowHeight := _view.GetRowHeight(Row.ViewListIndex);
 
-      Row.Control := ly;
+      // row height will be reset
+      rowInfo := _view.NotifyRowControlsNeedReload(Row, False {reset force realign this row});
+      rowNeedsReload := True;
+    end
+    else if rowNeedsReload then
+      oldRowHeight := _view.GetRowHeight(Row.ViewListIndex);
 
-      _content.AddObject(Row.Control);
+    if rowNeedsReload then
+    begin
+      if Row.Control = nil then
+      begin
+        var ly := TRowLayout.Create(_content, CreateRowBackground);
+        ly.OriginalBackgroundColorIsNull := False; // !! saves a lot of time, because clearing bitmap is not needed..
+  //      ly.ClipChildren := True; // costs a lot of time , while we can also do this on lower level..
+        ly.HitTest := False;
+        ly.Align := TAlignLayout.None;
 
-      if (TreeOption_ShowHorzGrid in _options) then
-        ly.Sides := [TSide.Bottom] else
-        ly.Sides := [];
+        Row.Control := ly;
+
+        _content.AddObject(Row.Control);
+
+        if (TreeOption_ShowHorzGrid in _options) then
+          ly.Sides := [TSide.Bottom] else
+          ly.Sides := [];
+      end;
+
+      if DrawRowBackground then
+        DataControlClassFactory.HandleRowBackground(Row.ControlAsRowLayout.Background, (TreeOption_AlternatingRowBackground in _options), not Row.IsOddRow);
+
+      Row.Control.Position.X := 0;
+
+      if not rowInfo.ControlNeedsResizeSoft then
+        Row.Control.Height := oldRowHeight else
+        Row.Control.Height := get_rowHeightDefault;
+
+      EventTracer.StartTimer('TDataControl', Self.ClassName + '.InnerInitRow');
+      try
+          InnerInitRow(Row, rowInfo.ControlNeedsResizeSoft);
+      finally
+        EventTracer.PauseTimer('TDataControl', Self.ClassName + '.InnerInitRow');
+      end;
+
+      DoRowLoaded(Row);
     end;
 
-    if DrawRowBackground then
-      DataControlClassFactory.HandleRowBackground(Row.ControlAsRowLayout.Background, (TreeOption_AlternatingRowBackground in _options), not Row.IsOddRow);
+    PerformanceRoutineLoadedRow(Row);
+    Row.Control.Width := CalculateRowControlWidth(False);
+    Row.UseBuffering := IsScrolling;
 
-    Row.Control.Position.X := 0;
+    CreateAndSynchronizeSynchronizerRow(Row);
 
-    if not rowInfo.ControlNeedsResizeSoft then
-      Row.Control.Height := oldRowHeight else
-      Row.Control.Height := get_rowHeightDefault;
-
-    InnerInitRow(Row, rowInfo.ControlNeedsResizeSoft);
-    DoRowLoaded(Row);
-  end;
-
-  PerformanceRoutineLoadedRow(Row);
-  Row.Control.Width := CalculateRowControlWidth(False);
-  Row.UseBuffering := IsScrolling;
-
-  CreateAndSynchronizeSynchronizerRow(Row);
-
-  if rowNeedsReload then
-  begin
-    var rowHeightChanged := not SameValue(oldRowHeight, Row.Control.Height);
-    if rowHeightChanged and (GetScrollingType = TScrollingType.WithScrollBar) then
+    if rowNeedsReload then
     begin
-      // We do not!!!! accept a row height change while user is scrolling with scrollbar
-      // because this will give flickering. AFter scroll release the row is reloaded automatically
-      // rowHeightChanged := False;
-      row.Control.Height := oldRowHeight;
+      var rowHeightChanged := not SameValue(oldRowHeight, Row.Control.Height);
+      if rowHeightChanged and (GetScrollingType = TScrollingType.WithScrollBar) then
+      begin
+        // We do not!!!! accept a row height change while user is scrolling with scrollbar
+        // because this will give flickering. AFter scroll release the row is reloaded automatically
+        // rowHeightChanged := False;
+        row.Control.Height := oldRowHeight;
+      end;
     end;
+
+    rowInfo := _view.RowLoadedInfo(Row.ViewListIndex) {reload the rowInfo, for it can be changed};
+
+    var softRowHeightNeedsResizeAfterScrolling := rowInfo.ControlNeedsResizeSoft and (GetScrollingType = TScrollingType.WithScrollBar);
+    _view.RowLoaded(Row, softRowHeightNeedsResizeAfterScrolling);
+
+    // if user tells in CellLoading / CellLoaded that a cell control should be loaded after scrolling is done (for performance)
+    if rowInfo.ReloadAfterScroll then
+      RestartWaitForRealignTimer(True {only realign when scrolling stopped});
+  finally
+    EventTracer.PauseTimer('TDataControl', Self.ClassName + '.InitRow');
   end;
-
-  rowInfo := _view.RowLoadedInfo(Row.ViewListIndex) {reload the rowInfo, for it can be changed};
-
-  var softRowHeightNeedsResizeAfterScrolling := rowInfo.ControlNeedsResizeSoft and (GetScrollingType = TScrollingType.WithScrollBar);
-  _view.RowLoaded(Row, softRowHeightNeedsResizeAfterScrolling);
-
-  // if user tells in CellLoading / CellLoaded that a cell control should be loaded after scrolling is done (for performance)
-  if rowInfo.ReloadAfterScroll then
-    RestartWaitForRealignTimer(True {only realign when scrolling stopped});
 end;
 
 procedure TScrollControlWithRows.UpdateAndIgnoreVertScrollbar(const NewValue: Single);
@@ -2315,7 +2331,7 @@ begin
   if _selectionInfo.ViewListIndex <> rowViewListIndex then
   begin
     // in case the up/down button stays pressed, and the tree is not quick enough to repaint before it recalculates again
-    if not waitingForPaint and CanRealignScrollCheck then
+    if {not waitingForPaint and} CanRealignScrollCheck then
       InternalSetCurrent(rowViewListIndex, TSelectionEventTrigger.Key, Shift);
 
     Key := 0;
@@ -2714,6 +2730,18 @@ begin
   if SyncIsMasterSynchronizer then
     Exit;
 
+  AtomicIncrement(_internalSelectCount);
+  try
+    if (_model <> nil) then
+    begin
+      if SelectionCount > 1 then
+        _model.MultiSelect.Context := SelectedItems else
+        _model.MultiSelect.Context := nil;
+    end;
+  finally
+    AtomicDecrement(_internalSelectCount);
+  end;
+
   var row: IDCRow;
   for row in _view.ActiveViewRows do
     VisualizeRowSelection(row);
@@ -2728,22 +2756,19 @@ begin
   try
     if (_model <> nil) then
     begin
-      if SelectionCount > 1 then
-        _model.MultiSelect.Context := SelectedItems else
-        _model.MultiSelect.Context := nil;
-
       var convertedDataItem := ConvertToDataItem(Self.DataItem);
 
-      // trigger a ContextChanged event for multiselect change event
-      if _model.HasMultiSelection and (_model.ObjectContext = convertedDataItem) then
-      begin
-        (_model.ObjectModelContext as IUpdatableObject).BeginUpdate;
-        try
-          _model.ObjectContext := nil;
-        finally
-          (_model.ObjectModelContext as IUpdatableObject).EndUpdate;
-        end;
-      end;
+//      // trigger a ContextChanged event for multiselect change event
+        // above not needed anumore, because we use trigger on MultiSelect now...
+//      if _model.HasMultiSelection and (_model.ObjectContext = convertedDataItem) then
+//      begin
+//        (_model.ObjectModelContext as IUpdatableObject).BeginUpdate;
+//        try
+//          _model.ObjectContext := nil;
+//        finally
+//          (_model.ObjectModelContext as IUpdatableObject).EndUpdate;
+//        end;
+//      end;
 
       _model.ObjectContext := convertedDataItem;
     end
@@ -2857,21 +2882,40 @@ begin
   try
     ResetView;
 
-    // in case of a revert of a newly added item..
-    if _selectionInfo.ViewListIndex > _view.ViewCount - 1 then
-    begin
-      ClearSelectedItems;
+    if _selectionInfo.DataItem = nil then
+      Exit;
 
-      if _view.ViewCount = 0 then
-        ClearCurrentFocused
-      else
-      begin
-        var viewListIndex := _view.ViewCount - 1;
-        var dataIndex := _view.GetDataIndex(viewListIndex);
-        var dataItem := _view.GetViewList[viewListIndex];
-        _selectionInfo.SetFocusedItem(dataIndex, viewListIndex, dataItem);
-      end;
+    var crrIsSame := True;
+    if ViewIsDataModelView then
+    begin
+      var dmv := GetDataModelView;
+      crrIsSame := CObject.Equals(ConvertedDataItem, dmv.CurrentRowData) and (dmv.CurrencyManager.Current = _selectionInfo.ViewListIndex);
+    end
+    else
+    begin
+      var l := _view.GetViewList;
+      crrIsSame := (l <> nil) and (l.Count > _selectionInfo.ViewListIndex) and CObject.Equals(_selectionInfo.DataItem, l[_selectionInfo.ViewListIndex]);
     end;
+
+    if crrIsSame then
+      Exit;
+
+    ClearSelectedItems;
+
+    if _view.ViewCount = 0 then
+      ClearCurrentFocused
+    else
+    begin
+      var viewListIndex: Integer;
+      if ViewIsDataModelView then
+        viewListIndex := GetDataModelView.CurrencyManager.Current else
+        viewListIndex := _view.ViewCount - 1; // newly added item revert..
+
+      var dataIndex := _view.GetDataIndex(viewListIndex);
+      var dataItem := _view.GetViewList[viewListIndex];
+      _selectionInfo.SetFocusedItem(dataIndex, viewListIndex, dataItem);
+    end;
+
   finally
     StopIgnoreMasterSynchronizer(doIgnoreMaster);
   end;
@@ -4217,14 +4261,7 @@ begin
   if IgnoreChangeEvent then
     Exit;
 
-  if (_updateCount = 0) then
-  begin
-    if _focusedChanged then
-      DoDataItemChanged;
-
-    if _multiSelectChanged then
-      DoMultiSelectChanged;
-  end;
+  DoChanged;
 end;
 
 function TRowSelectionInfo.CanFocus(const DataIndex: Integer): Boolean;
@@ -4363,30 +4400,36 @@ procedure TRowSelectionInfo.RemoveFromSelection(const DataIndex: Integer);
 begin
   // SetFocusedItem triggers DoSelectionInfoChanged
   // therefore works with Update locks
-  BeginUpdate;
-  try
-    if _multiSelection.Remove(DataIndex) then
-      _multiSelectChanged := True;
-  finally
-    EndUpdate;
-  end;
+  if _multiSelection.Remove(DataIndex) then
+    _multiSelectChanged := True;
+
+  DoChanged;
 end;
 
 function TRowSelectionInfo.AddToSelection(const DataIndex, ViewListIndex: Integer; const DataItem: CObject) : Boolean;
 begin
-  BeginUpdate;
-  try
-    if not _multiSelection.ContainsKey(DataIndex) then
-    begin
-      Result := True;
+  if not _multiSelection.ContainsKey(DataIndex) then
+  begin
+    Result := True;
 
-      var rowInfo := TRowDataItemInfo.Create(DataIndex, ViewListIndex, DataItem);
-      _multiSelection[DataIndex] := rowInfo;
-      _multiSelectChanged := True;
-    end else
-      Result := False;
-  finally
-    EndUpdate; //(True {do not scroll lastselected into view, because it can be out of view, causing scroll action});
+    var rowInfo := TRowDataItemInfo.Create(DataIndex, ViewListIndex, DataItem);
+    _multiSelection[DataIndex] := rowInfo;
+    _multiSelectChanged := True;
+
+    DoChanged;
+  end else
+    Result := False;
+end;
+
+procedure TRowSelectionInfo.DoChanged;
+begin
+  if (_updateCount = 0) then
+  begin
+    if _multiSelectChanged then
+      DoMultiSelectChanged;
+
+    if _focusedChanged then
+      DoDataItemChanged;
   end;
 end;
 
@@ -4515,11 +4558,18 @@ end;
 
 procedure TWaitForRepaintInfo.set_DataItem(const Value: CObject);
 begin
-  if Value <> nil then
+  if Value = nil then
   begin
-    _current := -1;
-    _scrollItemIntoView := True;
+    _dataItem := nil;
+    _scrollItemIntoView := _current <> -1;
+    if _current = -1 then
+      _rowStateFlags := _rowStateFlags - [TTreeRowState.RowChanged];
+
+    Exit;
   end;
+
+  _current := -1;
+  _scrollItemIntoView := True;
 
   _dataItem := Value;
   _rowStateFlags := _rowStateFlags + [TTreeRowState.RowChanged];
