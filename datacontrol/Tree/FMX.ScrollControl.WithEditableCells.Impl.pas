@@ -783,11 +783,17 @@ begin
     if not DoEditRowEnd(GetActiveRow as IDCTreeRow, {out} changeUpdatedSort) or changeUpdatedSort then
       Exit;
 
-    if Key = vkUp then
-      Self.Current := CMath.Max(crr-1, 0) else
-      Self.Current := CMath.Min(crr+1, _view.ViewCount-1);
+//    if Key = vkUp then
+//      Self.Current := CMath.Max(crr-1, 0)
+//    else if crr < _view.ViewCount-1 then
+//      Self.Current := CMath.Min(crr+1, _view.ViewCount-1)
+//    else if CheckCanChangeRow then
+//      TryAddRow()
 
     Self.SetFocus;
+
+    KeyDown(Key, KeyChar, Shift);
+
     Key := 0;
   end;
 end;
