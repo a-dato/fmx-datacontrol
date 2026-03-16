@@ -1,4 +1,4 @@
-﻿unit ADato.FMX.FastControls.Layout;
+unit ADato.FMX.FastControls.Layout;
 
 interface
 
@@ -19,9 +19,12 @@ type
 
     _resetBufferRequired: Boolean;
     _creatingBitmap: Boolean;
+    _stylesPreparedForBuffer: Boolean;
+    _styleChangedId: TMessageSubscriptionId;
 
     function  get_UseBuffering: Boolean;
     procedure set_UseBuffering(const Value: Boolean); virtual;
+    procedure StyleChangedHandler(const Sender: TObject; const Msg: System.Messaging.TMessage);
 
     procedure LoadBitmap;
     procedure PrepareForPaint; override;
@@ -285,11 +288,14 @@ begin
 
   _useBuffering := False;
   _resetBufferRequired := True;
+  _stylesPreparedForBuffer := False;
   _originalBackgroundColorIsNull := True;
+  _styleChangedId := TMessageManager.DefaultManager.SubscribeToMessage(TStyleChangedMessage, StyleChangedHandler);
 end;
 
 destructor TAdaptableBitmapLayout.Destroy;
 begin
+  TMessageManager.DefaultManager.Unsubscribe(TStyleChangedMessage, _styleChangedId);
   FreeAndNil(_bitmap);
   inherited;
 end;
@@ -297,12 +303,14 @@ end;
 procedure TAdaptableBitmapLayout.DoAddObject(const AObject: TFmxObject);
 begin
   inherited;
+  _stylesPreparedForBuffer := False;
   ResetBuffer;
 end;
 
 procedure TAdaptableBitmapLayout.DoRemoveObject(const AObject: TFmxObject);
 begin
   inherited;
+  _stylesPreparedForBuffer := False;
   ResetBuffer;
 end;
 
@@ -321,6 +329,9 @@ procedure TAdaptableBitmapLayout.LoadBitmap;
 
   procedure CheckChild(const Control: TControl);
   begin
+    if not Control.Visible then
+      Exit;
+
     // required for checkboxes!
 
     if Control is TStyledControl then
@@ -330,63 +341,66 @@ procedure TAdaptableBitmapLayout.LoadBitmap;
         stCtrl.ApplyStyleLookup;
     end;
 
+    if Control.ControlsCount = 0 then
+      Exit;
+
     for var ctrl in Control.Controls do
-      CheckChild(ctrl);
+      if ctrl.Visible then
+        CheckChild(ctrl);
   end;
 
 begin
-//  var isBeforePaint := (Self.Canvas = nil) or (Self.Canvas.BeginSceneCount = 0);
+  if _creatingBitmap or not get_UseBuffering or (Scene = nil) or (Width <= 0) or (Height <= 0) then
+    Exit;
 
-  EventTracer.StartTimer('TAdaptableBitmapLayout', 'LoadBitmap');
   var scale := Self.Scene.GetSceneScale;
   if (_bitmap <> nil) and (_bitmap.BitmapScale <> scale) then
     _resetBufferRequired := True;
 
-  if get_UseBuffering and _resetBufferRequired then
+  if not _resetBufferRequired then
+    Exit;
+
+  _resetBufferRequired := False;
+
+  if not _stylesPreparedForBuffer then
   begin
-    _resetBufferRequired := False;
-
-    EventTracer.StartTimer('TAdaptableBitmapLayout', 'CheckChild');
     for var child in Self.Controls do
-      CheckChild(child);
-    EventTracer.PauseTimer('TAdaptableBitmapLayout', 'CheckChild');
+      if child.Visible then
+        CheckChild(child);
 
-    _creatingBitmap := True;
-    try
-      var logicalW: Integer := Ceil(Self.Width * scale);
-      var logicalH: Integer := Ceil(Self.Height * scale);
-
-      var reload := True; // for later: make it possible to do not fully reload to save time. In that case the full bitmap needs to be overwritten by the new bitmap
-
-      if reload or (_bitmap = nil) or (_bitmap.Width <> logicalW) or (_bitmap.Height <> logicalH) or (_bitmap.BitmapScale <> scale) then
-        FreeAndNil(_bitmap);
-
-      if (_bitmap = nil) then
-      begin
-        _bitmap := TBitmap.Create(logicalW, logicalH);
-        _bitmap.CanvasQuality := TCanvasQuality.HighPerformance;
-        _bitmap.BitmapScale := scale;
-      end
-
-      // try to have a background color, because clearing will cost a lot of time!!
-      else if OriginalBackgroundColorIsNull then
-        _bitmap.Clear(0);
-
-      if _bitmap.Canvas.BeginScene then
-      try
-        {$IFDEF DEBUG}
-        PaintTo(_bitmap.Canvas, TRectF.Create(0, 0, Self.Width, Self.Height));
-        {$ELSE}
-        PaintTo(_bitmap.Canvas, TRectF.Create(0, 0, Self.Width, Self.Height));
-        {$ENDIF}
-      finally
-        _bitmap.Canvas.EndScene;
-      end;
-    finally
-      _creatingBitmap := False;
-    end;
+    _stylesPreparedForBuffer := True;
   end;
-  EventTracer.PauseTimer('TAdaptableBitmapLayout', 'LoadBitmap');
+
+  _creatingBitmap := True;
+  try
+    var logicalW: Integer := Ceil(Self.Width * scale);
+    var logicalH: Integer := Ceil(Self.Height * scale);
+
+    var reload := False; // reuse the existing bitmap when size and scale are unchanged
+
+    if reload or (_bitmap = nil) or (_bitmap.Width <> logicalW) or (_bitmap.Height <> logicalH) or (_bitmap.BitmapScale <> scale) then
+      FreeAndNil(_bitmap);
+
+    if (_bitmap = nil) then
+    begin
+      _bitmap := TBitmap.Create(logicalW, logicalH);
+      _bitmap.CanvasQuality := TCanvasQuality.HighPerformance;
+      _bitmap.BitmapScale := scale;
+    end
+
+    // try to have a background color, because clearing will cost a lot of time!!
+    else //if OriginalBackgroundColorIsNull then
+      _bitmap.Clear(0);
+
+    if _bitmap.Canvas.BeginScene then
+    try
+      PaintTo(_bitmap.Canvas, TRectF.Create(0, 0, Self.Width, Self.Height));
+    finally
+      _bitmap.Canvas.EndScene;
+    end;
+  finally
+    _creatingBitmap := False;
+  end;
 end;
 
 function TAdaptableBitmapLayout.ObjectAtPoint(P: TPointF): IControl;
@@ -398,20 +412,14 @@ procedure TAdaptableBitmapLayout.PrepareForPaint;
 begin
   LoadBitmap;
   if ShouldInheritPaint then
-  begin
     inherited;
-    Exit;
-  end;
 end;
 
 procedure TAdaptableBitmapLayout.Painting;
 begin
   LoadBitmap;
   if ShouldInheritPaint then
-  begin
     inherited;
-    Exit;
-  end;
 end;
 
 procedure TAdaptableBitmapLayout.Paint;
@@ -429,10 +437,7 @@ end;
 procedure TAdaptableBitmapLayout.PaintChildren;
 begin
   if ShouldInheritPaint then
-  begin
     inherited;
-    Exit;
-  end;
 end;
 
 procedure TAdaptableBitmapLayout.DoPaint;
@@ -442,15 +447,25 @@ end;
 procedure TAdaptableBitmapLayout.AfterPaint;
 begin
   if ShouldInheritPaint then
-  begin
     inherited;
-    Exit;
-  end;
 end;
 
 function TAdaptableBitmapLayout.ShouldInheritPaint: Boolean;
 begin
   Result := not get_UseBuffering or _creatingBitmap;
+end;
+
+procedure TAdaptableBitmapLayout.StyleChangedHandler(const Sender: TObject; const Msg: System.Messaging.TMessage);
+var
+  Message: TStyleChangedMessage;
+begin
+  Message := TStyleChangedMessage(Msg);
+
+  if (Message.Scene <> nil) and (Scene <> nil) and (Message.Scene <> Scene) then
+    Exit;
+
+  _stylesPreparedForBuffer := False;
+  ResetBuffer;
 end;
 
 procedure TAdaptableBitmapLayout.ResetBuffer;

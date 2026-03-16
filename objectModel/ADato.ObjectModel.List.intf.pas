@@ -412,6 +412,8 @@ begin
 
   _Context := Value;
   _isActive := _context <> nil;
+
+  DoInvokeDelegate;
 end;
 
 end.

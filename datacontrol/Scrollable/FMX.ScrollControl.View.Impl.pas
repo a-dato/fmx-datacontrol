@@ -775,7 +775,7 @@ function TDataViewList.ProvideReferenceRowForViewRange(const StartY, StopY: Sing
 
 begin
   var startIx: Integer := 0;
-  var pos: Single := 0.0;
+  var pos: Double := 0.0;  // !!!! MUST BE DOUBLE, IS MORE PRECISE WHEN A LOT OF DATAITEMS (> 10000)
 
   if (_activeRows <> nil) and (_activeRows.Count > 0) then
   begin

@@ -1034,6 +1034,7 @@ begin
   // do not set Visibility, for code can already make controls (in)visible
   // it is better to interfere with the Opacity
   _control.Opacity := IfThen(IsVisible, 1, 0);
+  _control.HitTest := IsVisible;
 end;
 
 { TControlBinding }
