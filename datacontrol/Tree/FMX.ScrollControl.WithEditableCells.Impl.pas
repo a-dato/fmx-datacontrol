@@ -956,8 +956,11 @@ begin
   var tp := &Type.Unknown;
   if not CString.IsNullOrEmpty(Cell.Column.PropertyName) then
   begin
-    if ViewIsDataModelView then
-      tp := GetDataModelView.DataModel.FindColumnByName(Cell.Column.PropertyName).DataType else
+    if CString.Equals(Cell.Column.PropertyName, COLUMN_SHOW_DEFAULT_OBJECT_TEXT) then
+      tp := GetItemType
+    else if ViewIsDataModelView then
+      tp := GetDataModelView.DataModel.FindColumnByName(Cell.Column.PropertyName).DataType
+    else
       tp := GetItemType.PropertyByName(Cell.Column.PropertyName).GetType;
   end;
 
