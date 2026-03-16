@@ -1026,7 +1026,6 @@ function TScrollControlWithEditableCells.TryAddRow(const Position: InsertPositio
 begin
   Assert(not _editingInfo.RowIsEditing);
 
-
   var em: IEditableModel;
   if (_model <> nil) and interfaces.Supports<IEditableModel>(_model, em) and em.CanAdd then
   begin

@@ -1383,7 +1383,11 @@ begin
           end;
 
           if showHorzGrid then
+          begin
             sides := sides + [TSide.Bottom];
+            if showVertGrid and (cell.Row.ViewListIndex = 0) then
+              sides := sides + [TSide.Top];
+          end;
         end;
       end;
 

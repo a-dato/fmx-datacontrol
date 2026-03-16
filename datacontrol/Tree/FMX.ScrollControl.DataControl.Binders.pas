@@ -115,14 +115,23 @@ begin
   if Assigned(_onDatalistRequired) then
     _onDatalistRequired();
 
-  if (_control.DataList <> nil) and (_control.View <> nil) then
-    Result := _control.View.GetViewList else
+  if (_control.DataList <> nil) then
+  begin
+    if (_control.View = nil)  then
+      _control.GenerateView;
+
+    Result := _control.View.GetViewList
+  end
+  else
     Result := nil;
 end;
 
 function TDataControlBinding.GetValue: CObject;
 begin
   var data := GetDataAsList;
+  if data = nil then
+    Exit(nil);
+
   case _propType of
     DataList: begin
       Result := data;
@@ -151,10 +160,12 @@ begin
   if Assigned(_orgCellSelectedEvent) then
     _orgCellSelectedEvent(Sender, e);
 
-  TThread.ForceQueue(nil, procedure
-  begin
-    NotifyModel(nil);
-  end);
+  // strange, why do I have this here?
+  // if NotifyModel is called, IsEditOrNew is automatically True, while nothing changed yet..
+//  TThread.ForceQueue(nil, procedure
+//  begin
+//    NotifyModel(nil);
+//  end);
 end;
 
 //procedure TDataControlBinding.OnCellItemClicked(const Sender: TObject; e: CellItemClickedEventArgs);
