@@ -1437,8 +1437,7 @@ begin
     Exit(nil);
 
   CheckCorrectColumnSelection(_selectionInfo, row);
-  if _selectionInfo.Tag <> -1 then
-    Result := row.Cells[_selectionInfo.Tag] else
+  if (_selectionInfo.Tag = -1) or not row.Cells.TryGetValue(_selectionInfo.Tag, Result) then
     Result := nil;
 end;
 
@@ -3034,7 +3033,9 @@ begin
     try
       var clmn := GetFlatColumnByKey(vkHome, [], -1);
       if clmn <> nil then
-        SelectionInfo.Tag := clmn.Index; // get first valid column
+        SelectionInfo.Tag := clmn.Index // get first valid column
+      else
+        SelectionInfo.Tag := -1;
     finally
       SelectionInfo.EndUpdate(True {ignore events});
     end;
