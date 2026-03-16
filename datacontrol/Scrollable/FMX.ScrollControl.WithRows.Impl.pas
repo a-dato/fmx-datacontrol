@@ -2127,9 +2127,11 @@ begin
 
     if rowNeedsReload then
     begin
+      var checkEdges: Boolean := False;
+      var ly: TRowLayout := nil;
       if Row.Control = nil then
       begin
-        var ly := TRowLayout.Create(_content, CreateRowBackground);
+        ly := TRowLayout.Create(_content, CreateRowBackground);
         ly.OriginalBackgroundColorIsNull := False; // !! saves a lot of time, because clearing bitmap is not needed..
   //      ly.ClipChildren := True; // costs a lot of time , while we can also do this on lower level..
         ly.HitTest := False;
@@ -2139,9 +2141,8 @@ begin
 
         _content.AddObject(Row.Control);
 
-        if (TreeOption_ShowHorzGrid in _options) then
-          ly.Sides := [TSide.Bottom] else
-          ly.Sides := [];
+        checkEdges := (TreeOption_ShowHorzGrid in _options);
+        ly.Sides := [];
       end;
 
       if DrawRowBackground then
@@ -2155,9 +2156,16 @@ begin
 
       EventTracer.StartTimer('TDataControl', Self.ClassName + '.InnerInitRow');
       try
-          InnerInitRow(Row, rowInfo.ControlNeedsResizeSoft);
+        InnerInitRow(Row, rowInfo.ControlNeedsResizeSoft);
       finally
         EventTracer.PauseTimer('TDataControl', Self.ClassName + '.InnerInitRow');
+      end;
+
+      if checkEdges then
+      begin
+        if (Row.ViewListIndex = 0) and not (TreeOption_ShowHeaders in _options) and (TreeOption_ShowVertGrid in _options) then
+          ly.Sides := [TSide.Bottom, TSide.Top];
+          ly.Sides := [TSide.Bottom];
       end;
 
       DoRowLoaded(Row);
