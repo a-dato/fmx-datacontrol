@@ -9302,7 +9302,7 @@ begin
   popupMenu.ShowHideColumnOption := Column.Column.AllowHide;
   popupMenu.OnClose := HeaderPopupMenu_Closed;
 
-  if showFilter or Column.Column.ShowTextFilter then
+  if (dataValues <> nil) and (showFilter or Column.Column.ShowTextFilter) then
   try
     // Get active filter for this column
     filter := GetColumnFilter(column);
@@ -9332,25 +9332,22 @@ begin
         popupMenu.LoadDateRange(min, max, False);
       end;
     end
+    else if filter <> nil then
+    begin
+      popupMenu.LoadItemsFrom(  dataValues,
+                                comparer,
+                                filter.Values {Holds current selection},
+                                filter.ShowEmptyValues,
+                                filter.LayoutColumn.Column.Sort = SortType.DisplayText);
+
+      popupMenu.FilterText := filter.FilterText;
+      popupMenu.AllowClearColumnFilter := True;
+    end
     else
     begin
-      if filter <> nil then
-      begin
-        popupMenu.LoadItemsFrom(  dataValues,
-                                  comparer,
-                                  filter.Values {Holds current selection},
-                                  filter.ShowEmptyValues,
-                                  filter.LayoutColumn.Column.Sort = SortType.DisplayText);
-
-        popupMenu.FilterText := filter.FilterText;
-        popupMenu.AllowClearColumnFilter := True;
-      end
-      else
-      begin
-        popupMenu.LoadItemsFrom(dataValues, comparer, nil, False, False);
-        popupMenu.FilterText := '';
-        popupMenu.AllowClearColumnFilter := False;
-      end;
+      popupMenu.LoadItemsFrom(dataValues, comparer, nil, False, False);
+      popupMenu.FilterText := '';
+      popupMenu.AllowClearColumnFilter := False;
     end;
   except
     popupMenu.ShowFilterItems := False;
