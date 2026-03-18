@@ -46,6 +46,7 @@ type
     property RowLoaded;
     property RowAligned;
     {$ENDIF}
+    property DragDropOnIndividualRows;
 
     // TScrollControlWithCells designer properties
     property Columns;

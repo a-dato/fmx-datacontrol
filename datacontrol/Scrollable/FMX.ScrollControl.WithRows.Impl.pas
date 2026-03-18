@@ -204,6 +204,20 @@ type
     procedure ExecuteAfterRealignOnly(DoBeginUpdate: Boolean);
 
   protected
+    // drag & drop
+    _dragDropOnIndividualRows: Boolean;
+
+    procedure set_DragDropOnIndividualRows(const Value: Boolean);
+
+    procedure DragOver(const Data: TDragObject; const Point: TPointF; var Operation: TDragOperation); override;
+    procedure DragDrop(const Data: TDragObject; const Point: TPointF); override;
+    procedure DragLeave; override;
+    procedure DrawDragHighlight; override;
+
+  public
+    property  DragDropOnIndividualRows: Boolean read _dragDropOnIndividualRows write set_DragDropOnIndividualRows;
+
+  protected
     procedure RealignFromSelectionChange;
 
     procedure SetBasicVertScrollBarValues; override;
@@ -241,6 +255,7 @@ type
 
     procedure UpdateYPositionRows;
     procedure UpdateScrollBarValues(const NewValue: Single);
+    procedure HideHoverRect;
     procedure UpdateHoverRect(MousePos: TPointF); virtual;
 
     function  GetPropValue(const PropertyName: CString; const DataItem: CObject; const DataModel: IDataModel = nil): CObject;
@@ -514,10 +529,8 @@ type
 
     function  HasFocusedItem: Boolean;    // current dataitem
     function  HasSelectedItems: Boolean; // multi selection
-
-    function  SelectedRowCount: Integer;
-//    function  SelectedDataItems: List<CObject>;
-    function  SelectedDataIndexes: TDataIndexArray;
+    function  SelectedRowCount: Integer; // multi selection
+    function  SelectedDataIndexes: TDataIndexArray; // multi selection
 
     function  GetRowInfo(const DataIndex: Integer): TRowDataItemInfo;
   end;
@@ -856,7 +869,7 @@ procedure TScrollControlWithRows.DoMouseLeave;
 begin
   inherited;
 
-  UpdateHoverRect(PointF(-1, -1));
+  HideHoverRect;
 end;
 
 procedure TScrollControlWithRows.DoRealignContent;
@@ -1570,6 +1583,7 @@ begin
   _hoverRect.Align := TAlignLayout.None;
   _hoverRect.HitTest := False;
   _hoverRect.Visible := False;
+  _hoverRect.Opacity := 0.3;
   _hoverRect.Stroke.Kind := TBrushKind.None;
   _hoverRect.Fill.Color := DEFAULT_ROW_HOVER_COLOR;
   _content.AddObject(_hoverRect);
@@ -1714,6 +1728,20 @@ begin
     data := _dataModelView.DataModel.Rows as IList;
 
   set_DataList(data);
+end;
+
+procedure TScrollControlWithRows.set_DragDropOnIndividualRows(const Value: Boolean);
+begin
+  if _dragDropOnIndividualRows = Value then
+    Exit;
+
+  _dragDropOnIndividualRows := Value;
+
+  if Value then
+  begin
+    EnableDragHighlight := True;
+    CanDragDrop := True;
+  end;
 end;
 
 procedure TScrollControlWithRows.set_IsPrinting(const Value: Boolean);
@@ -2215,20 +2243,36 @@ begin
   UpdateRowHeightSynchronizerScrollbar;
 end;
 
+procedure TScrollControlWithRows.HideHoverRect;
+begin
+  if _hoverRect = nil then
+    Exit;
+
+  _hoverRect.Visible := False;
+end;
+
 procedure TScrollControlWithRows.UpdateHoverRect(MousePos: TPointF);
 begin
   if (TreeOption_HideHoverEffect in _options) or IsScrolling or MousePos.IsZero or _isExpandingOrCollapsing then
   begin
-    _hoverRect.Visible := False;
+    HideHoverRect;
     Exit;
   end;
 
   var row := GetRowByLocalY(MousePos.Y);
-  _hoverRect.Visible := (row <> nil) and {(_selectionType <> TSelectionType.HideSelection) and} _selectionInfo.CanFocus(row.DataIndex);
-  if not _hoverRect.Visible then
+  if (row = nil) or not _selectionInfo.CanFocus(row.DataIndex) or (row.Control = nil) then
+  begin
+    HideHoverRect;
     Exit;
+  end;
 
+  if IsDragOver then
+    _hoverRect.Fill.Color := DEFAULT_DRAG_COLOR else
+    _hoverRect.Fill.Color := DEFAULT_ROW_HOVER_COLOR;
+
+  _hoverRect.Visible := True;
   _hoverRect.Position.Y := row.Control.Position.Y;
+
   _hoverRect.Position.X := row.Control.Position.X;
   _hoverRect.Height := row.Height;
   _hoverRect.Width := row.Control.Width;
@@ -3213,8 +3257,7 @@ end;
 
 procedure TScrollControlWithRows.DoViewPortPositionChanged;
 begin
-  if _hoverRect <> nil then
-    _hoverRect.Visible := False;
+  HideHoverRect;
 
   inherited;
 end;
@@ -3227,6 +3270,62 @@ begin
     Result.Add(_dragObject);
   end else
     Result := SelectedItems;
+end;
+
+
+procedure TScrollControlWithRows.DragDrop(const Data: TDragObject; const Point: TPointF);
+begin
+  if _dragDropOnIndividualRows then
+  begin
+    var row := GetRowByLocalY(Point.Y);
+    if row <> nil then
+      _selectionInfo.SetFocusedItem(row.DataIndex, row.ViewListIndex, row.DataItem);
+  end;
+
+  inherited;
+
+  HideHoverRect;
+
+  var row: IDCRow;
+  for row in _view.ActiveViewRows do
+    VisualizeRowSelection(row);
+end;
+
+procedure TScrollControlWithRows.DragOver(const Data: TDragObject; const Point: TPointF; var Operation: TDragOperation);
+begin
+  inherited;
+
+  if Operation = TDragOperation.None then
+    HideHoverRect
+  else if _dragDropOnIndividualRows then
+  begin
+    if _selectionInfo.HasSelectedItems then
+    begin
+      HideHoverRect;
+
+      var row: IDCRow;
+      for row in _view.ActiveViewRows do
+        VisualizeRowSelection(row);
+    end else
+      UpdateHoverRect(PointF(Point.X, Point.Y - _content.Position.Y));
+  end;
+end;
+
+procedure TScrollControlWithRows.DragLeave;
+begin
+  inherited;
+
+  HideHoverRect;
+
+  var row: IDCRow;
+  for row in _view.ActiveViewRows do
+    VisualizeRowSelection(row);
+end;
+
+procedure TScrollControlWithRows.DrawDragHighlight;
+begin
+  if not _dragDropOnIndividualRows then
+    inherited;
 end;
 
 function TScrollControlWithRows.DrawRowBackground: Boolean;
@@ -3915,8 +4014,7 @@ procedure TScrollControlWithRows.AfterRealignContent;
 begin
   inherited;
 
-  if _hoverRect <> nil then
-    _hoverRect.Visible := False;
+  HideHoverRect;
 
   if IsMasterSynchronizer then
     _rowHeightSynchronizer.AfterRealignContent;
@@ -3951,8 +4049,11 @@ begin
   end;
 
   _selectionRect.BringToFront;
-  _selectionRect.Opacity := IfThen(IsCurrentFocused, 0.3, 0.1);
-  if not IsCurrentFocused then
+  _selectionRect.Opacity := IfThen(IsCurrentFocused or _rowsControl.Control.IsDragOver, 0.3, 0.1);
+
+  if _rowsControl.Control.IsDragOver then
+    _selectionRect.Fill.Color := DEFAULT_DRAG_COLOR
+  else if not IsCurrentFocused then
     _selectionRect.Fill.Color := DEFAULT_ROW_SELECTION_MULTISELECT_COLOR
   else if OwnerIsFocused then
     _selectionRect.Fill.Color := DEFAULT_ROW_SELECTION_ACTIVE_COLOR
@@ -3966,12 +4067,13 @@ procedure TDCRow.UpdateSelectionVisibility(const SelectionInfo: IRowSelectionInf
 begin                                  
   var isCurrentDataItem := SelectionInfo.IsFocused(get_DataIndex);
   var isPartOfSelection := SelectionInfo.IsSelected(get_DataIndex);
+  var isDragOver := (_selectionRect <> nil) and (_selectionRect.Fill.Color = DEFAULT_DRAG_COLOR);
   
   var selectionStaysTheSame := False; 
-  if isCurrentDataItem or isPartOfSelection then
+  if isCurrentDataItem or isPartOfSelection or isDragOver then
   begin
     UpdateSelectionRect(OwnerIsFocused, isCurrentDataItem);
-    selectionStaysTheSame := True;
+    selectionStaysTheSame := not _rowsControl.Control.IsDragOver;
   end
   else if _selectionRect <> nil then
   begin

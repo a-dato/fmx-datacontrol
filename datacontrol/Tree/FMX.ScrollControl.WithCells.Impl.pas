@@ -150,6 +150,8 @@ type
     procedure DoCellChanged(const OldCell, NewCell: IDCTreeCell);
     procedure DoCellSelected(const Cell: IDCTreeCell; EventTrigger: TSelectionEventTrigger);
 
+    procedure DragDrop(const Data: TDragObject; const Point: TPointF); override;
+
     function  DoSortingGetComparer(const SortDescription: IListSortDescriptionWithComparer {; const ReturnSortComparer: Boolean}): IComparer<CObject>;
     function  DoOnCompareRows(const Left, Right: CObject): Integer;
     function  DoOnCompareColumnCells(const Column: IDCTreeColumn; const Left, Right: CObject): Integer;
@@ -1261,7 +1263,7 @@ procedure TScrollControlWithCells.UpdateHoverRect(MousePos: TPointF);
 begin
   inherited;
 
-  if (_hoverRect.Visible) and (_selectionType = TSelectionType.CellSelection) then
+  if (_hoverRect.Visible) and (_selectionType = TSelectionType.CellSelection) and not IsDragOver then
   begin
     var clmn := GetSelectableFlatColumnByMouseX(MousePos.X);
 
@@ -2705,6 +2707,25 @@ destructor TScrollControlWithCells.Destroy;
 begin
   _headerRow := nil;
   _treeLayout := nil;
+
+  inherited;
+end;
+
+procedure TScrollControlWithCells.DragDrop(const Data: TDragObject; const Point: TPointF);
+begin
+  if _dragDropOnIndividualRows then
+  begin
+    var row := GetRowByLocalY(Point.Y) as IDCTreeRow;
+    if row = nil then Exit;
+
+    var clmn := GetFlatColumnByMouseX(Point.X);
+    if (clmn = nil) or not row.Cells.ContainsKey(clmn.Index) then Exit;
+
+    var oldCell := GetActiveCell;
+    var newCell := row.Cells[clmn.Index];
+    if (oldCell <> newCell) and not DoCellCanChange(oldCell, newCell) then
+      Exit;
+  end;
 
   inherited;
 end;
@@ -6172,10 +6193,13 @@ begin
     if not SelectionInfo.IsSelected(_dataIndex) then
       _selectionRect.Opacity := 0.0 // make cell selection more visible
     else
-    begin
+//    begin
       _selectionRect.Opacity := 0.1;
-      _selectionRect.Fill.Color := DEFAULT_ROW_SELECTION_MULTISELECT_COLOR;
-    end;
+
+//      if _rowsControl.Control.IsDragOver then
+//        _selectionRect.Fill.Color := DEFAULT_DRAG_COLOR else
+//        _selectionRect.Fill.Color := DEFAULT_ROW_SELECTION_MULTISELECT_COLOR;
+//    end;
   end;
 
   var cell: IDCTreeCell;
