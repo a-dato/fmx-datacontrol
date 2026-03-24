@@ -18,7 +18,7 @@ uses
   ADato.ComponentModel,
   FMX.ScrollControl.WithCells.Intf,
   FMX.ScrollControl.WithRows.Intf, System.Collections.Generic,
-  FMX.ScrollControl.ControlClasses.Intf;
+  FMX.ScrollControl.ControlClasses.Intf, FMX.Types;
 
 type
   TDataControlEventRegistration = class
@@ -284,6 +284,7 @@ type
   CellChangedEvent = procedure(const Sender: TObject; e: DCCellChangedEventArgs) of object;
 
   CellSelectedEvent = procedure(const Sender: TObject; e: DCCellSelectedEventArgs) of object;
+  SelectionChangedEvent = TNotifyEvent;
 //  CellUserActionEvent = procedure(const Sender: TObject; e: DCCellItemUserActionEventArgs) of object;
 
   GetColumnComparerEvent  = procedure(const Sender: TObject; e: DCColumnComparerEventArgs) of object;
@@ -299,6 +300,10 @@ type
   CellCheckChangeEvent = procedure(const Sender: TObject; e: DCCheckChangedEventArgs) of object;
 
   ColumnChangedByUserEvent = procedure (const Sender: TObject; e: ColumnChangedByUserEventArgs) of object;
+
+  TDragEnterRowsEvent = procedure(Sender: TObject; const SelectedRows: List<TRowDataItemInfo>; const Data: TDragObject; const Point: TPointF) of object;
+  TDragOverRowsEvent = procedure(Sender: TObject; const SelectedRows: List<TRowDataItemInfo>; const Data: TDragObject; const Point: TPointF; var Operation: TDragOperation) of object;
+  TDragDropRowsEvent = procedure(Sender: TObject; const SelectedRows: List<TRowDataItemInfo>; const Data: TDragObject; const Point: TPointF) of object;
 
   RowAddedEvent = procedure(const Sender: TObject; e: DCAddingNewEventArgs) of object;
   RowDeletingEvent = procedure(const Sender: TObject; e: DCDeletingEventArgs) of object;

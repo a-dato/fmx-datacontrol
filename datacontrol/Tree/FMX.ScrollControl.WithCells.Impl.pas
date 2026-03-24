@@ -287,6 +287,7 @@ type
 
     procedure RefreshColumn(const Column: IDCTreeColumn);
     procedure ColumnsChangedFromExternal;
+    function  CheckCanChangeRow: Boolean; override;
 
     procedure UpdateColumnSort(const Column: IDCTreeColumn; SortDirection: ListSortDirection; ClearOtherSort: Boolean);
     procedure UpdateColumnFilter(const Column: IDCTreeColumn; const FilterText: CString; const FilterValues: List<CObject>; const NullValueSelected: Boolean); overload;
@@ -1387,7 +1388,7 @@ begin
           if showHorzGrid then
           begin
             sides := sides + [TSide.Bottom];
-            if showVertGrid and (cell.Row.ViewListIndex = 0) then
+            if showVertGrid and (cell.Row.ViewListIndex = 0) and (_headerRow = nil) then
               sides := sides + [TSide.Top];
           end;
         end;
@@ -1594,6 +1595,9 @@ begin
   end
   else if flatColumn.Column.IsSelectionColumn then
   begin
+    if flatColumn.Column.ReadOnly or (TreeOption_ReadOnly in _options) then
+      Exit;
+
     var treeRow := clickedRow as IDCTreeRow;
     var treeCell := treeRow.Cells[flatColumn.Index];
     var checkBox := treeCell.InfoControl as IIsChecked;
@@ -2728,6 +2732,21 @@ begin
   end;
 
   inherited;
+end;
+
+function TScrollControlWithCells.CheckCanChangeRow: Boolean;
+begin
+  Result := inherited;
+
+  if Result then
+  begin
+    // old row can be scrolled out of view. So always work with dummy rows
+    var dummyOldRow := ProvideRowForChanging(_selectionInfo) as IDCTreeRow;
+    if (dummyOldRow = nil) or not dummyOldRow.Cells.ContainsKey(_selectionInfo.Tag) then Exit;
+
+    var oldCell := dummyOldRow.Cells[_selectionInfo.Tag];
+    Result := DoCellCanChange(oldCell, nil);
+  end;
 end;
 
 function TScrollControlWithCells.DoCellCanChange(const OldCell, NewCell: IDCTreeCell): Boolean;
@@ -6192,14 +6211,8 @@ begin
   begin
     if not SelectionInfo.IsSelected(_dataIndex) then
       _selectionRect.Opacity := 0.0 // make cell selection more visible
-    else
-//    begin
+    else if not _rowsControl.Control.IsDragOver then
       _selectionRect.Opacity := 0.1;
-
-//      if _rowsControl.Control.IsDragOver then
-//        _selectionRect.Fill.Color := DEFAULT_DRAG_COLOR else
-//        _selectionRect.Fill.Color := DEFAULT_ROW_SELECTION_MULTISELECT_COLOR;
-//    end;
   end;
 
   var cell: IDCTreeCell;
