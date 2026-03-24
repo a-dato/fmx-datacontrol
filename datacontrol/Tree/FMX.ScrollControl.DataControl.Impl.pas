@@ -1,4 +1,4 @@
-﻿{$IFNDEF WEBASSEMBLY}
+{$IFNDEF WEBASSEMBLY}
 {$I ..\..\dn4d\Source\Adato.inc}
 {$ENDIF}
 
@@ -42,11 +42,15 @@ type
     property RowHeightDefault;
     property RowHeightMax;
     property RowHeightSynchronizer;
+    property OnSelectionChanged;
     {$IFNDEF WEBASSEMBLY}
     property RowLoaded;
     property RowAligned;
     {$ENDIF}
     property DragDropOnIndividualRows;
+    property OnDragEnterRows;
+    property OnDragOverRows;
+    property OnDragDropRows;
 
     // TScrollControlWithCells designer properties
     property Columns;

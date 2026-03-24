@@ -57,7 +57,6 @@ type
 
     function  TryAddRow(const Position: InsertPosition): Boolean;
     function  TryDeleteSelectedRows: Boolean;
-    function  CheckCanChangeRow: Boolean;
 
   // editor behaviour
   protected
@@ -413,17 +412,6 @@ end;
 function TScrollControlWithEditableCells.CanRealignContent: Boolean;
 begin
   Result := inherited and not _editingInfo.CellIsEditing;
-end;
-
-function TScrollControlWithEditableCells.CheckCanChangeRow: Boolean;
-begin
-  // old row can be scrolled out of view. So always work with dummy rows
-
-  var dummyOldRow := ProvideRowForChanging(_selectionInfo) as IDCTreeRow;
-  if dummyOldRow = nil then Exit(True);
-
-  var oldCell := dummyOldRow.Cells[_selectionInfo.Tag];
-  Result := DoCellCanChange(oldCell, nil);
 end;
 
 procedure TScrollControlWithEditableCells.KeyDown(var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
