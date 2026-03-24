@@ -3205,7 +3205,7 @@ begin
   // Assert(False); ==> code in use see System.Runtime.Serialization line 1070
 
 {$IFDEF MSWINDOWS}
-  FT := PFieldTable(Integer(PropInfo.PropType) + Byte(PTypeInfo(PropInfo.PropType).Name[0]));
+  FT := PFieldTable(NativeUInt(PropInfo.PropType) + Byte(PTypeInfo(PropInfo.PropType).Name[0]));
   recSize := FT^.Size;
 
   getter := PropInfo.GetProc;
@@ -3268,7 +3268,7 @@ begin
   // Assert(False); ==> code in use see System.Runtime.Serialization line 1070
 
 {$IFDEF MSWINDOWS}
-  FT := PFieldTable(Integer(PropInfo.PropType) + Byte(PTypeInfo(PropInfo.PropType).Name[0]));
+  FT := PFieldTable(NativeUInt(PropInfo.PropType) + Byte(PTypeInfo(PropInfo.PropType).Name[0]));
   recSize := FT^.Size;
 
   setter := PropInfo.SetProc;

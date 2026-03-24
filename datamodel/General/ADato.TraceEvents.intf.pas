@@ -25,7 +25,7 @@ const
 
 type
   TLevel = (Normal, Verbose, ExtraVerbose);
-  TTraceOption = (WriteToStdOut, FormatAsJson, AddTimeStamp);
+  TTraceOption = (WriteToStdOut, FormatAsJson, AddTimeStamp, KeepFiles);
   TTraceOptions = set of TTraceOption;
 
   IEventTracer = interface
