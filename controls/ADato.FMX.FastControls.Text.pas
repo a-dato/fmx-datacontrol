@@ -592,7 +592,16 @@ begin
   CalculateText(maxWidth, maxHeight);
 
   if _autoWidth then
-    Self.Width := TextWidthWithPadding;
+  begin
+    if FInPaintTo then
+    begin
+      TThread.ForceQueue(nil, procedure
+      begin
+        Self.Width := TextWidthWithPadding;
+      end);
+    end else
+      Self.Width := TextWidthWithPadding;
+  end;
 end;
 
 procedure TFastText.SetStyledSettings(const Value: TStyledSettings);

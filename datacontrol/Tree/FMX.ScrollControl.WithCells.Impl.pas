@@ -2425,7 +2425,12 @@ begin
     DoColumnsChanged(Column);
   end;
 
-  ClearCalculatedColumnWidths;
+  var flat := FlatColumnByColumn(Column);
+  if (flat <> nil) and (flat.Width > 10) and (flat.Column.WidthType = TDCColumnWidthType.AlignToContent) then
+  begin
+//    ClearCalculatedColumnWidths;
+    flat.Width := CMath.Max(10, flat.Column.WidthMin);
+  end;
 
   // selectedcolumn is not valid anymore, select another one
   var flatColumn := FlatColumnByColumn(Column);
@@ -6600,6 +6605,7 @@ begin
 
   _visible := True;
   _selectable := True;
+//  _readOnly := True;
   _horzAlign := TDCTextAlign.Default;
   _vertAlign := TDCTextAlign.Default;
 end;

@@ -46,13 +46,16 @@ type
     edSearch: TEdit;
     Timer1: TTimer;
     Line1: TLine;
+    lyButtons: TLayout;
+    btnApplyFilters: TButton;
+    btnCancel: TButton;
     procedure btnApplyFiltersClick(Sender: TObject);
-    procedure Button1Click(Sender: TObject);
+    procedure btnCancelClick(Sender: TObject);
     procedure cbSelectAllClick(Sender: TObject);
     procedure edSearchChangeTracking(Sender: TObject);
     procedure FormDeactivate(Sender: TObject);
     procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
-    procedure FormKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
+    procedure FormShow(Sender: TObject);
     procedure Timer1Timer(Sender: TObject);
   private
     _data: List<CObject>;
@@ -105,7 +108,7 @@ begin
 
   DataControl := TDataControl.Create(Self);
   DataControl.Align := TAlignLayout.Client;
-  DataControl.Options := [TDCTreeOption.MultiSelect, TDCTreeOption.KeepCurrentSelection];
+  DataControl.Options := [TDCTreeOption.ShowVertGrid, TDCTreeOption.ShowHorzGrid, TDCTreeOption.AlternatingRowBackground, TDCTreeOption.MultiSelect, TDCTreeOption.KeepCurrentSelection];
   DataControl.RowHeightFixed := 26;
   DataControl.CellSelected := TreeCellSelected;
   DataControl.CellFormatting := TreeCellFormatting;
@@ -132,7 +135,7 @@ end;
 
 function TfrmComboMultiBoxPopup.get_SelectedItems: List<CObject>;
 begin
-  Result := DataControl.SelectedItems;
+  Result := DataControl.SelectedItems(False);
   if (Result.Count = 0) or (Result.Count = _data.Count) then
     Result := nil;
 end;
@@ -197,9 +200,9 @@ begin
   begin
     lyFilter.Visible := False;
     edSearch.Visible := False;
-    _oldSelection := DataControl.SelectedItems;
+    _oldSelection := DataControl.SelectedItems(False);
 
-    var absPf := _parentControl.LocalToScreen(PointF(0, _parentControl.Height + 5));
+    var absPf := _parentControl.LocalToScreen(PointF(0, _parentControl.Height + 1));
     Left := Round(absPf.X);
     Top := Round(absPf.Y);
     Width := Round(_parentControl.Width);
@@ -215,8 +218,9 @@ begin
   Close;
 end;
 
-procedure TfrmComboMultiBoxPopup.Button1Click(Sender: TObject);
+procedure TfrmComboMultiBoxPopup.btnCancelClick(Sender: TObject);
 begin
+  CancelChanges;
   Close;
 end;
 
@@ -263,22 +267,19 @@ begin
   Timer1.Enabled := False;
 end;
 
-procedure TfrmComboMultiBoxPopup.FormKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
+procedure TfrmComboMultiBoxPopup.FormShow(Sender: TObject);
 begin
-  if Key = vkEscape then
-  begin
-    Close;
-    Key := 0;
-  end;
+  Timer1.Enabled := True;
+  Timer1Timer(nil);
 end;
 
 procedure TfrmComboMultiBoxPopup.Timer1Timer(Sender: TObject);
 begin
-  if (DataControl <> nil) and (DataControl.View <> nil) and (DataControl.SelectedItems <> nil) then
-    cbSelectAll.IsChecked := DataControl.View.ViewCount = DataControl.SelectedItems.Count;
+  if (DataControl <> nil) and (DataControl.View <> nil) and (DataControl.SelectedItems(False) <> nil) then
+    cbSelectAll.IsChecked := DataControl.View.ViewCount = DataControl.SelectedItems(False).Count;
 
-  lyFilter.Visible := (DataControl.DataList <> nil) and (DataControl.DataList.Count >= 6);
-  edSearch.Visible := (DataControl.DataList <> nil) and (DataControl.DataList.Count >= 10);
+  lyFilter.Visible := (DataControl.DataList <> nil) and (DataControl.DataList.Count >= 4);
+  edSearch.Visible := (DataControl.DataList <> nil) and (DataControl.DataList.Count >= 8);
 end;
 
 procedure TfrmComboMultiBoxPopup.TreeCellFormatting(const Sender: TObject; e: DCCellFormattingEventArgs);

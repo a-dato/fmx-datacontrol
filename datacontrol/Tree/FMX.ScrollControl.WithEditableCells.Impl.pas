@@ -947,9 +947,17 @@ begin
     if CString.Equals(Cell.Column.PropertyName, COLUMN_SHOW_DEFAULT_OBJECT_TEXT) then
       tp := GetItemType
     else if ViewIsDataModelView then
-      tp := GetDataModelView.DataModel.FindColumnByName(Cell.Column.PropertyName).DataType
+    begin
+      var clmn := GetDataModelView.DataModel.FindColumnByName(Cell.Column.PropertyName);
+      if clmn <> nil then
+        tp := clmn.DataType
+    end
     else
-      tp := GetItemType.PropertyByName(Cell.Column.PropertyName).GetType;
+    begin
+      var prop := GetItemType.PropertyByName(Cell.Column.PropertyName);
+      if prop <> nil then
+        tp := prop.GetType;
+    end;
   end;
 
   if tp.IsUnknown and (CellValue <> nil) then
@@ -1684,14 +1692,18 @@ end;
 function TScrollControlWithEditableCells.BeginEdit: Boolean;
 begin
   Result := False;
-  var cell := GetActiveCell;
-  // row can be in edit mode already, but cell should not be in edit mode yet
-  if (cell = nil) or not CanEditCell(cell) or _editingInfo.RowIsEditing then
+  var row := GetActiveRow;
+  if _editingInfo.RowIsEditing or (TDCTreeOption.ReadOnly in _options) or (row = nil) then
     Exit;
+
+//  var cell := GetActiveCell;
+//  // row can be in edit mode already, but cell should not be in edit mode yet
+//  if (cell = nil) or not CanEditCell(cell) or _editingInfo.RowIsEditing then
+//    Exit;
   _selectionInfo.ClearMultiSelections;
   var dataItem := Self.DataItem;
   var isNew := False;
-  Result := DoEditRowStart(Cell.Row as IDCTreeRow, {var} dataItem, isNew);
+  Result := DoEditRowStart(row as IDCTreeRow, {var} dataItem, isNew);
 end;
 
 function TScrollControlWithEditableCells.EndEdit: Boolean;

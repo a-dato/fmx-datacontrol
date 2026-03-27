@@ -362,11 +362,8 @@ type
     function  IsSelected(const DataIndex: Integer): Boolean;
     function  SlowItemIsSelected(const DataItem: CObject): Boolean;
     function  SelectedRowIfInView: IDCRow;
-    function  SelectionCount: Integer;
-    function  SelectedItems: List<CObject>; overload;
-    function  SelectedItems<T>: List<T>; overload;
-    function  SelectedOrCurrent: List<CObject>; overload;
-    function  SelectedOrCurrent<T>: List<T>; overload;
+    function  SelectionCount(ReturnCurrentAtNoSelection: Boolean = True): Integer;
+    function  SelectedItems(ReturnCurrentAtNoSelection: Boolean): List<CObject>;
     function  DraggedItems: List<CObject>;
 
     procedure AssignSelection(const SelectedItems: IList);
@@ -1247,10 +1244,10 @@ begin
   end;
 end;
 
-function TScrollControlWithRows.SelectionCount: Integer;
+function TScrollControlWithRows.SelectionCount(ReturnCurrentAtNoSelection: Boolean = True): Integer;
 begin
   Result := _selectionInfo.SelectedRowCount;
-  if (Result = 0) and (_selectionInfo.DataItem <> nil) then
+  if (Result = 0) and ReturnCurrentAtNoSelection and _selectionInfo.HasFocusedItem then
     Result := 1;
 end;
 
@@ -1319,11 +1316,43 @@ end;
 
 function TScrollControlWithRows.get_Current: Integer;
 begin
+  // even if it is not set yet in the view, the new is already set and therefor becomes the current we are looking for
+  if (_waitForRepaintInfo <> nil) and (RowChanged in _waitForRepaintInfo.RowStateFlags) then
+  begin
+    if _waitForRepaintInfo.Current <> -1 then
+      Result := _waitForRepaintInfo.Current
+    else if _waitForRepaintInfo.DataItem <> nil then
+    begin
+      GenerateView;
+      Result := _view.GetViewListIndex(_waitForRepaintInfo.DataItem);
+    end
+    else
+      Result := -1;
+
+    Exit;
+  end;
+
   Result := _selectionInfo.ViewListIndex;
 end;
 
 function TScrollControlWithRows.get_DataItem: CObject;
 begin
+  // even if it is not set yet in the view, the new is already set and therefor becomes the dataitem we are looking for
+  if (_waitForRepaintInfo <> nil) and (RowChanged in _waitForRepaintInfo.RowStateFlags) then
+  begin
+    if _waitForRepaintInfo.DataItem <> nil then
+      Result := _waitForRepaintInfo.DataItem
+    else if _waitForRepaintInfo.Current >= 0 then
+    begin
+      GenerateView;
+      Result := _view.GetViewList[_waitForRepaintInfo.Current];
+    end
+    else
+      Result := nil;
+
+    Exit;
+  end;
+
   Result := _selectionInfo.DataItem;
 end;
 
@@ -2059,11 +2088,10 @@ begin
   if _view = nil then
     Exit;
 
-  if Self.Name = 'TreeControl' then
-    PrepareView else
-    PrepareView;
-
   inherited;
+
+  // PrepareView after inhertied, so we know we are not waiting for realign anymore..
+  PrepareView;
 
   // if not in edit mode, the view will be reset
   // otherwise nothing is done till the endedit is called
@@ -2815,7 +2843,7 @@ begin
     if (_model <> nil) then
     begin
       if SelectionCount > 1 then
-        _model.MultiSelect.Context := SelectedItems else
+        _model.MultiSelect.Context := SelectedItems(False) else
         _model.MultiSelect.Context := nil;
     end;
   finally
@@ -3289,7 +3317,7 @@ begin
     Result := CList<CObject>.Create;
     Result.Add(_dragObject);
   end else
-    Result := SelectedItems;
+    Result := SelectedItems(True);
 end;
 
 function TScrollControlWithRows.SelectedRowsForDragEvent(const Point: TPointF): List<TRowDataItemInfo>;
@@ -3684,19 +3712,29 @@ begin
      Exit;
   end;
 
-  _view.ResetView(FromViewListIndex, ClearOneRowOnly);
-  if (_rowHeightSynchronizer <> nil) {and not SyncIsMasterSynchronizer} and (_rowHeightSynchronizer.View <> nil) then
-      _rowHeightSynchronizer.View.ResetView(FromViewListIndex, ClearOneRowOnly);
-
-  if _resetViewRec.RecalcSortedRows then
+  var isExternalChangeForCustomDataList := _view.HasCustomDataList and (_realignState in [TRealignState.RealignDone, TRealignState.Waiting]);
+  if isExternalChangeForCustomDataList then
   begin
-    inc(_updateCount);
-    try
-      _view.RecalcSortedRows;
-    finally
-      dec(_updateCount);
+    _view := nil;
+    if (_rowHeightSynchronizer <> nil) {and not SyncIsMasterSynchronizer} and (_rowHeightSynchronizer.View <> nil) then
+      _rowHeightSynchronizer._view := nil;
+  end else
+  begin
+    _view.ResetView(FromViewListIndex, ClearOneRowOnly);
+    if (_rowHeightSynchronizer <> nil) {and not SyncIsMasterSynchronizer} and (_rowHeightSynchronizer.View <> nil) then
+        _rowHeightSynchronizer.View.ResetView(FromViewListIndex, ClearOneRowOnly);
+
+    if _resetViewRec.RecalcSortedRows then
+    begin
+      inc(_updateCount);
+      try
+        _view.RecalcSortedRows;
+      finally
+        dec(_updateCount);
+      end;
     end;
   end;
+
 
   if (_realignState = TRealignState.RealignDone) or (_resetViewRec.RecalcSortedRows) then
     RefreshControl;
@@ -3815,7 +3853,7 @@ begin
   end;
 end;
 
-function TScrollControlWithRows.SelectedItems: List<CObject>;
+function TScrollControlWithRows.SelectedItems(ReturnCurrentAtNoSelection: Boolean): List<CObject>;
 begin
   if _view = nil then
     Exit(nil);
@@ -3826,14 +3864,12 @@ begin
 
   if dataIndexes.Count = 0 then
   begin
-    if not (TreeOption_MultiSelect in  _options) and _selectionInfo.HasFocusedItem then
-    begin
-      Result := CList<CObject>.Create(1);
-      Result.Add(ConvertToDataItem(_selectionInfo.DataItem));
-      Exit;
-    end;
+    if not ReturnCurrentAtNoSelection or not _selectionInfo.HasFocusedItem then
+      Exit(nil);
 
-    Exit(nil);
+    Result := CList<CObject>.Create(1);
+    Result.Add(ConvertToDataItem(_selectionInfo.DataItem));
+    Exit;
   end;
 
   dataIndexes.Sort;
@@ -3850,76 +3886,6 @@ begin
       Result.Add(dr.Data) else
       Result.Add(item);
   end;
-end;
-
-function TScrollControlWithRows.SelectedOrCurrent: List<CObject>;
-begin
-  if _view = nil then
-    Exit(nil);
-
-  if not _selectionInfo.HasSelectedItems then
-  begin
-    if not _selectionInfo.HasFocusedItem then
-      Exit(nil);
-
-    Result := CList<CObject>.Create;
-    Result.Add(ConvertedDataItem);
-  end else
-    Result := SelectedItems;
-end;
-
-function TScrollControlWithRows.SelectedItems<T>: List<T>;
-begin
-  if _view = nil then
-    Exit(nil);
-
-  var dataIndexes: List<Integer> := CList<Integer>.Create;
-  for var ix in _selectionInfo.SelectedDataIndexes do
-    dataIndexes.Add(ix);
-
-  if dataIndexes.Count = 0 then
-  begin
-    if not (TreeOption_MultiSelect in  _options) and _selectionInfo.HasFocusedItem then
-    begin
-      Result := CList<T>.Create(1);
-      Result.Add(ConvertToDataItem(_selectionInfo.DataItem).AsType<T>);
-      Exit;
-    end;
-
-    Exit(nil);
-  end;
-
-  Result := CList<T>.Create(dataIndexes.Count);
-
-  var ix: Integer;
-  for ix in dataIndexes do
-  begin
-    var item := _view.OriginalData[ix];
-
-    var dr: IDataRow;
-    var item_t: T;
-
-    if item.TryAsType<T>(item_t) then
-      Result.Add(item_t)
-    else if ViewIsDataModelView and item.TryAsType<IDataRow>(dr) and dr.Data.TryAsType<T>(item_T) then
-      Result.Add(item_t);
-  end;
-end;
-
-function TScrollControlWithRows.SelectedOrCurrent<T>: List<T>;
-begin
-  if _view = nil then
-    Exit(nil);
-
-  if not _selectionInfo.HasSelectedItems then
-  begin
-    if not _selectionInfo.HasFocusedItem then
-      Exit(nil);
-
-    Result := CList<T>.Create;
-    Result.Add(ConvertedDataItem.AsType<T>);
-  end else
-    Result := SelectedItems<T>;
 end;
 
 function TScrollControlWithRows.SelectedRowIfInView: IDCRow;

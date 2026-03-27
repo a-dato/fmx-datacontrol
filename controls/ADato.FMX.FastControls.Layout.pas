@@ -26,6 +26,7 @@ type
     procedure set_UseBuffering(const Value: Boolean); virtual;
     procedure StyleChangedHandler(const Sender: TObject; const Msg: System.Messaging.TMessage);
 
+    function  NeedsBitmapReload: Boolean;
     procedure LoadBitmap;
     procedure PrepareForPaint; override;
     procedure Painting; override;
@@ -144,6 +145,7 @@ begin
   if drawStroke then
   begin
     Canvas.Stroke.Kind := TBrushKind.Solid;
+    Canvas.Stroke.Dash := TStrokeDash.Solid;
     Canvas.Stroke.Color := FStrokeColor;
     Canvas.Stroke.Thickness := FStrokeThickness;
 
@@ -370,14 +372,7 @@ procedure TAdaptableBitmapLayout.LoadBitmap;
   end;
 
 begin
-  if _creatingBitmap or not get_UseBuffering or (Scene = nil) or (Width <= 0) or (Height <= 0) then
-    Exit;
-
-  var scale := Self.Scene.GetSceneScale;
-  if (_bitmap <> nil) and (_bitmap.BitmapScale <> scale) then
-    _resetBufferRequired := True;
-
-  if not _resetBufferRequired then
+  if not NeedsBitmapReload then
     Exit;
 
   _resetBufferRequired := False;
@@ -393,6 +388,7 @@ begin
 
   _creatingBitmap := True;
   try
+    var scale := Self.Scene.GetSceneScale;
     var logicalW: Integer := Ceil(Self.Width * scale);
     var logicalH: Integer := Ceil(Self.Height * scale);
 
@@ -423,6 +419,18 @@ begin
   end;
 end;
 
+function TAdaptableBitmapLayout.NeedsBitmapReload: Boolean;
+begin
+  Result := False;
+  if _creatingBitmap or not get_UseBuffering or (Scene = nil) or (Width <= 0) or (Height <= 0) then
+    Exit;
+
+  if (_bitmap <> nil) and (_bitmap.BitmapScale <> Self.Scene.GetSceneScale) then
+    _resetBufferRequired := True;
+
+  Result := _resetBufferRequired;
+end;
+
 function TAdaptableBitmapLayout.ObjectAtPoint(P: TPointF): IControl;
 begin
   Result := inherited;
@@ -437,7 +445,15 @@ end;
 
 procedure TAdaptableBitmapLayout.Painting;
 begin
-  LoadBitmap;
+  if NeedsBitmapReload then
+  begin
+    TThread.ForceQueue(nil, procedure
+    begin
+      LoadBitmap;
+      Repaint;
+    end);
+  end;
+
   if ShouldInheritPaint then
     inherited;
 end;

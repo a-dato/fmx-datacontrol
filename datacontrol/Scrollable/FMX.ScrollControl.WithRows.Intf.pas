@@ -64,9 +64,9 @@ type
     procedure OnCurrentChanged;
     procedure OnSelectedItemsChanged;
 
-    function  SelectionCount: Integer;
     function  IsSelected(const DataIndex: Integer): Boolean;
-    function  SelectedItems: List<CObject>;
+    function  SelectionCount(ReturnCurrentAtNoSelection: Boolean = True): Integer;
+    function  SelectedItems(ReturnCurrentAtNoSelection: Boolean): List<CObject>;
 
     function  ViewIsDataModelView: Boolean;
     function  GetDataModelView: IDataModelView;

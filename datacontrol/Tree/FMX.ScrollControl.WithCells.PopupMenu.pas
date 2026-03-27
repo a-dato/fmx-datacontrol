@@ -335,7 +335,7 @@ end;
 
 function TfrmFMXPopupMenuDataControl.SelectedItems(out NullValueSelected: Boolean) : List<CObject>;
 begin
-  var selected := _dataControl.SelectedItems;
+  var selected := _dataControl.SelectedItems(False);
   NullValueSelected := False;
 
   Result := CList<CObject>.Create(selected.Count);
@@ -475,8 +475,8 @@ end;
 
 procedure TfrmFMXPopupMenuDataControl.Timer1Timer(Sender: TObject);
 begin
-  if (_dataControl <> nil) and (_dataControl.View <> nil) and (_dataControl.SelectedItems <> nil) then
-    cbSelectAll.IsChecked := _dataControl.View.ViewCount = _dataControl.SelectedItems.Count;
+  if (_dataControl <> nil) and (_dataControl.View <> nil) and (_dataControl.SelectedItems(False) <> nil) then
+    cbSelectAll.IsChecked := _dataControl.View.ViewCount = _dataControl.SelectedItems(False).Count;
 end;
 
 procedure TfrmFMXPopupMenuDataControl.TreeCellFormatting(const Sender: TObject; e: DCCellFormattingEventArgs);
