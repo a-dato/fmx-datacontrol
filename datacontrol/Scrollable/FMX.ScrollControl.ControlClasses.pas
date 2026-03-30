@@ -1,4 +1,4 @@
-﻿unit FMX.ScrollControl.ControlClasses;
+unit FMX.ScrollControl.ControlClasses;
 
 interface
 
@@ -356,7 +356,9 @@ type
     function CreateEdit(const Owner: TComponent): IDCEditControl; virtual;
     function CreateComboEdit(const Owner: TComponent): IDCEditControl; virtual;
 
-    procedure HandleRowBackground(const RowRect: IBackgroundControl; AlternateAvailable: Boolean; Alternate: Boolean); virtual;
+    function CreateBarText(const Owner: TComponent): IDCControl; virtual;
+
+    procedure HandleRowBackground(const RowRect: IBackgroundControl; AlternateAvailable: Boolean; Alternate: Boolean; ColorOpacity: Single); virtual;
     procedure HandleRowChildRelation(const RowLayout: IRowLayout; IsOpenParent, IsOpenChild: Boolean; AWidth: Single); virtual;
   end;
 
@@ -371,6 +373,7 @@ var
   DEFAULT_ROW_SELECTION_INACTIVE_COLOR: TAlphaColor;
   DEFAULT_ROW_SELECTION_MULTISELECT_COLOR: TAlphaColor;
   DEFAULT_ROW_HOVER_COLOR: TAlphaColor;
+  DEFAULT_DRAG_COLOR: TAlphaColor;
 
   DEFAULT_PARENTROW_COLOR: TAlphaColor;
   DEFAULT_CHILDROW_COLOR: TAlphaColor;
@@ -428,6 +431,12 @@ begin
   DEFAULT_CELL_STROKE := TAlphaColors.Lightgray;
 end;
 {$ENDIF}
+
+function TDataControlClassFactory.CreateBarText(const Owner: TComponent): IDCControl;
+begin
+  Result := CreateText(Owner);
+  (Result.Control as ITextSettings).TextSettings.Font.Size := 10;
+end;
 
 function TDataControlClassFactory.CreateButton(const Owner: TComponent): IImageControl;
 begin
@@ -508,11 +517,13 @@ begin
   Result := ctrl;
 end;
 
-procedure TDataControlClassFactory.HandleRowBackground(const RowRect: IBackgroundControl; AlternateAvailable: Boolean; Alternate: Boolean);
+procedure TDataControlClassFactory.HandleRowBackground(const RowRect: IBackgroundControl; AlternateAvailable: Boolean; Alternate: Boolean; ColorOpacity: Single);
 begin
   if not AlternateAvailable or not Alternate then
     RowRect.FillColor := DEFAULT_WHITE_COLOR else
     RowRect.FillColor := DEFAULT_GREY_COLOR;
+
+  RowRect.ColorOpacity := ColorOpacity;
 end;
 
 procedure TDataControlClassFactory.HandleRowChildRelation(const RowLayout: IRowLayout; IsOpenParent, IsOpenChild: Boolean; AWidth: Single);
@@ -1287,7 +1298,11 @@ begin
   if _itemsLoaded or (Value = nil) then
   begin
     if (Value <> nil) and (idx = -1) then
+    begin
       RefreshItems;
+      if (items <> nil) then
+        idx := items.IndexOf(Value);
+    end;
 
     set_ItemIndex(idx);
     Exit;
@@ -1620,8 +1635,9 @@ initialization
   {$IFDEF WEBASSEMBLY}
   DEFAULT_ROW_HOVER_COLOR := TAlphaColors.Lightgray;
   {$ELSE}
-  DEFAULT_ROW_HOVER_COLOR := TAlphaColor($335B8BCD);
+  DEFAULT_ROW_HOVER_COLOR := TAlphaColor($FF5B8BCD);
   {$ENDIF}
+  DEFAULT_DRAG_COLOR := TAlphaColor($FFFF8C00);
 
   DEFAULT_PARENTROW_COLOR := TAlphaColors.Darkslategrey;
   DEFAULT_CHILDROW_COLOR := TAlphaColors.Lightgray;

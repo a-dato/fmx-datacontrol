@@ -74,6 +74,7 @@ type
     _rowHeightDefault: Single;
     _rowHeightMax: Single;
     _options: TDCTreeOptions;
+    _onSelectionChanged: SelectionChangedEvent;
 
     // events
     {$IFNDEF WEBASSEMBLY}
@@ -83,7 +84,6 @@ type
 
     procedure DoRowLoaded(const ARow: IDCRow); virtual;
     procedure DoRowAligned(const ARow: IDCRow); virtual;
-    function  DrawRowBackground: Boolean; virtual;
 
     function  get_SelectionType: TSelectionType;
     procedure set_SelectionType(const Value: TSelectionType);
@@ -101,6 +101,7 @@ type
     procedure set_RowHeightSynchronizer(const Value: TScrollControlWithRows);
 
     function  CalculateRowControlWidth(const ForceRealContentWidth: Boolean): Single; virtual;
+    function  RowBackgroundOpacity(const Row: IDCRow): Single; virtual;
 
     procedure UpdateAndIgnoreVertScrollbar(const NewValue: Single);
     procedure DoViewPortPositionChanged; override;
@@ -204,6 +205,31 @@ type
     procedure ExecuteAfterRealignOnly(DoBeginUpdate: Boolean);
 
   protected
+    // drag & drop
+    _dragDropOnIndividualRows: Boolean;
+    _onDragEnterRows: TDragEnterRowsEvent;
+    _onDragOverRows: TDragOverRowsEvent;
+    _onDragDropRows: TDragDropRowsEvent;
+
+    procedure set_DragDropOnIndividualRows(const Value: Boolean);
+    function  SelectedRowsForDragEvent(const Point: TPointF): List<TRowDataItemInfo>;
+
+    procedure UpdateDragDropVisualisation;
+    function  ValidateSelectionForDrop: Boolean;
+
+    procedure DragEnter(const Data: TDragObject; const Point: TPointF); override;
+    procedure DragOver(const Data: TDragObject; const Point: TPointF; var Operation: TDragOperation); override;
+    procedure DragDrop(const Data: TDragObject; const Point: TPointF); override;
+    procedure DragLeave; override;
+    procedure DrawDragHighlight; override;
+
+  public
+    property  DragDropOnIndividualRows: Boolean read _dragDropOnIndividualRows write set_DragDropOnIndividualRows;
+    property  OnDragEnterRows: TDragEnterRowsEvent read _onDragEnterRows write _onDragEnterRows;
+    property  OnDragOverRows: TDragOverRowsEvent read _onDragOverRows write _onDragOverRows;
+    property  OnDragDropRows: TDragDropRowsEvent read _onDragDropRows write _onDragDropRows;
+
+  protected
     procedure RealignFromSelectionChange;
 
     procedure SetBasicVertScrollBarValues; override;
@@ -228,6 +254,7 @@ type
 
     procedure OnCurrentChanged; virtual;
     procedure OnSelectedItemsChanged; virtual;
+    procedure DoExecuteSelectionChanged;
 
     function  CreateSelectioninfoInstance: IRowSelectionInfo; virtual;
     procedure InternalSetCurrent(const Index: Integer; const EventTrigger: TSelectionEventTrigger; Shift: TShiftState; SortOrFilterChanged: Boolean = False); virtual;
@@ -241,6 +268,7 @@ type
 
     procedure UpdateYPositionRows;
     procedure UpdateScrollBarValues(const NewValue: Single);
+    procedure HideHoverRect;
     procedure UpdateHoverRect(MousePos: TPointF); virtual;
 
     function  GetPropValue(const PropertyName: CString; const DataItem: CObject; const DataModel: IDataModel = nil): CObject;
@@ -302,6 +330,7 @@ type
 
     function  ConvertToDataItem(const Item: CObject): CObject;
     function  ConvertedDataItem: CObject;
+    function  CheckCanChangeRow: Boolean; virtual;
 
     procedure TriggerFilterOrSortChanged(FilterChanged, SortChanged: Boolean);
 
@@ -330,15 +359,13 @@ type
 //    procedure ToggleDataItemSelection; overload;
 //    procedure ToggleDataItemSelection(const Item: CObject); overload;
 
-    function  IsSelected(const DataIndex: Integer): Boolean;
     function  SlowItemIsSelected(const DataItem: CObject): Boolean;
     function  SelectedRowIfInView: IDCRow;
-    function  SelectionCount: Integer;
-    function  SelectedItems: List<CObject>; overload;
-    function  SelectedItems<T>: List<T>; overload;
-    function  SelectedOrCurrent: List<CObject>; overload;
-    function  SelectedOrCurrent<T>: List<T>; overload;
     function  DraggedItems: List<CObject>;
+
+    function  IsSelected(const DataIndex: Integer; ReturnCurrentAtNoSelection: Boolean = False): Boolean;
+    function  SelectionCount(ReturnCurrentAtNoSelection: Boolean = True): Integer;
+    function  SelectedItems(ReturnCurrentAtNoSelection: Boolean): List<CObject>;
 
     procedure AssignSelection(const SelectedItems: IList);
     // end public selection
@@ -375,6 +402,7 @@ type
     property SelectionType: TSelectionType read get_SelectionType write set_SelectionType default RowSelection;
     property Options: TDCTreeOptions read _options write set_Options;
     property CanDragDrop: Boolean read _canDragDrop write _canDragDrop default False;
+    property OnSelectionChanged: SelectionChangedEvent read _onSelectionChanged write _onSelectionChanged;
 
     property RowHeightFixed: Single read get_rowHeightFixed write set_RowHeightFixed;
     property RowHeightDefault: Single read get_rowHeightDefault write set_RowHeightDefault;
@@ -514,10 +542,9 @@ type
 
     function  HasFocusedItem: Boolean;    // current dataitem
     function  HasSelectedItems: Boolean; // multi selection
-
-    function  SelectedRowCount: Integer;
-//    function  SelectedDataItems: List<CObject>;
-    function  SelectedDataIndexes: TDataIndexArray;
+    function  SelectedRowCount: Integer; // multi selection
+    function  SelectedDataIndexes: TDataIndexArray; // multi selection
+    function  WaitingForFocusChanged: Boolean; // current dataitem
 
     function  GetRowInfo(const DataIndex: Integer): TRowDataItemInfo;
   end;
@@ -856,7 +883,7 @@ procedure TScrollControlWithRows.DoMouseLeave;
 begin
   inherited;
 
-  UpdateHoverRect(PointF(-1, -1));
+  HideHoverRect;
 end;
 
 procedure TScrollControlWithRows.DoRealignContent;
@@ -1218,10 +1245,10 @@ begin
   end;
 end;
 
-function TScrollControlWithRows.SelectionCount: Integer;
+function TScrollControlWithRows.SelectionCount(ReturnCurrentAtNoSelection: Boolean = True): Integer;
 begin
   Result := _selectionInfo.SelectedRowCount;
-  if (Result = 0) and (_selectionInfo.DataItem <> nil) then
+  if (Result = 0) and ReturnCurrentAtNoSelection and _selectionInfo.HasFocusedItem then
     Result := 1;
 end;
 
@@ -1290,11 +1317,43 @@ end;
 
 function TScrollControlWithRows.get_Current: Integer;
 begin
+  // even if it is not set yet in the view, the new is already set and therefor becomes the current we are looking for
+  if (_waitForRepaintInfo <> nil) and (RowChanged in _waitForRepaintInfo.RowStateFlags) then
+  begin
+    if _waitForRepaintInfo.Current <> -1 then
+      Result := _waitForRepaintInfo.Current
+    else if _waitForRepaintInfo.DataItem <> nil then
+    begin
+      GenerateView;
+      Result := _view.GetViewListIndex(_waitForRepaintInfo.DataItem);
+    end
+    else
+      Result := -1;
+
+    Exit;
+  end;
+
   Result := _selectionInfo.ViewListIndex;
 end;
 
 function TScrollControlWithRows.get_DataItem: CObject;
 begin
+  // even if it is not set yet in the view, the new is already set and therefor becomes the dataitem we are looking for
+  if (_waitForRepaintInfo <> nil) and (RowChanged in _waitForRepaintInfo.RowStateFlags) then
+  begin
+    if _waitForRepaintInfo.DataItem <> nil then
+      Result := _waitForRepaintInfo.DataItem
+    else if _waitForRepaintInfo.Current >= 0 then
+    begin
+      GenerateView;
+      Result := _view.GetViewList[_waitForRepaintInfo.Current];
+    end
+    else
+      Result := nil;
+
+    Exit;
+  end;
+
   Result := _selectionInfo.DataItem;
 end;
 
@@ -1371,6 +1430,13 @@ begin
       StopIgnoreMasterSynchronizer;
     end;
   end;
+end;
+
+function TScrollControlWithRows.CheckCanChangeRow: Boolean;
+begin
+  if (_model <> nil) and (_model.ObjectModelContext <> nil) then
+    Result := _model.ObjectModelContext.ContextCanChange else
+    Result := True;
 end;
 
 procedure TScrollControlWithRows.CheckVertScrollbarVisibility;
@@ -1570,6 +1636,7 @@ begin
   _hoverRect.Align := TAlignLayout.None;
   _hoverRect.HitTest := False;
   _hoverRect.Visible := False;
+  _hoverRect.Opacity := 0.3;
   _hoverRect.Stroke.Kind := TBrushKind.None;
   _hoverRect.Fill.Color := DEFAULT_ROW_HOVER_COLOR;
   _content.AddObject(_hoverRect);
@@ -1714,6 +1781,20 @@ begin
     data := _dataModelView.DataModel.Rows as IList;
 
   set_DataList(data);
+end;
+
+procedure TScrollControlWithRows.set_DragDropOnIndividualRows(const Value: Boolean);
+begin
+  if _dragDropOnIndividualRows = Value then
+    Exit;
+
+  _dragDropOnIndividualRows := Value;
+
+  if Value then
+  begin
+    EnableDragHighlight := True;
+    CanDragDrop := True;
+  end;
 end;
 
 procedure TScrollControlWithRows.set_IsPrinting(const Value: Boolean);
@@ -2008,11 +2089,10 @@ begin
   if _view = nil then
     Exit;
 
-  if Self.Name = 'TreeControl' then
-    PrepareView else
-    PrepareView;
-
   inherited;
+
+  // PrepareView after inhertied, so we know we are not waiting for realign anymore..
+  PrepareView;
 
   // if not in edit mode, the view will be reset
   // otherwise nothing is done till the endedit is called
@@ -2145,8 +2225,7 @@ begin
         ly.Sides := [];
       end;
 
-      if DrawRowBackground then
-        DataControlClassFactory.HandleRowBackground(Row.ControlAsRowLayout.Background, (TreeOption_AlternatingRowBackground in _options), not Row.IsOddRow);
+      DataControlClassFactory.HandleRowBackground(Row.ControlAsRowLayout.Background, (TreeOption_AlternatingRowBackground in _options), not Row.IsOddRow, RowBackgroundOpacity(Row));
 
       Row.Control.Position.X := 0;
 
@@ -2215,20 +2294,36 @@ begin
   UpdateRowHeightSynchronizerScrollbar;
 end;
 
+procedure TScrollControlWithRows.HideHoverRect;
+begin
+  if _hoverRect = nil then
+    Exit;
+
+  _hoverRect.Visible := False;
+end;
+
 procedure TScrollControlWithRows.UpdateHoverRect(MousePos: TPointF);
 begin
   if (TreeOption_HideHoverEffect in _options) or IsScrolling or MousePos.IsZero or _isExpandingOrCollapsing then
   begin
-    _hoverRect.Visible := False;
+    HideHoverRect;
     Exit;
   end;
 
   var row := GetRowByLocalY(MousePos.Y);
-  _hoverRect.Visible := (row <> nil) and {(_selectionType <> TSelectionType.HideSelection) and} _selectionInfo.CanFocus(row.DataIndex);
-  if not _hoverRect.Visible then
+  if (row = nil) or not _selectionInfo.CanFocus(row.DataIndex) or (row.Control = nil) then
+  begin
+    HideHoverRect;
     Exit;
+  end;
 
+  if IsDragOver then
+    _hoverRect.Fill.Color := DEFAULT_DRAG_COLOR else
+    _hoverRect.Fill.Color := DEFAULT_ROW_HOVER_COLOR;
+
+  _hoverRect.Visible := True;
   _hoverRect.Position.Y := row.Control.Position.Y;
+
   _hoverRect.Position.X := row.Control.Position.X;
   _hoverRect.Height := row.Height;
   _hoverRect.Width := row.Control.Width;
@@ -2733,17 +2828,26 @@ begin
   end;
 end;
 
+procedure TScrollControlWithRows.DoExecuteSelectionChanged;
+begin
+  if Assigned(_onSelectionChanged) then
+    _onSelectionChanged(Self);
+end;
+
 procedure TScrollControlWithRows.OnSelectedItemsChanged;
 begin
   if SyncIsMasterSynchronizer then
     Exit;
+
+  if _view = nil then
+    GenerateView;
 
   AtomicIncrement(_internalSelectCount);
   try
     if (_model <> nil) then
     begin
       if SelectionCount > 1 then
-        _model.MultiSelect.Context := SelectedItems else
+        _model.MultiSelect.Context := SelectedItems(False) else
         _model.MultiSelect.Context := nil;
     end;
   finally
@@ -2753,6 +2857,9 @@ begin
   var row: IDCRow;
   for row in _view.ActiveViewRows do
     VisualizeRowSelection(row);
+
+  if not _selectionInfo.WaitingForFocusChanged then
+    DoExecuteSelectionChanged;
 end;
 
 procedure TScrollControlWithRows.OnCurrentChanged;
@@ -2760,24 +2867,14 @@ begin
   if SyncIsMasterSynchronizer then
     Exit;
 
+  if _view = nil then
+    GenerateView;
+
   AtomicIncrement(_internalSelectCount);
   try
     if (_model <> nil) then
     begin
       var convertedDataItem := ConvertToDataItem(Self.DataItem);
-
-//      // trigger a ContextChanged event for multiselect change event
-        // above not needed anumore, because we use trigger on MultiSelect now...
-//      if _model.HasMultiSelection and (_model.ObjectContext = convertedDataItem) then
-//      begin
-//        (_model.ObjectModelContext as IUpdatableObject).BeginUpdate;
-//        try
-//          _model.ObjectContext := nil;
-//        finally
-//          (_model.ObjectModelContext as IUpdatableObject).EndUpdate;
-//        end;
-//      end;
-
       _model.ObjectContext := convertedDataItem;
     end
     else if (GetDataModelView <> nil) and (_selectionInfo.DataItem <> nil) and (_selectionInfo.DataItem.IsOfType<IDataRowView>) then
@@ -2786,18 +2883,20 @@ begin
     AtomicDecrement(_internalSelectCount);
   end;
 
-  if (_realignState in [TRealignState.Waiting, TRealignState.BeforeRealign]) then
-    Exit;
+  if not (_realignState in [TRealignState.Waiting, TRealignState.BeforeRealign]) then
+  begin
+    if _realignState <> TRealignState.Realigning then
+      ScrollSelectedIntoView(_selectionInfo);
 
-  if _realignState <> TRealignState.Realigning then
-    ScrollSelectedIntoView(_selectionInfo);
+    var row: IDCRow;
+    for row in _view.ActiveViewRows do
+      VisualizeRowSelection(row);
 
-  var row: IDCRow;
-  for row in _view.ActiveViewRows do
-    VisualizeRowSelection(row);
+    if IsMasterSynchronizer then
+      _rowHeightSynchronizer.OnCurrentChanged;
+  end;
 
-  if IsMasterSynchronizer then
-    _rowHeightSynchronizer.OnCurrentChanged;
+  DoExecuteSelectionChanged;
 end;
 
 function TScrollControlWithRows.ConvertedDataItem: CObject;
@@ -2857,27 +2956,27 @@ begin
   begin
     Row.UpdateSelectionVisibility(_selectionInfo, Self.IsFocused);
 
-    if DrawRowBackground and (_visualizeParentChilds <> TVisualizeParentChilds.No) then
-    begin
-      var isOpenParent := False;
-      var isOpenChild := False;
-      var isParentChilds: Boolean;
-
-      if ViewIsDataModelView then
-      begin
-        var drv := Row.DataItem.AsType<IDataRowView>;
-
-        isParentChilds := (drv <> nil) and ((drv.DataView.ChildCount(drv) > 0) or (drv.Row.Level > 0));
-        if isParentChilds and ((_visualizeParentChilds = TVisualizeParentChilds.Yes) or IsPartOfSelectedParentChildGroup(Row)) then
-        begin
-          isOpenParent := Row.HasVisibleChildren;
-          if not isOpenParent then
-            isOpenChild := True;
-        end;
-      end;
-
-      HandleRowChildRelation(Row, isOpenParent, isOpenChild);
-    end;
+//    if {DrawRowBackground and} (_visualizeParentChilds <> TVisualizeParentChilds.No) then
+//    begin
+//      var isOpenParent := False;
+//      var isOpenChild := False;
+//      var isParentChilds: Boolean;
+//
+//      if ViewIsDataModelView then
+//      begin
+//        var drv := Row.DataItem.AsType<IDataRowView>;
+//
+//        isParentChilds := (drv <> nil) and ((drv.DataView.ChildCount(drv) > 0) or (drv.Row.Level > 0));
+//        if isParentChilds and ((_visualizeParentChilds = TVisualizeParentChilds.Yes) or IsPartOfSelectedParentChildGroup(Row)) then
+//        begin
+//          isOpenParent := Row.HasVisibleChildren;
+//          if not isOpenParent then
+//            isOpenChild := True;
+//        end;
+//      end;
+//
+//      HandleRowChildRelation(Row, isOpenParent, isOpenChild);
+//    end;
   end;
 end;
 
@@ -3188,14 +3287,17 @@ begin
   Result := (_masterSynchronizerIndex > 0);
 end;
 
-function TScrollControlWithRows.IsSelected(const DataIndex: Integer): Boolean;
+function TScrollControlWithRows.IsSelected(const DataIndex: Integer; ReturnCurrentAtNoSelection: Boolean = False): Boolean;
 begin
-  Result := False;
-  if _view = nil then Exit;
+  if _view = nil then
+    Exit(False);
 
-  if TDCTreeOption.MultiSelect in _options then
-    Result := _selectionInfo.IsSelected(DataIndex) else
-    Result := _selectionInfo.IsFocused(DataIndex); // for radio buttons..
+  if (TDCTreeOption.MultiSelect in _options) and _selectionInfo.IsSelected(DataIndex) then
+    Exit(True);
+
+  if (ReturnCurrentAtNoSelection or not (TDCTreeOption.MultiSelect in _options)) then
+    Result := _selectionInfo.IsFocused(DataIndex) else
+    Result := False;
 end;
 
 procedure TScrollControlWithRows.DoViewLoadingStart(const startY, StopY: Single; const ReferenceRow: IDCRow);
@@ -3213,8 +3315,7 @@ end;
 
 procedure TScrollControlWithRows.DoViewPortPositionChanged;
 begin
-  if _hoverRect <> nil then
-    _hoverRect.Visible := False;
+  HideHoverRect;
 
   inherited;
 end;
@@ -3226,13 +3327,149 @@ begin
     Result := CList<CObject>.Create;
     Result.Add(_dragObject);
   end else
-    Result := SelectedItems;
+    Result := SelectedItems(True);
 end;
 
-function TScrollControlWithRows.DrawRowBackground: Boolean;
+function TScrollControlWithRows.SelectedRowsForDragEvent(const Point: TPointF): List<TRowDataItemInfo>;
 begin
-  Result := True;
+  if (_selectionInfo = nil) or not _selectionInfo.HasSelectedItems {multiSelect not on} then
+  begin
+    Result := CList<TRowDataItemInfo>.Create;
+
+    // first try take hovered item
+    var row := GetRowByLocalY(Point.Y - _content.Position.Y);
+    if row <> nil then
+      Result.Add(TRowDataItemInfo.Create(row.DataIndex, row.ViewListIndex, row.DataItem))
+    else if (_selectionInfo <> nil) and _selectionInfo.HasFocusedItem then
+      Result.Add(TRowDataItemInfo.Create(_selectionInfo.DataIndex, _selectionInfo.ViewListIndex, _selectionInfo.DataItem));
+
+    Exit;
+  end;
+
+  var dataIndexes: List<Integer> := CList<Integer>.Create;
+  for var ix in _selectionInfo.SelectedDataIndexes do
+    dataIndexes.Add(ix);
+
+  if dataIndexes.Count = 0 then
+  begin
+    if not (TreeOption_MultiSelect in _options) and _selectionInfo.HasFocusedItem then
+    begin
+      Result := CList<TRowDataItemInfo>.Create(1);
+      Result.Add(TRowDataItemInfo.Create(_selectionInfo.DataIndex, _selectionInfo.ViewListIndex, _selectionInfo.DataItem));
+      Exit;
+    end;
+
+    Exit(nil);
+  end;
+
+  dataIndexes.Sort;
+
+  Result := CList<TRowDataItemInfo>.Create(dataIndexes.Count);
+  for var dataIndex in dataIndexes do
+  begin
+    var rowInfo := _selectionInfo.GetRowInfo(dataIndex);
+    if not rowInfo.IsEmpty then
+      Result.Add(rowInfo);
+  end;
 end;
+
+procedure TScrollControlWithRows.DragEnter(const Data: TDragObject; const Point: TPointF);
+begin
+  inherited;
+
+  if _dragDropOnIndividualRows and Assigned(_onDragEnterRows) then
+  begin
+    var rows := SelectedRowsForDragEvent(Point);
+    if rows.Count > 0 then
+      _onDragEnterRows(Self, rows, Data, Point);
+  end;
+end;
+
+procedure TScrollControlWithRows.DragDrop(const Data: TDragObject; const Point: TPointF);
+begin
+  if _dragDropOnIndividualRows and not _selectionInfo.HasSelectedItems {multiSelect not on} then
+  begin
+    var row := GetRowByLocalY(Point.Y - _content.Position.Y);
+    if (row <> nil) and not _selectionInfo.IsFocused(row.DataIndex) then
+    begin
+      if not CheckCanChangeRow then
+        Exit;
+
+      _selectionInfo.SetFocusedItem(row.DataIndex, row.ViewListIndex, row.DataItem);
+    end;
+  end;
+
+  inherited;
+
+  if _dragDropOnIndividualRows and Assigned(_onDragDropRows) then
+  begin
+    var rows := SelectedRowsForDragEvent(Point);
+    if rows.Count > 0 then
+      _onDragDropRows(Self, rows, Data, Point);
+  end;
+
+  UpdateDragDropVisualisation;
+end;
+
+function TScrollControlWithRows.ValidateSelectionForDrop: Boolean;
+begin
+  if not _dragDropOnIndividualRows then
+    Exit(True);
+
+  if not CanRealignContent then
+    Exit(False);
+
+  if _selectionInfo.HasSelectedItems {multiSelect not on} then
+    Exit(True); // use multiselect
+
+  Result := CheckCanChangeRow;
+end;
+
+procedure TScrollControlWithRows.DragOver(const Data: TDragObject; const Point: TPointF; var Operation: TDragOperation);
+begin
+  if not ValidateSelectionForDrop then
+    Exit;
+
+  inherited;
+
+  if _dragDropOnIndividualRows and Assigned(_onDragOverRows) then
+  begin
+    var rows := SelectedRowsForDragEvent(Point);
+    if rows.Count > 0 then
+      _onDragOverRows(Self, rows, Data, Point, Operation);
+  end;
+
+  if Operation = TDragOperation.None then
+    HideHoverRect
+  else if _dragDropOnIndividualRows then
+  begin
+    if _selectionInfo.HasSelectedItems then
+      UpdateDragDropVisualisation else
+      UpdateHoverRect(PointF(Point.X, Point.Y - _content.Position.Y));
+  end;
+end;
+
+procedure TScrollControlWithRows.DragLeave;
+begin
+  inherited;
+  UpdateDragDropVisualisation;
+end;
+
+procedure TScrollControlWithRows.UpdateDragDropVisualisation;
+begin
+  HideHoverRect;
+
+  var row: IDCRow;
+  for row in _view.ActiveViewRows do
+    VisualizeRowSelection(row);
+end;
+
+procedure TScrollControlWithRows.DrawDragHighlight;
+begin
+  if not _dragDropOnIndividualRows then
+    inherited;
+end;
+
 
 procedure TScrollControlWithRows.DoViewLoadingFinished;
 begin
@@ -3485,24 +3722,39 @@ begin
      Exit;
   end;
 
-  _view.ResetView(FromViewListIndex, ClearOneRowOnly);
-  if (_rowHeightSynchronizer <> nil) {and not SyncIsMasterSynchronizer} and (_rowHeightSynchronizer.View <> nil) then
-      _rowHeightSynchronizer.View.ResetView(FromViewListIndex, ClearOneRowOnly);
-
-  if _resetViewRec.RecalcSortedRows then
+  var isExternalChangeForCustomDataList := _view.HasCustomDataList and (_realignState in [TRealignState.RealignDone, TRealignState.Waiting]);
+  if isExternalChangeForCustomDataList then
   begin
-    inc(_updateCount);
-    try
-      _view.RecalcSortedRows;
-    finally
-      dec(_updateCount);
+    _view := nil;
+    if (_rowHeightSynchronizer <> nil) {and not SyncIsMasterSynchronizer} and (_rowHeightSynchronizer.View <> nil) then
+      _rowHeightSynchronizer._view := nil;
+  end else
+  begin
+    _view.ResetView(FromViewListIndex, ClearOneRowOnly);
+    if (_rowHeightSynchronizer <> nil) {and not SyncIsMasterSynchronizer} and (_rowHeightSynchronizer.View <> nil) then
+        _rowHeightSynchronizer.View.ResetView(FromViewListIndex, ClearOneRowOnly);
+
+    if _resetViewRec.RecalcSortedRows then
+    begin
+      inc(_updateCount);
+      try
+        _view.RecalcSortedRows;
+      finally
+        dec(_updateCount);
+      end;
     end;
   end;
+
 
   if (_realignState = TRealignState.RealignDone) or (_resetViewRec.RecalcSortedRows) then
     RefreshControl;
 
   _resetViewRec := TResetViewRec.CreateNull;
+end;
+
+function TScrollControlWithRows.RowBackgroundOpacity(const Row: IDCRow): Single;
+begin
+  Result := 1;
 end;
 
 function TScrollControlWithRows.RowIsExpanded(const ViewListIndex: Integer): Boolean;
@@ -3611,7 +3863,7 @@ begin
   end;
 end;
 
-function TScrollControlWithRows.SelectedItems: List<CObject>;
+function TScrollControlWithRows.SelectedItems(ReturnCurrentAtNoSelection: Boolean): List<CObject>;
 begin
   if _view = nil then
     Exit(nil);
@@ -3622,14 +3874,12 @@ begin
 
   if dataIndexes.Count = 0 then
   begin
-    if not (TreeOption_MultiSelect in  _options) and _selectionInfo.HasFocusedItem then
-    begin
-      Result := CList<CObject>.Create(1);
-      Result.Add(ConvertToDataItem(_selectionInfo.DataItem));
-      Exit;
-    end;
+    if not ReturnCurrentAtNoSelection or not _selectionInfo.HasFocusedItem then
+      Exit(nil);
 
-    Exit(nil);
+    Result := CList<CObject>.Create(1);
+    Result.Add(ConvertToDataItem(_selectionInfo.DataItem));
+    Exit;
   end;
 
   dataIndexes.Sort;
@@ -3646,76 +3896,6 @@ begin
       Result.Add(dr.Data) else
       Result.Add(item);
   end;
-end;
-
-function TScrollControlWithRows.SelectedOrCurrent: List<CObject>;
-begin
-  if _view = nil then
-    Exit(nil);
-
-  if not _selectionInfo.HasSelectedItems then
-  begin
-    if not _selectionInfo.HasFocusedItem then
-      Exit(nil);
-
-    Result := CList<CObject>.Create;
-    Result.Add(ConvertedDataItem);
-  end else
-    Result := SelectedItems;
-end;
-
-function TScrollControlWithRows.SelectedItems<T>: List<T>;
-begin
-  if _view = nil then
-    Exit(nil);
-
-  var dataIndexes: List<Integer> := CList<Integer>.Create;
-  for var ix in _selectionInfo.SelectedDataIndexes do
-    dataIndexes.Add(ix);
-
-  if dataIndexes.Count = 0 then
-  begin
-    if not (TreeOption_MultiSelect in  _options) and _selectionInfo.HasFocusedItem then
-    begin
-      Result := CList<T>.Create(1);
-      Result.Add(ConvertToDataItem(_selectionInfo.DataItem).AsType<T>);
-      Exit;
-    end;
-
-    Exit(nil);
-  end;
-
-  Result := CList<T>.Create(dataIndexes.Count);
-
-  var ix: Integer;
-  for ix in dataIndexes do
-  begin
-    var item := _view.OriginalData[ix];
-
-    var dr: IDataRow;
-    var item_t: T;
-
-    if item.TryAsType<T>(item_t) then
-      Result.Add(item_t)
-    else if ViewIsDataModelView and item.TryAsType<IDataRow>(dr) and dr.Data.TryAsType<T>(item_T) then
-      Result.Add(item_t);
-  end;
-end;
-
-function TScrollControlWithRows.SelectedOrCurrent<T>: List<T>;
-begin
-  if _view = nil then
-    Exit(nil);
-
-  if not _selectionInfo.HasSelectedItems then
-  begin
-    if not _selectionInfo.HasFocusedItem then
-      Exit(nil);
-
-    Result := CList<T>.Create;
-    Result.Add(ConvertedDataItem.AsType<T>);
-  end else
-    Result := SelectedItems<T>;
 end;
 
 function TScrollControlWithRows.SelectedRowIfInView: IDCRow;
@@ -3915,8 +4095,7 @@ procedure TScrollControlWithRows.AfterRealignContent;
 begin
   inherited;
 
-  if _hoverRect <> nil then
-    _hoverRect.Visible := False;
+  HideHoverRect;
 
   if IsMasterSynchronizer then
     _rowHeightSynchronizer.AfterRealignContent;
@@ -3951,8 +4130,11 @@ begin
   end;
 
   _selectionRect.BringToFront;
-  _selectionRect.Opacity := IfThen(IsCurrentFocused, 0.3, 0.1);
-  if not IsCurrentFocused then
+  _selectionRect.Opacity := IfThen(IsCurrentFocused or _rowsControl.Control.IsDragOver, 0.3, 0.05);
+
+  if _rowsControl.Control.IsDragOver then
+    _selectionRect.Fill.Color := DEFAULT_DRAG_COLOR
+  else if not IsCurrentFocused then
     _selectionRect.Fill.Color := DEFAULT_ROW_SELECTION_MULTISELECT_COLOR
   else if OwnerIsFocused then
     _selectionRect.Fill.Color := DEFAULT_ROW_SELECTION_ACTIVE_COLOR
@@ -3966,12 +4148,13 @@ procedure TDCRow.UpdateSelectionVisibility(const SelectionInfo: IRowSelectionInf
 begin                                  
   var isCurrentDataItem := SelectionInfo.IsFocused(get_DataIndex);
   var isPartOfSelection := SelectionInfo.IsSelected(get_DataIndex);
+  var isDragOver := (_selectionRect <> nil) and (_selectionRect.Fill.Color = DEFAULT_DRAG_COLOR);
   
   var selectionStaysTheSame := False; 
-  if isCurrentDataItem or isPartOfSelection then
+  if isCurrentDataItem or isPartOfSelection or isDragOver then
   begin
     UpdateSelectionRect(OwnerIsFocused, isCurrentDataItem);
-    selectionStaysTheSame := True;
+    selectionStaysTheSame := not _rowsControl.Control.IsDragOver;
   end
   else if _selectionRect <> nil then
   begin
@@ -4015,13 +4198,14 @@ end;
 
 destructor TDCRow.Destroy;
 begin
-  ClearRowForReassignment;
-
   if (_control <> nil) and not (csDestroying in _control.ComponentState) then
   begin
     FreeAndNil(_selectionRect);
     FreeAndNil(_control);
-  end;
+  end else
+    _control := nil;
+
+  ClearRowForReassignment;
 
   inherited;
 end;
@@ -4394,6 +4578,11 @@ begin
 
   _tag := Value;
   _focusedChanged := True;
+end;
+
+function TRowSelectionInfo.WaitingForFocusChanged: Boolean;
+begin
+  Result := _focusedChanged;
 end;
 
 function TRowSelectionInfo.Clone: IRowSelectionInfo;

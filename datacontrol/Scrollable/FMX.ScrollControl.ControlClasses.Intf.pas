@@ -209,6 +209,8 @@ type
     procedure SetFillColor(const Value: TAlphaColor);
     function  GetStrokeColor: TAlphaColor;
     procedure SetStrokeColor(const Value: TAlphaColor);
+    function  GetColorOpacity: Single;
+    procedure SetColorOpacity(const Value: Single);
 
     function AsControl: TControl;
 
@@ -218,6 +220,7 @@ type
     property YRadius: Single read GetYRadius write SetYRadius;
     property FillColor: TAlphaColor read GetFillColor write SetFillColor;
     property StrokeColor: TAlphaColor read GetStrokeColor write SetStrokeColor;
+    property ColorOpacity: Single read GetColorOpacity write SetColorOpacity;
   end;
 
   IRowLayout = interface
@@ -256,7 +259,9 @@ type
     function CreateMemo(const Owner: TComponent): IDCEditControl;
     function CreateDateEdit(const Owner: TComponent): IDateEditControl;
 
-    procedure HandleRowBackground(const RowRect: IBackgroundControl; AlternateAvailable: Boolean; Alternate: Boolean);
+    function CreateBarText(const Owner: TComponent): IDCControl;
+
+    procedure HandleRowBackground(const RowRect: IBackgroundControl; AlternateAvailable: Boolean; Alternate: Boolean; ColorOpacity: Single);
     procedure HandleRowChildRelation(const RowLayout: IRowLayout; IsOpenParent, IsOpenChild: Boolean; AWidth: Single);
   end;
 

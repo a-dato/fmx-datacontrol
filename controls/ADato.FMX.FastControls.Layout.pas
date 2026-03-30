@@ -26,6 +26,7 @@ type
     procedure set_UseBuffering(const Value: Boolean); virtual;
     procedure StyleChangedHandler(const Sender: TObject; const Msg: System.Messaging.TMessage);
 
+    function  NeedsBitmapReload: Boolean;
     procedure LoadBitmap;
     procedure PrepareForPaint; override;
     procedure Painting; override;
@@ -60,6 +61,7 @@ type
     FSides: TSides;
     FFillColor: TAlphaColor;
     FStrokeColor: TAlphaColor;
+    FColorOpacity: Single;
 
     function  GetXRadius: Single;
     procedure SetXRadius(const Value: Single);
@@ -73,6 +75,8 @@ type
     procedure SetFillColor(const Value: TAlphaColor);
     function  GetStrokeColor: TAlphaColor;
     procedure SetStrokeColor(const Value: TAlphaColor);
+    function  GetColorOpacity: Single;
+    procedure SetColorOpacity(const Value: Single);
 
     function  AsControl: TControl;
 
@@ -92,6 +96,7 @@ type
     property YRadius: Single read GetYRadius write SetYRadius;
     property FillColor: TAlphaColor read GetFillColor write SetFillColor;
     property StrokeColor: TAlphaColor read GetStrokeColor write SetStrokeColor;
+    property ColorOpacity: Single read GetColorOpacity write SetColorOpacity;
   end;
 
 
@@ -109,6 +114,7 @@ begin
   FSides := AllSides;
   FCorners := AllCorners;
   FStrokeThickness := 1;
+  FColorOpacity := 1;
 
   CanParentFocus := True;
   HitTest := False;
@@ -116,9 +122,10 @@ end;
 
 procedure TBackgroundControl.Paint;
 begin
-  if FFillColor <> TAlphaColors.Null then
+  if (FFillColor <> TAlphaColors.Null) and (ColorOpacity > 0) then
   begin
-    Canvas.Fill.Color := FFillColor;
+    var alpha := Round(EnsureRange(ColorOpacity, 0, 1) * $FF);
+    Canvas.Fill.Color := (FFillColor and $00FFFFFF) or (TAlphaColor(alpha) shl 24);
     Canvas.FillRect(LocalRect, FXRadius, FYRadius, FCorners, AbsoluteOpacity, TCornerType.Round);
   end;
 
@@ -138,6 +145,7 @@ begin
   if drawStroke then
   begin
     Canvas.Stroke.Kind := TBrushKind.Solid;
+    Canvas.Stroke.Dash := TStrokeDash.Solid;
     Canvas.Stroke.Color := FStrokeColor;
     Canvas.Stroke.Thickness := FStrokeThickness;
 
@@ -165,6 +173,11 @@ begin
         Canvas.DrawRect(GetShapeRect, XRadius, YRadius, FCorners, AbsoluteOpacity, TCornerType.Round);
     end;
   end;
+end;
+
+function TBackgroundControl.GetColorOpacity: Single;
+begin
+  Result := FColorOpacity;
 end;
 
 function TBackgroundControl.GetCorners: TCorners;
@@ -212,6 +225,15 @@ end;
 function TBackgroundControl.HasStroke: Boolean;
 begin
   Result := (FStrokeColor <> TAlphaColors.Null) and (FSides <> []);
+end;
+
+procedure TBackgroundControl.SetColorOpacity(const Value: Single);
+begin
+  if FColorOpacity <> Value then
+  begin
+    FColorOpacity := Value;
+    DoInternalChanged;
+  end;
 end;
 
 procedure TBackgroundControl.SetCorners(const Value: TCorners);
@@ -350,14 +372,7 @@ procedure TAdaptableBitmapLayout.LoadBitmap;
   end;
 
 begin
-  if _creatingBitmap or not get_UseBuffering or (Scene = nil) or (Width <= 0) or (Height <= 0) then
-    Exit;
-
-  var scale := Self.Scene.GetSceneScale;
-  if (_bitmap <> nil) and (_bitmap.BitmapScale <> scale) then
-    _resetBufferRequired := True;
-
-  if not _resetBufferRequired then
+  if not NeedsBitmapReload then
     Exit;
 
   _resetBufferRequired := False;
@@ -373,6 +388,7 @@ begin
 
   _creatingBitmap := True;
   try
+    var scale := Self.Scene.GetSceneScale;
     var logicalW: Integer := Ceil(Self.Width * scale);
     var logicalH: Integer := Ceil(Self.Height * scale);
 
@@ -403,6 +419,18 @@ begin
   end;
 end;
 
+function TAdaptableBitmapLayout.NeedsBitmapReload: Boolean;
+begin
+  Result := False;
+  if _creatingBitmap or not get_UseBuffering or (Scene = nil) or (Width <= 0) or (Height <= 0) then
+    Exit;
+
+  if (_bitmap <> nil) and (_bitmap.BitmapScale <> Self.Scene.GetSceneScale) then
+    _resetBufferRequired := True;
+
+  Result := _resetBufferRequired;
+end;
+
 function TAdaptableBitmapLayout.ObjectAtPoint(P: TPointF): IControl;
 begin
   Result := inherited;
@@ -417,7 +445,15 @@ end;
 
 procedure TAdaptableBitmapLayout.Painting;
 begin
-  LoadBitmap;
+  if NeedsBitmapReload then
+  begin
+    TThread.ForceQueue(nil, procedure
+    begin
+      LoadBitmap;
+      Repaint;
+    end);
+  end;
+
   if ShouldInheritPaint then
     inherited;
 end;

@@ -66,7 +66,8 @@ type
 implementation
 
 uses
-  ADato.Data.DataModel.intf, FMX.Types, System.Collections.Generic;
+  ADato.Data.DataModel.intf, FMX.Types, System.Collections.Generic,
+  FMX.ScrollControl.WithRows.Intf;
 
 
 { TDATACONTROL}
@@ -142,10 +143,11 @@ begin
       if data.Count = 0 then
         Exit(nil);
 
-      if _Control.SelectionCount > 1 then
-        Result := _Control.SelectedItems
-      else if _Control.SelectionCount = 1 then
-        Result := _Control.SelectedItems[0]
+      var selected := _Control.SelectedItems(not (TDCTreeOptionFlag.TreeOption_KeepCurrentSelection in _Control.Options));
+      if (selected <> nil) and (_Control.SelectionCount > 1) then
+        Result := selected
+      else if (selected <> nil) and (_Control.SelectionCount = 1) then
+        Result := selected[0]
       else
         Result := nil;
     end;

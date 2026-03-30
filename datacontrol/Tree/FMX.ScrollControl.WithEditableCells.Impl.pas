@@ -57,7 +57,6 @@ type
 
     function  TryAddRow(const Position: InsertPosition): Boolean;
     function  TryDeleteSelectedRows: Boolean;
-    function  CheckCanChangeRow: Boolean;
 
   // editor behaviour
   protected
@@ -413,17 +412,6 @@ end;
 function TScrollControlWithEditableCells.CanRealignContent: Boolean;
 begin
   Result := inherited and not _editingInfo.CellIsEditing;
-end;
-
-function TScrollControlWithEditableCells.CheckCanChangeRow: Boolean;
-begin
-  // old row can be scrolled out of view. So always work with dummy rows
-
-  var dummyOldRow := ProvideRowForChanging(_selectionInfo) as IDCTreeRow;
-  if dummyOldRow = nil then Exit(True);
-
-  var oldCell := dummyOldRow.Cells[_selectionInfo.Tag];
-  Result := DoCellCanChange(oldCell, nil);
 end;
 
 procedure TScrollControlWithEditableCells.KeyDown(var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
@@ -939,7 +927,7 @@ begin
     // check if row change came through if it was needed
     var newCell := GetActiveCell;
     var clmn := GetFlatColumnByMouseX(X);
-    if (newCell <> nil) and (newCell.Row = clickedRow) and (newCell.LayoutColumn = clmn) and not newCell.Column.ReadOnly then
+    if (newCell <> nil) and IsSelected(newCell.Row.DataIndex, True) and (newCell.LayoutColumn = clmn) and not newCell.Column.ReadOnly then
     begin
       if not newCell.Column.IsSelectionColumn and (newCell.Column.InfoControlClass = TInfoControlClass.CheckBox) then
         (newCell.InfoControl as IIsChecked).IsChecked := not (newCell.InfoControl as IIsChecked).IsChecked
@@ -959,9 +947,17 @@ begin
     if CString.Equals(Cell.Column.PropertyName, COLUMN_SHOW_DEFAULT_OBJECT_TEXT) then
       tp := GetItemType
     else if ViewIsDataModelView then
-      tp := GetDataModelView.DataModel.FindColumnByName(Cell.Column.PropertyName).DataType
+    begin
+      var clmn := GetDataModelView.DataModel.FindColumnByName(Cell.Column.PropertyName);
+      if clmn <> nil then
+        tp := clmn.DataType
+    end
     else
-      tp := GetItemType.PropertyByName(Cell.Column.PropertyName).GetType;
+    begin
+      var prop := GetItemType.PropertyByName(Cell.Column.PropertyName);
+      if prop <> nil then
+        tp := prop.GetType;
+    end;
   end;
 
   if tp.IsUnknown and (CellValue <> nil) then
@@ -1425,8 +1421,19 @@ begin
         _editCellEnd(Self, endEditArgs);
 
         if endEditArgs.Accept then
-          val := endEditArgs.Value else
-          Exit(False);
+          val := endEditArgs.Value
+        else
+        begin
+          CancelEdit(True);
+          Result := False;
+          if endEditArgs.EndRowEdit then
+          begin
+            Result := DoEditRowEnd(cell.Row as IDCTreeRow, {out} ChangeUpdatedSort);
+            DoDataItemChangedInternal(cell.Row.DataItem);
+          end;
+
+          Exit;
+        end;
 
         EditRowEnd := endEditArgs.EndRowEdit;
       end;
@@ -1588,14 +1595,28 @@ begin
     _cellEditor.UserCanClear := StartEditArgs.UserCanClear;
   end
   else if Cell.Column.InfoControlClass = TInfoControlClass.CheckBox then
-    _cellEditor := TDCCheckBoxCellEditor.Create(Self, Cell)
+  begin
+    _cellEditor := TDCCheckBoxCellEditor.Create(Self, Cell);
+    _cellEditor.Value := (cell.InfoControl.Control as IIsChecked).IsChecked;
+  end
   else
   begin
-    if not CString.IsNullOrEmpty(Cell.Column.PropertyName) and not CString.Equals(Cell.Column.PropertyName, COLUMN_SHOW_DEFAULT_OBJECT_TEXT) then
+    if not StartEditArgs.DataType.IsUnknown then
+      dataType := StartEditArgs.DataType
+    else if not CString.IsNullOrEmpty(Cell.Column.PropertyName) and not CString.Equals(Cell.Column.PropertyName, COLUMN_SHOW_DEFAULT_OBJECT_TEXT) then
     begin
       if ViewIsDataModelView then
-        dataType := GetDataModelView.DataModel.FindColumnByName(Cell.Column.PropertyName).DataType else
-        dataType := GetItemType.PropertyByName(Cell.Column.PropertyName).GetType;
+      begin
+        var clmn := GetDataModelView.DataModel.FindColumnByName(Cell.Column.PropertyName);
+        if clmn <> nil then
+          dataType := clmn.DataType
+      end
+      else
+      begin
+        var prop := GetItemType.PropertyByName(Cell.Column.PropertyName);
+        if prop <> nil then
+          dataType := prop.GetType;
+      end;
     end else
       {$IFNDEF WEBASSEMBLY}
       dataType := Global.StringType;
@@ -1696,14 +1717,18 @@ end;
 function TScrollControlWithEditableCells.BeginEdit: Boolean;
 begin
   Result := False;
-  var cell := GetActiveCell;
-  // row can be in edit mode already, but cell should not be in edit mode yet
-  if (cell = nil) or not CanEditCell(cell) or _editingInfo.RowIsEditing then
+  var row := GetActiveRow;
+  if _editingInfo.RowIsEditing or (TDCTreeOption.ReadOnly in _options) or (row = nil) then
     Exit;
+
+//  var cell := GetActiveCell;
+//  // row can be in edit mode already, but cell should not be in edit mode yet
+//  if (cell = nil) or not CanEditCell(cell) or _editingInfo.RowIsEditing then
+//    Exit;
   _selectionInfo.ClearMultiSelections;
   var dataItem := Self.DataItem;
   var isNew := False;
-  Result := DoEditRowStart(Cell.Row as IDCTreeRow, {var} dataItem, isNew);
+  Result := DoEditRowStart(row as IDCTreeRow, {var} dataItem, isNew);
 end;
 
 function TScrollControlWithEditableCells.EndEdit: Boolean;
@@ -1888,6 +1913,13 @@ begin
     finally
       dec(_updateCount);
     end;
+
+    if rowEditArgs.CancelRowEdit then
+    begin
+      CancelEdit(False);
+      Exit(True);
+    end;
+
     Result := rowEditArgs.Accept;
   end;
 

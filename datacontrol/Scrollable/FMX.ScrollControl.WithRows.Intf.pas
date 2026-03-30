@@ -64,9 +64,9 @@ type
     procedure OnCurrentChanged;
     procedure OnSelectedItemsChanged;
 
-    function  SelectionCount: Integer;
-    function  IsSelected(const DataIndex: Integer): Boolean;
-    function  SelectedItems: List<CObject>;
+    function  IsSelected(const DataIndex: Integer; ReturnCurrentAtNoSelection: Boolean = False): Boolean;
+    function  SelectionCount(ReturnCurrentAtNoSelection: Boolean = True): Integer;
+    function  SelectedItems(ReturnCurrentAtNoSelection: Boolean): List<CObject>;
 
     function  ViewIsDataModelView: Boolean;
     function  GetDataModelView: IDataModelView;
@@ -141,6 +141,7 @@ type
 
     procedure RemoveFromSelection(const DataIndex: Integer);
     function  AddToSelection(const DataIndex, ViewListIndex: Integer; const DataItem: CObject) : Boolean;
+    function  WaitingForFocusChanged: Boolean; // current dataitem
 
 //    procedure UpdateLastSelection(const DataIndex, ViewListIndex: Integer; const DataItem: CObject);
 //    procedure UpdateSingleSelection(const DataIndex, ViewListIndex: Integer; const DataItem: CObject; ClearMultiSelection: Boolean);

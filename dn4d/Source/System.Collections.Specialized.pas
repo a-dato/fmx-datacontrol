@@ -462,8 +462,7 @@ begin
   end;
 end;
 
-procedure NotifyCollectionChangedDelegate.Remove(
-  value: NotifyCollectionChangedEventHandlerProc);
+procedure NotifyCollectionChangedDelegate.Remove(value: NotifyCollectionChangedEventHandlerProc);
 begin
   inherited Remove(TMethod(Value));
 end;

@@ -150,6 +150,8 @@ type
     procedure DoCellChanged(const OldCell, NewCell: IDCTreeCell);
     procedure DoCellSelected(const Cell: IDCTreeCell; EventTrigger: TSelectionEventTrigger);
 
+    procedure DragDrop(const Data: TDragObject; const Point: TPointF); override;
+
     function  DoSortingGetComparer(const SortDescription: IListSortDescriptionWithComparer {; const ReturnSortComparer: Boolean}): IComparer<CObject>;
     function  DoOnCompareRows(const Left, Right: CObject): Integer;
     function  DoOnCompareColumnCells(const Column: IDCTreeColumn; const Left, Right: CObject): Integer;
@@ -285,6 +287,7 @@ type
 
     procedure RefreshColumn(const Column: IDCTreeColumn);
     procedure ColumnsChangedFromExternal;
+    function  CheckCanChangeRow: Boolean; override;
 
     procedure UpdateColumnSort(const Column: IDCTreeColumn; SortDirection: ListSortDirection; ClearOtherSort: Boolean);
     procedure UpdateColumnFilter(const Column: IDCTreeColumn; const FilterText: CString; const FilterValues: List<CObject>; const NullValueSelected: Boolean); overload;
@@ -1261,7 +1264,7 @@ procedure TScrollControlWithCells.UpdateHoverRect(MousePos: TPointF);
 begin
   inherited;
 
-  if (_hoverRect.Visible) and (_selectionType = TSelectionType.CellSelection) then
+  if (_hoverRect.Visible) and (_selectionType = TSelectionType.CellSelection) and not IsDragOver then
   begin
     var clmn := GetSelectableFlatColumnByMouseX(MousePos.X);
 
@@ -1385,7 +1388,7 @@ begin
           if showHorzGrid then
           begin
             sides := sides + [TSide.Bottom];
-            if showVertGrid and (cell.Row.ViewListIndex = 0) then
+            if showVertGrid and (cell.Row.ViewListIndex = 0) and (_headerRow = nil) then
               sides := sides + [TSide.Top];
           end;
         end;
@@ -1592,6 +1595,9 @@ begin
   end
   else if flatColumn.Column.IsSelectionColumn then
   begin
+    if flatColumn.Column.ReadOnly or (TreeOption_ReadOnly in _options) then
+      Exit;
+
     var treeRow := clickedRow as IDCTreeRow;
     var treeCell := treeRow.Cells[flatColumn.Index];
     var checkBox := treeCell.InfoControl as IIsChecked;
@@ -2200,7 +2206,7 @@ begin
   if (_autoMultiSelectColumn = nil) or _autoMultiSelectColumn.Visualisation.Visible then
     Exit;
 
-  if (_autoMultiSelectColumn.Visualisation.Visible or _selectionInfo.HasSelectedItems {only visible by 2 or more selected}) then
+  if SelectionCount(False) > 1 then
   begin
     _autoMultiSelectColumn.Visualisation.Visible := True;
     (GetInitializedWaitForRefreshInfo as IDCControlWaitForRepaintInfo).ColumnsChanged;
@@ -2419,7 +2425,12 @@ begin
     DoColumnsChanged(Column);
   end;
 
-  ClearCalculatedColumnWidths;
+  var flat := FlatColumnByColumn(Column);
+  if (flat <> nil) and (flat.Width > 10) and (flat.Column.WidthType = TDCColumnWidthType.AlignToContent) then
+  begin
+//    ClearCalculatedColumnWidths;
+    flat.Width := CMath.Max(10, flat.Column.WidthMin);
+  end;
 
   // selectedcolumn is not valid anymore, select another one
   var flatColumn := FlatColumnByColumn(Column);
@@ -2707,6 +2718,40 @@ begin
   _treeLayout := nil;
 
   inherited;
+end;
+
+procedure TScrollControlWithCells.DragDrop(const Data: TDragObject; const Point: TPointF);
+begin
+  if _dragDropOnIndividualRows then
+  begin
+    var row := GetRowByLocalY(Point.Y) as IDCTreeRow;
+    if row = nil then Exit;
+
+    var clmn := GetFlatColumnByMouseX(Point.X);
+    if (clmn = nil) or not row.Cells.ContainsKey(clmn.Index) then Exit;
+
+    var oldCell := GetActiveCell;
+    var newCell := row.Cells[clmn.Index];
+    if (oldCell <> newCell) and not DoCellCanChange(oldCell, newCell) then
+      Exit;
+  end;
+
+  inherited;
+end;
+
+function TScrollControlWithCells.CheckCanChangeRow: Boolean;
+begin
+  Result := inherited;
+
+  if Result then
+  begin
+    // old row can be scrolled out of view. So always work with dummy rows
+    var dummyOldRow := ProvideRowForChanging(_selectionInfo) as IDCTreeRow;
+    if (dummyOldRow = nil) or not dummyOldRow.Cells.ContainsKey(_selectionInfo.Tag) then Exit;
+
+    var oldCell := dummyOldRow.Cells[_selectionInfo.Tag];
+    Result := DoCellCanChange(oldCell, nil);
+  end;
 end;
 
 function TScrollControlWithCells.DoCellCanChange(const OldCell, NewCell: IDCTreeCell): Boolean;
@@ -6063,7 +6108,7 @@ begin
   end;
 
   var clr: TAlphaColor;
-  _selectionRect.Opacity := IfThen(IsCurrentFocused, 0.3, 0.1);
+  _selectionRect.Opacity := IfThen(IsCurrentFocused, 0.3, 0.05);
   if not IsCurrentFocused then
     clr := DEFAULT_ROW_SELECTION_MULTISELECT_COLOR
   else if OwnerIsFocused then
@@ -6171,11 +6216,8 @@ begin
   begin
     if not SelectionInfo.IsSelected(_dataIndex) then
       _selectionRect.Opacity := 0.0 // make cell selection more visible
-    else
-    begin
+    else if not _rowsControl.Control.IsDragOver then
       _selectionRect.Opacity := 0.1;
-      _selectionRect.Fill.Color := DEFAULT_ROW_SELECTION_MULTISELECT_COLOR;
-    end;
   end;
 
   var cell: IDCTreeCell;
@@ -6563,6 +6605,7 @@ begin
 
   _visible := True;
   _selectable := True;
+//  _readOnly := True;
   _horzAlign := TDCTextAlign.Default;
   _vertAlign := TDCTextAlign.Default;
 end;

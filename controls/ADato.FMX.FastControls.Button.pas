@@ -1031,6 +1031,10 @@ end;
 
 procedure TFastButton.DoPaint;
 begin
+  // wait for the repaint..
+  if _recalcNeeded then
+    Exit;
+
   _waitForRepaint := False;
 
   var outerRect := RectF(0, 0, Width, Height);
@@ -1214,7 +1218,15 @@ end;
 
 procedure TFastButton.Painting;
 begin
-  Calculate;
+  if _recalcNeeded then
+  begin
+    TThread.ForceQueue(nil, procedure
+    begin
+      Calculate;
+      Repaint;
+    end);
+  end;
+
   inherited;
 end;
 

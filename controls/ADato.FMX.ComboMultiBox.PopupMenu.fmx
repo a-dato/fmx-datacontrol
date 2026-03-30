@@ -12,18 +12,10 @@ object frmComboMultiBoxPopup: TfrmComboMultiBoxPopup
   FormFactor.Devices = [Desktop]
   OnCloseQuery = FormCloseQuery
   OnDeactivate = FormDeactivate
+  OnShow = FormShow
   Left = 480
   Top = 300
   DesignerMasterStyle = 0
-  object Rectangle1: TRectangle
-    Align = Contents
-    Fill.Color = xFFFDFDFE
-    HitTest = False
-    Size.Width = 206.000000000000000000
-    Size.Height = 344.000000000000000000
-    Size.PlatformDefault = False
-    Stroke.Color = xFFE3E3E3
-  end
   object filterlist: TRectangle
     Align = Client
     Fill.Color = claWhite
@@ -80,6 +72,36 @@ object frmComboMultiBoxPopup: TfrmComboMultiBoxPopup
         Size.Height = 1.000000000000000000
         Size.PlatformDefault = False
         Stroke.Color = xFF8A8A8A
+      end
+    end
+    object lyButtons: TLayout
+      Align = Bottom
+      Position.X = 5.000000000000000000
+      Position.Y = 312.000000000000000000
+      Size.Width = 196.000000000000000000
+      Size.Height = 27.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 1
+      object btnApplyFilters: TButton
+        Align = Right
+        Position.X = 152.000000000000000000
+        Size.Width = 44.000000000000000000
+        Size.Height = 27.000000000000000000
+        Size.PlatformDefault = False
+        TabOrder = 1
+        Text = 'Ok'
+        OnClick = btnApplyFiltersClick
+      end
+      object btnCancel: TButton
+        Align = Right
+        Margins.Right = 3.000000000000000000
+        Position.X = 105.000000000000000000
+        Size.Width = 44.000000000000000000
+        Size.Height = 27.000000000000000000
+        Size.PlatformDefault = False
+        TabOrder = 0
+        Text = 'Cancel'
+        OnClick = btnCancelClick
       end
     end
   end

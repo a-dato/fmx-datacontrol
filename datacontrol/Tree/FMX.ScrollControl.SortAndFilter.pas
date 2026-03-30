@@ -369,7 +369,7 @@ procedure TTreeMultiSelectSortDescription.SortBegin;
 begin
   inherited;
 
-  _selected := _rowsControl.SelectedItems;
+  _selected := _rowsControl.SelectedItems(False);
   if (_selected <> nil) and (_selected.Count <= 1) then
     _selected := nil;
 end;

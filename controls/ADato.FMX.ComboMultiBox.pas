@@ -88,6 +88,8 @@ type
 
     function get_EditControl: IDCEditControl;
 
+    procedure InitializePopupMenu;
+
   public
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
@@ -171,12 +173,6 @@ begin
   _txt.Trimming := TTextTrimming.Character;
   Self.AddObject(_txt);
 
-  {$IFNDEF WEBASSEMBLY}
-  _popupMenu := TfrmComboMultiBoxPopup.Create(Self);
-  _popupMenu.OnClose := OnClosePopup;
-  _popupMenu.CellSelected := CellSelectedEvent;
-  {$ENDIF}
-
   _showNoneSelected := True;
 end;
 
@@ -206,7 +202,9 @@ end;
 
 function TComboMultiBox.DataControl: TDataControl;
 begin
-  Result := _popupMenu.DataControl;
+  if _popupMenu <> nil then
+    Result := _popupMenu.DataControl else
+    Result := nil;
 end;
 
 destructor TComboMultiBox.Destroy;
@@ -219,12 +217,13 @@ end;
 procedure TComboMultiBox.MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Single);
 begin
   inherited;
-  if not _popupMenu.IsOpen then
+  if (_popupMenu = nil) or not _popupMenu.IsOpen then
     DropDown;
 end;
 
 procedure TComboMultiBox.DropDown;
 begin
+  InitializePopupMenu;
   if not _popupMenu.IsOpen and Assigned(_beforeDropDown) then
     _beforeDropDown();
 
@@ -233,7 +232,12 @@ begin
   if _popupMenu.IsOpen then
   begin
     _popupMenu.Width := Round(CMath.Max(Width, 175));
-    _popupMenu.Height := Round(CMath.Min(_popupMenu.DataControl.DataList.Count, 8)*_popupMenu.DataControl.RowHeightFixed + _popupMenu.lyFilter.Height);
+    _popupMenu.Height := Round(
+      CMath.Min(_popupMenu.DataControl.DataList.Count, 6)*_popupMenu.DataControl.RowHeightFixed +
+      _popupMenu.lyFilter.Height +
+      _popupMenu.lyButtons.Height +
+      _popupMenu.filterlist.Padding.Top +
+      _popupMenu.filterlist.Padding.Bottom);
 
     _popupMenu.edSearch.SetFocus;
   end
@@ -273,15 +277,17 @@ begin
       s := 'None selected' else
       s := nil;
   end
-  else if selected.Count = _popupMenu.DataControl.DataList.Count then
+  else if (_popupMenu = nil) or (selected.Count = _popupMenu.DataControl.DataList.Count) then
     s := 'All selected'
+  else if (selected.Count > 3) then
+    s := selected.Count.ToString + ' selected'
   else
   begin
     var item: CObject;
     for item in get_SelectedItems do
     begin
       if s <> nil then
-        s := CString.Concat(s, ', ');
+        s := CString.Concat(s, '+');
 
       s := CString.Concat(s, item.ToString);
     end;    
@@ -299,12 +305,18 @@ end;
 
 function TComboMultiBox.get_items: IList;
 begin
+  if _popupMenu = nil then
+    Exit(nil);
+
   Result := _popupMenu.DataControl.DataList;
 end;
 
 function TComboMultiBox.get_SelectedItems: IList;
 begin
-  Result := _popupMenu.DataControl.SelectedItems as IList;
+  if _popupMenu = nil then
+    Exit(nil);
+
+  Result := _popupMenu.DataControl.SelectedItems(False) as IList;
 end;
 
 function TComboMultiBox.InClearClick: Boolean;
@@ -312,11 +324,23 @@ begin
   Result := _inClearClick;
 end;
 
+procedure TComboMultiBox.InitializePopupMenu;
+begin
+  {$IFNDEF WEBASSEMBLY}
+  if _popupMenu = nil then
+  begin
+    _popupMenu := TfrmComboMultiBoxPopup.Create(Self);
+    _popupMenu.OnClose := OnClosePopup;
+    _popupMenu.CellSelected := CellSelectedEvent;
+  end;
+  {$ENDIF}
+end;
+
 procedure TComboMultiBox.KeyDown(var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
 begin
   if (Key = vkF2) then
   begin
-    if not _popupMenu.IsOpen then
+    if (_popupMenu = nil) or not _popupMenu.IsOpen then
       DropDown;
 
     Key := 0;
@@ -328,6 +352,7 @@ end;
 
 procedure TComboMultiBox.set_Items(Value: IList);
 begin
+  InitializePopupMenu;
   _popupMenu.DataControl.DataList := Value;
 end;
 
@@ -335,11 +360,14 @@ procedure TComboMultiBox.set_SelectedItems(const Value: IList);
 begin
   if (Value = nil) or (Value.Count = 0) then
   begin
-    _popupMenu.DataControl.ClearSelectedItems;
+    if _popupMenu <> nil then
+      _popupMenu.DataControl.ClearSelectedItems;
+
     UpdateDisplayText;
     Exit;
   end;
 
+  InitializePopupMenu;
   if _popupMenu.DataControl.DataList = nil then
   begin
     if Assigned(_beforeDropDown) then
