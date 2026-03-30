@@ -359,12 +359,13 @@ type
 //    procedure ToggleDataItemSelection; overload;
 //    procedure ToggleDataItemSelection(const Item: CObject); overload;
 
-    function  IsSelected(const DataIndex: Integer): Boolean;
     function  SlowItemIsSelected(const DataItem: CObject): Boolean;
     function  SelectedRowIfInView: IDCRow;
+    function  DraggedItems: List<CObject>;
+
+    function  IsSelected(const DataIndex: Integer; ReturnCurrentAtNoSelection: Boolean = False): Boolean;
     function  SelectionCount(ReturnCurrentAtNoSelection: Boolean = True): Integer;
     function  SelectedItems(ReturnCurrentAtNoSelection: Boolean): List<CObject>;
-    function  DraggedItems: List<CObject>;
 
     procedure AssignSelection(const SelectedItems: IList);
     // end public selection
@@ -2838,6 +2839,9 @@ begin
   if SyncIsMasterSynchronizer then
     Exit;
 
+  if _view = nil then
+    GenerateView;
+
   AtomicIncrement(_internalSelectCount);
   try
     if (_model <> nil) then
@@ -2862,6 +2866,9 @@ procedure TScrollControlWithRows.OnCurrentChanged;
 begin
   if SyncIsMasterSynchronizer then
     Exit;
+
+  if _view = nil then
+    GenerateView;
 
   AtomicIncrement(_internalSelectCount);
   try
@@ -3280,14 +3287,17 @@ begin
   Result := (_masterSynchronizerIndex > 0);
 end;
 
-function TScrollControlWithRows.IsSelected(const DataIndex: Integer): Boolean;
+function TScrollControlWithRows.IsSelected(const DataIndex: Integer; ReturnCurrentAtNoSelection: Boolean = False): Boolean;
 begin
-  Result := False;
-  if _view = nil then Exit;
+  if _view = nil then
+    Exit(False);
 
-  if TDCTreeOption.MultiSelect in _options then
-    Result := _selectionInfo.IsSelected(DataIndex) else
-    Result := _selectionInfo.IsFocused(DataIndex); // for radio buttons..
+  if (TDCTreeOption.MultiSelect in _options) and _selectionInfo.IsSelected(DataIndex) then
+    Exit(True);
+
+  if (ReturnCurrentAtNoSelection or not (TDCTreeOption.MultiSelect in _options)) then
+    Result := _selectionInfo.IsFocused(DataIndex) else
+    Result := False;
 end;
 
 procedure TScrollControlWithRows.DoViewLoadingStart(const startY, StopY: Single; const ReferenceRow: IDCRow);
@@ -4120,7 +4130,7 @@ begin
   end;
 
   _selectionRect.BringToFront;
-  _selectionRect.Opacity := IfThen(IsCurrentFocused or _rowsControl.Control.IsDragOver, 0.3, 0.1);
+  _selectionRect.Opacity := IfThen(IsCurrentFocused or _rowsControl.Control.IsDragOver, 0.3, 0.05);
 
   if _rowsControl.Control.IsDragOver then
     _selectionRect.Fill.Color := DEFAULT_DRAG_COLOR

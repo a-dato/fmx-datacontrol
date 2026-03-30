@@ -2206,7 +2206,7 @@ begin
   if (_autoMultiSelectColumn = nil) or _autoMultiSelectColumn.Visualisation.Visible then
     Exit;
 
-  if (_autoMultiSelectColumn.Visualisation.Visible or _selectionInfo.HasSelectedItems {only visible by 2 or more selected}) then
+  if SelectionCount(False) > 1 then
   begin
     _autoMultiSelectColumn.Visualisation.Visible := True;
     (GetInitializedWaitForRefreshInfo as IDCControlWaitForRepaintInfo).ColumnsChanged;
@@ -6108,7 +6108,7 @@ begin
   end;
 
   var clr: TAlphaColor;
-  _selectionRect.Opacity := IfThen(IsCurrentFocused, 0.3, 0.1);
+  _selectionRect.Opacity := IfThen(IsCurrentFocused, 0.3, 0.05);
   if not IsCurrentFocused then
     clr := DEFAULT_ROW_SELECTION_MULTISELECT_COLOR
   else if OwnerIsFocused then

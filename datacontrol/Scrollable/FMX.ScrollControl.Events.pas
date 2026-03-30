@@ -164,6 +164,7 @@ type
     // Data item being editied. May ne replaced with dummy item while editing
     DataItem: CObject;
     Accept: Boolean;
+    CancelRowEdit: Boolean;
 
     constructor Create(const ARow: IDCTreeRow; const DataItem: CObject; IsEdit: Boolean); reintroduce;
 
@@ -202,6 +203,7 @@ type
     MultilineEdit : Boolean;  // True - show Multiline editor
     UserCanClear  : Boolean;
     Editor        : IDCEditControl; // Custom user editor
+    DataType      : &Type;
     MinEditorWidth: Single;
 
     constructor Create(const ACell: IDCTreeCell; const AValue: CObject); reintroduce;
@@ -404,6 +406,7 @@ begin
   inherited Create(ACell);
   Value := AValue;
   MinEditorWidth := 125;
+  DataType := &Type.Unknown;
 end;
 
 function DCStartEditEventArgs.get_DataItem: CObject;

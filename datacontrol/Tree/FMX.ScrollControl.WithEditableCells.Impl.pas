@@ -927,7 +927,7 @@ begin
     // check if row change came through if it was needed
     var newCell := GetActiveCell;
     var clmn := GetFlatColumnByMouseX(X);
-    if (newCell <> nil) and (newCell.Row = clickedRow) and (newCell.LayoutColumn = clmn) and not newCell.Column.ReadOnly then
+    if (newCell <> nil) and IsSelected(newCell.Row.DataIndex, True) and (newCell.LayoutColumn = clmn) and not newCell.Column.ReadOnly then
     begin
       if not newCell.Column.IsSelectionColumn and (newCell.Column.InfoControlClass = TInfoControlClass.CheckBox) then
         (newCell.InfoControl as IIsChecked).IsChecked := not (newCell.InfoControl as IIsChecked).IsChecked
@@ -1421,8 +1421,19 @@ begin
         _editCellEnd(Self, endEditArgs);
 
         if endEditArgs.Accept then
-          val := endEditArgs.Value else
-          Exit(False);
+          val := endEditArgs.Value
+        else
+        begin
+          CancelEdit(True);
+          Result := False;
+          if endEditArgs.EndRowEdit then
+          begin
+            Result := DoEditRowEnd(cell.Row as IDCTreeRow, {out} ChangeUpdatedSort);
+            DoDataItemChangedInternal(cell.Row.DataItem);
+          end;
+
+          Exit;
+        end;
 
         EditRowEnd := endEditArgs.EndRowEdit;
       end;
@@ -1584,14 +1595,28 @@ begin
     _cellEditor.UserCanClear := StartEditArgs.UserCanClear;
   end
   else if Cell.Column.InfoControlClass = TInfoControlClass.CheckBox then
-    _cellEditor := TDCCheckBoxCellEditor.Create(Self, Cell)
+  begin
+    _cellEditor := TDCCheckBoxCellEditor.Create(Self, Cell);
+    _cellEditor.Value := (cell.InfoControl.Control as IIsChecked).IsChecked;
+  end
   else
   begin
-    if not CString.IsNullOrEmpty(Cell.Column.PropertyName) and not CString.Equals(Cell.Column.PropertyName, COLUMN_SHOW_DEFAULT_OBJECT_TEXT) then
+    if not StartEditArgs.DataType.IsUnknown then
+      dataType := StartEditArgs.DataType
+    else if not CString.IsNullOrEmpty(Cell.Column.PropertyName) and not CString.Equals(Cell.Column.PropertyName, COLUMN_SHOW_DEFAULT_OBJECT_TEXT) then
     begin
       if ViewIsDataModelView then
-        dataType := GetDataModelView.DataModel.FindColumnByName(Cell.Column.PropertyName).DataType else
-        dataType := GetItemType.PropertyByName(Cell.Column.PropertyName).GetType;
+      begin
+        var clmn := GetDataModelView.DataModel.FindColumnByName(Cell.Column.PropertyName);
+        if clmn <> nil then
+          dataType := clmn.DataType
+      end
+      else
+      begin
+        var prop := GetItemType.PropertyByName(Cell.Column.PropertyName);
+        if prop <> nil then
+          dataType := prop.GetType;
+      end;
     end else
       {$IFNDEF WEBASSEMBLY}
       dataType := Global.StringType;
@@ -1888,6 +1913,13 @@ begin
     finally
       dec(_updateCount);
     end;
+
+    if rowEditArgs.CancelRowEdit then
+    begin
+      CancelEdit(False);
+      Exit(True);
+    end;
+
     Result := rowEditArgs.Accept;
   end;
 
