@@ -154,7 +154,7 @@ begin
       begin
         Result := True;
 
-        var ix := IfThen(Index = -1, get_Context.Count, Index);
+        var ix := if get_Context = nil then 0 else IfThen(Index = -1, get_Context.Count, Index);
         var pos := IfThen(AddBefore, Integer(InsertPosition.Before), Integer(InsertPosition.After));
 
         e.AddNew(item, ix, InsertPosition(pos));

@@ -399,6 +399,248 @@ begin
   end;
 end;
 
+{ TControlBinding }
+
+procedure TControlBinding<T>.CheckControlEditability(const Context: CObject);
+begin
+  // control = nil when destroyed
+  if _control = nil then
+    Exit;
+
+  var isEditable := (Context <> nil);
+  var isVisible := (Context <> nil);
+
+  var iwid: IPropertyAccessibility;
+  if (Context <> nil) and Context.TryAsType<IPropertyAccessibility>(iwid) then
+  begin
+    var edState := iwid.PropertyState(__PropertyInfo.Name);
+    isEditable := edState.IsEditable;
+    isVisible := edState.IsVisible;
+  end;
+
+  UpdateControlEditability(isEditable);
+
+  // do not set Visibility, for code can already make controls (in)visible
+  // it is better to interfere with the Opacity
+  _control.Opacity := IfThen(IsVisible, 1, 0);
+  _control.HitTest := IsVisible;
+end;
+
+constructor TControlBinding<T>.Create(const AControl: T);
+begin
+  _Control := AControl;
+
+  {$IFDEF DELPHI}
+  _FreeNotification := TFreeControlNotification.Create(Self);
+  _Control.AddFreeNotify(_FreeNotification);
+  {$ENDIF}
+end;
+
+destructor TControlBinding<T>.Destroy;
+begin
+  FreeAndNilRect;
+
+  set_ObjectModelContext(nil);
+  {$IFDEF DELPHI}
+  if (_control <> nil) then
+    _control.RemoveFreeNotify(_freeNotification);
+  {$ENDIF}
+
+  _freeNotification := nil;
+  _control := nil;
+
+  inherited;
+end;
+
+procedure TControlBinding<T>.EndUpdate(FromNotifyModelEvent: Boolean = False);
+begin
+  if not FromNotifyModelEvent and _control.IsFocused then
+  begin
+    var textCtrl: ITextActions;
+    if interfaces.Supports<ITextActions>(_control, textCtrl) then
+    begin
+      var isPhoneOrTablet := {$IF Defined(ANDROID) or Defined(IOS)}True{$ELSE}False{$ENDIF};
+      if (not isPhoneOrTablet) or (textCtrl is TEdit) or (textCtrl is TMemo) then
+      begin
+//        textCtrl.SelectAll;
+        textCtrl.GoToTextEnd;
+      end;
+    end;
+  end;
+
+  inherited;
+end;
+
+function TControlBinding<T>.Equals(const other: CObject): Boolean;
+begin
+  Result := (get_Control = other.AsType<IControlBinding>.Control);
+end;
+
+procedure TControlBinding<T>.ExecuteFromLink(const Obj: CObject);
+begin
+  var &old := GetValue;
+
+  SetValue(__propertyInfo, Obj, __propertyInfo.GetValue(obj, []));
+
+  if not CObject.Equals(&old, GetValue) then
+    UpdatedByLink;
+end;
+
+procedure TControlBinding<T>.ExecuteOriginalOnChangeEvent;
+begin
+  if Assigned(_orgChangeEvent) then
+    _orgChangeEvent(_control);
+end;
+
+procedure TControlBinding<T>.FreeAndNilRect;
+begin
+  if _updated_rect <> nil then
+  begin
+    FreeAndNil(_updated_rect as TControl);
+    _updated_rect := nil;
+  end;
+
+  inc(_updated_rect_index);
+end;
+
+function TControlBinding<T>.get_Control: TControl;
+begin
+  Result := _Control;
+end;
+
+function TControlBinding<T>.get_Value: CObject;
+begin
+  Result := _value;
+end;
+
+procedure TControlBinding<T>.OnContextChanged(const Sender: IObjectModelContext; const Context: CObject);
+begin
+  CheckControlEditability(Context);
+end;
+
+procedure TControlBinding<T>.OnContextPropertyChanged(const Sender: IObjectModelContext; const Context: CObject; const AProperty: _PropertyInfo);
+begin
+  if (_control <> nil) and Sender.IsLink(Self, AProperty) then
+    CheckControlEditability(Context);
+end;
+
+procedure TControlBinding<T>.OnFreeNotificationDestroy;
+begin
+  _control := nil;
+
+  // is weak
+  if _ObjectModelContext <> nil then
+    _ObjectModelContext.Unbind(Self); // Note: this can free the binding
+end;
+
+procedure TControlBinding<T>.set_ObjectModelContext(const Value: IObjectModelContext);
+begin
+  if _ObjectModelContext <> nil then
+  begin
+    {$IFDEF DELPHI}
+    _ObjectModelContext.OnContextChanged.Remove(OnContextChanged);
+    _ObjectModelContext.OnPropertyChanged.Remove(OnContextPropertyChanged);
+    {$ELSE}
+    _ObjectModelContext.OnContextChanged -= OnContextChanged;
+    _ObjectModelContext.OnPropertyChanged -= OnContextPropertyChanged;
+    {$ENDIF}
+  end;
+
+  inherited;
+
+  if _ObjectModelContext <> nil then
+  begin
+    {$IFDEF DELPHI}
+    _ObjectModelContext.OnContextChanged.Add(OnContextChanged);
+    _ObjectModelContext.OnPropertyChanged.Add(OnContextPropertyChanged);
+    {$ELSE}
+    _ObjectModelContext.OnContextChanged += OnContextChanged;
+    _ObjectModelContext.OnPropertyChanged += OnContextPropertyChanged;
+    {$ENDIF}
+
+    OnContextChanged(_ObjectModelContext, _ObjectModelContext.Context);
+  end else
+    OnContextChanged(nil, nil);
+end;
+
+procedure TControlBinding<T>.set_Value(const Value: CObject);
+begin
+  _value := Value;
+  NotifyModel(self);
+end;
+
+procedure TControlBinding<T>.UpdateControlEditability(IsEditable: Boolean);
+begin
+  _control.Enabled := IsEditable;
+end;
+
+procedure TControlBinding<T>.HideAndClearUpdatedRect(const Index: Integer; const Rect: TRectangle);
+begin
+  {$IFDEF DELPHI}
+  TAnimator.AnimateFloatDelay(Rect, 'Opacity', 0, 0.4, 1);
+  TThread.ForceQueue(nil,
+    procedure
+    begin
+      // otherwise already freed
+      if (Index = _updated_rect_index) then
+        FreeAndNilRect;
+    end, 3000);
+  {$ENDIF}
+end;
+
+procedure TControlBinding<T>.UpdatedByLink;
+begin
+  FreeAndNilRect;
+
+  {$IFDEF DELPHI}
+  var rect := TRectangle.Create(_control);
+  rect.Height := _control.Height - 6;
+  rect.Width := 60;
+  rect.Align := TAlignLayout.None;
+  rect.Position.X := _control.Width - (rect.Width + 20);
+  rect.Position.Y := 3;
+  rect.Fill.Color := TAlphaColors.Lightblue;
+  rect.Stroke.Thickness := 0;
+  rect.XRadius := 3;
+  rect.YRadius := 3;
+  rect.Opacity := 0.7;
+  _control.AddObject(rect);
+
+  var title := TLabel.Create(rect);
+  title.Text := 'Updated';
+  title.Align := TAlignLayout.Client;
+  title.TextSettings.HorzAlign := TTextAlign.Center;
+  title.TextSettings.VertAlign := TTextAlign.Center;
+  rect.AddObject(title);
+
+  HideAndClearUpdatedRect(_updated_rect_index, rect);
+  _updated_rect := rect;
+  {$ENDIF}
+end;
+
+procedure TControlBinding<T>.ValidateControl(const ControlEvent: TNotifyEvent);
+begin
+  // 02/24 JvA: After unbind and rebind other controls can be bound
+  // If events are the same, we will get a infite loop.
+  // Events are getting strangled
+
+  {$IFDEF DELPHI}
+  var notifyEvent: TNotifyEvent := NotifyModel;
+  if Assigned(ControlEvent) and (TMethod(ControlEvent).Code = TMethod(notifyEvent).Code) then
+    raise Exception.Create('Events are getting strangled');
+  {$ELSE}
+  var notifyEvent: TNotifyEvent := @NotifyModel;
+  if Assigned(ControlEvent) and System.Delegate.Equals(ControlEvent, notifyEvent) then
+    raise Exception.Create('Events are getting strangled');
+  {$ENDIF}
+
+  {$IFDEF DELPHI}
+  _orgChangeEvent := ControlEvent;
+  {$ENDIF}
+end;
+
+{ TEditControlBinding }
+
 constructor TEditControlBinding.Create(AControl: TEdit);
 begin
   inherited Create(AControl);
@@ -1012,246 +1254,6 @@ begin
   _control.Enabled := True;
 end;
 
-procedure TControlBinding<T>.CheckControlEditability(const Context: CObject);
-begin
-  // control = nil when destroyed
-  if _control = nil then
-    Exit;
-
-  var isEditable := True;
-  var isVisible := True;
-
-  var iwid: IPropertyAccessibility;
-  if (Context <> nil) and Context.TryAsType<IPropertyAccessibility>(iwid) then
-  begin
-    var edState := iwid.PropertyState(__PropertyInfo.Name);
-    isEditable := edState.IsEditable;
-    isVisible := edState.IsVisible;
-  end;
-
-  UpdateControlEditability(isEditable);
-
-  // do not set Visibility, for code can already make controls (in)visible
-  // it is better to interfere with the Opacity
-  _control.Opacity := IfThen(IsVisible, 1, 0);
-  _control.HitTest := IsVisible;
-end;
-
-{ TControlBinding }
-
-constructor TControlBinding<T>.Create(const AControl: T);
-begin
-  _Control := AControl;
-
-  {$IFDEF DELPHI}
-  _FreeNotification := TFreeControlNotification.Create(Self);
-  _Control.AddFreeNotify(_FreeNotification);
-  {$ENDIF}
-end;
-
-destructor TControlBinding<T>.Destroy;
-begin
-  FreeAndNilRect;
-
-  set_ObjectModelContext(nil);
-  {$IFDEF DELPHI}
-  if (_control <> nil) then
-    _control.RemoveFreeNotify(_freeNotification);
-  {$ENDIF}
-
-  _freeNotification := nil;
-  _control := nil;
-
-  inherited;
-end;
-
-procedure TControlBinding<T>.EndUpdate(FromNotifyModelEvent: Boolean = False);
-begin
-  if not FromNotifyModelEvent and _control.IsFocused then
-  begin
-    var textCtrl: ITextActions;
-    if interfaces.Supports<ITextActions>(_control, textCtrl) then
-    begin
-      var isPhoneOrTablet := {$IF Defined(ANDROID) or Defined(IOS)}True{$ELSE}False{$ENDIF};
-      if (not isPhoneOrTablet) or (textCtrl is TEdit) or (textCtrl is TMemo) then
-      begin
-//        textCtrl.SelectAll;
-        textCtrl.GoToTextEnd;
-      end;
-    end;
-  end;
-
-  inherited;
-end;
-
-function TControlBinding<T>.Equals(const other: CObject): Boolean;
-begin
-  Result := (get_Control = other.AsType<IControlBinding>.Control);
-end;
-
-procedure TControlBinding<T>.ExecuteFromLink(const Obj: CObject);
-begin
-  var &old := GetValue;
-
-  SetValue(__propertyInfo, Obj, __propertyInfo.GetValue(obj, []));
-
-  if not CObject.Equals(&old, GetValue) then
-    UpdatedByLink;
-end;
-
-procedure TControlBinding<T>.ExecuteOriginalOnChangeEvent;
-begin
-  if Assigned(_orgChangeEvent) then
-    _orgChangeEvent(_control);
-end;
-
-procedure TControlBinding<T>.FreeAndNilRect;
-begin
-  if _updated_rect <> nil then
-  begin
-    FreeAndNil(_updated_rect as TControl);
-    _updated_rect := nil;
-  end;
-
-  inc(_updated_rect_index);
-end;
-
-function TControlBinding<T>.get_Control: TControl;
-begin
-  Result := _Control;
-end;
-
-function TControlBinding<T>.get_Value: CObject;
-begin
-  Result := _value;
-end;
-
-procedure TControlBinding<T>.OnContextChanged(const Sender: IObjectModelContext; const Context: CObject);
-begin
-  CheckControlEditability(Context);
-end;
-
-procedure TControlBinding<T>.OnContextPropertyChanged(const Sender: IObjectModelContext; const Context: CObject; const AProperty: _PropertyInfo);
-begin
-  if (_control <> nil) and Sender.IsLink(Self, AProperty) then
-    CheckControlEditability(Context);
-end;
-
-procedure TControlBinding<T>.OnFreeNotificationDestroy;
-begin
-  _control := nil;
-
-  // is weak
-  if _ObjectModelContext <> nil then
-    _ObjectModelContext.Unbind(Self); // Note: this can free the binding
-end;
-
-procedure TControlBinding<T>.set_ObjectModelContext(const Value: IObjectModelContext);
-begin
-  if _ObjectModelContext <> nil then
-  begin
-    {$IFDEF DELPHI}
-    _ObjectModelContext.OnContextChanged.Remove(OnContextChanged);
-    _ObjectModelContext.OnPropertyChanged.Remove(OnContextPropertyChanged);
-    {$ELSE}
-    _ObjectModelContext.OnContextChanged -= OnContextChanged;
-    _ObjectModelContext.OnPropertyChanged -= OnContextPropertyChanged;
-    {$ENDIF}
-  end;
-
-  inherited;
-
-  if _ObjectModelContext <> nil then
-  begin
-    {$IFDEF DELPHI}
-    _ObjectModelContext.OnContextChanged.Add(OnContextChanged);
-    _ObjectModelContext.OnPropertyChanged.Add(OnContextPropertyChanged);
-    {$ELSE}
-    _ObjectModelContext.OnContextChanged += OnContextChanged;
-    _ObjectModelContext.OnPropertyChanged += OnContextPropertyChanged;
-    {$ENDIF}
-
-    OnContextChanged(_ObjectModelContext, _ObjectModelContext.Context);
-  end else
-    OnContextChanged(nil, nil);
-end;
-
-procedure TControlBinding<T>.set_Value(const Value: CObject);
-begin
-  _value := Value;
-  NotifyModel(self);
-end;
-
-procedure TControlBinding<T>.UpdateControlEditability(IsEditable: Boolean);
-begin
-  _control.Enabled := IsEditable;
-end;
-
-procedure TControlBinding<T>.HideAndClearUpdatedRect(const Index: Integer; const Rect: TRectangle);
-begin
-  {$IFDEF DELPHI}
-  TAnimator.AnimateFloatDelay(Rect, 'Opacity', 0, 0.4, 1);
-  TThread.ForceQueue(nil,
-    procedure
-    begin
-      // otherwise already freed
-      if (Index = _updated_rect_index) then
-        FreeAndNilRect;
-    end, 3000);
-  {$ENDIF}
-end;
-
-procedure TControlBinding<T>.UpdatedByLink;
-begin
-  FreeAndNilRect;
-
-  {$IFDEF DELPHI}
-  var rect := TRectangle.Create(_control);
-  rect.Height := _control.Height - 6;
-  rect.Width := 60;
-  rect.Align := TAlignLayout.None;
-  rect.Position.X := _control.Width - (rect.Width + 20);
-  rect.Position.Y := 3;
-  rect.Fill.Color := TAlphaColors.Lightblue;
-  rect.Stroke.Thickness := 0;
-  rect.XRadius := 3;
-  rect.YRadius := 3;
-  rect.Opacity := 0.7;
-  _control.AddObject(rect);
-
-  var title := TLabel.Create(rect);
-  title.Text := 'Updated';
-  title.Align := TAlignLayout.Client;
-  title.TextSettings.HorzAlign := TTextAlign.Center;
-  title.TextSettings.VertAlign := TTextAlign.Center;
-  rect.AddObject(title);
-
-  HideAndClearUpdatedRect(_updated_rect_index, rect);
-  _updated_rect := rect;
-  {$ENDIF}
-end;
-
-procedure TControlBinding<T>.ValidateControl(const ControlEvent: TNotifyEvent);
-begin
-  // 02/24 JvA: After unbind and rebind other controls can be bound
-  // If events are the same, we will get a infite loop.
-  // Events are getting strangled
-
-  {$IFDEF DELPHI}
-  var notifyEvent: TNotifyEvent := NotifyModel;
-  if Assigned(ControlEvent) and (TMethod(ControlEvent).Code = TMethod(notifyEvent).Code) then
-    raise Exception.Create('Events are getting strangled');
-  {$ELSE}
-  var notifyEvent: TNotifyEvent := @NotifyModel;
-  if Assigned(ControlEvent) and System.Delegate.Equals(ControlEvent, notifyEvent) then
-    raise Exception.Create('Events are getting strangled');
-  {$ENDIF}
-
-  {$IFDEF DELPHI}
-  _orgChangeEvent := ControlEvent;
-  {$ENDIF}
-end;
-
 { TDateControlBinding }
 
 constructor TDateControlBinding.Create(AControl: TDateEdit);
@@ -1590,6 +1592,8 @@ end;
 constructor TComboEditControlBinding.Create(AControl: TComboEdit);
 begin
   inherited Create(AControl);
+  _lastItemIndex := -1;
+
   ValidateControl(_Control.OnChangeTracking);
 
   // because OnChange is executed randomly by OnExit of the ComboEdit

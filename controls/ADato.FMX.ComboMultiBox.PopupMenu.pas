@@ -180,7 +180,7 @@ begin
   else if (Key in [vkDown, vkUp, vkPrior, vkNext, vkSpace]) or ((Key = vkA) and (ssCtrl in Shift)) then
     DataControl.KeyDown({var} Key, KeyChar, Shift);
 
-  if Key <> 0 then
+  if (Key <> 0) or (KeyChar <> #0) then
     inherited;
 end;
 
@@ -278,8 +278,8 @@ begin
   if (DataControl <> nil) and (DataControl.View <> nil) and (DataControl.SelectedItems(False) <> nil) then
     cbSelectAll.IsChecked := DataControl.View.ViewCount = DataControl.SelectedItems(False).Count;
 
-  lyFilter.Visible := (DataControl.DataList <> nil) and (DataControl.DataList.Count >= 4);
-  edSearch.Visible := (DataControl.DataList <> nil) and (DataControl.DataList.Count >= 8);
+  lyFilter.Visible := (DataControl.DataList <> nil) and (DataControl.DataList.Count >= 2);
+  edSearch.Visible := {$IFDEF DEBUG}lyFilter.Visible{$ELSE}(DataControl.DataList <> nil) and (DataControl.DataList.Count >= 8){$ENDIF};
 end;
 
 procedure TfrmComboMultiBoxPopup.TreeCellFormatting(const Sender: TObject; e: DCCellFormattingEventArgs);

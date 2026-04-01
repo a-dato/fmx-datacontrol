@@ -180,6 +180,7 @@ type
   end;
 
   TComboEditControlImpl = class(TEditControlImpl, IComboEditControl)
+  private
   protected
     _autoFilter: Boolean;
     _PickList: IList;
@@ -187,9 +188,12 @@ type
     _filterItem: TFilterItem;
     _ItemsShowing: IList;
     _BeforePopup: TComboBeforePopup;
+    _AutoSort: Boolean;
 
     function  get_AutoFilter: Boolean;
     procedure set_AutoFilter(const Value: Boolean);
+    function  get_AutoSort: Boolean;
+    procedure set_AutoSort(const Value: Boolean);
     function  get_ItemIndex: Integer; virtual;
     procedure set_ItemIndex(const Value: Integer); virtual;
     function  get_ItemCount: Integer; virtual;
@@ -1160,6 +1164,9 @@ begin
   end else
     items := ComboItems;
 
+  if _AutoSort then
+    items.Sort;
+
   ComboUpdateItems(items, currentValue);
 end;
 
@@ -1217,6 +1224,11 @@ begin
   Result := _autoFilter;
 end;
 
+function TComboEditControlImpl.get_AutoSort: Boolean;
+begin
+  Result := _AutoSort;
+end;
+
 function TComboEditControlImpl.get_BeforePopup: TComboBeforePopup;
 begin
   Result := _BeforePopup;
@@ -1235,6 +1247,11 @@ end;
 procedure TComboEditControlImpl.set_AutoFilter(const Value: Boolean);
 begin
   _autoFilter := Value;
+end;
+
+procedure TComboEditControlImpl.set_AutoSort(const Value: Boolean);
+begin
+  _AutoSort := Value;
 end;
 
 procedure TComboEditControlImpl.set_BeforePopup(const Value: TComboBeforePopup);

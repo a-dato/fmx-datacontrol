@@ -520,13 +520,14 @@ begin
     if ssAlt in Shift then
       Exit;
 
+    var wasEditOrNew := IsEditOrNew;
     if Key <> 0 then
     begin
       var isRowChange := (Key in [vkUp, vkDown, vkPrior, vkEnd, vkTab]);
       if not isRowChange and (ssCtrl in Shift) and (Key in [vkHome, vkEnd]) then
         isRowChange := True;
 
-      if isRowChange and IsEditOrNew then
+      if isRowChange and wasEditOrNew then
       begin
         var pt := _paintTime;
         if not CheckCanChangeRow then
@@ -564,6 +565,9 @@ begin
         TryScrollToCellByKey(Key, KeyChar);
     end;
     {$ENDIF}
+
+    if wasEditOrNew and not IsEditOrNew then
+      Key := 0;
   end;
 end;
 
@@ -1132,7 +1136,12 @@ begin
   Result := _editingInfo.IsNew;
   if Result then
   begin
-    _selectionInfo.SetFocusedItem(_editingInfo.EditItemDataIndex, _view.GetViewListIndex(_editingInfo.EditItemDataIndex), newDataItem);
+    _selectionInfo.BeginUpdate;
+    try
+      _selectionInfo.SetFocusedItem(_editingInfo.EditItemDataIndex, _view.GetViewListIndex(_editingInfo.EditItemDataIndex), newDataItem);
+    finally
+      _selectionInfo.EndUpdate(True {ignore change event});
+    end;
 
     // let the view know that we started with editing
     _view.StartEdit(_editingInfo.EditItem);
@@ -1336,7 +1345,10 @@ begin
 
   Result := _cellEditor <> nil;
   if Result and SetFocus then
+  begin
+    Cell.Row.UseBuffering := False;
     _cellEditor.Editor.SetFocus;
+  end;
 end;
 
 function TScrollControlWithEditableCells.CopyToClipBoard : Boolean;
