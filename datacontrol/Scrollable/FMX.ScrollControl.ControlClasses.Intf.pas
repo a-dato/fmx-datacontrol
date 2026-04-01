@@ -169,6 +169,8 @@ type
     ['{0A5E499C-31BB-42B8-BDD5-16EFA661C377}']
     function  get_AutoFilter: Boolean;
     procedure set_AutoFilter(const Value: Boolean);
+    function  get_AutoSort: Boolean;
+    procedure set_AutoSort(const Value: Boolean);
     function  get_ItemIndex: Integer;
     procedure set_ItemIndex(const Value: Integer);
     function  get_FilterItem: TFilterItem;
@@ -186,9 +188,10 @@ type
     procedure RefreshItems;
     procedure DropDown;
 
+    property AutoFilter: Boolean read get_AutoFilter write set_AutoFilter;
+    property AutoSort: Boolean read get_AutoSort write set_AutoSort;
     property ItemIndex: Integer read get_ItemIndex write set_ItemIndex;
     property BeforePopup: TComboBeforePopup read get_BeforePopup write set_BeforePopup;
-    property AutoFilter: Boolean read get_AutoFilter write set_AutoFilter;
     property FilterItem: TFilterItem read get_FilterItem write set_FilterItem;
     property FormatItem: TFormatItem read get_FormatItem write set_FormatItem;
     property PickList: IList read get_PickList write set_PickList;

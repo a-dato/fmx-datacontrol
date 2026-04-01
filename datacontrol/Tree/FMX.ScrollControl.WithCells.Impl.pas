@@ -1564,6 +1564,7 @@ begin
     vkEnd:    if not (ssCtrl in Shift) then Result := TRightLeftScroll.FullRight;
     vkLeft:   Result := TRightLeftScroll.Left;
     vkRight:  Result := TRightLeftScroll.Right;
+    vkTab:    Result := TRightLeftScroll.Right;
   end;
 end;
 
@@ -2143,7 +2144,9 @@ end;
 procedure TScrollControlWithCells.FastColumnAlignAfterColumnChange;
 begin
   _treeLayout.ForceRecalc;
-  ExecuteAfterRealignOnly(True);
+
+  if not _realignContentRequested then
+    ExecuteAfterRealignOnly(True);
 end;
 
 //procedure TScrollControlWithCells.OnSelectionCheckBoxChange(Sender: TObject);
@@ -2724,7 +2727,7 @@ procedure TScrollControlWithCells.DragDrop(const Data: TDragObject; const Point:
 begin
   if _dragDropOnIndividualRows then
   begin
-    var row := GetRowByLocalY(Point.Y) as IDCTreeRow;
+    var row := GetRowByLocalY(Point.Y - _content.Position.Y) as IDCTreeRow;
     if row = nil then Exit;
 
     var clmn := GetFlatColumnByMouseX(Point.X);
@@ -4035,21 +4038,6 @@ begin
     end;
 
     Exit(Result);
-
-//    if Cell.Column.SortType = TSortType.Displaytext then
-//      Exit(Result)
-//    else if Cell.Column.SortType = TSortType.CellData then
-//      // KV: 10/11/2025 -> This line should also return 'Result'
-//      Exit(cell.Data)
-//    else if Cell.Column.SortType = TSortType.ColumnCellComparer then
-//    begin
-//      if cell.Data <> nil then
-//        Exit(cell.Data)
-//      else if cellValue <> nil then
-//        Exit(cellValue)
-//      else
-//        Exit(Result);
-//    end;
   finally
     AtomicDecrement(_isSortingOrFiltering);
   end;

@@ -1346,7 +1346,9 @@ begin
     else if _waitForRepaintInfo.Current >= 0 then
     begin
       GenerateView;
-      Result := _view.GetViewList[_waitForRepaintInfo.Current];
+      if _waitForRepaintInfo.Current <= _view.ViewCount - 1 then
+        Result := _view.GetViewList[_waitForRepaintInfo.Current] else
+        Result := nil;
     end
     else
       Result := nil;
