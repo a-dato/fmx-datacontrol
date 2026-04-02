@@ -151,10 +151,14 @@ type
     _isExpandingOrCollapsing: Boolean;
     _scrollAfterExpandCollapse: Integer;
     _visualizeParentChilds: TVisualizeParentChilds;
+    _collapseOverlay: TRectangle;
 
     procedure VisualizeRowExpand(ViewListIndex: Integer);
     procedure VisualizeRowCollapse(ViewListIndex: Integer);
+    function CreateCollapseOverlay(const ParentRow: IDCRow; const ChildCount: Integer; out OverlayHeight: Single): Boolean;
+    procedure ClearCollapseOverlay;
     procedure OnExpandTimer(Sender: TObject);
+    procedure OnCollapseAnimationFinished(Sender: TObject);
     procedure OnCollapseTimer(Sender: TObject);
 
     procedure set_VisualizeParentChilds(const Value: TVisualizeParentChilds);
@@ -691,6 +695,8 @@ begin
     _rowHeightSynchronizer._rowHeightSynchronizer := nil;
     _rowHeightSynchronizer := nil;
   end;
+
+  ClearCollapseOverlay;
 
   inherited;
 end;
@@ -2519,6 +2525,56 @@ begin
   ani.Start;
 end;
 
+function TScrollControlWithRows.CreateCollapseOverlay(const ParentRow: IDCRow; const ChildCount: Integer; out OverlayHeight: Single): Boolean;
+begin
+  Result := False;
+  OverlayHeight := 0;
+
+  ClearCollapseOverlay;
+
+  for var rowChildIx := ParentRow.ViewPortIndex + 1 to ParentRow.ViewPortIndex + ChildCount do
+  begin
+    var row := _view.ActiveViewRows[rowChildIx];
+    if (row.Control = nil) or (row.Control.Parent <> _content) then
+      Continue;
+
+    if _collapseOverlay = nil then
+    begin
+      _collapseOverlay := TRectangle.Create(_content);
+      _collapseOverlay.Stored := False;
+      _collapseOverlay.Align := TAlignLayout.None;
+      _collapseOverlay.HitTest := False;
+      _collapseOverlay.ClipChildren := True;
+      _collapseOverlay.Fill.Kind := TBrushKind.None;
+      _collapseOverlay.Stroke.Kind := TBrushKind.None;
+      _content.AddObject(_collapseOverlay);
+    end;
+
+    var overlayImage := TImage.Create(_collapseOverlay);
+    overlayImage.Stored := False;
+    overlayImage.Align := TAlignLayout.None;
+    overlayImage.HitTest := False;
+    overlayImage.Bitmap.Assign(FMX.Graphics.TBitmap(row.Control.MakeScreenshot));
+    overlayImage.Position.X := 0;
+    overlayImage.Position.Y := OverlayHeight;
+    overlayImage.Width := row.Control.Width;
+    overlayImage.Height := row.Height;
+    _collapseOverlay.AddObject(overlayImage);
+
+    OverlayHeight := OverlayHeight + row.Height;
+  end;
+
+  Result := (_collapseOverlay <> nil) and not SameValue(OverlayHeight, 0);
+  if not Result then
+    ClearCollapseOverlay;
+end;
+
+procedure TScrollControlWithRows.ClearCollapseOverlay;
+begin
+  if _collapseOverlay <> nil then
+    FreeAndNil(_collapseOverlay);
+end;
+
 procedure TScrollControlWithRows.VisualizeRowExpand(ViewListIndex: Integer);
 begin
   _isExpandingOrCollapsing := True;
@@ -2552,12 +2608,20 @@ begin
     StopIgnoreMasterSynchronizer(doIgnoreMaster);
   end;
 
-  if ViewListIndex <> _selectionInfo.ViewListIndex then
-  begin
-    InternalSetCurrent(ViewListIndex, TSelectionEventTrigger.Key, []);
-    RealignFromSelectionChange;
-  end else
-    DoRealignContent;
+  // avoid showing line dependencies in Gantt...
+  var oldScrolling := _scrollingType;
+  _scrollingType := TScrollingType.Other;
+  try
+    if ViewListIndex <> _selectionInfo.ViewListIndex then
+    begin
+      InternalSetCurrent(ViewListIndex, TSelectionEventTrigger.Key, []);
+      RealignFromSelectionChange;
+      _realignContentRequested := False;
+    end else
+      DoRealignContent;
+  finally
+    _scrollingType := oldScrolling;
+  end;
 
   StopWaitForRealignTimer;
 
@@ -2681,8 +2745,6 @@ begin
     Exit;
   end;
 
-  var drv := parentRow.DataItem.AsType<IDataRowView>;
-
   if ViewListIndex <> _selectionInfo.ViewListIndex then
   begin
     _selectionInfo.BeginUpdate;
@@ -2693,30 +2755,93 @@ begin
     end;
   end;
 
+  var orgHeight := parentRow.Height;
+  var childCount := 0;
+  if _view.ActiveViewRows.Count > parentRow.ViewPortIndex + 1 then
+  begin
+    var parentLevel := parentRow.ParentCount;
+    var childIx := parentRow.ViewPortIndex + 1;
+    while (_view.ActiveViewRows.Count > childIx) and (_view.ActiveViewRows[childIx].ParentCount > parentLevel) do
+    begin
+      inc(childIx);
+      inc(childCount);
+    end;
+  end;
 
-//  var childCount := 0;
-//  if _view.ActiveViewRows.Count > parentRow.ViewPortIndex + 1 then
-//  begin
-//    var parentLevel := parentRow.ParentCount;
-//    var childIx := parentRow.ViewPortIndex + 1;
-//    var childLevel := _view.ActiveViewRows[parentRow.ViewPortIndex + 1].ParentCount;
-//    while (_view.ActiveViewRows.Count > childIx) and (_view.ActiveViewRows[childIx].ParentCount > parentLevel) do
-//    begin
-//      inc(childIx);
-//      inc(childCount);
-//    end;
-//  end;
-//
-//  // hide children
-//  for var rowChildIx := parentRow.ViewPortIndex + 1 to parentRow.ViewPortIndex + childCount do
-//  begin
-//    var row := _view.ActiveViewRows[rowChildIx];
-//    var pos := row.Control.Position.Y;
-//    AnimateRow(row, pos, pos, True, True);
-//  end;
+  if childCount = 0 then
+  begin
+    OnCollapseTimer(nil);
+    Exit;
+  end;
 
-//  ExecuteAfterAnimateRow(parentRow, OnCollapseTimer);
-  OnCollapseTimer(nil);
+  var overlayHeight: Single := 0.0;
+  if not CreateCollapseOverlay(parentRow, childCount, overlayHeight) then
+  begin
+    OnCollapseTimer(nil);
+    Exit;
+  end;
+
+  var doIgnoreMaster := TryStartIgnoreMasterSynchronizer(True);
+  try
+    ResetView(ViewListIndex);
+  finally
+    StopIgnoreMasterSynchronizer(doIgnoreMaster);
+  end;
+
+  if ViewListIndex <> _selectionInfo.ViewListIndex then
+  begin
+    InternalSetCurrent(ViewListIndex, TSelectionEventTrigger.Key, []);
+    RealignFromSelectionChange;
+    _realignContentRequested := False;
+  end else
+    DoRealignContent;
+
+  StopWaitForRealignTimer;
+
+  parentRow := _view.GetActiveRowIfExists(ViewListIndex);
+  if (parentRow = nil) or (parentRow.Control = nil) then
+  begin
+    ClearCollapseOverlay;
+    OnCollapseTimer(nil);
+    Exit;
+  end;
+
+  var newHeight := parentRow.Height;
+  var parentRowDiff := orgHeight - newHeight;
+  if not SameValue(parentRowDiff, 0) then
+  begin
+    parentRow.Control.Height := orgHeight;
+    parentRow.Control.AnimateFloatDelay('Height', newHeight, ANI_DURATION, ANI_DELAY, TAnimationType.InOut, TInterpolationType.Quadratic);
+  end;
+
+  _collapseOverlay.Position.X := parentRow.Control.Position.X;
+  _collapseOverlay.Position.Y := parentRow.Control.Position.Y + orgHeight;
+  _collapseOverlay.Width := CalculateRowControlWidth(False);
+  _collapseOverlay.Height := overlayHeight;
+  _collapseOverlay.Opacity := 1;
+  _collapseOverlay.BringToFront;
+  _collapseOverlay.AnimateFloatDelay('Position.Y', parentRow.Control.Position.Y + newHeight, ANI_DURATION, ANI_DELAY, TAnimationType.InOut, TInterpolationType.Quadratic);
+  _collapseOverlay.AnimateFloatDelay('Height', 0, ANI_DURATION, ANI_DELAY, TAnimationType.InOut, TInterpolationType.Quadratic);
+  _collapseOverlay.AnimateFloatDelay('Opacity', 0, ANI_DURATION, ANI_DELAY, TAnimationType.InOut, TInterpolationType.Quadratic);
+
+  for var rowBelowIx := parentRow.ViewPortIndex + 1 to _view.ActiveViewRows.Count - 1 do
+  begin
+    var row := _view.ActiveViewRows[rowBelowIx];
+    if row.Control = nil then
+      Continue;
+
+    var stopPos := row.Control.Position.Y;
+    var startPos := stopPos + overlayHeight + parentRowDiff;
+    AnimateRow(row, startPos, stopPos, False, False);
+  end;
+
+  ExecuteAfterAnimateRow(parentRow, OnCollapseAnimationFinished);
+end;
+
+procedure TScrollControlWithRows.OnCollapseAnimationFinished(Sender: TObject);
+begin
+  ClearCollapseOverlay;
+  OnCollapseTimer(Sender);
 end;
 
 procedure TScrollControlWithRows.OnCollapseTimer(Sender: TObject);
@@ -3487,7 +3612,10 @@ begin
   try
     var val := _vertScrollBar.Value;
 
-    StartScrolling;
+    var wasScrolling := _scrollingType <> TScrollingType.None;
+
+    if not wasScrolling then
+      StartScrolling;
     try
       var isInRealignProcess := not (_realignState in [TRealignState.Waiting, TRealignState.RealignDone]);
 
@@ -3503,10 +3631,16 @@ begin
       if not isInRealignProcess then
         ExecuteAfterRealignOnly(False);
     finally
-      StopScrolling;
+      if not wasScrolling then
+        StopScrolling;
     end;
 
-    RefreshControl; // update UseBuffering..
+    // I dont know anymore why RefreshControl, when we can also simply call AfterScrolling to end UseBuffering
+    // therefor I changed this behavior...
+    // also needed for expanding rows nicely..
+//    RefreshControl; // update UseBuffering.
+    if not wasScrolling then
+      AfterScrolling;
   finally
     StopMasterSynchronizer(goMaster);
   end;

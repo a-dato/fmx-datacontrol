@@ -466,8 +466,11 @@ begin
     Exit;
   end;
 
-  var destRect := RectF(0, 0, Self.Width, Self.Height);
-  Canvas.DrawBitmap(_bitmap, RectF(0, 0, _bitmap.Width, _bitmap.Height), destRect, 1.0, False);
+  if _bitmap <> nil then
+  begin
+    var destRect := RectF(0, 0, Self.Width, Self.Height);
+    Canvas.DrawBitmap(_bitmap, RectF(0, 0, _bitmap.Width, _bitmap.Height), destRect, 1.0, False);
+  end;
 end;
 
 procedure TAdaptableBitmapLayout.PaintChildren;
