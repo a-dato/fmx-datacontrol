@@ -23,6 +23,8 @@ type
     _Index: Integer;
     _Position: InsertPosition;
     _SavedContext: CObject;
+
+    _IsAddingNew: Boolean;
     {$IFNDEF WEBASSEMBLY}[weak]{$ENDIF}_Owner: IObjectListModel;
 
     function  get_IsChanged: Boolean;
@@ -73,16 +75,22 @@ begin
   _IsNew := True;
   _Index := Index;
 
-  inherited set_Context(item);
-
-  var notify: INotifyListItemChanged;
-  if interfaces.Supports<INotifyListItemChanged>(_Owner, notify) then
-    notify.NotifyAddingNew(Self, {var} _Index, Position);
-
+  // put before set_Context, because get_IsNew will otherwise return False during ContextChange in set_Context
   var cln: ICloneable;
   if _Context.TryGetValue<ICloneable>(cln) then
     _SavedContext := cln.Clone else
     _SavedContext := Item;
+
+  _IsAddingNew := True;
+  try
+    inherited set_Context(Item);
+  finally
+    _IsAddingNew := False;
+  end;
+
+  var notify: INotifyListItemChanged;
+  if interfaces.Supports<INotifyListItemChanged>(_Owner, notify) then
+    notify.NotifyAddingNew(Self, {var} _Index, Position);
 end;
 
 procedure TEditableObjectModelContext.BeginEdit(Index: Integer);
@@ -185,7 +193,7 @@ end;
 procedure TEditableObjectModelContext.DoContextChanging;
 begin
   inherited;
-  if (_UpdateCount = 0) then
+  if (_UpdateCount = 0) and not _IsAddingNew then
     EndEdit;
 end;
 
