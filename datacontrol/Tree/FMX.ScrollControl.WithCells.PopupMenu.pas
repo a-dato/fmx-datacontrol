@@ -132,7 +132,7 @@ type
     function  get_Stop: CDateTime;
     procedure set_Stop(const Value: CDateTime);
 
-    procedure TreeCellSelected(const Sender: TObject; e: DCCellSelectedEventArgs);
+    procedure TreeCellSelected(Sender: TObject);
     procedure TreeCellFormatting(const Sender: TObject; e: DCCellFormattingEventArgs);
 
   public
@@ -142,8 +142,7 @@ type
     function  SelectedItems(out NullValueSelected: Boolean) : List<CObject>;
 
     procedure EnableItem(Index: integer; Value: boolean);
-    procedure LoadFilterItems(const Data: Dictionary<CObject, CString>; const Comparer: IComparer<CObject>; const Selected: List<CObject>;
-      ShowNullValue: Boolean; SelectNullValue: Boolean; UseTextCompare: Boolean);
+    procedure LoadFilterItems(const Data: Dictionary<CObject, CString>; const Comparer: IComparer<CObject>; const Selected: List<CObject>; ShowNullValue: Boolean; SelectNullValue: Boolean; UseTextCompare: Boolean);
     procedure LoadDateRange(const Start: CDateTime; const Stop: CDateTime; ShowTimeValue: Boolean);
 
     property  PopupResult: TPopupResult read _PopupResult;
@@ -247,7 +246,7 @@ begin
   _dataControl.Align := TAlignLayout.Client;
   _dataControl.Options := [TDCTreeOption.MultiSelect];
   _dataControl.RowHeightFixed := 26;
-  _dataControl.CellSelected := TreeCellSelected;
+  _dataControl.OnSelectionChanged := TreeCellSelected;
   _dataControl.CellFormatting := TreeCellFormatting;
 
   filterlist.AddObject(_dataControl);
@@ -278,9 +277,7 @@ begin
   Close;
 end;
 
-procedure TfrmFMXPopupMenuDataControl.LoadFilterItems(const Data: Dictionary<CObject, CString>;
-    const Comparer: IComparer<CObject>; const Selected: List<CObject>;
-    ShowNullValue: Boolean; SelectNullValue: Boolean; UseTextCompare: Boolean);
+procedure TfrmFMXPopupMenuDataControl.LoadFilterItems(const Data: Dictionary<CObject, CString>; const Comparer: IComparer<CObject>; const Selected: List<CObject>; ShowNullValue: Boolean; SelectNullValue: Boolean; UseTextCompare: Boolean);
 begin
   tcFilterControls.ActiveTab := tsTreeControl;
 
@@ -308,6 +305,8 @@ begin
 
   if SelectNullValue then
     _dataControl.AddToSelection(NO_VALUE, False);
+
+  btnApplyFilters.Enabled := False;
 end;
 
 procedure TfrmFMXPopupMenuDataControl.LoadDateRange(const Start: CDateTime; const Stop: CDateTime; ShowTimeValue: Boolean);
@@ -336,6 +335,9 @@ end;
 function TfrmFMXPopupMenuDataControl.SelectedItems(out NullValueSelected: Boolean) : List<CObject>;
 begin
   var selected := _dataControl.SelectedItems(False);
+  if selected = nil then
+    Exit(nil);
+
   NullValueSelected := False;
 
   Result := CList<CObject>.Create(selected.Count);
@@ -398,7 +400,7 @@ begin
   btnApplyDateRange.Enabled := True;
 end;
 
-procedure TfrmFMXPopupMenuDataControl.TreeCellSelected(const Sender: TObject; e: DCCellSelectedEventArgs);
+procedure TfrmFMXPopupMenuDataControl.TreeCellSelected(Sender: TObject);
 begin
   btnApplyFilters.Enabled := True;
 end;

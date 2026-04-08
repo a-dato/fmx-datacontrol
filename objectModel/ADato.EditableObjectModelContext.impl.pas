@@ -182,7 +182,7 @@ end;
 
 function TEditableObjectModelContext.get_IsNew: Boolean;
 begin
-  Result := (_savedContext <> nil) and _IsNew;
+  Result := (_savedContext <> nil) and not _IsAddingNew and _IsNew;
 end;
 
 function TEditableObjectModelContext.get_IsEditOrNew: Boolean;

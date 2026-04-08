@@ -232,7 +232,8 @@ function TTreeFilterDescriptionWithRow.IsMatch(const Value: CObject; DataIndex: 
 
   function MatchText(const TextData: CObject): Boolean;
   begin
-    Result := False;
+    Result := (_FilterValues = nil) or (_FilterValues.Count = 0);
+    // Result := False; => old code, don't know why Result was set to false when CString.IsNullOrEmpty(_FilterText)
 
     if not CString.IsNullOrEmpty(_FilterText) then
     begin
