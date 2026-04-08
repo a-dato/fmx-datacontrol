@@ -1,4 +1,4 @@
-﻿unit ADato.FMX.FastControls.Text;
+unit ADato.FMX.FastControls.Text;
 
 interface
 
@@ -115,6 +115,7 @@ type
     function  GetDefaultSize: TSizeF; override;
 
     procedure Calculate; virtual;
+    procedure EnsureLayoutForCanvas(const ACanvas: TCanvas);
     procedure RecalcNeeded;
     procedure RepaintNeeded;
 
@@ -251,18 +252,35 @@ begin
 //  _subTextBounds := _subTextlayout.TextRect;
 end;
 
+procedure TFastText.EnsureLayoutForCanvas(const ACanvas: TCanvas);
+begin
+  var layoutClass := TTextLayoutManager.DefaultTextLayout;
+  if ACanvas <> nil then
+    layoutClass := TTextLayoutManager.TextLayoutByCanvas(ACanvas.ClassType);
+
+  if (_layout = nil) or (_layout.ClassType <> layoutClass) then
+  begin
+    FreeAndNil(_layout);
+    _layout := layoutClass.Create(ACanvas);
+    _layout.Font.Family := APPLICATION_FONT_FAMILY;
+    _recalcNeeded := True;
+  end;
+
+  if _layout.LayoutCanvas <> ACanvas then
+    _layout.LayoutCanvas := ACanvas;
+end;
+
 procedure TFastText.CalculateText(const MaxWidth, MaxHeight: Single);
 begin
+  var layoutCanvas := Self.Canvas;
+  if layoutCanvas = nil then
+    layoutCanvas := TCanvasManager.MeasureCanvas;
+
+  EnsureLayoutForCanvas(layoutCanvas);
+
   _layout.BeginUpdate;
   try
-    _layout.Text := GetText;                
-
-    if _layout.LayoutCanvas = nil then
-    begin
-      if Self.Canvas <> nil then
-        _layout.LayoutCanvas := Self.Canvas else
-        _layout.LayoutCanvas := TCanvasManager.MeasureCanvas; // measureCanvas is fine and shows also correctly
-    end;
+    _layout.Text := GetText;
 
     _layout.LayoutCanvas.Font.Size := _settings.Font.Size;
     _layout.TopLeft := PointF(0,0);
@@ -395,6 +413,10 @@ begin
 
   if not _ignoreDefaultPaint then
   begin
+    EnsureLayoutForCanvas(Canvas);
+    if _recalcNeeded then
+      Calculate;
+
     PrepareTextForPaint;
 
     _layout.RenderLayout(Canvas);

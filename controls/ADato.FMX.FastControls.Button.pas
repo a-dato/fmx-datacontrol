@@ -224,6 +224,7 @@ type
 
   TFastButton = class(TADatoClickLayout, IIsChecked)
   private
+    _lock: IInterface;
     _buttonType: TButtonType;
     _emphasizePicture: Boolean;
     _showHoverEffect: Boolean;
@@ -1001,6 +1002,8 @@ constructor TFastButton.Create(AOwner: TComponent);
 begin
   inherited;
 
+  _lock := TInterfacedObject.Create;
+
   HitTest := True;
   Width := 100;
   Height := 25;
@@ -1217,15 +1220,21 @@ begin
 end;
 
 procedure TFastButton.Painting;
-begin
-  if _recalcNeeded then
+
+  procedure SafeQueue([weak]lock: IInterface);
   begin
     TThread.ForceQueue(nil, procedure
     begin
+      if lock = nil then
+        Exit;
       Calculate;
       Repaint;
     end);
   end;
+
+begin
+  if _recalcNeeded then
+    SafeQueue(_lock);
 
   inherited;
 end;
