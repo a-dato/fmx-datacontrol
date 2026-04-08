@@ -253,12 +253,12 @@ type
   TComboEditControlBinding = class(TControlBinding<TComboEdit>)
   protected
     _lastItemIndex: Integer;
+    _lastItemText: string;
 
     function  GetValue: CObject; override;
     procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject); override;
 
     procedure UpdateControlEditability(IsEditable: Boolean); override;
-
     procedure NotifyModel(Sender: TObject); override;
 
   public
@@ -1592,7 +1592,9 @@ end;
 constructor TComboEditControlBinding.Create(AControl: TComboEdit);
 begin
   inherited Create(AControl);
+
   _lastItemIndex := -1;
+  _lastItemText := '';
 
   ValidateControl(_Control.OnChangeTracking);
 
@@ -1653,6 +1655,7 @@ begin
       end;
 
       _lastItemIndex := _Control.ItemIndex;
+      _lastItemText := _Control.Text;
     finally
       EndUpdate;
     end;
@@ -1672,9 +1675,14 @@ begin
   // because OnChange is executed randomly by OnExit of the ComboEdit
   // and not executed at all when mouse wheel scroll changes the itemIndex
   // So we Use OnChangeTracking, but keep out every key change
-  if _lastItemIndex <> _control.ItemIndex then
+  if (_lastItemIndex <> _control.ItemIndex) or (_lastItemText <> _control.Text) then
   begin
     _lastItemIndex := _control.ItemIndex;
+
+    if _control.ItemIndex <> -1 then
+      _lastItemText := _control.Items[_control.ItemIndex] else
+      _lastItemText := '';
+
     inherited;
   end;
 end;

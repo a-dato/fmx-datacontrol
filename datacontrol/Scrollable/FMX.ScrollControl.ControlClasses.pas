@@ -1055,6 +1055,7 @@ begin
     layout.WordWrap := False;
     layout.Font := ce.TextSettings.Font;
     var maxWidth := 0.0;
+    var maxHeight := 14.0;
 
     var ix: Integer;
     for ix := 0 to ce.Items.Count - 1 do
@@ -1063,9 +1064,12 @@ begin
       layout.Text := ce.Items[ix];
       layout.EndUpdate;
       maxWidth := System.Math.Max(maxWidth, layout.Width);
+      maxHeight := System.Math.Max(maxHeight, layout.Height);
     end;
 
     ce.ItemWidth := CMath.Max(ce.width, maxWidth + 10);
+    ce.ItemHeight := maxHeight + 3;
+    ce.DropDownCount := CMath.Max(CMath.Min(8, ce.Items.Count), 2);
   finally
     layout.Free;
   end;

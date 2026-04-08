@@ -967,16 +967,44 @@ begin
 end;
 
 procedure TFastButton.Calculate;
+
+  procedure SafeQueue([weak]lock: IInterface);
+  begin
+    TThread.ForceQueue(nil, procedure
+    begin
+      if lock = nil then
+        Exit;
+
+      var newWidth := _innerBounds.Width + 2*GetSidePadding;
+      if not SameValue(Self.Width, newWidth) then
+      begin
+        Self.Width := newWidth;
+        _recalcNeeded := True;
+        Calculate;
+        Repaint;
+      end;
+    end);
+  end;
+
 begin
   if _recalcNeeded then
   begin
     _recalcNeeded := False;
     inherited;
 
-    var innerPadding := GetSidePadding;
     if _autoWidth then
-      Self.Width := _innerBounds.Width + 2*innerPadding;
+    begin
+      if FInPaintTo then
+      begin
+        if _lock = nil then
+          _lock := TInterfacedObject.Create;
 
+        SafeQueue(_lock);
+      end else
+        Self.Width := _innerBounds.Width + 2*GetSidePadding;
+    end;
+
+    var innerPadding := GetSidePadding;
     var horzAlign := get_ContentHorzAlign;
     if ((Width - InnerBounds.Width) / 2) < innerPadding then
       horzAlign := TTextAlign.Center;
@@ -1001,8 +1029,6 @@ end;
 constructor TFastButton.Create(AOwner: TComponent);
 begin
   inherited;
-
-  _lock := TInterfacedObject.Create;
 
   HitTest := True;
   Width := 100;
@@ -1220,22 +1246,8 @@ begin
 end;
 
 procedure TFastButton.Painting;
-
-  procedure SafeQueue([weak]lock: IInterface);
-  begin
-    TThread.ForceQueue(nil, procedure
-    begin
-      if lock = nil then
-        Exit;
-      Calculate;
-      Repaint;
-    end);
-  end;
-
 begin
-  if _recalcNeeded then
-    SafeQueue(_lock);
-
+  Calculate;
   inherited;
 end;
 
