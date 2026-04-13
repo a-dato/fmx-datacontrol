@@ -326,6 +326,7 @@ type
     destructor Destroy; override;
 
     function  FitRowsDownwards(StartIndex: Integer): Integer;
+    function  GetActiveRow: IDCRow;
 
     // drag & drop
     procedure BeginDrag;

@@ -1745,7 +1745,7 @@ type
     {$IFDEF FAST_LOAD}
     function  HasFixedRowHeight: Boolean;
     {$ENDIF}
-    function  GetColumnFilter(const Column: ITreeLayoutColumn) : ITreeFilterDescription;
+    function  GetColumnFilter(const LayoutColumn: ITreeLayoutColumn) : ITreeFilterDescription;
     function  GetCellIndexAt(xPos: Integer) : Integer;
     function  GetColumnIndexAt(xPos: Integer) : Integer;
     function  GetCellAt(const Row: ITreeRow; pos: Integer) : ITreeCell;
@@ -4181,14 +4181,15 @@ begin
     Result := GetVisibleCell(row.Cells, Index);
 end;
 
-function TCustomTreeControl.GetColumnFilter(const Column: ITreeLayoutColumn) : ITreeFilterDescription;
+function TCustomTreeControl.GetColumnFilter(const LayoutColumn: ITreeLayoutColumn) : ITreeFilterDescription;
 begin
   // Filter exists for current column?
   if _filterDescriptions <> nil then
     Result := _filterDescriptions.Find(
                   function (const x: ITreeFilterDescription) : Boolean
                   begin
-                    Result := CObject.ReferenceEquals(x.LayoutColumn, Column);
+                    Result := ((x.LayoutColumn <> nil) and x.LayoutColumn.Equals(LayoutColumn));
+                    //Result := CObject.ReferenceEquals(x.LayoutColumn, Column);
                   end)
   else
     Result := nil;

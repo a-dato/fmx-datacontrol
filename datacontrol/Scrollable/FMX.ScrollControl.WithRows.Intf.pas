@@ -181,10 +181,11 @@ type
     function  get_UseBuffering: Boolean;
     procedure set_UseBuffering(const Value: Boolean);
 
+    function  ControlAsRowLayout: IRowLayout;
+
     function  Height: Single;
     function  HasChildren: Boolean;
     function  HasVisibleChildren: Boolean;
-    function  ParentCount: Integer;
     function  IsChildOf(const DataItem: CObject): Boolean;
     function  IsParentOf(const DataItem: CObject): Boolean;
     function  IsOddRow: Boolean;
@@ -193,7 +194,7 @@ type
     function  IsClearedForReassignment: Boolean;
     function  IsScrollingIntoView: Boolean;
 
-    function  ControlAsRowLayout: IRowLayout;
+    function  ParentCount: Integer;
     procedure UpdateSelectionVisibility(const SelectionInfo: IRowSelectionInfo; OwnerIsFocused: Boolean);
 
     property RowsControl: IRowsControl read get_RowsControl;
