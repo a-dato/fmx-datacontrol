@@ -170,6 +170,22 @@ begin
 end;
 
 function MemoTextHeight(const Memo: TMemo; MinHeight: Single = -1; MaxHeight: Single = -1): Single;
+
+  function GetLineHeight(const Layout: TTextLayout; const Line: string = ''): Single;
+  begin
+    Layout.BeginUpdate;
+    try
+      // also empty line height should be taken into account
+      if line = '' then
+        Layout.Text := 'Gg' else
+        Layout.Text := line;
+    finally
+      Layout.EndUpdate;
+    end;
+
+    Result := Layout.TextRect.Bottom - 4; {margin top bottom}
+  end;
+
 begin
   if Memo.Canvas = nil then
     Result := (Memo.Lines.Count * Memo.Font.Size) + 10
@@ -192,21 +208,12 @@ begin
         Layout.EndUpdate;
       end;
 
-      var ix: Integer;
-      for ix := 0 to Memo.Lines.Count - 1 do
+      Result := Result + GetLineHeight(Layout);
+      if Memo.Lines.Count > 0 then
       begin
-        Layout.BeginUpdate;
-        try
-          var line := Memo.Lines[ix];
-          // also empty line height should be taken into account
-          if line = '' then
-            Layout.Text := 'p' else
-            Layout.Text := line;
-        finally
-          Layout.EndUpdate;
-        end;
-
-        Result := Result + Layout.TextRect.Bottom - 6 {margins bottom-top};
+        var ix: Integer;
+        for ix := 0 to Memo.Lines.Count - 1 do
+          Result := Result + GetLineHeight(Layout, Memo.Lines[ix]);
       end;
     finally
       Layout.Free;

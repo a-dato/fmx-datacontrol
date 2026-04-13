@@ -305,7 +305,8 @@ type
     function  GetSelectableViewIndex(const FromViewListIndex: Integer; const Increase: Boolean; const FirstRound: Boolean = True): Integer;
 
     function  GetRowViewListIndexByKey(const Key: Word; Shift: TShiftState): Integer;
-    function  GetActiveRow: IDCRow;
+    function  GetActiveRow(CheckRealign: Boolean = False): IDCRow;
+    function  RealignContentRequested: Boolean; override;
 
   protected
     procedure OnViewChanged(Sender: TObject; e: EventArgs); virtual;
@@ -513,7 +514,7 @@ type
 
     function  Clone: IRowSelectionInfo; virtual;
 
-    procedure DoDataItemChanged;
+    procedure DoCurrentChanged;
     procedure DoMultiSelectChanged;
 //    procedure SetFocusedItem(const DataIndex, ViewListIndex: Integer; const DataItem: CObject);
 
@@ -1199,10 +1200,20 @@ begin
   end;
 end;
 
-function TScrollControlWithRows.GetActiveRow: IDCRow;
+function TScrollControlWithRows.RealignContentRequested: Boolean;
 begin
+  Result := inherited;
+  if not Result and (_rowHeightSynchronizer <> nil) then
+    Result := _rowHeightSynchronizer._realignContentRequested;
+end;
+
+function TScrollControlWithRows.GetActiveRow(CheckRealign: Boolean = False): IDCRow;
+begin
+  if CheckRealign and RealignContentRequested and CanRealignContent then
+    ForceImmeditiateRealignContent;
+
   if _view = nil then
-    Exit;
+    Exit(nil);
 
   var row: IDCRow;
   for row in _view.ActiveViewRows do
@@ -1352,7 +1363,7 @@ begin
     else if _waitForRepaintInfo.Current >= 0 then
     begin
       GenerateView;
-      if _waitForRepaintInfo.Current <= _view.ViewCount - 1 then
+      if (_view <> nil) and (_waitForRepaintInfo.Current <= _view.ViewCount - 1) then
         Result := _view.GetViewList[_waitForRepaintInfo.Current] else
         Result := nil;
     end
@@ -4768,11 +4779,11 @@ begin
       DoMultiSelectChanged;
 
     if _focusedChanged then
-      DoDataItemChanged;
+      DoCurrentChanged;
   end;
 end;
 
-procedure TRowSelectionInfo.DoDataItemChanged;
+procedure TRowSelectionInfo.DoCurrentChanged;
 begin
   // check if we are dealing with clone
   if _rowsControl = nil then
@@ -4832,7 +4843,7 @@ begin
     _focusedItem := TRowDataItemInfo.Empty
   end;
 
-  DoDataItemChanged;
+  DoCurrentChanged;
 end;
 
 { TWaitForRepaintInfo }

@@ -341,7 +341,7 @@ type
     function  Content: TControl;
     function  FullColumnList: IList<IDCTreeColumn>;
     function  GetItemType: &Type;
-    function  GetActiveCell: IDCTreeCell;
+    function  GetActiveCell(CheckRealign: Boolean = False): IDCTreeCell;
 
     function  RadioInsteadOfCheck: Boolean;
 

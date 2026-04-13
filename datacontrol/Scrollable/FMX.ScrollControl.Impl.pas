@@ -185,6 +185,7 @@ type
     procedure DoContentResized(WidthChanged, HeightChanged: Boolean); virtual;
 
     function  CanRealignContent: Boolean; virtual;
+    function  RealignContentRequested: Boolean; virtual;
 
   public
     constructor Create(AOwner: TComponent); override;
@@ -376,7 +377,7 @@ end;
 
 procedure TScrollControl.BeforePainting;
 begin
-  if _realignContentRequested and CanRealignContent then
+  if RealignContentRequested and CanRealignContent then
   begin
     SetBasicVertScrollBarValues;
     DoRealignContent;
@@ -1209,6 +1210,11 @@ begin
   MouseWheel([], -120, Handled);
 end;
 {$ENDIF}
+
+function TScrollControl.RealignContentRequested: Boolean;
+begin
+  Result := _realignContentRequested;
+end;
 
 procedure TScrollControl.RequestRealignContent;
 begin

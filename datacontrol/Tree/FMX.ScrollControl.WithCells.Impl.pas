@@ -283,7 +283,7 @@ type
     function  OnGetCellDataForSorting(const Cell: IDCTreeCell): CObject;
     function  IsSortingOrFiltering: Boolean;
     function  IsSpecifiedColumnReload: Boolean;
-    function  GetActiveCell: IDCTreeCell;
+    function  GetActiveCell(CheckRealign: Boolean = False): IDCTreeCell;
 
     procedure RefreshColumn(const Column: IDCTreeColumn);
     procedure ColumnsChangedFromExternal;
@@ -1439,9 +1439,9 @@ begin
   inherited;
 end;
 
-function TScrollControlWithCells.GetActiveCell: IDCTreeCell;
+function TScrollControlWithCells.GetActiveCell(CheckRealign: Boolean = False): IDCTreeCell;
 begin
-  var row := GetActiveRow as IDCTreeRow;
+  var row := GetActiveRow(CheckRealign) as IDCTreeRow;
   if (row = nil) or (row.Cells.Count = 0) then
     Exit(nil);
 
@@ -1564,7 +1564,10 @@ begin
     vkEnd:    if not (ssCtrl in Shift) then Result := TRightLeftScroll.FullRight;
     vkLeft:   Result := TRightLeftScroll.Left;
     vkRight:  Result := TRightLeftScroll.Right;
-    vkTab:    Result := TRightLeftScroll.Right;
+    vkTab:
+      if ssShift in Shift then
+        Result := TRightLeftScroll.Left else
+        Result := TRightLeftScroll.Right;
   end;
 end;
 
@@ -1596,7 +1599,8 @@ begin
   end
   else if flatColumn.Column.IsSelectionColumn then
   begin
-    if flatColumn.Column.ReadOnly or (TreeOption_ReadOnly in _options) then
+    // TreeOption_ReadOnly is ment for editing.. Has nothing to do with selection! :)
+    if flatColumn.Column.ReadOnly {or (TreeOption_ReadOnly in _options)}  then
       Exit;
 
     var treeRow := clickedRow as IDCTreeRow;
@@ -2259,13 +2263,7 @@ begin
   if not _selectionInfo.HasFocusedItem then
     Exit;
 
-  var cell := GetActiveCell;
-  if (cell = nil) and _realignContentRequested then
-  begin
-    ForceImmeditiateRealignContent;
-    cell := GetActiveCell; // can still be nil..
-  end;
-
+  var cell := GetActiveCell(True);
   if cell <> nil then
     DoCellSelected(cell, _selectionInfo.LastSelectionEventTrigger);
 end;

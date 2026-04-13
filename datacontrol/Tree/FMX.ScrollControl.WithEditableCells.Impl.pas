@@ -1136,6 +1136,9 @@ begin
   Result := _editingInfo.IsNew;
   if Result then
   begin
+    // do not execute FocusedChanged!!
+    // the reason is that the models are already in IsNew mode since the new item is already created here
+    // but setting the focused item here will trigger a try to EndEdit
     _selectionInfo.BeginUpdate;
     try
       _selectionInfo.SetFocusedItem(_editingInfo.EditItemDataIndex, _view.GetViewListIndex(_editingInfo.EditItemDataIndex), newDataItem);
@@ -2425,9 +2428,9 @@ end;
 procedure TDCCellDateTimeEditor.BeginEdit(const EditValue: CObject; SelectAll: Boolean = True);
 begin
   inherited;
-  DropDown;
 
   SetCustomValue(EditValue);
+  DropDown;
 end;
 
 procedure TDCCellDateTimeEditor.Dropdown;
