@@ -305,7 +305,6 @@ type
     function  GetSelectableViewIndex(const FromViewListIndex: Integer; const Increase: Boolean; const FirstRound: Boolean = True): Integer;
 
     function  GetRowViewListIndexByKey(const Key: Word; Shift: TShiftState): Integer;
-    function  GetActiveRow(CheckRealign: Boolean = False): IDCRow;
     function  RealignContentRequested: Boolean; override;
 
   protected
@@ -326,7 +325,7 @@ type
     destructor Destroy; override;
 
     function  FitRowsDownwards(StartIndex: Integer): Integer;
-    function  GetActiveRow: IDCRow;
+    function  GetActiveRow(CheckRealign: Boolean = False): IDCRow;
 
     // drag & drop
     procedure BeginDrag;

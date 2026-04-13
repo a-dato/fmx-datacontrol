@@ -73,8 +73,10 @@ type
     function  GetDataModel: IDataModel;
     function  HasViewRows: Boolean;
 
-    function IsScrolling: Boolean;
-    function IsFastScrolling(ScrollbarOnly: Boolean = False): Boolean;
+    function  GetActiveRow(CheckRealign: Boolean = False): IDCRow;
+
+    function  IsScrolling: Boolean;
+    function  IsFastScrolling(ScrollbarOnly: Boolean = False): Boolean;
 
     property SelectionType: TSelectionType read get_SelectionType write set_SelectionType;
     property RowHeightFixed: Single read get_rowHeightFixed write set_RowHeightFixed;
