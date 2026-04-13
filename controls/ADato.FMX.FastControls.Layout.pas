@@ -438,7 +438,7 @@ end;
 
 procedure TAdaptableBitmapLayout.PrepareForPaint;
 begin
-  LoadBitmap;
+//  LoadBitmap;
   if ShouldInheritPaint then
     inherited;
 end;
@@ -446,13 +446,7 @@ end;
 procedure TAdaptableBitmapLayout.Painting;
 begin
   if NeedsBitmapReload then
-  begin
-    TThread.ForceQueue(nil, procedure
-    begin
-      LoadBitmap;
-      Repaint;
-    end);
-  end;
+    LoadBitmap;
 
   if ShouldInheritPaint then
     inherited;

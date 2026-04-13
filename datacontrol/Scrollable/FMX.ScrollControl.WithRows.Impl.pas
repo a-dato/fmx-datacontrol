@@ -3142,8 +3142,13 @@ begin
     begin
       var viewListIndex: Integer;
       if ViewIsDataModelView then
-        viewListIndex := GetDataModelView.CurrencyManager.Current else
-        viewListIndex := _view.ViewCount - 1; // newly added item revert..
+        viewListIndex := GetDataModelView.CurrencyManager.Current
+      else
+      begin
+        viewListIndex := _view.GetViewListIndex(get_DataItem);
+        if viewListIndex = -1 then
+          viewListIndex := _view.ViewCount - 1; // newly added item revert..
+      end;
 
       var dataIndex := _view.GetDataIndex(viewListIndex);
       var dataItem := _view.GetViewList[viewListIndex];

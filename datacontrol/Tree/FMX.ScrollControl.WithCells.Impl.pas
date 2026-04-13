@@ -4029,8 +4029,12 @@ begin
     if loadDefaultData then
     begin
       Result := Cell.Column.ProvideCellData(cell, cell.Column.PropertyName);
-      if (Cell.Column.SortType = TSortType.Displaytext) and not DoCellFormatting(cell, True, {var} Result) then
-        Result := Cell.Column.GetFormattedValue(cell, Result);
+
+      if not DoCellFormatting(cell, True, {var} Result) then
+      begin
+        if (Cell.Column.SortType = TSortType.Displaytext) then
+          Result := Cell.Column.GetFormattedValue(cell, Result);
+      end;
     end else
     begin
       DoCellLoaded(Cell, True, dummyPerfMode, dummyHeightVar);

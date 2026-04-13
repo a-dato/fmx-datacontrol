@@ -57,6 +57,8 @@ type
     property DCControl: IDCControl read get_DCControl implements IDCControl;
 
   protected
+    _lock: IInterface;
+
     _text: string;
     _layout: TTextLayout;
     _settings: TTextSettings;
@@ -600,6 +602,18 @@ begin
 end;
 
 procedure TFastText.Calculate;
+
+  procedure SafeQueue([weak]lock: IInterface);
+  begin
+    TThread.ForceQueue(nil, procedure
+    begin
+      if lock = nil then
+        Exit;
+
+      Self.Width := TextWidthWithPadding;
+    end);
+  end;
+
 begin
   if not _recalcNeeded then
     Exit;
@@ -617,10 +631,10 @@ begin
   begin
     if FInPaintTo then
     begin
-      TThread.ForceQueue(nil, procedure
-      begin
-        Self.Width := TextWidthWithPadding;
-      end);
+      if _lock = nil then
+        _lock := TInterfacedObject.Create;
+
+      SafeQueue(_lock);
     end else
       Self.Width := TextWidthWithPadding;
   end;
