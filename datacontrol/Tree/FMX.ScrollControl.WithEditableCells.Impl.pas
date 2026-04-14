@@ -1579,9 +1579,12 @@ end;
 
 procedure TScrollControlWithEditableCells.GenerateView;
 begin
+  var viewUpdated := CanGenerateNewView;
+
   inherited;
 
-  _checkedItems := CDictionary<IDCTreeColumn, List<Integer>>.Create;
+  if viewUpdated or (_checkedItems = nil) then
+    _checkedItems := CDictionary<IDCTreeColumn, List<Integer>>.Create;
 end;
 
 procedure TScrollControlWithEditableCells.ShowEditor(const Cell: IDCTreeCell; const StartEditArgs: DCStartEditEventArgs; const UserValue: CString);

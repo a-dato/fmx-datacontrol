@@ -1426,14 +1426,7 @@ end;
 
 procedure TScrollControlWithCells.GenerateView;
 begin
-  if _defaultColumnsGenerated then
-  begin
-    _columns.Clear;
-    _treeLayout := nil;
-
-    _defaultColumnsGenerated := False;
-  end
-  else if _treeLayout <> nil then
+  if CanGenerateNewView and (_treeLayout <> nil) then
     _treeLayout.ResetColumnDataAvailability(False);
 
   inherited;
@@ -3856,7 +3849,10 @@ end;
 procedure TScrollControlWithCells.InitLayout;
 begin
   if (_view <> nil) and (_columns.Count = 0) then
+  begin
     CreateDefaultColumns;
+    _treeLayout := nil;
+  end;
 
   // if during reading the component the "OptionsChanged" came before the "loading of columns"
   if (_autoMultiSelectColumn <> nil) then

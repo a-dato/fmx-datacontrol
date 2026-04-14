@@ -64,6 +64,7 @@ type
     procedure ModelContextPropertyChanged(const Sender: IObjectModelContext; const Context: CObject; const AProperty: _PropertyInfo);
     procedure ModelContextChanged(const Sender: IObjectModelContext; const Context: CObject);
 
+    function  CanGenerateNewView: Boolean;
     procedure GenerateView; virtual;
 
     function  MeOrSynchronizerIsUpdating: Boolean;
@@ -1132,9 +1133,14 @@ begin
   Result := IsUpdating or ((_rowHeightSynchronizer <> nil) and _rowHeightSynchronizer.IsUpdating);
 end;
 
+function TScrollControlWithRows.CanGenerateNewView: Boolean;
+begin
+  Result := (_view = nil) and ((_dataList <> nil) or (_dataModelView <> nil));
+end;
+
 procedure TScrollControlWithRows.GenerateView;
 begin
-  if (_view <> nil) or ((_dataList = nil) and (_dataModelView = nil)) then
+  if not CanGenerateNewView then
     Exit;
 
   inc(_scrollUpdateCount);
@@ -1204,7 +1210,7 @@ function TScrollControlWithRows.RealignContentRequested: Boolean;
 begin
   Result := inherited;
   if not Result and (_rowHeightSynchronizer <> nil) then
-    Result := _rowHeightSynchronizer._realignContentRequested;
+    Result := _rowHeightSynchronizer._realignContentRequested and ControlEffectiveVisible(_rowHeightSynchronizer);
 end;
 
 function TScrollControlWithRows.GetActiveRow(CheckRealign: Boolean = False): IDCRow;
