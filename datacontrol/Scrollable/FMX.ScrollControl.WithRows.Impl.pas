@@ -1362,10 +1362,14 @@ begin
       Result := _waitForRepaintInfo.DataItem
     else if _waitForRepaintInfo.Current >= 0 then
     begin
+      {$IFDEF DEBUG}
+      Result := nil;
+      {$ELSE}
       GenerateView;
       if (_view <> nil) and (_waitForRepaintInfo.Current <= _view.ViewCount - 1) then
         Result := _view.GetViewList[_waitForRepaintInfo.Current] else
         Result := nil;
+      {$ENDIF}
     end
     else
       Result := nil;

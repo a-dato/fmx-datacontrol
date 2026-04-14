@@ -8653,56 +8653,14 @@ begin
 end;
 
 constructor CObject.Create(const AValue: Variant; Checked: Boolean);
-{$IFDEF DEBUG}
-{$ELSE}
 var
   II: IInterface;
   base: IBaseInterface;
   sql_ts: TSQLTimeStamp;
   sql_of: TSQLTimeStampOffset;
   vt: Word;
-{$ENDIF}
 
 begin
-  {$IFDEF DEBUG}
-  var vt := varType(AValue);
-  case vt of
-    varDate:
-      Self := CDateTime.Create(TDateTime(AValue));
-
-    varUString, varOleStr, varString:
-      Create(string(AValue));
-
-    varUnknown:
-    begin
-      var ii := IInterface(AValue);
-      var base: IBaseInterface;
-      if ii = nil then
-        Create(nil)
-      else if Interfaces.Supports<IBaseInterface>(ii, base) then
-        Create(base)
-      else
-        raise Exception.Create('Variant type not supported (Interface does not support IBaseInterface)');
-    end;
-
-  else
-    if VarIsSQLTimeStamp(AValue) then
-    begin
-      var sql_ts := VarToSqlTimeStamp(AValue);
-      Create(CDateTime.Create(sql_ts.Year, sql_ts.Month, sql_ts.Day, sql_ts.Hour, sql_ts.Minute, sql_ts.Second, sql_ts.Fractions));
-    end
-    else if VarIsSQLTimeStampOffset(AValue) then
-    begin
-      var sql_of := VarToSqlTimeStampOffset(AValue);
-      Create(CDateTime.Create(sql_of.Year, sql_of.Month, sql_of.Day, sql_of.Hour, sql_of.Minute, sql_of.Second, sql_of.Fractions));
-    end
-    else try
-      FValue := TValue.FromVariant(AValue);
-    except
-      raise Exception.CreateFmt('Variant type %d not supported', [varType(AValue)]);
-    end;
-  end;
-  {$ELSE}
   vt := varType(AValue);
   case vt of
     // varArray:
@@ -8764,7 +8722,6 @@ begin
     end else if Checked then
       raise Exception.CreateFmt('Variant type %d not supported', [vt]);
   end;
-  {$ENDIF}
 end;
 
 constructor CObject.Create(const AValue: TObject; OwnsObject: Boolean = false);

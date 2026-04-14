@@ -575,7 +575,6 @@ var
   _hacked           : TDatasetHack;
   _saved            : Integer;
   Value             : CObject;
-  _var              : Variant;
 
 begin
   if (BufferCount > 0) and not IsEmpty then
@@ -592,21 +591,10 @@ begin
 
       if (_index - _topIndex = ActiveRecord) then
       begin
-        {$IFDEF DEBUG}
-        try
-          _var := Fields[AColumn.Index].Value;
-        except
-          try
-            _var := Fields[AColumn.Index].Value;
-          except
-            _var := Null;
-          end;
-        end;
-        {$ELSE}
-        _var := Fields[AColumn.Index].Value;
-        {$ENDIF}
-
-        Result := _var;
+        var fld := Fields[AColumn.Index];
+        if fld.DataType in [ftBCD, ftFMTBcd] then
+          Result := fld.AsCurrency else
+          Result := fld.Value;
 
         Exit;
       end
@@ -621,7 +609,10 @@ begin
         try
           _hacked.FActiveRecord := _index - topIndex;
           Assert(_hacked.FActiveRecord = ActiveRecord);
-          Result := Fields[AColumn.Index].Value;
+          var fld := Fields[AColumn.Index];
+          if fld.DataType in [ftBCD, ftFMTBcd] then
+            Result := fld.AsCurrency else
+            Result := fld.Value;
           Exit;
         finally
           _hacked.FActiveRecord := _saved;

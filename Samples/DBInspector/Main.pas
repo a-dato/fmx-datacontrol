@@ -419,9 +419,10 @@ procedure TfrmInspector.CopySelectedItemsToClipBoard(DataControl: TDataControl);
 begin
   var sb: StringBuilder := CStringBuilder.Create;
 
-  if DataControl.SelectedItems <> nil then
+  var selected := DataControl.SelectedItems(True);
+  if selected <> nil then
   begin
-    for var o in DataControl.SelectedItems do
+    for var o in selected do
     begin
       var item: IDbItem;
       if o.TryGetValue<IDBItem>(item) then
@@ -431,17 +432,17 @@ begin
         sb.Append(item.Name);
       end;
     end;
-  end
-  else
-  begin
-    var item: IDbItem;
-    if DataControl.DataItem.TryGetValue<IDBItem>(item) then
-    begin
-      if sb.Length > 0 then
-        sb.Append(', ');
-      sb.Append(item.Name);
-    end;
   end;
+//  else
+//  begin
+//    var item: IDbItem;
+//    if DataControl.DataItem.TryGetValue<IDBItem>(item) then
+//    begin
+//      if sb.Length > 0 then
+//        sb.Append(', ');
+//      sb.Append(item.Name);
+//    end;
+//  end;
 
   var cb: IFMXExtendedClipboardService;
   if TPlatformServices.Current.SupportsPlatformService(IFMXExtendedClipboardService, IInterface(cb)) then
