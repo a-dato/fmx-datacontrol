@@ -1204,7 +1204,7 @@ function TScrollControlWithRows.RealignContentRequested: Boolean;
 begin
   Result := inherited;
   if not Result and (_rowHeightSynchronizer <> nil) then
-    Result := _rowHeightSynchronizer._realignContentRequested;
+    Result := _rowHeightSynchronizer._realignContentRequested and ControlEffectiveVisible(_rowHeightSynchronizer);
 end;
 
 function TScrollControlWithRows.GetActiveRow(CheckRealign: Boolean = False): IDCRow;
