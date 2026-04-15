@@ -63,6 +63,7 @@ type
     procedure ModelListContextChanged(const Sender: IObjectListModel; const Context: IList);
     procedure ModelContextPropertyChanged(const Sender: IObjectModelContext; const Context: CObject; const AProperty: _PropertyInfo);
     procedure ModelContextChanged(const Sender: IObjectModelContext; const Context: CObject);
+    procedure ModelMultiSelectChanged(const Sender: IObjectListModel; const Context: IList);
 
     function  CanGenerateNewView: Boolean;
     procedure GenerateView; virtual;
@@ -184,6 +185,7 @@ type
     _referenceRowViewListIndex: Integer;
 
     _multiSelectSorter: ITreeSortDescription;
+    _multiSelectUpdateCount: Integer;
 
     // Used when printing this control and we're on the last page
     // and the viewportsize needs to be adjusted in order to set _vertScrollBar.Value.
@@ -1837,9 +1839,12 @@ begin
     {$IFNDEF WEBASSEMBLY}
     _model.OnContextChanging.Remove(ModelListContextChanging);
     _model.OnContextChanged.Remove(ModelListContextChanged);
+    _model.MultiSelect.Delegate.Remove(ModelMultiSelectChanged);
     {$ELSE}
     _model.OnContextChanging -= ModelListContextChanging;
     _model.OnContextChanged -= ModelListContextChanged;
+
+    _model.MultiSelect.Delegate -= ModelMultiSelectChanged;
     {$ENDIF}
 
     if _model.ListHoldsObjectType or (_model.ObjectModelContext <> nil) then
@@ -1861,9 +1866,11 @@ begin
     {$IFNDEF WEBASSEMBLY}
     _model.OnContextChanging.Add(ModelListContextChanging);
     _model.OnContextChanged.Add(ModelListContextChanged);
+    _model.MultiSelect.Delegate.Add(ModelMultiSelectChanged);
     {$ELSE}
     _model.OnContextChanging += ModelListContextChanging;
     _model.OnContextChanged += ModelListContextChanged;
+    _model.MultiSelect.Delegate += ModelMultiSelectChanged;
     {$ENDIF}
 
     if _model.ListHoldsObjectType or (_model.ObjectModelContext <> nil) then
@@ -2027,6 +2034,61 @@ begin
     var row: IDCRow;
     for row in _view.ActiveViewRows do
       VisualizeRowSelection(row);
+  end;
+end;
+
+procedure TScrollControlWithRows.ModelMultiSelectChanged(const Sender: IObjectListModel; const Context: IList);
+begin
+  if SyncIsMasterSynchronizer then
+    Exit;
+
+  // multiSelectChanged executed by OnSelectedItemsChanged
+  if (_internalSelectCount > 0) or  ((_rowHeightSynchronizer <> nil) and (_rowHeightSynchronizer._internalSelectCount > 0)) then
+    Exit;
+
+  Inc(_multiSelectUpdateCount);
+  try
+    if (Context = nil) or (Context.Count = 0) then
+    begin
+      ClearSelectedItems;
+      Exit;
+    end;
+
+    var multiSelectChanged := Context.Count <> _selectionInfo.SelectedRowCount;
+    if not multiSelectChanged then
+    begin
+      for var selectedItem in SelectedItems(False) do
+        if not Context.Contains(selectedItem) then
+        begin
+          multiSelectChanged := True;
+          Break;
+        end;
+    end;
+
+    if not multiSelectChanged then
+      Exit;
+
+    GenerateView;
+    if _view = nil then
+      raise Exception.Create('Cannot assign multiselect when no data is available');
+
+    _selectionInfo.LastSelectionEventTrigger := TSelectionEventTrigger.External;
+    _selectionInfo.BeginUpdate;
+    try
+      var cln := _selectionInfo.Clone;
+      _selectionInfo.ClearMultiSelections;
+
+      for var item in Context do
+      begin
+        var ix := _view.GetDataIndex(item);
+        if ix <> -1 then
+          _selectionInfo.AddToSelection(ix, _view.GetViewListIndex(ix), item);
+      end;
+    finally
+      _selectionInfo.EndUpdate;
+    end;
+  finally
+    Dec(_multiSelectUpdateCount);
   end;
 end;
 
@@ -2983,19 +3045,22 @@ begin
   if SyncIsMasterSynchronizer then
     Exit;
 
-  if _view = nil then
-    GenerateView;
+  if (_multiSelectUpdateCount = 0) and ((_rowHeightSynchronizer = nil) or (_rowHeightSynchronizer._multiSelectUpdateCount = 0)) then
+  begin
+    if _view = nil then
+      GenerateView;
 
-  AtomicIncrement(_internalSelectCount);
-  try
-    if (_model <> nil) then
-    begin
-      if SelectionCount > 1 then
-        _model.MultiSelect.Context := SelectedItems(False) else
-        _model.MultiSelect.Context := nil;
+    AtomicIncrement(_internalSelectCount);
+    try
+      if (_model <> nil) then
+      begin
+        if SelectionCount > 1 then
+          _model.MultiSelect.Context := SelectedItems(False) else
+          _model.MultiSelect.Context := nil;
+      end;
+    finally
+      AtomicDecrement(_internalSelectCount);
     end;
-  finally
-    AtomicDecrement(_internalSelectCount);
   end;
 
   var row: IDCRow;

@@ -15,7 +15,7 @@ uses
   ADato.ObjectModel.intf,
   System.Collections.Generic, 
   ADato.Data.DataModel.intf,
-  ADato.InsertPosition;
+  ADato.InsertPosition, System.ComponentModel;
 
 type
   IObjectListModel = interface;
@@ -104,6 +104,9 @@ type
     procedure AddToMultiSelection(const Item: CObject);
     procedure RemoveFromMultiSelection(const Item: CObject);
 
+    procedure BeginUpdate;
+    procedure EndUpdate;
+
     property  Context: List<CObject> read get_Context write set_Context;
     property  IsActive: Boolean read get_IsActive write set_IsActive;
     property  Delegate: ListContextChangedEventHandler read get_Delegate;
@@ -117,6 +120,9 @@ type
     _isActive: Boolean;
     _eventHandler: ListContextChangedEventHandler;
 
+    _updateCount: Integer;
+    _changed: Boolean;
+
     function  get_Context: List<CObject>;
     procedure set_Context(const Value: List<CObject>);
     function  get_IsActive: Boolean;
@@ -127,6 +133,9 @@ type
 
   public
     constructor Create(const ObjectListModel: IObjectListModel);
+
+    procedure BeginUpdate;
+    procedure EndUpdate;
 
     function  Count: Integer;
     function  IsSelected(const Item: CObject): Boolean;
@@ -320,8 +329,27 @@ begin
   _objectListModel := ObjectListModel;
 end;
 
+procedure TObjectModelMultiSelect.BeginUpdate;
+begin
+  _changed := False;
+  inc(_updateCount);
+end;
+
+procedure TObjectModelMultiSelect.EndUpdate;
+begin
+  dec(_updateCount);
+  if _updateCount > 0 then
+    Exit;
+
+  DoInvokeDelegate;
+end;
+
 procedure TObjectModelMultiSelect.DoInvokeDelegate;
 begin
+  if (_updateCount > 0) or not _changed then
+    Exit;
+
+  _changed := False;
   if Assigned(_eventHandler) then
     _eventHandler.Invoke(_objectListModel, _objectListModel.MultiSelect.Context as IList);
 end;
@@ -333,6 +361,7 @@ begin
   if not IsSelected(Item) then
   begin
     get_Context.Add(Item);
+    _changed := True;
     DoInvokeDelegate;
   end;
 end;
@@ -372,6 +401,8 @@ begin
   if doRemove then
     get_Context.Remove(Item);
 
+  _changed := _changed or doRemove;
+
   if (get_Context.Count > 0) and CObject.Equals(_objectListModel.ObjectContext, Item) then
     _objectListModel.ObjectContext := get_Context[0];
 
@@ -395,11 +426,13 @@ begin
     if (obj <> nil) and not _Context.Contains(obj) then
     begin
       _Context.Add(obj);
+      _changed := True;
       DoInvokeDelegate;
     end;
   end
   else if _Context <> nil then
   begin
+    _changed := _Context.Count > 0;
     _Context.Clear;
     DoInvokeDelegate;
   end;
@@ -412,6 +445,7 @@ begin
 
   _Context := Value;
   _isActive := _context <> nil;
+  _changed := True;
 
   DoInvokeDelegate;
 end;

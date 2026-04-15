@@ -879,12 +879,11 @@ begin
   if _dataModel <> nil then
   begin
     {$IFDEF DELPHI}
-    _dataModel.DefaultCurrencyManager.CurrentRowChanged.Add(OnRowChanged);      
+    _dataModel.DefaultCurrencyManager.CurrentRowChanged.Add(OnRowChanged);
     {$ELSE}
     _dataModel.DefaultCurrencyManager.CurrentRowChanged += @OnRowChanged;
     {$ENDIF}
   end;
-
 
   if _OnContextChanged <> nil then
  		_OnContextChanged.Invoke(Self, get_Context);
