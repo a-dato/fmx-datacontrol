@@ -116,7 +116,7 @@ type
     procedure DoPaint; override;
     procedure DoResized; override;
     function  GetDefaultSize: TSizeF; override;
-    function  IsControlRectEmpty: Boolean; override;
+//    function  IsControlRectEmpty: Boolean; override;
 
     procedure Calculate; virtual;
     procedure EnsureLayoutForCanvas(const ACanvas: TCanvas);
@@ -339,10 +339,10 @@ begin
   inherited;
 end;
 
-function TFastText.IsControlRectEmpty: Boolean;
-begin
-  Result := inherited or (Length(GetText) = 0) or SameValue(AbsoluteOpacity, 0)
-end;
+//function TFastText.IsControlRectEmpty: Boolean;
+//begin
+//  Result := inherited or (Length(GetText) = 0) or SameValue(AbsoluteOpacity, 0)
+//end;
 
 function TFastText.GetDefaultSize: TSizeF;
 begin
