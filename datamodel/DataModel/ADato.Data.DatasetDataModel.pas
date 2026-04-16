@@ -1312,7 +1312,9 @@ begin
         if detailDatasetField <> nil then
         begin
           _datalink.RelocateDataset(ARow);
-          Value := CObject.Create(detailDatasetField.Value, False {Unchecked});
+          if detailDatasetField.DataType in [ftBCD, ftFMTBcd] then
+            Value := CObject.Create(detailDatasetField.AsCurrency, False {Unchecked}) else
+            Value := CObject.Create(detailDatasetField.Value, False {Unchecked});
         end;
       end
       else if (Field.FieldKind = fkLookup) then

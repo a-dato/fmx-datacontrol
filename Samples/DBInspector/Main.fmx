@@ -84,7 +84,6 @@ object frmInspector: TfrmInspector
             Size.Height = 25.000000000000000000
             Size.PlatformDefault = False
             StyleLookup = 'nexttoolbutton'
-            TextSettings.Trimming = None
           end
           object SpeedButton2: TSpeedButton
             Action = acViewSource
@@ -95,7 +94,6 @@ object frmInspector: TfrmInspector
             Size.Height = 25.000000000000000000
             Size.PlatformDefault = False
             StyleLookup = 'pagecurltoolbutton'
-            TextSettings.Trimming = None
           end
           object SpeedButton3: TSpeedButton
             Action = acRefresh
@@ -106,7 +104,6 @@ object frmInspector: TfrmInspector
             Size.Height = 25.000000000000000000
             Size.PlatformDefault = False
             StyleLookup = 'refreshtoolbutton'
-            TextSettings.Trimming = None
           end
           object SpeedButton5: TSpeedButton
             Action = acMoveData
@@ -117,7 +114,6 @@ object frmInspector: TfrmInspector
             Size.Height = 25.000000000000000000
             Size.PlatformDefault = False
             StyleLookup = 'cameratoolbuttonbordered'
-            TextSettings.Trimming = None
           end
         end
       end
@@ -136,6 +132,7 @@ object frmInspector: TfrmInspector
           TabOrder = 0
           Options = [TreeOption_ShowHeaders, TreeOption_ShowHeaderGrid, TreeOption_MultiSelect]
           RowHeightDefault = 30.000000000000000000
+          DragDropOnIndividualRows = False
           HeaderHeight = 24.000000000000000000
           AutoExtraColumnSizeMax = -1.000000000000000000
           CellTopBottomPadding = 5.000000000000000000
@@ -211,7 +208,6 @@ object frmInspector: TfrmInspector
           CustomIcon = <
             item
             end>
-          TextSettings.Trimming = None
           IsSelected = False
           Size.Width = 51.000000000000000000
           Size.Height = 26.000000000000000000
@@ -238,6 +234,7 @@ object frmInspector: TfrmInspector
             TabOrder = 0
             Options = [TreeOption_ShowHeaders, TreeOption_ShowHeaderGrid, TreeOption_MultiSelect]
             RowHeightDefault = 30.000000000000000000
+            DragDropOnIndividualRows = False
             HeaderHeight = 24.000000000000000000
             AutoExtraColumnSizeMax = -1.000000000000000000
             CellTopBottomPadding = 5.000000000000000000
@@ -295,7 +292,6 @@ object frmInspector: TfrmInspector
           CustomIcon = <
             item
             end>
-          TextSettings.Trimming = None
           IsSelected = True
           Size.Width = 61.000000000000000000
           Size.Height = 26.000000000000000000
@@ -322,6 +318,7 @@ object frmInspector: TfrmInspector
             TabOrder = 0
             Options = [TreeOption_ShowHeaders, TreeOption_ShowHeaderGrid]
             RowHeightDefault = 30.000000000000000000
+            DragDropOnIndividualRows = False
             HeaderHeight = 24.000000000000000000
             AutoExtraColumnSizeMax = -1.000000000000000000
             CellTopBottomPadding = 5.000000000000000000
@@ -366,7 +363,6 @@ object frmInspector: TfrmInspector
           CustomIcon = <
             item
             end>
-          TextSettings.Trimming = None
           IsSelected = False
           Size.Width = 79.000000000000000000
           Size.Height = 26.000000000000000000
@@ -393,6 +389,7 @@ object frmInspector: TfrmInspector
             TabOrder = 0
             Options = [TreeOption_ShowHeaders, TreeOption_ShowHeaderGrid]
             RowHeightDefault = 30.000000000000000000
+            DragDropOnIndividualRows = False
             HeaderHeight = 24.000000000000000000
             AutoExtraColumnSizeMax = -1.000000000000000000
             CellTopBottomPadding = 5.000000000000000000
@@ -468,7 +465,6 @@ object frmInspector: TfrmInspector
         CustomIcon = <
           item
           end>
-        TextSettings.Trimming = None
         IsSelected = True
         Padding.Right = 20.000000000000000000
         Size.Width = 100.000000000000000000
@@ -936,7 +932,6 @@ object frmInspector: TfrmInspector
         CustomIcon = <
           item
           end>
-        TextSettings.Trimming = None
         IsSelected = False
         Size.Width = 29.000000000000000000
         Size.Height = 26.000000000000000000
@@ -1019,7 +1014,6 @@ object frmInspector: TfrmInspector
       Size.Height = 27.000000000000000000
       Size.PlatformDefault = False
       StyleLookup = 'addtoolbuttonbordered'
-      TextSettings.Trimming = None
     end
     object edSchema: TEdit
       Touch.InteractiveGestures = [LongTap, DoubleTap]
