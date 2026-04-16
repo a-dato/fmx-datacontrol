@@ -48,7 +48,6 @@ type
 
   protected
     _CreatorFunc  : TFunc<T>;
-    _DoMultiContextSupport: Boolean;
 
     _ChangedItems : Dictionary<CObject, TObjectListChangeType>;   // List
     _orignalContext: IList;
@@ -58,7 +57,7 @@ type
     _StoreChangedItems: Boolean;
 
     procedure Initialize; override;
-    function  CreateObjectModelContext : IObjectModelContext; override;
+    function  CreateObjectModelContext: IObjectModelContext; override;
     procedure UpdateEditContext(const Context: IObjectModelContext; Cancel: Boolean = False);
     procedure OnObjectPropertyChanged(const Sender: IObjectModelContext; const Context: CObject; const AProperty: _PropertyInfo);
 
@@ -104,7 +103,6 @@ type
     // IObjectListModelChangeTracking
     function  get_HasChangedItems: Boolean;
     function  get_ChangedItems: Dictionary<CObject, TObjectListChangeType>;
-    procedure set_MultiObjectContextSupport(const Value: Boolean);
     procedure ResetContextFromChangedItems;
 
     // IOnItemChangedSupport
@@ -116,11 +114,9 @@ type
     // IAddNewSupport
     function CreateInstance: CObject;
   public
-    constructor Create(const CreatorFunc: TFunc<T> = nil); overload;
+    constructor Create(const CreatorFunc: TFunc<T> = nil; MultiSelectEnabled: Boolean = False); overload;
 
     destructor Destroy; override;
-
-    property MultiObjectContextSupport: Boolean write set_MultiObjectContextSupport;
   end;
 
 implementation
@@ -226,9 +222,9 @@ begin
   Result := (_Context <> nil) and (_Context.Count > 0);
 end;
 
-constructor TObjectListModelWithChangeTracking<T>.Create(const CreatorFunc: TFunc<T>);
+constructor TObjectListModelWithChangeTracking<T>.Create(const CreatorFunc: TFunc<T> = nil; MultiSelectEnabled: Boolean = False);
 begin
-  inherited Create;
+  inherited Create(MultiSelectEnabled);
 
   _CreatorFunc := CreatorFunc;
 end;
@@ -258,7 +254,7 @@ function TObjectListModelWithChangeTracking<T>.CreateObjectModelContext : IObjec
 begin
   if ListHoldsObjectType then
   begin
-    if _DoMultiContextSupport then
+    if _multiSelect <> nil then
       Result := TMultiEditableObjectModelContext.Create(get_ObjectModel, Self) else
       Result := TEditableObjectModelContext.Create(get_ObjectModel, Self);
   end else
@@ -509,6 +505,9 @@ begin
     for item in _multiSelect.Context do
       if not CObject.Equals(item, Context) then
       begin
+        if Self.get_IsEditOrNew then
+          Self.EndEdit;
+
         var cln: ICloneable;
         var obj: CObject;
         if item.TryAsType<ICloneable>(cln) then
@@ -591,11 +590,6 @@ procedure TObjectListModelWithChangeTracking<T>.set_Context(const Value: IList);
 begin
   inherited;
   _ChangedItems.Clear;
-end;
-
-procedure TObjectListModelWithChangeTracking<T>.set_MultiObjectContextSupport(const Value: Boolean);
-begin
-  _DoMultiContextSupport := Value;
 end;
 
 procedure TObjectListModelWithChangeTracking<T>.set_ObjectContext(const Value: CObject);

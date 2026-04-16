@@ -19,7 +19,8 @@ uses
   ADato.ObjectModel.intf,
   ADato.ObjectModel.impl,
   System.ComponentModel,
-  ADato.Sortable.Intf;
+  ADato.Sortable.Intf,
+  ADato.MultiObjectModelContextSupport.intf;
 
 type
   TObjectListModel<T> = class(TBaseInterfacedObject, IObjectListModel)
@@ -32,7 +33,9 @@ type
     _ObjectModel: IObjectModel;
 
     _ObjectModelContext: IObjectModelContext;
+
     _multiSelect: IObjectModelMultiSelect;
+    _multiModelContext: Boolean;
 
     procedure Initialize; virtual;
     function  CreateObjectModel : IObjectModel; virtual;
@@ -47,6 +50,7 @@ type
     {$ENDIF}
 
     function  ListHoldsObjectType: Boolean; virtual;
+    function  MultiSelectIsActive: Boolean;
     function  HasMultiSelection: Boolean;
     function  ContextCanChange: Boolean;
 
@@ -62,11 +66,13 @@ type
     function  get_ObjectModel: IObjectModel;
     procedure set_ObjectModel(const Value: IObjectModel);
     function  get_MultiSelect: IObjectModelMultiSelect;
+    procedure OnMultiSelectChanged(const Sender: IObjectListModel; const Context: IList);
+    procedure UpdateContextViewState;
 
     function  get_ObjectModelContext: IObjectModelContext;
   public
-    constructor Create; overload; virtual;
-    constructor Create(const AType: &Type); overload;
+    constructor Create(MultiSelectEnabled: Boolean = False); overload; virtual;
+    constructor Create(const AType: &Type; MultiSelectEnabled: Boolean = False); overload;
     destructor Destroy; override;
 
     function  SelectedAsList: IList;
@@ -112,13 +118,13 @@ uses
   ADato.ListComparer.Impl;
 
 { TObjectListModel<T> }
-constructor TObjectListModel<T>.Create(const AType: &Type);
+constructor TObjectListModel<T>.Create(const AType: &Type; MultiSelectEnabled: Boolean = False);
 begin
   _ObjectType := AType;
   Initialize;
 end;
 
-constructor TObjectListModel<T>.Create;
+constructor TObjectListModel<T>.Create(MultiSelectEnabled: Boolean = False);
 begin
   _ObjectType := Global.GetTypeOf<T>;
   Initialize;
@@ -126,6 +132,17 @@ end;
 
 destructor TObjectListModel<T>.Destroy;
 begin
+  if _multiSelect <> nil then
+  begin
+    {$IFNDEF WEBASSEMBLY}
+    _multiSelect.Delegate.Remove(OnMultiSelectChanged);
+    {$ELSE}
+    _multiSelect.Delegate -= @OnMultiSelectChanged;
+    {$ENDIF}
+
+    _multiSelect := nil;
+  end;
+
   inherited;
 end;
 
@@ -202,14 +219,26 @@ end;
 function TObjectListModel<T>.get_MultiSelect: IObjectModelMultiSelect;
 begin
   if _multiSelect = nil then
+  begin
     _multiSelect := TObjectModelMultiSelect.Create(Self);
+    {$IFDEF DELPHI}
+    _multiSelect.Delegate.Add(OnMultiSelectChanged);
+    {$ELSE}
+    _multiSelect.Delegate += @OnMultiSelectChanged;
+    {$ENDIF}
+  end;
 
   Result := _multiSelect;
 end;
 
+function TObjectListModel<T>.MultiSelectIsActive: Boolean;
+begin
+  Result := (_multiSelect <> nil) and _multiSelect.IsActive;
+end;
+
 function TObjectListModel<T>.HasMultiSelection: Boolean;
 begin
-  Result := (_multiSelect <> nil) and (_multiSelect.Count > 0);
+  Result := MultiSelectIsActive and (_multiSelect.Count > 1);
 end;
 
 function TObjectListModel<T>.SelectedAsList: IList;
@@ -274,9 +303,35 @@ end;
 function TObjectListModel<T>.get_ObjectModelContext: IObjectModelContext;
 begin
   if _ObjectModelContext = nil then
+  begin
     _ObjectModelContext := CreateObjectModelContext;
+    UpdateContextViewState;
+  end;
 
   Result := _ObjectModelContext;
+end;
+
+procedure TObjectListModel<T>.OnMultiSelectChanged(const Sender: IObjectListModel; const Context: IList);
+begin
+  UpdateContextViewState;
+end;
+
+procedure TObjectListModel<T>.UpdateContextViewState;
+begin
+  if _ObjectModelContext = nil then
+    Exit;
+
+  var isMultiSelectActive := (_multiSelect <> nil) and _multiSelect.IsActive;
+
+  var viewState: IObjectModelContextViewState;
+  if Interfaces.Supports<IObjectModelContextViewState>(_ObjectModelContext, viewState) then
+    viewState.IsMultiSelectActive := isMultiSelectActive;
+
+  var multiContextSupport: IMultiObjectContextSupport;
+  if Interfaces.Supports<IMultiObjectContextSupport>(_ObjectModelContext, multiContextSupport) then
+    for var storedContext in multiContextSupport.StoredContexts.Values do
+      if Interfaces.Supports<IObjectModelContextViewState>(storedContext, viewState) then
+        viewState.IsMultiSelectActive := isMultiSelectActive;
 end;
 
 {$IFDEF DOTNET}

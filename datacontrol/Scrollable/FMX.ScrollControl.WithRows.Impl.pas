@@ -1843,7 +1843,6 @@ begin
     {$ELSE}
     _model.OnContextChanging -= ModelListContextChanging;
     _model.OnContextChanged -= ModelListContextChanged;
-
     _model.MultiSelect.Delegate -= ModelMultiSelectChanged;
     {$ENDIF}
 

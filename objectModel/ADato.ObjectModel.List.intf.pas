@@ -169,6 +169,7 @@ type
     procedure ResetModelProperties;
     function  CreateObjectModelContext : IObjectModelContext;
 
+    function MultiSelectIsActive: Boolean;
     function HasMultiSelection: Boolean;
     function ListHoldsObjectType: Boolean;
 

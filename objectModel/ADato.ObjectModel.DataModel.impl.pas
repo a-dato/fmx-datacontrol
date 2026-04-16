@@ -23,6 +23,7 @@ uses
   ADato.ObjectModel.impl, ADato.InsertPosition,
   ADato.ObjectModel.List.Tracking.intf,
   ADato.MultiObjectModelContextSupport.impl,
+  ADato.MultiObjectModelContextSupport.intf,
   ADato.EditableObjectModelContext.impl;
 
 type
@@ -57,7 +58,6 @@ type
     _ObjectModelContext: IObjectModelContext;
     _HandleModelObjectContextExternally: Boolean; // => for example while animating wait for animation to complete
 
-    _DoMultiContextSupport: Boolean;
     _previousIndex: Integer;
     _updateCount: Integer;
     _multiSelect: IObjectModelMultiSelect;
@@ -77,7 +77,6 @@ type
     procedure ResetModelProperties;
 
     function  ListHoldsObjectType: Boolean; virtual;
-    function  HasMultiSelection: Boolean;
     function  ContextCanChange: Boolean;
     procedure RemoveNewItems;
 
@@ -90,8 +89,12 @@ type
     function  get_ObjectModel: IObjectModel;
     procedure set_ObjectModel(const Value: IObjectModel);
     function  get_ObjectModelContext: IObjectModelContext;
-    procedure set_MultiObjectContextSupport(const Value: Boolean);
     function  get_MultiSelect: IObjectModelMultiSelect;
+    procedure OnMultiSelectChanged(const Sender: IObjectListModel; const Context: IList);
+    procedure UpdateContextViewState;
+
+    function  MultiSelectIsActive: Boolean;
+    function  HasMultiSelection: Boolean;
 
     {$IFNDEF WEBASSEMBLY}
     function  get_OnContextCanChange: ListContextCanChangeEventHandler;
@@ -152,7 +155,7 @@ type
     // IOnItemChangedSupport
     function get_OnItemChanged: IList<IListItemChanged>;
   public
-    constructor Create(HandleModelObjectContextExternally: Boolean; const CreatorFunc: TFunc<CObject> = nil); reintroduce;
+    constructor Create(HandleModelObjectContextExternally: Boolean; const CreatorFunc: TFunc<CObject> = nil; MultiSelectEnabled: Boolean = False); reintroduce;
     destructor Destroy; override;
 
     function  SelectedAsList: IList;
@@ -247,6 +250,17 @@ end;
 
 destructor TDataModelObjectListModel.Destroy;
 begin
+  if _multiSelect <> nil then
+  begin
+    {$IFNDEF WEBASSEMBLY}
+    _multiSelect.Delegate.Remove(OnMultiSelectChanged);
+    {$ELSE}
+    _multiSelect.Delegate -= @OnMultiSelectChanged;
+    {$ENDIF}
+
+    _multiSelect := nil;
+  end;
+
   set_Context(nil);
 
   inherited;
@@ -377,7 +391,7 @@ begin
   end;
 end;
 
-constructor TDataModelObjectListModel.Create(HandleModelObjectContextExternally: Boolean; const CreatorFunc: TFunc<CObject> = nil);
+constructor TDataModelObjectListModel.Create(HandleModelObjectContextExternally: Boolean; const CreatorFunc: TFunc<CObject> = nil; MultiSelectEnabled: Boolean = False);
 begin
   inherited Create;
 
@@ -413,7 +427,7 @@ end;
 
 function TDataModelObjectListModel.CreateObjectModelContext: IObjectModelContext;
 begin
-  if _DoMultiContextSupport then
+  if (_multiSelect <> nil) then
     Result := TDataModelMultiEditableObjectModelContext.Create(get_ObjectModel, Self) else
     Result := TDataModelEditableObjectModelContext.Create(get_ObjectModel, Self);
 end;
@@ -534,10 +548,22 @@ begin
   Result := RowEditState.IsNew in ModelEditFlags;
 end;
 
+function TDataModelObjectListModel.MultiSelectIsActive: Boolean;
+begin
+  Result := (_multiSelect <> nil) and _multiSelect.IsActive;
+end;
+
 function TDataModelObjectListModel.get_MultiSelect: IObjectModelMultiSelect;
 begin
   if _multiSelect = nil then
+  begin
     _multiSelect := TObjectModelMultiSelect.Create(Self);
+    {$IFNDEF WEBASSEMBLY}
+    _multiSelect.Delegate.Add(OnMultiSelectChanged);
+    {$ELSE}
+    _multiSelect.Delegate += @OnMultiSelectChanged;
+    {$ENDIF}
+  end;
 
   Result := _multiSelect;
 end;
@@ -575,6 +601,8 @@ begin
     _ObjectModelContext.OnContextChanged += @OnObjectContextChanged;
     _ObjectModelContext.OnPropertyChanged += @OnObjectPropertyChanged;
     {$ENDIF}
+
+    UpdateContextViewState;
   end;
 
   Result := _ObjectModelContext;
@@ -626,6 +654,11 @@ begin
   end;
 end;
 
+procedure TDataModelObjectListModel.OnMultiSelectChanged(const Sender: IObjectListModel; const Context: IList);
+begin
+  UpdateContextViewState;
+end;
+
 procedure TDataModelObjectListModel.OnObjectPropertyChanged(const Sender: IObjectModelContext; const Context: CObject; const AProperty: _PropertyInfo);
 begin
   if HasMultiSelection then
@@ -634,6 +667,9 @@ begin
     for item in _multiSelect.Context do
       if not CObject.Equals(item, Context) then
       begin
+        if Self.get_IsEditOrNew then
+          Self.EndEdit;
+
         var cln: ICloneable;
         var obj: CObject;
         if item.TryAsType<ICloneable>(cln) then
@@ -889,9 +925,22 @@ begin
  		_OnContextChanged.Invoke(Self, get_Context);
 end;
 
-procedure TDataModelObjectListModel.set_MultiObjectContextSupport(const Value: Boolean);
+procedure TDataModelObjectListModel.UpdateContextViewState;
 begin
-  _DoMultiContextSupport := Value;
+  if _ObjectModelContext = nil then
+    Exit;
+
+  var isMultiSelectActive := (_multiSelect <> nil) and _multiSelect.IsActive;
+
+  var viewState: IObjectModelContextViewState;
+  if Interfaces.Supports<IObjectModelContextViewState>(_ObjectModelContext, viewState) then
+    viewState.IsMultiSelectActive := isMultiSelectActive;
+
+  var multiContextSupport: IMultiObjectContextSupport;
+  if Interfaces.Supports<IMultiObjectContextSupport>(_ObjectModelContext, multiContextSupport) then
+    for var storedContext in multiContextSupport.StoredContexts.Values do
+      if Interfaces.Supports<IObjectModelContextViewState>(storedContext, viewState) then
+        viewState.IsMultiSelectActive := isMultiSelectActive;
 end;
 
 procedure TDataModelObjectListModel.set_ObjectContext(const Value: CObject);
@@ -986,7 +1035,7 @@ end;
 
 function TDataModelObjectListModel.HasMultiSelection: Boolean;
 begin
-  Result := (_multiSelect <> nil) and (_multiSelect.Count > 0);
+  Result := MultiSelectIsActive and (_multiSelect.Count > 1);
 end;
 
 { TDataModelObjectModel }
