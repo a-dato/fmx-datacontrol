@@ -594,7 +594,7 @@ begin
         var fld := Fields[AColumn.Index];
         if fld.DataType in [ftBCD, ftFMTBcd] then
           Result := fld.AsCurrency else
-          Result := fld.Value;
+          Result := CObject.Create(fld.Value, False {Do not check});
 
         Exit;
       end
@@ -612,7 +612,7 @@ begin
           var fld := Fields[AColumn.Index];
           if fld.DataType in [ftBCD, ftFMTBcd] then
             Result := fld.AsCurrency else
-            Result := fld.Value;
+            Result := CObject.Create(fld.Value, False {Do not check});
           Exit;
         finally
           _hacked.FActiveRecord := _saved;
