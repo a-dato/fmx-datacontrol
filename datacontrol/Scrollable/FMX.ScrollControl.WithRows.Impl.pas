@@ -84,6 +84,7 @@ type
     _rowAligned: RowLoadedEvent;
     {$ENDIF}
 
+    procedure SafeDoAnimateRowIn([weak] ARow: IDCRow);
     procedure DoRowLoaded(const ARow: IDCRow); virtual;
     procedure DoRowAligned(const ARow: IDCRow); virtual;
 
@@ -936,6 +937,30 @@ begin
   end;
 end;
 
+procedure TScrollControlWithRows.SafeDoAnimateRowIn([weak] ARow: IDCRow);
+begin
+//  TThread.ForceQueue(nil, procedure
+//  begin
+//    if ARow = nil then
+//      Exit;
+//
+//    var ctrl := ARow.Control as TLayout;
+//
+//    ctrl.Scale.X := 0.7;
+//    ctrl.Scale.Y := 0.7;
+//    ctrl.Position.X := -15;
+//
+//    TAnimator.AnimateFloat(ctrl, 'Scale.X', 1, 0.18, TAnimationType.Out, TInterpolationType.Circular);
+//    TAnimator.AnimateFloat(ctrl, 'Scale.Y', 1, 0.18, TAnimationType.Out, TInterpolationType.Circular);
+//    TAnimator.AnimateFloat(ctrl, 'Position.X', 0, 0.18, TAnimationType.Out, TInterpolationType.Circular);
+//
+//    ctrl.Opacity := 0.1;
+//    ctrl.Position.Y := 0;
+//    TAnimator.AnimateFloatDelay(ctrl, 'Opacity', 1, 0.18, ARow.ViewPortIndex * 0.05, TAnimationType.Out, TInterpolationType.Circular);
+//    TAnimator.AnimateFloatDelay(ctrl, 'Position.Y', ARow.VirtualYPosition - _vertScrollBar.Value, 0.18, ARow.ViewPortIndex * 0.05, TAnimationType.Out, TInterpolationType.Circular);
+//  end);
+end;
+
 procedure TScrollControlWithRows.DoRowLoaded(const ARow: IDCRow);
 begin
   {$IFNDEF WEBASSEMBLY}
@@ -948,6 +973,10 @@ begin
   end;
   {$ELSE}
   //raise NotImplementedException.Create('procedure TScrollControlWithRows.DoRowLoaded(const ARow: IDCRow)');
+  {$ENDIF}
+
+  {$IFDEF DEBUG}
+  SafeDoAnimateRowIn(ARow);
   {$ENDIF}
 end;
 

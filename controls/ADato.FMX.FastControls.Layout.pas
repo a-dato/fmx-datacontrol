@@ -518,7 +518,11 @@ begin
   if get_UseBuffering = Value then
     Exit;
 
+  {$IFDEF DEBUG}
+  _useBuffering := False;
+  {$ELSE}
   _useBuffering := Value;
+  {$ENDIF}
 
   ResetBuffer;
 end;
