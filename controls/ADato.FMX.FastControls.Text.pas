@@ -304,7 +304,11 @@ begin
   begin
     _layout.Opacity := AbsoluteOpacity;
     _layout.TopLeft := PointF(CalculateTextXPos, CalculateTextYPos);
-    _layout.MaxSize := PointF(TextWidthWithPadding - _internalLeftPadding - _internalRightPadding, TextHeightWithPadding - _internalBottomPadding);
+
+    var maxW := CMath.Min(TextWidthWithPadding - _internalLeftPadding - _internalRightPadding, Self.Width - _layout.TopLeft.X);
+    var maxH := CMath.Min(TextHeightWithPadding - _internalBottomPadding, Self.Height - _layout.TopLeft.Y);
+
+    _layout.MaxSize := PointF(maxW, maxH);
 
   //  {$IFDEF DEBUG}
   //  Self.Canvas.Fill.Color := TAlphaColors.Mediumpurple;
@@ -319,11 +323,12 @@ begin
 
   if _hover and _underlineOnHover then
   begin
-    var textBottom := _layout.TopLeft.Y + _layout.MaxSize.Y;
+    var textBottom := CMath.Min(_layout.TopLeft.Y + _layout.MaxSize.Y, Self.Height);
+    var textWidth := CMath.Min(_textBounds.Width, Self.Width - _layout.TopLeft.X);
 
     Canvas.Stroke.Color := _layout.Color;
     Canvas.Stroke.Kind := TBrushKind.Solid;
-    Canvas.DrawLine(PointF(_layout.TopLeft.X, textBottom), PointF(_layout.TopLeft.X + _textBounds.Width, textBottom), AbsoluteOpacity * IfThen(_mouseIsDown, 0.3, 1));
+    Canvas.DrawLine(PointF(_layout.TopLeft.X, textBottom), PointF(_layout.TopLeft.X + textWidth, textBottom), AbsoluteOpacity * IfThen(_mouseIsDown, 0.3, 1));
   end;
 end;
 
