@@ -92,6 +92,7 @@ type
     procedure DoHorzScrollBarChanged; override;
     procedure GenerateView; override;
     procedure RealignFinished; override;
+    // procedure RefreshControl(const DataChanged: Boolean = False); override;
     procedure DoCollapseOrExpandRow(const ViewListIndex: Integer; DoExpand: Boolean); override;
 
   // properties
@@ -1427,7 +1428,14 @@ end;
 procedure TScrollControlWithCells.GenerateView;
 begin
   if CanGenerateNewView and (_treeLayout <> nil) then
-    _treeLayout.ResetColumnDataAvailability(False);
+  begin
+    if _defaultColumnsGenerated then
+    begin
+      _defaultColumnsGenerated := False;
+      _columns.Clear;
+    end else
+      _treeLayout.ResetColumnDataAvailability(False);
+  end;
 
   inherited;
 end;
