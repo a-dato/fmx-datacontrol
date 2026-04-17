@@ -499,12 +499,14 @@ begin
   var maxHeight := IfThen(get_WordWrap or _calcAsAutoHeight, 9999, Self.Height - Padding.Top - Padding.Bottom);
 
   // italic and Trailing horz align does not work together because of the extra space italic text needs.. This is not calculated correctly..
-//  var needsItalicCorrection := (_settings.HorzAlign = TTextAlign.Trailing) and (TFontStyle.fsItalic in _settings.Font.Style);
+  var needsItalicCorrection := (_settings.HorzAlign = TTextAlign.Trailing) and (TFontStyle.fsItalic in _settings.Font.Style);
 //  Assert(not needsItalicCorrection);
 
   _layout.BeginUpdate;
   try
     _layout.Text := GetText;
+    if needsItalicCorrection then
+      _layout.Text := _layout.Text + #$202F + #8288; // #8288 is a not visible, non-width character. This triggers the ' ' to be taken into account
     _layout.LayoutCanvas.Font.Size := _settings.Font.Size;
     _layout.TopLeft := PointF(0,0);
     _layout.MaxSize := PointF(maxWidth, maxHeight);
