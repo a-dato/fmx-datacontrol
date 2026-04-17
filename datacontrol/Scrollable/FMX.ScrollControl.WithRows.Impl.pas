@@ -1370,14 +1370,10 @@ begin
       Result := _waitForRepaintInfo.DataItem
     else if _waitForRepaintInfo.Current >= 0 then
     begin
-      {$IFDEF DEBUG}
-      Result := nil;
-      {$ELSE}
       GenerateView;
       if (_view <> nil) and (_waitForRepaintInfo.Current <= _view.ViewCount - 1) then
         Result := _view.GetViewList[_waitForRepaintInfo.Current] else
         Result := nil;
-      {$ENDIF}
     end
     else
       Result := nil;
@@ -3084,13 +3080,14 @@ begin
 
   AtomicIncrement(_internalSelectCount);
   try
+    var crrDataItem := Self.DataItem;
     if (_model <> nil) then
     begin
-      var convertedDataItem := ConvertToDataItem(Self.DataItem);
+      var convertedDataItem := ConvertToDataItem(crrDataItem);
       _model.ObjectContext := convertedDataItem;
     end
-    else if (GetDataModelView <> nil) and (_selectionInfo.DataItem <> nil) and (_selectionInfo.DataItem.IsOfType<IDataRowView>) then
-      GetDataModelView.CurrencyManager.Current := Self.DataItem.AsType<IDataRowView>.ViewIndex;
+    else if (GetDataModelView <> nil) and (crrDataItem <> nil) and (crrDataItem.IsOfType<IDataRowView>) then
+      GetDataModelView.CurrencyManager.Current := crrDataItem.AsType<IDataRowView>.ViewIndex;
   finally
     AtomicDecrement(_internalSelectCount);
   end;
