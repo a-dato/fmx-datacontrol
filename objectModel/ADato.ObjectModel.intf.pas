@@ -118,6 +118,14 @@ type
     procedure ResetModelProperties;
   end;
 
+  IObjectModelContextViewState = interface(IBaseInterface)
+    ['{B7B28715-8E2D-4A32-B4E4-5243A376D97D}']
+    function  get_IsMultiSelectActive: Boolean;
+    procedure set_IsMultiSelectActive(const Value: Boolean);
+
+    property IsMultiSelectActive: Boolean read get_IsMultiSelectActive write set_IsMultiSelectActive;
+  end;
+
   IObjectModelContext = interface(IBaseInterface)
     ['{8D047014-E823-4771-9194-0F0D447956AD}']
     {$IFDEF DELPHI}

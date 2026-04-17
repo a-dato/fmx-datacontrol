@@ -409,13 +409,26 @@ begin
 
   var isEditable := (Context <> nil);
   var isVisible := (Context <> nil);
+  var isMultiSelectActive := False;
+
+  var viewState: IObjectModelContextViewState;
+  if (_ObjectModelContext <> nil) and Interfaces.Supports<IObjectModelContextViewState>(_ObjectModelContext, viewState) then
+    isMultiSelectActive := viewState.IsMultiSelectActive;
 
   var iwid: IPropertyAccessibility;
   if (Context <> nil) and Context.TryAsType<IPropertyAccessibility>(iwid) then
   begin
     var edState := iwid.PropertyState(__PropertyInfo.Name);
-    isEditable := edState.IsEditable;
-    isVisible := edState.IsVisible;
+    if isMultiSelectActive then
+    begin
+      isEditable := edState = TEditableState.MultiEditable;
+      isVisible := edState = TEditableState.MultiEditable;
+    end
+    else
+    begin
+      isEditable := edState.IsEditable;
+      isVisible := edState.IsVisible;
+    end;
   end;
 
   UpdateControlEditability(isEditable);

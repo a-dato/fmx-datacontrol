@@ -70,11 +70,12 @@ type
     procedure ResetModelProperties; override;
   end;
 
-  TObjectModelContext = class(TBaseInterfacedObject, IObjectModelContext, IUpdatableObject)
+  TObjectModelContext = class(TBaseInterfacedObject, IObjectModelContext, IObjectModelContextViewState, IUpdatableObject)
   protected
     _BoundProperties: List<_PropertyInfo>;
     _Context: CObject;
     _Model: IObjectModel;
+    _IsMultiSelectActive: Boolean;
     _OnContextCanChange: ContextCanChangeEventHandler;
     _OnContextChanging: ContextChangingEventHandler;
     _OnContextChanged: ContextChangedEventHandler;
@@ -87,6 +88,8 @@ type
 
     function  get_Context: CObject;
     procedure set_Context(const Value: CObject); virtual;
+    function  get_IsMultiSelectActive: Boolean; virtual;
+    procedure set_IsMultiSelectActive(const Value: Boolean); virtual;
     function  get_OnContextCanChange: ContextCanChangeEventHandler;
     function  get_OnContextChanging: ContextChangingEventHandler;
     function  get_OnContextChanged: ContextChangedEventHandler;
@@ -316,6 +319,11 @@ begin
   Result := _Context;
 end;
 
+function TObjectModelContext.get_IsMultiSelectActive: Boolean;
+begin
+  Result := _IsMultiSelectActive;
+end;
+
 function TObjectModelContext.ContextCanChange : Boolean;
 begin
   if _OnContextCanChange <> nil then
@@ -386,6 +394,18 @@ begin
   // if not _Context is clone (BeginEdit/CancelEdit)
   if _UpdateCount = 0 then
     DoContextChanged;
+end;
+
+procedure TObjectModelContext.set_IsMultiSelectActive(const Value: Boolean);
+begin
+  if _IsMultiSelectActive = Value then
+    Exit;
+
+  _IsMultiSelectActive := Value;
+
+  if _UpdateCount = 0 then
+	UpdatePropertyBindingValues
+//    DoContextChanged;
 end;
 
 procedure TObjectModelContext.UpdatePropertyBindingValues(const APropertyName: CString);

@@ -211,6 +211,14 @@ begin
   inherited Create(ListObjectModelContext.Model);
   _listObjectModelContext := ListObjectModelContext;
   _itemIsInControlOfOtherModelContexts := ItemIsInControl;
+
+  var viewState: IObjectModelContextViewState;
+  if Interfaces.Supports<IObjectModelContextViewState>(ListObjectModelContext, viewState) then
+  begin
+    var selfViewState: IObjectModelContextViewState;
+    if Interfaces.Supports<IObjectModelContextViewState>(Self, selfViewState) then
+      selfViewState.IsMultiSelectActive := viewState.IsMultiSelectActive;
+  end;
 end;
 
 function TStorageObjectModelContext.get_itemIsInControlOfOtherModelContexts: Boolean;

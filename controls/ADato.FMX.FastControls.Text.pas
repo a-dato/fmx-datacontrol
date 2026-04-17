@@ -35,7 +35,7 @@ uses
   Wasm.FMX.ImgList,
   Wasm.FMX.Types,
   Wasm.FMX.Layouts,
-  Wasm.FMX.TextLayout, 
+  Wasm.FMX.TextLayout,
   Wasm.System.Types,
   {$ENDIF}
   System_,
@@ -62,14 +62,12 @@ type
     _text: string;
     _layout: TTextLayout;
     _settings: TTextSettings;
-    _style: TStyledSettings;
     _autoWidth: Boolean;
     _calcAsAutoHeight: Boolean;
     _underlineOnHover: Boolean;
 
     _recalcNeeded: Boolean;
     _waitingForRepaint: Boolean;
-    _ignoreDefaultPaint: Boolean;
 
     _textBounds: TRectF;
     _onChange: TNotifyEvent;
@@ -81,6 +79,10 @@ type
     // for checkbox ctrl
     _internalLeftPadding: Single;
     _internalRightPadding: Single;
+    _internalBottomPadding: Single;
+
+    // TInverseLabel
+    _ignoreDefaultPaint: Boolean;
 
     // ICaption
     function  GetText: string;
@@ -114,15 +116,15 @@ type
     procedure DoPaint; override;
     procedure DoResized; override;
     function  GetDefaultSize: TSizeF; override;
+//    function  IsControlRectEmpty: Boolean; override;
 
     procedure Calculate; virtual;
     procedure EnsureLayoutForCanvas(const ACanvas: TCanvas);
     procedure RecalcNeeded;
     procedure RepaintNeeded;
 
-    procedure CalculateText(const MaxWidth, MaxHeight: Single);
-
-    procedure PrepareTextForPaint(Round: Integer = 0);
+    function  CalculateTextXPos: Single;
+    function  CalculateTextYPos: Single;
 
     procedure DoMouseLeave; override;
     procedure MouseMove(Shift: TShiftState; X, Y: Single); override;
@@ -138,8 +140,8 @@ type
     procedure RecalcOpacity; override;
 
     function HasText: Boolean;
-    function TextWidth: Single;
-    function TextHeight: Single;
+    function TextWidth: Single; virtual;
+    function TextHeight: Single; virtual;
     function TextWidthWithPadding: Single;
     function TextHeightWithPadding: Single;
 
@@ -235,41 +237,6 @@ begin
     _layout.LayoutCanvas := ACanvas;
 end;
 
-procedure TFastText.CalculateText(const MaxWidth, MaxHeight: Single);
-begin
-  var layoutCanvas := Self.Canvas;
-  if layoutCanvas = nil then
-    layoutCanvas := TCanvasManager.MeasureCanvas;
-
-  EnsureLayoutForCanvas(layoutCanvas);
-
-  _layout.BeginUpdate;
-  try
-    _layout.Text := GetText;
-
-    _layout.LayoutCanvas.Font.Size := _settings.Font.Size;
-    _layout.TopLeft := PointF(0,0);
-    _layout.MaxSize := PointF(maxWidth, maxHeight);
-    // MUST BE LEADING: italic trailing aligned will give non-italic width back
-    _layout.HorizontalAlign := TTextAlign.Leading;
-    _layout.VerticalAlign := TTextAlign.Leading; //_settings.VertAlign;
-    _layout.WordWrap := get_WordWrap;
-    _layout.Trimming := get_Trimming;
-    _layout.Font := _settings.Font;
-    _layout.Color := _settings.FontColor;
-  finally
-    _layout.EndUpdate;
-  end;
-
-  _textBounds := _layout.TextRect;
-
-  {$IFDEF SKIA}
-  // bad code, but neccesssary.. SKIA does not calculate italic fonts right..
-  if GlobalUseSkia and (TFontStyle.fsItalic in _layout.Font.Style) then
-    _textBounds := RectF(_textBounds.Left, _textBounds.Top, _textBounds.Right + 3, _textBounds.Bottom);
-  {$ENDIF}
-end;
-
 constructor TFastText.Create(AOwner: TComponent);
 begin
   inherited;
@@ -303,93 +270,60 @@ begin
   inherited;
 end;
 
-procedure TFastText.PrepareTextForPaint(Round: Integer = 0);
+function TFastText.CalculateTextXPos: Single;
 begin
-  var xPos := 0.0;
-  var yPos := 0.0;
   case get_HorzTextAlign of
-    TTextAlign.Center: xPos := (Self.Width - _textBounds.Width) / 2;
-    TTextAlign.Leading: xPos := Padding.Left + _internalLeftPadding;
-    TTextAlign.Trailing: xPos := Self.Width - _textBounds.Width - Padding.Right - _internalRightPadding;
+    TTextAlign.Center: Result := (Self.Width - _textBounds.Width) / 2;
+    TTextAlign.Leading: Result := Padding.Left + _internalLeftPadding;
+    TTextAlign.Trailing: Result := Self.Width - TextWidth - Padding.Right - _internalRightPadding;
   end;
+end;
 
+function TFastText.CalculateTextYPos: Single;
+begin
   var totHeight := _textBounds.Height;
   case get_VertTextAlign of
-    TTextAlign.Center: yPos := (Self.Height - totHeight) / 2;
-    TTextAlign.Leading: yPos := Padding.Top;
-    TTextAlign.Trailing: yPos := Self.Height - totHeight - Padding.Bottom;
-  end;
-
-//  {$IFDEF DEBUG}
-//  Self.Canvas.Fill.Color := TALphaColors.Green;
-//  Self.Canvas.FillRect(RectF(0, 0, Self.Width, Self.Height), 0.2);
-//
-//  Self.Canvas.Fill.Color := TALphaColors.Purple;
-//  Self.Canvas.FillRect(RectF(xPos, yPos, xPos +_textBounds.Width, yPos+_textBounds.Height), 0.2);
-//  {$ENDIF}
-
-  _layout.Opacity := AbsoluteOpacity;
-  _layout.TopLeft := PointF(xPos, yPos);
-
-  var textW := TextWidthWithPadding;
-  var textH := TextHeightWithPadding;
-  if (textW > Self.Width) or (textH > Self.Height) then
-  begin
-    var w := IfThen(textW > Self.Width, Self.Width - xPos, _layout.MaxSize.X);
-    var h := IfThen(textH > Self.Height, Self.Height - yPos, _layout.MaxSize.Y);
-    _layout.MaxSize := PointF(w, h);
-  end
-  else
-  begin
-    if Round > 0 then
-      Exit;
-
-    if (_layout.MaxSize.X < textW) and (Self.Width - xPos > _layout.MaxSize.X + 1) and ((_maxWidth <= 0) or (_maxWidth > _layout.MaxSize.X)) then
-      _recalcNeeded := True
-    else if (_layout.MaxSize.Y < textH) and (Self.Height - yPos > _layout.MaxSize.Y + 1) then
-      _recalcNeeded := True;
-
-    if _recalcNeeded then
-    begin
-      Calculate;
-      PrepareTextForPaint(1);
-    end;
+    TTextAlign.Center: Result := (Self.Height - totHeight - _internalBottomPadding) / 2;
+    TTextAlign.Leading: Result := Padding.Top;
+    TTextAlign.Trailing: Result := Self.Height - totHeight - Padding.Bottom - _internalBottomPadding;
   end;
 end;
 
 procedure TFastText.DoPaint;
 begin
-  _waitingForRepaint := False;
-
   {$IFDEF WEBASSEMBLY}
   if Self.Parent.IsOfType<TControl> then
     _layout.TopLeft := (Self.Parent as TControl).LocalToAbsolute({TPointF.Create(0, 0}TPointF.Create(0, 15));
   {$ENDIF}
 
+  _waitingForRepaint := False;
+
   inherited;
 
   if not _ignoreDefaultPaint then
   begin
-    EnsureLayoutForCanvas(Canvas);
-    if _recalcNeeded then
-      Calculate;
+    _layout.Opacity := AbsoluteOpacity;
+    _layout.TopLeft := PointF(CalculateTextXPos, CalculateTextYPos);
+    _layout.MaxSize := PointF(TextWidthWithPadding - _internalLeftPadding - _internalRightPadding, TextHeightWithPadding - _internalBottomPadding);
 
-    PrepareTextForPaint;
+  //  {$IFDEF DEBUG}
+  //  Self.Canvas.Fill.Color := TAlphaColors.Mediumpurple;
+  //  Self.Canvas.FillRect(RectF(0, 0, Self.Width, Self.Height), 0.2);
+  //
+  //  Self.Canvas.Fill.Color := TAlphaColors.Darkred;
+  //  Self.Canvas.FillRect(RectF(_layout.TopLeft.X, _layout.TopLeft.Y, _layout.TopLeft.X + _layout.MaxSize.X, _layout.TopLeft.Y + _layout.MaxSize.Y), 0.05);
+  //  {$ENDIF}
 
     _layout.RenderLayout(Canvas);
   end;
 
-  if _hover and _underlineOnHover and not _mouseIsDown then
+  if _hover and _underlineOnHover then
   begin
-    var xPos := 0.0;
-    case get_HorzTextAlign of
-      TTextAlign.Center: xPos := (Self.Width - _textBounds.Width) / 2;
-      TTextAlign.Leading: xPos := Padding.Left + _internalLeftPadding;
-      TTextAlign.Trailing: xPos := Self.Width - _textBounds.Width - Padding.Right - _internalRightPadding;
-    end;
+    var textBottom := _layout.TopLeft.Y + _layout.MaxSize.Y;
 
     Canvas.Stroke.Color := _layout.Color;
-    Canvas.DrawLine(PointF(xPos + _textBounds.Left, _textBounds.Bottom), PointF(xPos + _textBounds.Right, _textBounds.Bottom), AbsoluteOpacity);
+    Canvas.Stroke.Kind := TBrushKind.Solid;
+    Canvas.DrawLine(PointF(_layout.TopLeft.X, textBottom), PointF(_layout.TopLeft.X + _textBounds.Width, textBottom), AbsoluteOpacity * IfThen(_mouseIsDown, 0.3, 1));
   end;
 end;
 
@@ -404,6 +338,11 @@ begin
   Calculate;
   inherited;
 end;
+
+//function TFastText.IsControlRectEmpty: Boolean;
+//begin
+//  Result := inherited or (Length(GetText) = 0) or SameValue(AbsoluteOpacity, 0)
+//end;
 
 function TFastText.GetDefaultSize: TSizeF;
 begin
@@ -544,6 +483,12 @@ procedure TFastText.Calculate;
   end;
 
 begin
+  var layoutCanvas := Self.Canvas;
+  if layoutCanvas = nil then
+    layoutCanvas := TCanvasManager.MeasureCanvas;
+
+  EnsureLayoutForCanvas(layoutCanvas);
+
   if not _recalcNeeded then
     Exit;
 
@@ -553,7 +498,35 @@ begin
   var maxWidth := IfThen(_maxWidth > 0, maxInternalWidth, IfThen(get_WordWrap, Self.Width, 9999));
   var maxHeight := IfThen(get_WordWrap or _calcAsAutoHeight, 9999, Self.Height - Padding.Top - Padding.Bottom);
 
-  CalculateText(maxWidth, maxHeight);
+  // italic and Trailing horz align does not work together because of the extra space italic text needs.. This is not calculated correctly..
+  var needsItalicCorrection := (_settings.HorzAlign = TTextAlign.Trailing) and (TFontStyle.fsItalic in _settings.Font.Style);
+//  Assert(not needsItalicCorrection);
+
+  _layout.BeginUpdate;
+  try
+    _layout.Text := GetText;
+    if needsItalicCorrection then
+      _layout.Text := _layout.Text + #$202F + #8288; // #8288 is a not visible, non-width character. This triggers the ' ' to be taken into account
+    _layout.LayoutCanvas.Font.Size := _settings.Font.Size;
+    _layout.TopLeft := PointF(0,0);
+    _layout.MaxSize := PointF(maxWidth, maxHeight);
+    _layout.HorizontalAlign := _settings.HorzAlign;
+    _layout.VerticalAlign := _settings.VertAlign;
+    _layout.WordWrap := get_WordWrap;
+    _layout.Trimming := get_Trimming;
+    _layout.Font := _settings.Font;
+    _layout.Color := _settings.FontColor;
+  finally
+    _layout.EndUpdate;
+  end;
+
+  _textBounds := _layout.TextRect;
+
+  {$IFDEF SKIA}
+  // bad code, but neccesssary.. SKIA does not calculate italic fonts right..
+  if GlobalUseSkia and (TFontStyle.fsItalic in _layout.Font.Style) then
+    _textBounds := RectF(_textBounds.Left, _textBounds.Top, _textBounds.Right + 3, _textBounds.Bottom);
+  {$ENDIF}
 
   if _autoWidth then
   begin
@@ -690,7 +663,7 @@ end;
 
 function TFastText.TextHeightWithPadding: Single;
 begin
-  Result := TextHeight + Self.Padding.Top + Self.Padding.Bottom;
+  Result := TextHeight + Self.Padding.Top + Self.Padding.Bottom + _internalBottomPadding;
 end;
 
 function TFastText.TextStored: Boolean;
