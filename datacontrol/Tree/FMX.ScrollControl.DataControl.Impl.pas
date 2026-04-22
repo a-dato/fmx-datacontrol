@@ -79,6 +79,8 @@ type
     property OnCompareColumnCells;
     property OnColumnsChanged;
     property OnTreePositioned;
+    property OnColumnChangingByUser;
+    property OnColumnChangedByUser;
 
     // TScrollControlWithEditableCells
     property EditRowStart;

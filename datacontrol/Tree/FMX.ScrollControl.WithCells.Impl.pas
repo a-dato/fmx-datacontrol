@@ -138,6 +138,8 @@ type
     _onCompareColumnCells: TOnCompareColumnCells;
 
     _onColumnsChanged: ColumnChangedByUserEvent;
+    _onColumnChangingByUser: ColumnChangingByUserEvent;
+    _onColumnChangedByUser: ColumnChangedByUserEvent;
     _onTreePositioned: TreePositionedEvent;
 
     _popupMenuClosed: TNotifyEvent;
@@ -157,6 +159,8 @@ type
     function  DoOnCompareColumnCells(const Column: IDCTreeColumn; const Left, Right: CObject): Integer;
 
     procedure DoColumnsChanged(const Column: IDCTreeColumn);
+    function  DoColumnChangingByUser(const LayoutColumn: IDCTreeLayoutColumn; const NewWidth: Single; const NewPosition: Integer): Boolean;
+    procedure DoColumnChangedByUser(const LayoutColumn: IDCTreeLayoutColumn);
     procedure DoTreePositioned(const TotalColumnWidth: Single);
 
   private
@@ -171,7 +175,9 @@ type
 
   protected
     _totalColumnWidth: Single;
-    _fullHeaderClick: Boolean;
+    _headerMouseDownStart: TPointF;
+
+    _columnMoveRect: TRectangle;
     _autoMultiSelectColumn: IDCTreeCheckboxColumn;
     _autoMultiSelectColumnIndex: Integer;
     _localCheckSetInDefaultData: Boolean;
@@ -215,12 +221,19 @@ type
 
     procedure KeyDown(var Key: Word; var KeyChar: WideChar; Shift: TShiftState); override;
     procedure UserClicked(Button: TMouseButton; Shift: TShiftState; const X, Y: Single); override;
-    procedure OnHeaderClick(Sender: TObject);
+//    procedure OnHeaderClick(Sender: TObject);
+
+    procedure EndMoveColumn;
+    procedure AnimateMoveColumn(const OldCellLefts: Dictionary<IDCTreeColumn, Single>);
     procedure OnHeaderMouseUp(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Single); virtual;
+    procedure OnHeaderMouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Single); virtual;
+    procedure OnHeaderMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Single); virtual;
+    procedure OnHeaderMouseLeave(Sender: TObject); virtual;
     procedure DataModelViewRowPropertiesChanged(Sender: TObject; Args: RowPropertiesChangedEventArgs); override;
 
     procedure MouseMove(Shift: TShiftState; X, Y: Single); override;
     procedure UpdateHorzScrollbar;
+    procedure StopHeaderMouseAction;
 
     function  GetCellControlData(const Cell: IDCTreeCell): CObject;
 
@@ -247,7 +260,7 @@ type
     procedure SetBasicHorzScrollBarValues; override;
 
     function  GetSelectableFlatColumnByMouseX(const X: Single): IDCTreeLayoutColumn;
-    function  GetFlatColumnByMouseX(const X: Single): IDCTreeLayoutColumn;
+    function  GetFlatColumnByMouseX(const X: Single; IsInnerControlX: Boolean = False): IDCTreeLayoutColumn;
     function  GetFlatColumnByKey(const Key: Word; Shift: TShiftState; FromColumnIndex: Integer): IDCTreeLayoutColumn;
 
     procedure HandleTreeOptionsChange(const OldFlags, NewFlags: TDCTreeOptions); override;
@@ -335,6 +348,8 @@ type
     property OnCompareColumnCells: TOnCompareColumnCells read _onCompareColumnCells write _onCompareColumnCells;
     property OnColumnsChanged: ColumnChangedByUserEvent read _onColumnsChanged write _onColumnsChanged;
     property OnTreePositioned: TreePositionedEvent read _onTreePositioned write _onTreePositioned;
+    property OnColumnChangingByUser: ColumnChangingByUserEvent read _onColumnChangingByUser write _onColumnChangingByUser;
+    property OnColumnChangedByUser: ColumnChangedByUserEvent read _onColumnChangedByUser write _onColumnChangedByUser;
   end;
 
   TDCColumnSortAndFilter = class(TObservableObject, IDCColumnSortAndFilter)
@@ -874,6 +889,8 @@ type
 
   public
     function  IsHeaderCell: Boolean; override;
+
+    procedure UpdateUserIsMovingColumn(const IsMoving: Boolean);
   end;
 
   TDCTreeRow = class(TDCRow, IDCTreeRow)
@@ -1526,14 +1543,15 @@ begin
   end;
 end;
 
-function TScrollControlWithCells.GetFlatColumnByMouseX(const X: Single): IDCTreeLayoutColumn;
+function TScrollControlWithCells.GetFlatColumnByMouseX(const X: Single; IsInnerControlX: Boolean = False): IDCTreeLayoutColumn;
 begin
   var virtualMouseposition: Single;
   if _horzScrollBar.Visible and (X > _treeLayout.FrozenColumnWidth) then
     virtualMouseposition := X + (_horzScrollBar.Value - _horzScrollBar.Min {frozen width if set}) else
     virtualMouseposition := X;
 
-  if _autoCenterTree then
+//  virtualMouseposition := virtualMouseposition + TreeInnerXPosition;
+  if _autoCenterTree and not IsInnerControlX then
   begin
     if _headerRow <> nil then
       virtualMouseposition := virtualMouseposition - _headerRow.Control.Position.X
@@ -1675,18 +1693,210 @@ begin
   _headerColumnResizeControl.StartResizing(HeaderCell);
 end;
 
-procedure TScrollControlWithCells.OnHeaderClick(Sender: TObject);
+procedure TScrollControlWithCells.StopHeaderMouseAction;
 begin
-  _fullHeaderClick := True;
+  if _columnMoveRect <> nil then
+  begin
+    for var cell in _headerRow.Cells.Values do
+      (cell as IHeaderCell).UpdateUserIsMovingColumn(False);
+
+    FreeAndNil(_columnMoveRect);
+  end;
+
+  _headerMouseDownStart := TPointF.Zero;
+end;
+
+procedure TScrollControlWithCells.OnHeaderMouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Single);
+begin
+  StopHeaderMouseAction;
+  _headerMouseDownStart := PointF(X, Y);
+end;
+
+procedure TScrollControlWithCells.OnHeaderMouseLeave(Sender: TObject);
+begin
+  StopHeaderMouseAction;
+  _headerMouseDownStart := TPointF.Zero;
+end;
+
+procedure TScrollControlWithCells.OnHeaderMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Single);
+const
+  MOVE_ANIMATION_DURATION = 0.22;
+begin
+  if _headerMouseDownStart.IsZero or not (TreeOption_ColumnsCanMove in _options) then
+    Exit;
+
+  var distance := _headerMouseDownStart.Distance(PointF(X, Y));
+  if distance < 5 then
+    Exit;
+
+  var flatColumn := GetFlatColumnByMouseX(X);
+  if (flatColumn = nil) then
+  begin
+    StopHeaderMouseAction;
+    Exit;
+  end;
+
+  if (flatColumn <> nil) and flatColumn.Column.Frozen then
+  begin
+    var flatIx := get_Layout.FlatColumns.IndexOf(flatColumn);
+    while (flatColumn <> nil) and flatColumn.Column.Frozen do
+    begin
+      inc(flatIx);
+      if flatIx > get_Layout.FlatColumns.Count - 1 then
+        Exit;
+
+      flatColumn := get_Layout.FlatColumns[flatIx];
+    end;
+  end;
+
+  if _columnMoveRect = nil then
+  begin
+    if flatColumn.Column.Frozen then
+      Exit;
+
+    _columnMoveRect := TRectangle.Create(_headerRow.Control);
+    _columnMoveRect.Width := 4;
+    _columnMoveRect.Height := _headerRow.Control.Height;
+    _columnMoveRect.HitTest := False;
+    _columnMoveRect.Tag := flatColumn.Index;
+    _columnMoveRect.Stroke.Color := DEFAULT_ROW_SELECTION_MULTISELECT_COLOR;
+    _columnMoveRect.Stroke.Thickness := 2;
+    _columnMoveRect.Stroke.Dash := TStrokeDash.Dot;
+    _columnMoveRect.XRadius := 2;
+    _columnMoveRect.YRadius := 2;
+    _headerRow.Control.AddObject(_columnMoveRect);
+
+    var rect := TRectangle.Create(_columnMoveRect);
+    rect.Fill.Color := DEFAULT_ROW_SELECTION_MULTISELECT_COLOR;
+    rect.Height := _columnMoveRect.Height;
+    rect.Position.Y := _columnMoveRect.Height - 5;
+    rect.Stroke.Kind := TBrushKind.None;
+    rect.XRadius := 5;
+    rect.YRadius := 5;
+    rect.HitTest := False;
+    rect.Opacity := 0.3;
+    _columnMoveRect.AddObject(rect);
+
+    var lbl := DataControlClassFactory.CreateText(_columnMoveRect);
+    var textCtrl := lbl.Control as ITextControl;
+    textCtrl.Text := flatColumn.Column.Caption;
+    lbl.Control.Padding.Left := 5;
+    lbl.Control.Padding.Right := 5;
+    lbl.Control.Height := rect.Height;
+    lbl.Control.Position.Y := _columnMoveRect.Height - 5;
+    _columnMoveRect.AddObject(lbl.Control);
+
+    rect.Width := textCtrl.TextWidthWithPadding;
+    rect.Position.X := -(rect.Width / 2);
+
+    lbl.Control.Width := rect.Width;
+    lbl.Control.Position.X := rect.Position.X;
+
+    for var cell in _headerRow.Cells.Values do
+      (cell as IHeaderCell).UpdateUserIsMovingColumn(True);
+  end;
+
+  var pos1 := flatColumn.Left;
+  var pos2 := flatColumn.Left + flatColumn.Width;
+  var realX := X - _headerRow.Control.Position.X; // autocentertree
+  var newPos: Single;
+  if (realX - pos1) > (pos2 - realX) then
+    newPos := pos2 else
+    newPos := pos1;
+
+  _columnMoveRect.Position.X := newPos - (_columnMoveRect.Width / 2);
+end;
+
+procedure TScrollControlWithCells.EndMoveColumn;
+begin
+  var originalColumnsLeft: Dictionary<IDCTreeColumn, Single> := CDictionary<IDCTreeColumn, Single>.Create;
+  for var clmn in _treeLayout.FlatColumns do
+    originalColumnsLeft.Add(clmn.Column, clmn.Left);
+
+  var movingColumn := _treeLayout.LayoutColumns[_columnMoveRect.Tag];
+  var clmnBefore := GetFlatColumnByMouseX(_columnMoveRect.Position.X - 1, True {ctrl x});
+
+  var oldIx := _columns.IndexOf(movingColumn.Column);
+  var newIx := 0;
+  if clmnBefore <> nil then
+    newIx := _columns.IndexOf(clmnBefore.Column);
+
+  if (clmnBefore <> nil) and (newIx < oldIx) then
+    newIx := newIx + 1;
+
+  if not DoColumnChangingByUser(movingColumn, -1, newIx) then
+    Exit;
+
+  newIx := CMath.Max(0, CMath.Min(_columns.Count - 1, newIx));
+  if newIx = oldIx then
+    Exit;
+
+  _columns.RemoveAt(oldIx);
+  _columns.Insert(newIx, movingColumn.Column);
+
+  if not (_realignState in [TRealignState.Waiting, TRealignState.RealignDone]) then
+  begin
+    if _treeLayout <> nil then
+      _treeLayout.ForceRecalc;
+
+    RefreshControl;
+    DoColumnChangedByUser(movingColumn);
+    Exit;
+  end;
+
+  _treeLayout := nil;
+  ForceImmeditiateRealignContent;
+  DoColumnChangedByUser(movingColumn);
+  AnimateMoveColumn(originalColumnsLeft);
+end;
+
+procedure TScrollControlWithCells.AnimateMoveColumn(const OldCellLefts: Dictionary<IDCTreeColumn, Single>);
+const
+  MOVE_ANIMATION_DURATION = 0.22;
+begin
+  if (OldCellLefts = nil) then
+    Exit;
+
+  var rows := HeaderAndTreeRows(False);
+  for var column in OldCellLefts.Keys do
+  begin
+    var oldAbsoluteLeft: Single;
+    var flatColumn := FlatColumnByColumn(column);
+    if (flatColumn = nil) or not OldCellLefts.TryGetValue(column, oldAbsoluteLeft) then
+      Continue;
+
+    // column is not moved
+    if SameValue(oldAbsoluteLeft, flatColumn.Left, 0.5) then
+      Continue;
+
+    for var row in rows do
+    begin
+      var cell: IDCTreeCell;
+      if not row.Cells.TryGetValue(flatColumn.Index, cell) then
+        Continue;
+
+      if (cell.Control = nil) or (cell.Control.Parent = nil) then
+        Continue;
+
+      var targetX := cell.Control.Position.X;
+      var startX := oldAbsoluteLeft - cell.Control.ParentControl.Position.X;
+      if SameValue(startX, targetX) then
+        Continue;
+
+      TAnimator.StopPropertyAnimation(cell.Control, 'Position.X');
+      cell.Control.Position.X := startX;
+      TAnimator.AnimateFloat(cell.Control, 'Position.X', targetX,
+        MOVE_ANIMATION_DURATION, TAnimationType.Out, TInterpolationType.Cubic);
+    end;
+  end;
 end;
 
 procedure TScrollControlWithCells.OnHeaderMouseUp(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Single);
 begin
-  if (Button = TMouseButton.mbLeft) and not _fullHeaderClick then
+  if (Button = TMouseButton.mbLeft) and _headerMouseDownStart.IsZero then
     Exit;
 
-  _fullHeaderClick := False;
-
+  _headerMouseDownStart := TPointF.Zero;
   if (_headerRow = nil) then
     Exit;
 
@@ -1694,11 +1904,20 @@ begin
   if (flatColumn = nil) then
     Exit;
 
+  // open popup
   if Button = TMouseButton.mbRight then
   begin
     if flatColumn.Column.ShowSortMenu or flatColumn.Column.ShowFilterMenu or flatColumn.Column.AllowHide then
       ShowHeaderPopupMenu(flatColumn);
 
+    Exit;
+  end;
+
+  // user move columns
+  if (_columnMoveRect <> nil) then
+  begin
+    EndMoveColumn;
+    StopHeaderMouseAction;
     Exit;
   end;
 
@@ -2922,6 +3141,40 @@ begin
   end;
 end;
 
+function TScrollControlWithCells.DoColumnChangingByUser(const LayoutColumn: IDCTreeLayoutColumn; const NewWidth: Single; const NewPosition: Integer): Boolean;
+var
+  args: ColumnChangedByUserEventArgs;
+begin
+  Result := True;
+  if Assigned(_onColumnChangingByUser) then
+  begin
+    args := ColumnChangedByUserEventArgs.Create(LayoutColumn.Column, NewWidth, NewPosition);
+    try
+      _onColumnChangingByUser(Self, args);
+//      NewWidth := args.NewWidth;
+//      NewPosition := args.NewPosition;
+      Result := args.Accept;
+    finally
+      args.Free;
+    end;
+  end;
+end;
+
+procedure TScrollControlWithCells.DoColumnChangedByUser(const LayoutColumn: IDCTreeLayoutColumn);
+var
+  args: ColumnChangedByUserEventArgs;
+begin
+  if Assigned(_onColumnChangedByUser) then
+  begin
+    args := ColumnChangedByUserEventArgs.Create(LayoutColumn.Column, LayoutColumn.Width, _columns.IndexOf(LayoutColumn.Column));
+    try
+      _onColumnChangedByUser(Self, args);
+    finally
+      args.Free;
+    end;
+  end;
+end;
+
 function TScrollControlWithCells.DoSortingGetComparer(const SortDescription: IListSortDescriptionWithComparer{; const ReturnSortComparer: Boolean}) : IComparer<CObject>;
 var
   args: DCColumnComparerEventArgs;
@@ -3354,6 +3607,8 @@ begin
       Self.DoRemoveObject(_headerRow.Control.Parent);
       {$ENDIF}
       _headerRow := nil;
+
+      _columnMoveRect := nil;
     end;
 
     if (TDCTreeOption.ShowHeaders in _options) then
@@ -3362,11 +3617,17 @@ begin
       _headerRow.DataIndex := -1;
       _headerRow.CreateHeaderControls(Self);
       {$IFNDEF WEBASSEMBLY}
-      _headerRow.ContentControl.OnClick := OnHeaderClick;
+//      _headerRow.ContentControl.OnClick := OnHeaderClick;
       _headerRow.ContentControl.OnMouseUp := OnHeaderMouseUp;
+      _headerRow.ContentControl.OnMouseMove := OnHeaderMouseMove;
+      _headerRow.ContentControl.OnMouseDown := OnHeaderMouseDown;
+      _headerRow.ContentControl.OnMouseLeave := OnHeaderMouseLeave;
       {$ELSE}
-      _headerRow.ContentControl.OnClick := @OnHeaderClick;
+//      _headerRow.ContentControl.OnClick := @OnHeaderClick;
       _headerRow.ContentControl.OnMouseUp := @OnHeaderMouseUp;
+      _headerRow.ContentControl.OnMouseMove := @OnHeaderMouseMove;
+      _headerRow.ContentControl.OnMouseDown := @OnHeaderMouseDown;
+      _headerRow.ContentControl.OnMouseLeave := @OnHeaderMouseLeave;
       {$ENDIF}
 
       if _treeLayout.RecalcIsRequired then
@@ -6274,6 +6535,12 @@ begin
   _filterControl := Value;
 end;
 
+procedure THeaderCell.UpdateUserIsMovingColumn(const IsMoving: Boolean);
+begin
+  if _resizeControl <> nil then
+    _resizeControl.HitTest := not IsMoving;
+end;
+
 procedure THeaderCell.set_OnHeaderCellResizeClicked(const Value: TOnHeaderCellResizeClicked);
 begin
   _onHeaderCellResizeClicked := Value;
@@ -6288,10 +6555,16 @@ begin
 
   {$IFNDEF WEBASSEMBLY}
   if _resizeControl <> nil then
+  begin
     _resizeControl.OnMouseDown := OnResizeControlMouseDown;
+    _resizeControl.HitTest := True;
+  end;
   {$ELSE}
   if _resizeControl <> nil then
+  begin
     _resizeControl.OnMouseDown := @OnResizeControlMouseDown;
+    _resizeControl.HitTest := True;
+  end;
   {$ENDIF}
 end;
 

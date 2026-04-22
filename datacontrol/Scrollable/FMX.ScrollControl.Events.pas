@@ -253,17 +253,18 @@ type
 
   ColumnChangedByUserEventArgs = class(EventArgs)
   protected
-//    _Accept: Boolean;
-//    _hitInfo: ITreeHitInfo;
+    _accept: Boolean;
     _column: IDCTreeColumn;
     _newWidth: Single;
-//    _newPosition: Integer;
+    _newPosition: Integer;
 
   public
-    constructor Create(const Column: IDCTreeColumn; NewWidth: Single);
+    constructor Create(const Column: IDCTreeColumn; NewWidth: Single; NewPosition: Integer = -1);
 
+    property Accept: Boolean read _accept write _accept;
     property Column: IDCTreeColumn read _column;
-    property NewWidth: Single read _newWidth write _newWidth;
+    property NewWidth: Single read _newWidth; // write _newWidth;
+    property NewPosition: Integer read _newPosition; // write _newPosition;
   end;
 
   DCTreePositionArgs = class(EventArgs)
@@ -302,6 +303,7 @@ type
   CellCheckChangeEvent = procedure(const Sender: TObject; e: DCCheckChangedEventArgs) of object;
 
   ColumnChangedByUserEvent = procedure (const Sender: TObject; e: ColumnChangedByUserEventArgs) of object;
+  ColumnChangingByUserEvent = ColumnChangedByUserEvent;
 
   TDragEnterRowsEvent = procedure(Sender: TObject; const SelectedRows: List<TRowDataItemInfo>; const Data: TDragObject; const Point: TPointF) of object;
   TDragOverRowsEvent = procedure(Sender: TObject; const SelectedRows: List<TRowDataItemInfo>; const Data: TDragObject; const Point: TPointF; var Operation: TDragOperation) of object;
@@ -497,12 +499,14 @@ end;
 
 { ColumnChangedByUserEventArgs }
 
-constructor ColumnChangedByUserEventArgs.Create(const Column: IDCTreeColumn; NewWidth: Single);
+constructor ColumnChangedByUserEventArgs.Create(const Column: IDCTreeColumn; NewWidth: Single; NewPosition: Integer = -1);
 begin
   inherited Create;
 
+  _accept := True;
   _column := Column;
   _newWidth := NewWidth;
+  _newPosition := NewPosition;
 end;
 
 //{ DCCellItemUserActionEventArgs }

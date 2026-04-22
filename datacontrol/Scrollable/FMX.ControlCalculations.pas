@@ -24,7 +24,7 @@ uses
   Wasm.FMX.Types,
   Wasm.FMX.Forms
   {$ENDIF}
-  ;
+  , System.Types;
 
   function  TextControlWidth(const TextControl: TControl; const Settings: TTextSettings; const Text: string; MinWidth: Single = -1; MaxWidth: Single = -1; TextHeight: Single = -1): Single;
   function  TextControlHeight(const TextControl: TControl; const Settings: TTextSettings; const Text: string; MinHeight: Single = -1; MaxHeight: Single = -1; TextWidth: Single = -1): Single;
@@ -46,7 +46,6 @@ implementation
 
 uses
   {$IFNDEF WEBASSEMBLY}
-  System.Types,
   System.Math,
   {$ELSE}
   Wasm.System.Types,

@@ -798,7 +798,7 @@ end;
 
 procedure TScrollControlWithEditableCells.OnHeaderMouseUp(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Single);
 begin
-  if (Button = TMouseButton.mbLeft) and not _fullHeaderClick then
+  if (Button = TMouseButton.mbLeft) and _headerMouseDownStart.IsZero then
     Exit;
 
   if _editingInfo.RowIsEditing then
