@@ -131,13 +131,15 @@ begin
     if _Context.TryGetValue<IEditableObject>(eo) then
       eo.CancelEdit;
 
-    var notify: INotifyListItemChanged;
-    if (_UpdateCount = 0) and interfaces.Supports<INotifyListItemChanged>(_Owner, notify) then
-      notify.NotifyCancelEdit(Self, {var} _SavedContext);
+    var canNotify := (_UpdateCount = 0);
 
     // in case of clone, set old item back
     BeginUpdate;
     try
+      var notify: INotifyListItemChanged;
+      if canNotify and interfaces.Supports<INotifyListItemChanged>(_Owner, notify) then
+        notify.NotifyCancelEdit(Self, {var} _SavedContext);
+
       inherited set_Context(_SavedContext);
     finally
       EndUpdate;

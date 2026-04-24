@@ -24,7 +24,7 @@ uses
   Wasm.FMX.Types,
   Wasm.FMX.Forms
   {$ENDIF}
-  , System.Types;
+  , System.Types, FMX.Ani, System_;
 
   function  TextControlWidth(const TextControl: TControl; const Settings: TTextSettings; const Text: string; MinWidth: Single = -1; MaxWidth: Single = -1; TextHeight: Single = -1): Single;
   function  TextControlHeight(const TextControl: TControl; const Settings: TTextSettings; const Text: string; MinHeight: Single = -1; MaxHeight: Single = -1; TextWidth: Single = -1): Single;
@@ -39,6 +39,9 @@ uses
   function  MouseInObject(AControl: TControl): Boolean;
   function  OwnerForm(AControl: TControl): TCustomForm;
 
+  function  ProvideAnimation(const Control: TControl; const PropertyName: CString; const NewValue: Single; const Duration: Single = 0.22): TFloatAnimation;
+  function  ProvideAnimationDelay(const Control: TControl; const PropertyName: CString; const NewValue: Single; const Duration: Single = 0.22; const Delay: Single = 0.2): TFloatAnimation;
+
 var
   DefaultLayout: TTextLayout;
 
@@ -46,13 +49,13 @@ implementation
 
 uses
   {$IFNDEF WEBASSEMBLY}
-  System.Math,
+  System.Math
   {$ELSE}
   Wasm.System.Types,
   Wasm.System.Math,
-  Wasm.FMX.Types,
+  Wasm.FMX.Types
   {$ENDIF}
-  System_;
+  ;
 
 var
   _textLayoutUpdateCount: Integer;
@@ -304,6 +307,25 @@ begin
   if owner <> nil then
     Result := owner as TCustomForm else
     Result := nil;
+end;
+
+function ProvideAnimation(const Control: TControl; const PropertyName: CString; const NewValue: Single; const Duration: Single = 0.22): TFloatAnimation;
+begin
+  TAnimator.StopPropertyAnimation(Control, PropertyName);
+
+  Result := TFloatAnimation.Create(Control);
+  Result.Parent := Control;
+  Result.AnimationType := TAnimationType.Out;
+  Result.Interpolation := TInterpolationType.Circular;
+  Result.PropertyName := PropertyName;
+  Result.StartFromCurrent := True;
+  Result.StopValue := NewValue;
+end;
+
+function ProvideAnimationDelay(const Control: TControl; const PropertyName: CString; const NewValue: Single; const Duration: Single = 0.22; const Delay: Single = 0.2): TFloatAnimation;
+begin
+  Result := ProvideAnimation(Control, PropertyName, NewValue);
+  Result.Delay := Delay;
 end;
 
 end.

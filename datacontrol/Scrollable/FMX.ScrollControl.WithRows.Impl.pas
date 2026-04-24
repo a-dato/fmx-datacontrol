@@ -76,17 +76,22 @@ type
     _rowHeightDefault: Single;
     _rowHeightMax: Single;
     _options: TDCTreeOptions;
-    _onSelectionChanged: SelectionChangedEvent;
+
 
     // events
     {$IFNDEF WEBASSEMBLY}
     _rowLoaded: RowLoadedEvent;
     _rowAligned: RowLoadedEvent;
     {$ENDIF}
+    _onHoverRow: RowHoverEvent;
+    _onSelectionChanged: SelectionChangedEvent;
+    _onException: OnExceptionEvent;
 
     procedure SafeDoAnimateRowIn([weak] ARow: IDCRow);
     procedure DoRowLoaded(const ARow: IDCRow); virtual;
     procedure DoRowAligned(const ARow: IDCRow); virtual;
+    procedure DoHoverRow(const ARow, AOldRow: IDCRow); virtual;
+    function  DoHandleException(const AException: Exception): Boolean; virtual;
 
     function  get_SelectionType: TSelectionType;
     procedure set_SelectionType(const Value: TSelectionType);
@@ -178,6 +183,7 @@ type
     _masterSynchronizerIndex: Integer;
 
     _hoverRect: TRectangle;
+    [weak] _hoveredRow: IDCRow;
     _resetViewRec: TResetViewRec;
     _canDragDrop: Boolean;
     _dragObject: CObject;
@@ -411,7 +417,6 @@ type
     property SelectionType: TSelectionType read get_SelectionType write set_SelectionType default RowSelection;
     property Options: TDCTreeOptions read _options write set_Options;
     property CanDragDrop: Boolean read _canDragDrop write _canDragDrop default False;
-    property OnSelectionChanged: SelectionChangedEvent read _onSelectionChanged write _onSelectionChanged;
 
     property RowHeightFixed: Single read get_rowHeightFixed write set_RowHeightFixed;
     property RowHeightDefault: Single read get_rowHeightDefault write set_RowHeightDefault;
@@ -421,6 +426,9 @@ type
     property RowLoaded: RowLoadedEvent read _rowLoaded write _rowLoaded;
     property RowAligned: RowLoadedEvent read _rowAligned write _rowAligned;
     {$ENDIF}
+    property OnHoverRow: RowHoverEvent read _onHoverRow write _onHoverRow;
+    property OnSelectionChanged: SelectionChangedEvent read _onSelectionChanged write _onSelectionChanged;
+    property OnException: OnExceptionEvent read _onException write _onException;
 
     property RowHeightSynchronizer: TScrollControlWithRows read get_RowHeightSynchronizer write set_RowHeightSynchronizer;
   end;
@@ -1000,6 +1008,31 @@ begin
   {$ELSE}
   //raise NotImplementedException.Create('procedure TScrollControlWithRows.DoRowAligned(const ARow: IDCRow)');
   {$ENDIF}
+end;
+
+procedure TScrollControlWithRows.DoHoverRow(const ARow, AOldRow: IDCRow);
+begin
+  if not Assigned(_onHoverRow) then
+    Exit;
+
+  var rowEventArgs: DCHoverRowEventArgs;
+  AutoObject.Guard(DCHoverRowEventArgs.Create(ARow, AOldRow), rowEventArgs);
+
+  _onHoverRow(Self, rowEventArgs);
+end;
+
+function TScrollControlWithRows.DoHandleException(const AException: Exception): Boolean;
+begin
+  Result := False;
+  if Assigned(_onException) then
+  begin
+    var exceptionEventArgs: DCExceptionEventArgs;
+    AutoObject.Guard(DCExceptionEventArgs.Create(AException), exceptionEventArgs);
+
+    _onException(Self, exceptionEventArgs);
+
+    Result := exceptionEventArgs.Handled;
+  end;
 end;
 
 procedure TScrollControlWithRows.TriggerFilterOrSortChanged(FilterChanged, SortChanged: Boolean);
@@ -2411,6 +2444,12 @@ end;
 
 procedure TScrollControlWithRows.HideHoverRect;
 begin
+  if _hoveredRow <> nil then
+  begin
+    DoHoverRow(nil, _hoveredRow);
+    _hoveredRow := nil;
+  end;
+
   if _hoverRect = nil then
     Exit;
 
@@ -2419,13 +2458,22 @@ end;
 
 procedure TScrollControlWithRows.UpdateHoverRect(MousePos: TPointF);
 begin
-  if (TreeOption_HideHoverEffect in _options) or IsScrolling or MousePos.IsZero or _isExpandingOrCollapsing then
+  if IsScrolling or MousePos.IsZero or _isExpandingOrCollapsing then
   begin
     HideHoverRect;
     Exit;
   end;
 
   var row := GetRowByLocalY(MousePos.Y);
+  if _hoveredRow <> row then
+  begin
+    DoHoverRow(row, _hoveredRow);
+    _hoveredRow := row;
+  end;
+
+  if (TreeOption_HideHoverEffect in _options) then
+    Exit;
+
   if (row = nil) or not _selectionInfo.CanFocus(row.DataIndex) or (row.Control = nil) then
   begin
     HideHoverRect;
@@ -3238,8 +3286,8 @@ begin
     end
     else
     begin
-      var l := _view.GetViewList;
-      crrIsSame := (l <> nil) and (l.Count > _selectionInfo.ViewListIndex) and CObject.Equals(_selectionInfo.DataItem, l[_selectionInfo.ViewListIndex]);
+      var l := _view.OriginalData;
+      crrIsSame := (l <> nil) and (l.Count > _selectionInfo.DataIndex) and CObject.Equals(_selectionInfo.DataItem, l[_selectionInfo.DataIndex]);
     end;
 
     if crrIsSame then

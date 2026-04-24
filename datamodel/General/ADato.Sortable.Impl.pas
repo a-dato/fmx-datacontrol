@@ -243,7 +243,7 @@ end;
 procedure CComparableList<T>.RemoveAt(index: Integer);
 begin
   _data.RemoveAt(Transpose(Index));
-  _comparer.ResetSortedRows(True);
+  _comparer.ResetSortedRows(True); //False); //(True); // JvA we can wait, right?
 end;
 
 procedure CComparableList<T>.RemoveRange(index, count: Integer);

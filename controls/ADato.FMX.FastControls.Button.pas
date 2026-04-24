@@ -75,6 +75,9 @@ type
     _textBounds: TRectF;
     _subTextBounds: TRectF;
 
+    _innerFillColor: TAlphaColor;
+    _innerStrokeColor: TAlphaColor;
+
     // ICaption
     function  GetText: string;
     procedure SetText(const Value: string);
@@ -223,7 +226,7 @@ type
   end;
 
   TFastButton = class(TADatoClickLayout, IIsChecked)
-  private
+  protected
     _lock: IInterface;
     _buttonType: TButtonType;
     _emphasizePicture: Boolean;
@@ -231,20 +234,19 @@ type
     _showUnderline: Boolean;
     _translatable: Boolean;
     _underlineType: TUnderlineType;
-//    _images: TCustomImageList;
-    _recalcNeeded: Boolean;
     _waitForRepaint: Boolean;
     _mouseIsDown: Boolean;
     _autoWidth: Boolean;
     _contentHorzAlign: TTextAlign;
-
     _imagesLink: TImageLink;
     _additionalText: CString;
+    _recalcNeeded: Boolean;
 
     procedure set_ButtonType(const Value: TButtonType);
     procedure set_EmphasizePicture(const Value: Boolean);
     procedure set_ShowUnderline(const Value: Boolean);
     procedure set_Translatable(const Value: Boolean);
+
     procedure set_UnderlineType(const Value: TUnderlineType);
 
     function  get_ImagePosition: TImagePosition;
@@ -589,6 +591,9 @@ begin
 
   _imageControl := TImageControlImpl.Create(Self);
 
+  _innerFillColor := TAlphaColor($FFF2F5F9);
+  _innerStrokeColor := TAlphaColor($FFDCDCDC);
+
   _imageIndex := -1;
   EnableExecuteAction := True;
 
@@ -846,13 +851,20 @@ end;
 
 procedure TADatoClickLayout.DoPaint;
 begin
-  Canvas.Font.SetSettings(APPLICATION_FONT_FAMILY, _config.FontSize, _config.FontStyleExt);
-  Canvas.Fill.Color := TAlphaColor($FFF2F5F9);
-  Canvas.Stroke.Kind := TBrushKind.Solid;
+  var outerRect := RectF(0, 0, Width, Height);
 
-  case get_TagType of
-    TTagType.RoundPost: Canvas.FillRect(_innerBounds, get_radius, get_Radius, AllCorners, GetPaintOpacity * IfThen(_isAddTag, 0.6, 1));
-    TTagType.SignPost: Canvas.FillPolygon(_polygon, GetPaintOpacity * IfThen(_isAddTag, 0.6, 1));
+  Canvas.Font.SetSettings(APPLICATION_FONT_FAMILY, _config.FontSize, _config.FontStyleExt);
+
+  if _innerFillColor <> TAlphaColors.Null then
+  begin
+    Canvas.Fill.Color := _innerFillColor;
+    Canvas.Stroke.Kind := TBrushKind.Solid;
+
+    case get_TagType of
+      TTagType.RoundPost: Canvas.FillRect(_innerBounds, get_radius, get_Radius, AllCorners, GetPaintOpacity * IfThen(_isAddTag, 0.6, 1));
+      TTagType.SignPost: Canvas.FillPolygon(_polygon, GetPaintOpacity * IfThen(_isAddTag, 0.6, 1));
+      TTagType.NoBounds: Canvas.FillRect(outerRect, 3, 3, AllCorners, GetPaintOpacity);
+    end;
   end;
 
   if (_hover or _hoverSide) and (HitTest or _parentHitTest) then
@@ -861,10 +873,12 @@ begin
 
     if _hoverSide then
       Canvas.FillRect(_sideBounds, get_Radius, get_Radius, AllCorners, GetPaintOpacity * IfThen(MouseIsDown, 0.6, 1))
+    else if get_TagType = TTagType.SignPost then
+      Canvas.FillPolygon(_polygon, GetPaintOpacity * IfThen(MouseIsDown, 0.6, 1))
     else if get_TagType = TTagType.RoundPost then
       Canvas.FillRect(_innerBounds, get_Radius, get_Radius, AllCorners, GetPaintOpacity * IfThen(MouseIsDown, 0.6, 1))
-    else if get_TagType = TTagType.SignPost then
-      Canvas.FillPolygon(_polygon, GetPaintOpacity * IfThen(MouseIsDown, 0.6, 1));
+    else
+      Canvas.FillRect(outerRect, get_Radius, get_Radius, AllCorners, GetPaintOpacity * IfThen(MouseIsDown, 0.6, 1))
   end;
 
   var horzAlign := TTextAlign.Center;
@@ -907,14 +921,15 @@ begin
     Canvas.DrawLine(PointF(bounds.Left+marg, bounds.Bottom-marg), PointF(bounds.Right-marg, bounds.Top+marg), GetPaintOpacity);
   end;
 
-  Canvas.Stroke.Color := TAlphaColor($FFDCDCDC);
+  if _innerStrokeColor <> TAlphaColors.Null then
+  begin
+    Canvas.Stroke.Color := _innerStrokeColor;
+    Canvas.Stroke.Thickness := 1;
 
-  case get_TagType of
-    TTagType.RoundPost: begin
-      Canvas.DrawRect(_innerBounds, 3, 3, AllCorners, GetPaintOpacity, TCornerType.Round);
-    end;
-    TTagType.SignPost: begin
-      Canvas.DrawPolygon(_polygon, GetPaintOpacity);
+    case get_TagType of
+      TTagType.RoundPost: Canvas.DrawRect(_innerBounds, 3, 3, AllCorners, GetPaintOpacity, TCornerType.Round);
+      TTagType.SignPost: Canvas.DrawPolygon(_polygon, GetPaintOpacity);
+      TTagType.NoBounds: Canvas.DrawRect(RectF(outerRect.Left+1, outerRect.Top+1, outerRect.Right-1, outerRect.Bottom-1), 3, 3, AllCorners, GetPaintOpacity);
     end;
   end;
 
@@ -930,25 +945,6 @@ begin
     Canvas.Stroke.Color := TAlphaColors.Lightslategrey;
     Canvas.DrawLine(PointF(xPos, yPos), PointF(xPos, yPos+lineHeight), 1);
   end;
-
-
-//  cvs.Stroke.Color := TAlphaColors.Navy;
-//  cvs.DrawRect(RectF(0,0,Width,Height), 1);
-//
-//  cvs.Fill.Color := TAlphaColors.Yellow;
-//  cvs.FillRect(_innerBounds, 0.5);
-//
-//  cvs.Fill.Color := TAlphaColors.Orange;
-//  cvs.FillRect(_imageBounds, 0.5);
-//
-//  cvs.Fill.Color := TAlphaColors.Grey;
-//  cvs.FillRect(_textBounds, 0.5);
-//
-//  cvs.Fill.Color := TAlphaColors.Pink;
-//  cvs.FillRect(_subTextBounds, 0.5);
-//
-//  cvs.Fill.Color := TAlphaColors.Blueviolet;
-//  cvs.FillRect(_sideBounds, 0.5);
 
   inherited;
 end;
@@ -1069,29 +1065,42 @@ begin
   var outerRect := RectF(0, 0, Width, Height);
   if _buttonType = TButtonType.Emphasized then
   begin
-    Canvas.Fill.Color := TAlphaColor($FF4E6CA3);
-    Canvas.FillRect(outerRect, 3, 3, AllCorners, GetPaintOpacity * 0.2);
+    _innerFillColor := TAlphaColor($AA4E6CA3);
+    _innerStrokeColor := TAlphaColors.Null;
+//    Canvas.Fill.Color := TAlphaColor($FF4E6CA3);
+//    Canvas.FillRect(outerRect, 3, 3, AllCorners, GetPaintOpacity * 0.2);
   end
   else if _buttonType = TButtonType.Positive then
   begin
-    Canvas.Fill.Color := TAlphaColor($FF37539E);
-    Canvas.FillRect(outerRect, 3, 3, AllCorners, GetPaintOpacity);
+    _innerFillColor := TAlphaColor($FF37539E);
+    _innerStrokeColor := TAlphaColors.Null;
+
+//    Canvas.Fill.Color := TAlphaColor($FF37539E);
+//    Canvas.FillRect(outerRect, 3, 3, AllCorners, GetPaintOpacity);
   end
   else if _buttonType = TButtonType.Negative then
   begin
-    Canvas.Fill.Color := TAlphaColor($FFFDFDFE);
-    Canvas.FillRect(outerRect, 3, 3, AllCorners, GetPaintOpacity);
+    _innerFillColor := TAlphaColor($FFFDFDFE);
+    _innerStrokeColor := TAlphaColor($FF37539E);
+//    Canvas.Fill.Color := TAlphaColor($FFFDFDFE);
+//    Canvas.FillRect(outerRect, 3, 3, AllCorners, GetPaintOpacity);
   end
-  else if _buttonType = TButtonType.Circle then
+  else
   begin
-    var w: Single := CMath.Min(_config.ImageSizeInt + 4, CMath.Min(Width, Height));
-    outerRect := RectF((Width-w)/2, (Height-w)/2, (Width-w)/2 + w, (Height-w)/2 + w);
+    _innerFillColor := TAlphaColors.Null;
+    _innerStrokeColor := TAlphaColors.Null;
 
-    // circle
-    Canvas.Fill.Color := TAlphaColors.Orangered;
-    Canvas.FillRect(outerRect, outerRect.Width/2, outerRect.Height/2, AllCorners, 0.15);
-    Canvas.Stroke.Color := TAlphaColors.Orangered;
-    Canvas.DrawRect(outerRect, outerRect.Width/2, outerRect.Height/2, AllCorners, 1);
+    if _buttonType = TButtonType.Circle then
+    begin
+      var w: Single := CMath.Min(_config.ImageSizeInt + 4, CMath.Min(Width, Height));
+      outerRect := RectF((Width-w)/2, (Height-w)/2, (Width-w)/2 + w, (Height-w)/2 + w);
+
+      // circle
+      Canvas.Fill.Color := TAlphaColors.Orangered;
+      Canvas.FillRect(outerRect, outerRect.Width/2, outerRect.Height/2, AllCorners, 0.15);
+      Canvas.Stroke.Color := TAlphaColors.Orangered;
+      Canvas.DrawRect(outerRect, outerRect.Width/2, outerRect.Height/2, AllCorners, 1);
+    end;
   end;
 
   if not _showHoverEffect then
@@ -1108,13 +1117,13 @@ begin
 
   inherited;
 
-  Canvas.Stroke.Thickness := 1;
-  if _buttonType = TButtonType.Negative then
-  begin
-    var rect := RectF(outerRect.Left+1, outerRect.Top+1, outerRect.Right-1, outerRect.Bottom-1);
-    Canvas.Stroke.Color := TAlphaColor($FF37539E) ;//99ACCF);
-    Canvas.DrawRect(rect, 3, 3, AllCorners, GetPaintOpacity);
-  end;
+//  Canvas.Stroke.Thickness := 1;
+//  if _buttonType = TButtonType.Negative then
+//  begin
+//    var rect := RectF(outerRect.Left+1, outerRect.Top+1, outerRect.Right-1, outerRect.Bottom-1);
+//    Canvas.Stroke.Color := TAlphaColor($FF37539E) ;//99ACCF);
+//    Canvas.DrawRect(rect, 3, 3, AllCorners, GetPaintOpacity);
+//  end;
 
   if not CString.IsNullOrEmpty(_additionalText) then
   begin

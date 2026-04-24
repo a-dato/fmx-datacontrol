@@ -224,7 +224,6 @@ type
 //    procedure OnHeaderClick(Sender: TObject);
 
     procedure EndMoveColumn;
-    procedure AnimateMoveColumn(const OldCellLefts: Dictionary<IDCTreeColumn, Single>);
     procedure OnHeaderMouseUp(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Single); virtual;
     procedure OnHeaderMouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Single); virtual;
     procedure OnHeaderMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Single); virtual;
@@ -301,6 +300,9 @@ type
     procedure RefreshColumn(const Column: IDCTreeColumn);
     procedure ColumnsChangedFromExternal;
     function  CheckCanChangeRow: Boolean; override;
+
+    procedure AnimateMoveColumn(const OldCellLefts: Dictionary<IDCTreeColumn, Single>; const MovingColumn: IDCTreeLayoutColumn = nil);
+    function  GetFlatColumnsLeft: DIctionary<IDCTreeColumn, Single>;
 
     procedure UpdateColumnSort(const Column: IDCTreeColumn; SortDirection: ListSortDirection; ClearOtherSort: Boolean);
     procedure UpdateColumnFilter(const Column: IDCTreeColumn; const FilterText: CString; const FilterValues: List<CObject>; const NullValueSelected: Boolean); overload;
@@ -1700,6 +1702,7 @@ begin
     for var cell in _headerRow.Cells.Values do
       (cell as IHeaderCell).UpdateUserIsMovingColumn(False);
 
+    _columnMoveRect.Visible := False;
     FreeAndNil(_columnMoveRect);
   end;
 
@@ -1736,21 +1739,9 @@ begin
     Exit;
   end;
 
-  if (flatColumn <> nil) and flatColumn.Column.Frozen then
-  begin
-    var flatIx := get_Layout.FlatColumns.IndexOf(flatColumn);
-    while (flatColumn <> nil) and flatColumn.Column.Frozen do
-    begin
-      inc(flatIx);
-      if flatIx > get_Layout.FlatColumns.Count - 1 then
-        Exit;
-
-      flatColumn := get_Layout.FlatColumns[flatIx];
-    end;
-  end;
-
   if _columnMoveRect = nil then
   begin
+    // do not start move action on a frozen column
     if flatColumn.Column.Frozen then
       Exit;
 
@@ -1768,8 +1759,6 @@ begin
 
     var rect := TRectangle.Create(_columnMoveRect);
     rect.Fill.Color := DEFAULT_ROW_SELECTION_MULTISELECT_COLOR;
-    rect.Height := _columnMoveRect.Height;
-    rect.Position.Y := _columnMoveRect.Height - 5;
     rect.Stroke.Kind := TBrushKind.None;
     rect.XRadius := 5;
     rect.YRadius := 5;
@@ -1782,37 +1771,57 @@ begin
     textCtrl.Text := flatColumn.Column.Caption;
     lbl.Control.Padding.Left := 5;
     lbl.Control.Padding.Right := 5;
-    lbl.Control.Height := rect.Height;
-    lbl.Control.Position.Y := _columnMoveRect.Height - 5;
+    lbl.Control.Padding.Top := 0;
+    lbl.Control.Padding.Bottom := 3;
     _columnMoveRect.AddObject(lbl.Control);
 
     rect.Width := textCtrl.TextWidthWithPadding;
+    rect.Height := textCtrl.TextHeightWithPadding;
+    rect.Position.Y := _columnMoveRect.Height - 10;
     rect.Position.X := -(rect.Width / 2);
 
+    lbl.Control.Height := rect.Height;
     lbl.Control.Width := rect.Width;
+    lbl.Control.Position.Y := _columnMoveRect.Height - 10;
     lbl.Control.Position.X := rect.Position.X;
 
     for var cell in _headerRow.Cells.Values do
       (cell as IHeaderCell).UpdateUserIsMovingColumn(True);
+  end
+  else if flatColumn.Column.Frozen then
+  begin
+    var flatIx := get_Layout.FlatColumns.IndexOf(flatColumn);
+    while (flatColumn <> nil) and flatColumn.Column.Frozen do
+    begin
+      inc(flatIx);
+      if flatIx > get_Layout.FlatColumns.Count - 1 then
+        Exit;
+
+      flatColumn := get_Layout.FlatColumns[flatIx];
+    end;
   end;
 
   var pos1 := flatColumn.Left;
   var pos2 := flatColumn.Left + flatColumn.Width;
-  var realX := X - _headerRow.Control.Position.X; // autocentertree
+  var realX := X - _headerRow.Control.Position.X {autocentertree} + IfThen(_horzScrollBar.Visible, _horzScrollBar.Value - _treeLayout.FrozenColumnWidth);
   var newPos: Single;
   if (realX - pos1) > (pos2 - realX) then
     newPos := pos2 else
     newPos := pos1;
 
-  _columnMoveRect.Position.X := newPos - (_columnMoveRect.Width / 2);
+  _columnMoveRect.Position.X := newPos - (_columnMoveRect.Width / 2) - IfThen(_horzScrollBar.Visible, _horzScrollBar.Value - _treeLayout.FrozenColumnWidth);
+end;
+
+function TScrollControlWithCells.GetFlatColumnsLeft: DIctionary<IDCTreeColumn, Single>;
+begin
+  Result := CDictionary<IDCTreeColumn, Single>.Create;
+  for var clmn in _treeLayout.FlatColumns do
+    Result.Add(clmn.Column, clmn.Left - IfThen(_horzScrollBar.Visible, _horzScrollBar.Value - _treeLayout.FrozenColumnWidth));
 end;
 
 procedure TScrollControlWithCells.EndMoveColumn;
 begin
-  var originalColumnsLeft: Dictionary<IDCTreeColumn, Single> := CDictionary<IDCTreeColumn, Single>.Create;
-  for var clmn in _treeLayout.FlatColumns do
-    originalColumnsLeft.Add(clmn.Column, clmn.Left);
-
+  var originalColumnsLeft := GetFlatColumnsLeft;
   var movingColumn := _treeLayout.LayoutColumns[_columnMoveRect.Tag];
   var clmnBefore := GetFlatColumnByMouseX(_columnMoveRect.Position.X - 1, True {ctrl x});
 
@@ -1847,19 +1856,25 @@ begin
   _treeLayout := nil;
   ForceImmeditiateRealignContent;
   DoColumnChangedByUser(movingColumn);
-  AnimateMoveColumn(originalColumnsLeft);
+  AnimateMoveColumn(originalColumnsLeft, movingColumn);
 end;
 
-procedure TScrollControlWithCells.AnimateMoveColumn(const OldCellLefts: Dictionary<IDCTreeColumn, Single>);
+procedure TScrollControlWithCells.AnimateMoveColumn(const OldCellLefts: Dictionary<IDCTreeColumn, Single>; const MovingColumn: IDCTreeLayoutColumn = nil);
 const
   MOVE_ANIMATION_DURATION = 0.22;
 begin
   if (OldCellLefts = nil) then
     Exit;
 
+  if RealignContentRequested then
+    ForceImmeditiateRealignContent;
+
   var rows := HeaderAndTreeRows(False);
   for var column in OldCellLefts.Keys do
   begin
+    if column.Frozen then
+      Continue;
+
     var oldAbsoluteLeft: Single;
     var flatColumn := FlatColumnByColumn(column);
     if (flatColumn = nil) or not OldCellLefts.TryGetValue(column, oldAbsoluteLeft) then
@@ -1885,8 +1900,14 @@ begin
 
       TAnimator.StopPropertyAnimation(cell.Control, 'Position.X');
       cell.Control.Position.X := startX;
-      TAnimator.AnimateFloat(cell.Control, 'Position.X', targetX,
-        MOVE_ANIMATION_DURATION, TAnimationType.Out, TInterpolationType.Cubic);
+      TAnimator.AnimateFloat(cell.Control, 'Position.X', targetX, MOVE_ANIMATION_DURATION, TAnimationType.Out, TInterpolationType.Cubic);
+
+      if (MovingColumn <> nil) and cell.LayoutColumn.Column.Equals(MovingColumn.Column) then
+      begin
+        TAnimator.StopPropertyAnimation(cell.Control, 'Opacity');
+        cell.Control.Opacity := 0.3;
+        TAnimator.AnimateFloatDelay(cell.Control, 'Opacity', 1, 0.3, MOVE_ANIMATION_DURATION, TAnimationType.Out, TInterpolationType.Cubic);
+      end;
     end;
   end;
 end;
@@ -1896,6 +1917,7 @@ begin
   if (Button = TMouseButton.mbLeft) and _headerMouseDownStart.IsZero then
     Exit;
 
+  var mouseStartPoint := _headerMouseDownStart;
   _headerMouseDownStart := TPointF.Zero;
   if (_headerRow = nil) then
     Exit;
@@ -1921,6 +1943,12 @@ begin
     Exit;
   end;
 
+  // check if user moved mouse while not moving any column..
+  var mouseDownFlat := GetFlatColumnByMouseX(mouseStartPoint.X);
+  if (mouseDownFlat = nil) or (mouseDownFlat.Index <> flatColumn.Index) then
+    Exit;
+
+  // sort
   if flatColumn.Column.SortType = TSortType.None then
   begin
     var selClmn := SelectionCheckBoxColumn;
@@ -2954,16 +2982,26 @@ end;
 
 function TScrollControlWithCells.CheckCanChangeRow: Boolean;
 begin
-  Result := inherited;
+  try
+    Result := inherited;
 
-  if Result then
-  begin
-    // old row can be scrolled out of view. So always work with dummy rows
-    var dummyOldRow := ProvideRowForChanging(_selectionInfo) as IDCTreeRow;
-    if (dummyOldRow = nil) or not dummyOldRow.Cells.ContainsKey(_selectionInfo.Tag) then Exit;
+    if Result then
+    begin
+      // old row can be scrolled out of view. So always work with dummy rows
+      var dummyOldRow := ProvideRowForChanging(_selectionInfo) as IDCTreeRow;
+      if (dummyOldRow = nil) or not dummyOldRow.Cells.ContainsKey(_selectionInfo.Tag) then Exit;
 
-    var oldCell := dummyOldRow.Cells[_selectionInfo.Tag];
-    Result := DoCellCanChange(oldCell, nil);
+      var oldCell := dummyOldRow.Cells[_selectionInfo.Tag];
+      Result := DoCellCanChange(oldCell, nil);
+    end;
+  except
+    on e: Exception do
+    begin
+      if DoHandleException(e) then
+        Exit;
+
+      raise;
+    end;
   end;
 end;
 

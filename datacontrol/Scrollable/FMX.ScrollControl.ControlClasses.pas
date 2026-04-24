@@ -120,6 +120,7 @@ type
 
     procedure Dispose; override;
     function  DoFormatItem(const Item: CObject; out Value: string) : Boolean; virtual;
+    procedure DoMouseClick(Button: TMouseButton; Shift: TShiftState; X, Y: Single); virtual;
     procedure DoKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState); virtual;
     procedure DoKeyUp(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState); virtual;
   public
@@ -163,6 +164,8 @@ type
     procedure set_Value(const Value: CObject); override;
 
     procedure OpenPicker;
+
+    procedure DoKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState); override;
   end;
 
   TRadioButtonControlImpl = class(TEditControlImpl, IRadioButtonControl, IGroupName, IIsChecked)
@@ -216,6 +219,7 @@ type
     procedure CheckUpdateComboPopupWidth; virtual;
     function  ComboUpdateItems(const Items: List<string>; CurrentValue: CObject) : Boolean; virtual;
 
+    procedure DoMouseClick(Button: TMouseButton; Shift: TShiftState; X, Y: Single); override;
     procedure DoKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState); override;
     procedure DoKeyUp(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState); override;
 
@@ -843,6 +847,11 @@ begin
   Result := Value <> '';
 end;
 
+procedure TEditControlImpl.DoMouseClick(Button: TMouseButton; Shift: TShiftState; X, Y: Single);
+begin
+
+end;
+
 procedure TEditControlImpl.DoKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
 begin
 
@@ -908,6 +917,12 @@ begin
 end;
 
 { TComboEditControlImpl }
+procedure TComboEditControlImpl.DoMouseClick(Button: TMouseButton; Shift: TShiftState; X, Y: Single);
+begin
+  if ((_control as TComboEdit).Text = '') and not ComboIsDroppedDown then
+    DropDown;
+end;
+
 procedure TComboEditControlImpl.DoKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
 begin
   if (Key = vkBack) and (_control is TComboEdit) then
@@ -1420,15 +1435,18 @@ begin
   Interfaces.Supports<IIsChecked>(_control, Result);
 end;
 
+{ TDateEditControlImpl }
+
 function TDateEditControlImpl.get_Date: CDateTime;
 begin
   Result := (_control as TDateEdit).Date;
 end;
 
-{ TDateTimeControlImpl }
 function TDateEditControlImpl.get_Value: CObject;
 begin
-  Result := CDateTime.Create((_control as TDateEdit).Date);
+  Result := get_Date;
+  if Result = CDateTime.MinValue then
+    Result := nil;
 end;
 
 procedure TDateEditControlImpl.OpenPicker;
@@ -1438,14 +1456,23 @@ end;
 
 procedure TDateEditControlImpl.set_Date(const Value: CDateTime);
 begin
-  (_control as TDateEdit).Date := Value;
+  set_Value(Value);
 end;
 
 procedure TDateEditControlImpl.set_Value(const Value: CObject);
 begin
   var dt: CDateTime;
-  if Value.TryGetValue<CDateTime>(dt) then
-    (_control as TDateEdit).Date := dt.DelphiDateTime;
+  if (Value = nil) or not Value.TryGetValue<CDateTime>(dt) then
+    dt := CDateTIme.MinValue;
+
+  (_control as TDateEdit).Date := dt.DelphiDateTime;
+  if dt = CDateTime.MinValue then
+    (_control as TDateEdit).Format := ' ' else
+    (_control as TDateEdit).Format := '';
+end;
+
+procedure TDateEditControlImpl.DoKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
+begin
 end;
 
 { TRadioButtonControlImpl }

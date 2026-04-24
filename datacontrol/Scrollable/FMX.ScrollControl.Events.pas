@@ -18,7 +18,7 @@ uses
   ADato.ComponentModel,
   FMX.ScrollControl.WithCells.Intf,
   FMX.ScrollControl.WithRows.Intf, System.Collections.Generic,
-  FMX.ScrollControl.ControlClasses.Intf, FMX.Types;
+  FMX.ScrollControl.ControlClasses.Intf, FMX.Types, System.SysUtils;
 
 type
   TDataControlEventRegistration = class
@@ -154,6 +154,15 @@ type
     property RealignAfterScrolling: Boolean read _calculateRowCellAfterScrolling write _calculateRowCellAfterScrolling;
   end;
 
+  DCHoverRowEventArgs = class(DCRowEventArgs)
+  protected
+    _oldRow: IDCRow;
+
+  public
+    constructor Create(const ARow, AOldRow: IDCRow); reintroduce;
+    property OldRow: IDCRow read _oldRow;
+  end;
+
   DCRowEditEventArgs = class(DCRowEventArgs)
   protected
     _IsEdit: Boolean;
@@ -278,6 +287,14 @@ type
     function GetRowsHeight: Single;
   end;
 
+  DCExceptionEventArgs = class(EventArgs)
+  public
+    Exception: Exception;
+    Handled: Boolean;
+
+    constructor Create(const AException: Exception);
+  end;
+
   CellLoadingEvent = procedure(const Sender: TObject; e: DCCellLoadingEventArgs) of object;
   CellLoadedEvent  = procedure(const Sender: TObject; e: DCCellLoadedEventArgs) of object;
   CellFormattingEvent  = procedure (const Sender: TObject; e: DCCellFormattingEventArgs) of object;
@@ -288,7 +305,6 @@ type
 
   CellSelectedEvent = procedure(const Sender: TObject; e: DCCellSelectedEventArgs) of object;
   SelectionChangedEvent = TNotifyEvent;
-//  CellUserActionEvent = procedure(const Sender: TObject; e: DCCellItemUserActionEventArgs) of object;
 
   GetColumnComparerEvent  = procedure(const Sender: TObject; e: DCColumnComparerEventArgs) of object;
   TOnCompareRows = function (Sender: TObject; const Left, Right: CObject): integer of object;
@@ -296,6 +312,7 @@ type
 
 
   RowLoadedEvent  = procedure (const Sender: TObject; e: DCRowEventArgs) of object;
+  RowHoverEvent = procedure (const Sender: TObject; e: DCHoverRowEventArgs) of object;
   RowEditEvent = procedure(const Sender: TObject; e: DCRowEditEventArgs) of object;
   StartEditEvent  = procedure(const Sender: TObject; e: DCStartEditEventArgs) of object;
   EndEditEvent  = procedure(const Sender: TObject; e: DCEndEditEventArgs) of object;
@@ -313,6 +330,8 @@ type
   RowDeletingEvent = procedure(const Sender: TObject; e: DCDeletingEventArgs) of object;
 
   TreePositionedEvent = procedure(const Sender: TObject; e: DCTreePositionArgs) of object;
+
+  OnExceptionEvent = procedure(const Sender: TObject; e: DCExceptionEventArgs) of object;
 
 implementation
 
@@ -374,6 +393,16 @@ constructor DCCellLoadingEventArgs.Create(const ACell: IDCTreeCell; ShowVertGrid
 begin
   inherited;
   LoadDefaultData := True;
+end;
+
+{ DCExceptionEventArgs }
+
+constructor DCExceptionEventArgs.Create(const AException: Exception);
+begin
+  inherited Create;
+
+  Exception := AException;
+  Handled := False;
 end;
 
 { DCColumnComparerEventArgs }
@@ -448,6 +477,14 @@ begin
   _row := ARow;
 
   _calculateRowCellAfterScrolling := False;
+end;
+
+{ DCHoverRowEventArgs }
+
+constructor DCHoverRowEventArgs.Create(const ARow, AOldRow: IDCRow);
+begin
+  inherited Create(ARow);
+  _oldRow := AOldRow;
 end;
 
 { DCCellLoadEventArgs }

@@ -762,8 +762,7 @@ begin
 
     if doMouseClick then
     begin
-      var p := PointF(X, Y - _content.Position.Y);
-      var distance := _mousePositionOnMouseDown.Distance(PointF(X, Y));
+      var distance := _mousePositionOnMouseDown.Distance(PointF(X, Y - _content.Position.Y));
       doMouseClick := distance < 5;
     end;
 
