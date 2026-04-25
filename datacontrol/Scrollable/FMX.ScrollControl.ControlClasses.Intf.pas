@@ -136,6 +136,7 @@ type
     function  get_ShowClearButton: Boolean;
     procedure set_ShowClearButton(const Value: Boolean);
 
+    procedure DoMouseClick(Button: TMouseButton; Shift: TShiftState; X, Y: Single);
     procedure DoKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
     procedure DoKeyUp(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
 

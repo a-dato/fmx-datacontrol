@@ -304,7 +304,8 @@ type
     TreeOption_AllowColumnUpdates,
     TreeOption_AllowAddNewRows,
     TreeOption_AllowAddNewRowsWithDownKey,
-    TreeOption_AllowDeleteRows
+    TreeOption_AllowDeleteRows,
+    TreeOption_ColumnsCanMove
 //    TreeOption_AutoCommit,
 //    TreeOption_DisplayPartialRows
 //    TreeOption_AssumeObjectTypesDiffer,
@@ -342,6 +343,7 @@ type
     AllowAddNewRows: TDCTreeOptionFlag = TreeOption_AllowAddNewRows;
     AllowAddNewRowsWithDownKey: TDCTreeOptionFlag = TreeOption_AllowAddNewRowsWithDownKey;
     AllowDeleteRows: TDCTreeOptionFlag = TreeOption_AllowDeleteRows;
+    ColumnsCanMove: TDCTreeOptionFlag = TreeOption_ColumnsCanMove;
 //    AutoCommit: TDCTreeOptionFlag = TreeOption_AutoCommit;
 //    AllowCellSelection: TDCTreeOptionFlag = TreeOption_AllowCellSelection;
 //    DisplayPartialRows: TDCTreeOptionFlag = TreeOption_DisplayPartialRows;

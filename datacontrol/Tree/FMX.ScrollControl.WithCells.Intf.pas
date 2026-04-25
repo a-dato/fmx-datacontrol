@@ -525,6 +525,8 @@ type
     procedure set_ResizeControl(const Value: TControl);
     procedure set_OnHeaderCellResizeClicked(const Value: TOnHeaderCellResizeClicked);
 
+    procedure UpdateUserIsMovingColumn(const IsMoving: Boolean);
+
     property SortControl: TControl read get_SortControl write set_SortControl;
     property FilterControl: TControl read get_FilterControl write set_FilterControl;
     property ResizeControl: TControl read get_ResizeControl write set_ResizeControl;

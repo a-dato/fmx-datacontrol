@@ -42,11 +42,13 @@ type
     property RowHeightDefault;
     property RowHeightMax;
     property RowHeightSynchronizer;
-    property OnSelectionChanged;
     {$IFNDEF WEBASSEMBLY}
     property RowLoaded;
     property RowAligned;
     {$ENDIF}
+    property OnHoverRow;
+    property OnSelectionChanged;
+    property OnException;
     property DragDropOnIndividualRows;
     property OnDragEnterRows;
     property OnDragOverRows;
@@ -79,6 +81,8 @@ type
     property OnCompareColumnCells;
     property OnColumnsChanged;
     property OnTreePositioned;
+    property OnColumnChangingByUser;
+    property OnColumnChangedByUser;
 
     // TScrollControlWithEditableCells
     property EditRowStart;

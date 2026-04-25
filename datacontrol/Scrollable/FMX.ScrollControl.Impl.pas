@@ -757,14 +757,14 @@ begin
     inherited;
 
     var doMouseClick := True;
-
     if _vertScrollBar.Visible then
       doMouseClick := not TryExecuteMouseScrollBoostOnMouseEventStopped;
 
     if doMouseClick then
-      doMouseClick :=
-        (X > _mousePositionOnMouseDown.X - 5) and (X < _mousePositionOnMouseDown.X + 5) and
-        ((Y - _content.Position.Y) > _mousePositionOnMouseDown.Y - 5) and ((Y - _content.Position.Y) < _mousePositionOnMouseDown.Y + 5);
+    begin
+      var distance := _mousePositionOnMouseDown.Distance(PointF(X, Y - _content.Position.Y));
+      doMouseClick := distance < 5;
+    end;
 
     // determine the mouseUp as a click event
     if doMouseClick then

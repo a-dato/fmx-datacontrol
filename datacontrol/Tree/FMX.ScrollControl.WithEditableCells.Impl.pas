@@ -284,6 +284,7 @@ type
   public
     constructor Create(const EditorHandler: IDataControlEditorHandler; const Cell: IDCTreeCell); override;
     procedure BeginEdit(const EditValue: CObject; SelectAll: Boolean = True); override;
+    function  TryBeginEditWithUserKey(const OriginalValue: CObject; const UserKey: CString): Boolean; override;
   end;
 
   TDCCellDropDownEditor = class(TDCCellEditor)
@@ -798,7 +799,7 @@ end;
 
 procedure TScrollControlWithEditableCells.OnHeaderMouseUp(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Single);
 begin
-  if (Button = TMouseButton.mbLeft) and not _fullHeaderClick then
+  if (Button = TMouseButton.mbLeft) and _headerMouseDownStart.IsZero then
     Exit;
 
   if _editingInfo.RowIsEditing then
@@ -1290,6 +1291,9 @@ end;
 
 procedure TScrollControlWithEditableCells.CancelEdit(CellOnly: Boolean = False);
 begin
+  if (_internalSelectCount > 0) or not IsEditOrNew then
+    Exit;
+
   if _editingInfo.CellIsEditing then
   begin
     _editingInfo.CellEditingFinished;
@@ -1488,55 +1492,19 @@ begin
   Result := True;
 end;
 
-procedure TScrollControlWithEditableCells.CancelEditFromExternal;
-begin
-  if (_internalSelectCount > 0) or not IsEditOrNew then
-    Exit;
-
-  var wasNew := IsNew;
-
-  var crrCell := GetActiveCell;
-
-  if _editingInfo.CellIsEditing or ((crrCell = nil) and (_cellEditor <> nil)) then
-  begin
-    _editingInfo.CellEditingFinished;
-    HideEditor;
-  end;
-
-  _view.EndEdit;
-  _editingInfo.RowEditingFinished;
-
-  AfterCancelEdit(crrCell, wasNew);
-end;
-
 function TScrollControlWithEditableCells.CanEditCell(const Cell: IDCTreeCell): Boolean;
 begin
   Result := (Cell <> nil) and not Cell.Column.ReadOnly and not (TDCTreeOption.ReadOnly in _options);
 end;
 
+procedure TScrollControlWithEditableCells.CancelEditFromExternal;
+begin
+  CancelEdit;
+end;
+
 procedure TScrollControlWithEditableCells.EndEditFromExternal;
 begin
-  if (_internalSelectCount > 0) or not IsEditOrNew then
-    Exit;
-
-  var crrCell := GetActiveCell;
-  if crrCell = nil then
-  begin
-    _editingInfo.CellEditingFinished;
-    _editingInfo.RowEditingFinished;
-    Exit;
-  end;
-
-  if _editingInfo.CellIsEditing then
-    SafeForcedEndEdit;
-
-  // EndCellEdit can already execute EndRowEdit!!
-  // therefor ask if RowIsEditing again
-  if _editingInfo.RowIsEditing then
-  begin
-    var changeUpdatedSort: Boolean;
-    DoEditRowEnd(crrCell.Row as IDCTreeRow, changeUpdatedSort);
-  end;
+  EndEdit;
 end;
 
 procedure TScrollControlWithEditableCells.FollowCheckThroughChildren(const Cell: IDCTreeCell);
@@ -1751,6 +1719,9 @@ end;
 
 function TScrollControlWithEditableCells.EndEdit: Boolean;
 begin
+  if (_internalSelectCount > 0) or not IsEditOrNew then
+    Exit(False);
+
   if (_editingInfo <> nil) and _editingInfo.RowIsEditing then
   begin
     var changeUpdatedSort: Boolean;
@@ -1794,22 +1765,32 @@ end;
 
 function TScrollControlWithEditableCells.DoCellCanChange(const OldCell, NewCell: IDCTreeCell): Boolean;
 begin
-  if _editingInfo.RowIsEditing then
-  begin
-    var changeUpdatedSort: Boolean;
-    if not EndEditCell({out} changeUpdatedSort) or changeUpdatedSort then
-      Exit(False);
-
-    // stop row editing
-    var goToNewRow := (NewCell = nil) or (OldCell.Row.DataIndex <> NewCell.Row.DataIndex);
-    if goToNewRow then
+  try
+    if _editingInfo.RowIsEditing then
     begin
-      if not DoEditRowEnd(OldCell.Row as IDCTreeRow, {out} changeUpdatedSort) or changeUpdatedSort then
+      var changeUpdatedSort: Boolean;
+      if not EndEditCell({out} changeUpdatedSort) or changeUpdatedSort then
         Exit(False);
+
+      // stop row editing
+      var goToNewRow := (NewCell = nil) or (OldCell.Row.DataIndex <> NewCell.Row.DataIndex);
+      if goToNewRow then
+      begin
+        if not DoEditRowEnd(OldCell.Row as IDCTreeRow, {out} changeUpdatedSort) or changeUpdatedSort then
+          Exit(False);
+      end;
+    end;
+
+    Result := inherited;
+  except
+    on e: Exception do
+    begin
+      if DoHandleException(e) then
+        Exit;
+
+      raise;
     end;
   end;
-
-  Result := inherited;
 end;
 
 procedure TScrollControlWithEditableCells.DoCellCheckChangedByUser(const DataItem: CObject; const Column: IDCTreeColumn; IsChecked: Boolean);
@@ -1943,37 +1924,43 @@ begin
 
   if Result then
   begin
-    var notify: IEditableModel;
-    if (_Model <> nil) and Interfaces.Supports<IEditableModel>(_Model, notify) then
-    begin
-      var u: IUpdatableObject;
-      if Interfaces.Supports<IUpdatableObject>(_modelListItemChanged, u) then
-      try
-        u.BeginUpdate;
-        notify.EndEdit;
-      finally
-        u.EndUpdate
-      end else
-        notify.EndEdit;
+    try
+      var notify: IEditableModel;
+      if (_Model <> nil) and Interfaces.Supports<IEditableModel>(_Model, notify) then
+      begin
+        var u: IUpdatableObject;
+        if Interfaces.Supports<IUpdatableObject>(_modelListItemChanged, u) then
+        try
+          u.BeginUpdate;
+          notify.EndEdit;
+        finally
+          u.EndUpdate
+        end else
+          notify.EndEdit;
 
-      // check if model was able to execute the EndEdit
-      var es: IEditState;
-      if Interfaces.Supports<IEditState>(_Model, es) and es.IsEditOrNew then
-        Exit(False);
-    end
-    else if ViewIsDataModelView then
-    begin
-      inc(_updateCount);
-      try
-        GetDataModelView.DataModel.EndEdit(ARow.DataItem.AsType<IDataRowView>.Row);
-      finally
-        dec(_updateCount);
+        // check if model was able to execute the EndEdit
+        var es: IEditState;
+        if Interfaces.Supports<IEditState>(_Model, es) and es.IsEditOrNew then
+          Exit(False);
+      end
+      else if ViewIsDataModelView then
+      begin
+        inc(_updateCount);
+        try
+          GetDataModelView.DataModel.EndEdit(ARow.DataItem.AsType<IDataRowView>.Row);
+        finally
+          dec(_updateCount);
+        end;
+      end;
+    except
+      on e: Exception do
+      begin
+        if DoHandleException(e) then
+          Exit;
+
+        raise;
       end;
     end;
-
-//    var ix := _view.GetViewList.IndexOf(_editingInfo.EditItem);
-//    if ix <> -1 then
-//      _view.GetViewList[ix] := _editingInfo.EditItem;
 
     var editItem := _editingInfo.EditItem;
     var dataIndex := _editingInfo.EditItemDataIndex;
@@ -2428,12 +2415,26 @@ begin
   _editor := DataControlClassFactory.CreateDateEdit(nil);
 end;
 
+function TDCCellDateTimeEditor.TryBeginEditWithUserKey(const OriginalValue: CObject; const UserKey: CString): Boolean;
+begin
+  Result := CString.IsNullOrEmpty(UserKey);
+
+  if Result then
+  begin
+    _originalValue := OriginalValue;
+    _originalValueSet := True;
+
+    BeginEdit(nil, False);
+  end;
+end;
+
 procedure TDCCellDateTimeEditor.BeginEdit(const EditValue: CObject; SelectAll: Boolean = True);
 begin
   inherited;
 
   SetCustomValue(EditValue);
-  DropDown;
+  if EditValue <> nil then
+    DropDown;
 end;
 
 procedure TDCCellDateTimeEditor.Dropdown;
