@@ -653,8 +653,12 @@ var
         TDBBitConverter.UnsafeFrom<Word>(TVarData(Data).VUInt32, Buffer);
       ftAutoInc, ftInteger:
         TDBBitConverter.UnsafeFrom<Integer>(Data, Buffer);
-      ftFloat, ftCurrency:
+      ftFloat:
         TDBBitConverter.UnsafeFrom<Double>(TVarData(Data).VDouble, Buffer);
+      ftSingle:
+        TDBBitConverter.UnsafeFrom<Single>(TVarData(Data).VSingle, Buffer);
+      ftCurrency:
+        TDBBitConverter.UnsafeFrom<Currency>(TVarData(Data).VCurrency, Buffer);
       ftFMTBCD:
         TDBBitConverter.UnsafeFrom<TBcd>(VarToBcd(Data), Buffer);
   //      ftBCD:
@@ -1195,8 +1199,12 @@ procedure TCustomVirtualDataset.InternalSetFieldData(Field: TField; Buffer: TVal
         Data := PWord(Buffer)^;
       ftBoolean:
         Data := PWordBool(Buffer)^;
-      ftFloat, ftCurrency:
+      ftFloat:
         Data := PDouble(Buffer)^;
+      ftCurrency:
+        Data := PCurrency(Buffer)^;
+      ftSingle:
+        Data := PSingle(Buffer)^;
       ftBlob, ftMemo, ftGraphic, ftWideMemo:
         Data := PVariant(Buffer)^;
       ftDate, ftTime, ftDateTime:
