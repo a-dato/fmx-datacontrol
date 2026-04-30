@@ -2144,6 +2144,7 @@ type
     class function ToType(const Value: CObject): &Type;
     class function ToVariant(const Value: CObject): Variant;
     class function VariantToInt64(const Value: Variant) : Int64;
+    class function VariantToUInt64(const Value: Variant) : UInt64;
   end;
 
   {$IFDEF MSWINDOWS}
@@ -5906,6 +5907,17 @@ begin
 {$ENDIF}
 end;
 
+class function Convert.VariantToUInt64(const Value: Variant) : UInt64;
+begin
+{$IFDEF WIN32}
+  if Decimal(Value).sign > 0 then
+    Result := -1 * Decimal(Value).Lo64 else
+    Result := Decimal(Value).Lo64;
+{$ELSE}
+  Result := Value;
+{$ENDIF}
+end;
+
 { CStringBuilder }
 
 constructor CStringBuilder.Create;
@@ -8678,6 +8690,9 @@ begin
     varLongWord,
     varInt64:
       Create(Convert.VariantToInt64(AValue));
+
+    varUInt64:
+      Create(Convert.VariantToUInt64(AValue));
 
     varDouble,
     varCurrency:
