@@ -113,7 +113,7 @@ object frmInspector: TfrmInspector
             Size.Width = 41.000000000000000000
             Size.Height = 25.000000000000000000
             Size.PlatformDefault = False
-            StyleLookup = 'cameratoolbuttonbordered'
+            StyleLookup = 'escapetoolbutton'
           end
         end
       end

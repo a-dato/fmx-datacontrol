@@ -1,6 +1,6 @@
 object frmCopyData: TfrmCopyData
   Size.Width = 695.000000000000000000
-  Size.Height = 308.000000000000000000
+  Size.Height = 355.000000000000000000
   Size.PlatformDefault = False
   object cbSourceTables: TComboBox
     Position.X = 184.000000000000000000
@@ -38,7 +38,7 @@ object frmCopyData: TfrmCopyData
       TabOrder = 86
     end
   end
-  object Memo1: TMemo
+  object mmSqlSelectQuery: TMemo
     Touch.InteractiveGestures = [Pan, LongTap, DoubleTap]
     DataDetectorTypes = []
     Position.X = 184.000000000000000000
@@ -59,11 +59,11 @@ object frmCopyData: TfrmCopyData
     TextSettings.HorzAlign = Trailing
     TextSettings.Trimming = None
     Text = 'Sql select statement'
-    TabOrder = 85
+    TabOrder = 84
   end
   object edTargetTable: TEdit
     Touch.InteractiveGestures = [LongTap, DoubleTap]
-    TabOrder = 86
+    TabOrder = 85
     Position.X = 184.000000000000000000
     Position.Y = 207.000000000000000000
     Size.Width = 170.000000000000000000
@@ -83,16 +83,16 @@ object frmCopyData: TfrmCopyData
   object btnGo: TButton
     Position.X = 184.000000000000000000
     Position.Y = 248.000000000000000000
-    TabOrder = 87
+    TabOrder = 86
     Text = 'Go'
-    TextSettings.Trimming = None
+    OnClick = btnGoClick
   end
   object btnAbort: TButton
     Position.X = 274.000000000000000000
     Position.Y = 248.000000000000000000
     TabOrder = 89
     Text = 'Abort'
-    TextSettings.Trimming = None
+    OnClick = btnAbortClick
   end
   object btnRefresh: TSpeedButton
     Position.X = 619.000000000000000000
@@ -102,6 +102,57 @@ object frmCopyData: TfrmCopyData
     Size.PlatformDefault = False
     StyleLookup = 'refreshtoolbuttonbordered'
     Text = 'Refresh'
-    TextSettings.Trimming = None
+    OnClick = btnRefreshClick
+  end
+  object lblPhase: TLabel
+    Position.X = 184.000000000000000000
+    Position.Y = 278.000000000000000000
+    Size.Width = 241.000000000000000000
+    Size.Height = 22.000000000000000000
+    Size.PlatformDefault = False
+    Text = 'Phase: None'
+    TabOrder = 96
+  end
+  object lblProgress: TLabel
+    Position.X = 184.000000000000000000
+    Position.Y = 294.000000000000000000
+    Size.Width = 241.000000000000000000
+    Size.Height = 22.000000000000000000
+    Size.PlatformDefault = False
+    Text = 'Progress: 0'
+    TabOrder = 95
+  end
+  object fdBatchMove: TFDBatchMove
+    Reader = fdSqlReader
+    Writer = fdSqlWriter
+    Options = [poIdentityInsert, poCreateDest, poSkipUnmatchedDestFields]
+    Mappings = <>
+    LogFileName = 'Data.log'
+    OnProgress = fdBatchMoveProgress
+    Left = 496
+    Top = 208
+  end
+  object fdSqlReader: TFDBatchMoveSQLReader
+    Connection = fdSourceConnection
+    Left = 392
+    Top = 208
+  end
+  object fdSqlWriter: TFDBatchMoveSQLWriter
+    Connection = fdTargetConnection
+    Left = 392
+    Top = 256
+  end
+  object fdSourceConnection: TFDConnection
+    Left = 336
+    Top = 144
+  end
+  object fdTargetConnection: TFDConnection
+    Left = 344
+    Top = 152
+  end
+  object Timer1: TTimer
+    OnTimer = Timer1Timer
+    Left = 112
+    Top = 96
   end
 end
