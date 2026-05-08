@@ -3287,6 +3287,8 @@ var
 begin
   {$IFDEF MSWINDOWS}
   GetLocaleInfoW(CultureID, LOCALE_IFIRSTDAYOFWEEK or LOCALE_RETURN_NUMBER, Pointer(@Result), SizeOf(Result));
+  {$ELSEIF Defined(LINUX)}
+  Result := 1;
   {$ELSE}
   ii := TPlatformServices.Current.GetPlatformService(IFMXLocaleService);
   if ii <> nil then
@@ -3796,7 +3798,11 @@ end;
 
 constructor CCultureInfo.Create(const Name: CString);
 begin
+  {$IFDEF LINUX}
+  Create('en-en');
+  {$ELSE}
   Create(LocaleNameToLCID(PWideChar(Name.ToString), 0));
+  {$ENDIF}
 end;
 
 class procedure CCultureInfo.CheckNeutral(culture: CultureInfo);
