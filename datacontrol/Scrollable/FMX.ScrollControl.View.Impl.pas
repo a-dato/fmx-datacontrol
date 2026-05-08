@@ -24,9 +24,28 @@ uses
 
   ADato.ComponentModel,
   ADato.Sortable.Intf,
-  ADato.Data.DataModel.intf;
+  ADato.Data.DataModel.intf, ADato.Sortable.Impl;
 
 type
+  ICustomComparableDataList = interface
+    ['{45AC59E7-6FF9-471D-93DF-2A6B94893A60}']
+    procedure ResetList(FromViewListIndex: Integer = -1; ClearOneRowOnly: Boolean = False);
+    procedure ResetItem(const DataItem: CObject);
+  end;
+
+  CCustomComparableDataList = class(CComparableList<CObject>, ICustomComparableDataList)
+  private
+    [weak] _orgDataList: IList;
+
+    class function ConvertDataListToObjectList(const DataList: IList): List<CObject>;
+
+    procedure ResetList(FromViewListIndex: Integer = -1; ClearOneRowOnly: Boolean = False);
+    procedure ResetItem(const DataItem: CObject);
+
+  public
+    constructor Create(const AOwner: IList; const ReusableComparer: IListComparer); reintroduce;
+  end;
+
   TDataViewList = class(TBaseInterfacedObject, IDataViewList)
   private
     _comparer: IComparableList;
@@ -47,7 +66,6 @@ type
     _editItem: CObject;
 
     _isFirstAlign: Boolean;
-    _isCustomDataList: Boolean;
 
     _totalValidDataHeight: Single;
     _totalValidHeightCount: Integer;
@@ -124,7 +142,8 @@ type
     function  GetActiveRowIfExists(const ViewListIndex: Integer): IDCRow;
 
     function  HasCustomDataList: Boolean;
-    procedure RecreateCustomDataList(const Context: IList);
+    procedure RecreateCustomDataList(FromViewListIndex: Integer = -1; ClearOneRowOnly: Boolean = False);
+    procedure ResetItemInCustomDataList(const DataItem: CObject);
 
     function ActiveViewRows: List<IDCRow>;
     function CachedRowHeight(const RowViewListIndex: Integer): Single;
@@ -149,7 +168,7 @@ uses
   Wasm.FMX.Objects,
   Wasm.FMX.Types,
   {$ENDIF}
-  ADato.Sortable.Impl, System.Generics.Defaults, ADato.Data.DataModel.impl;
+  System.Generics.Defaults, ADato.Data.DataModel.impl;
 
 { TDataViewList }
 
@@ -164,7 +183,6 @@ begin
   var dm: IDataModel;
   var cmp: IComparableList;
 
-  _isCustomDataList := False;
   if Interfaces.Supports<IDataModel>(DataList, dm) then
   begin
     _dataModelView := dm.DefaultView;
@@ -188,15 +206,7 @@ begin
 //      else if ItemType.IsObjectType then
 //        Assert(1=2) //_comparer := CComparableList<TObject>.Create(DataList as IList<TObject>, CComparableList<CObject>.CreateReusableComparer)
       else
-      begin
-        var data: IList<CObject> := CList<CObject>.Create(DataList.Count);
-        var item: CObject;
-        for item in DataList do
-          data.Add(item);
-
-        _comparer := CComparableList<CObject>.Create(data, CComparableList<CObject>.CreateReusableComparer);
-        _isCustomDataList := True;
-      end;
+        _comparer := CCustomComparableDataList.Create(DataList, CComparableList<CObject>.CreateReusableComparer);
     end;
 
     {$IFNDEF WEBASSEMBLY}
@@ -222,7 +232,6 @@ begin
   {$ENDIF}
 
   _isFirstAlign := True;
-  _isCustomDataList := False;
 
   _dataModelView := DataModelView;
   {$IFNDEF WEBASSEMBLY}
@@ -406,19 +415,25 @@ end;
 
 function TDataViewList.HasCustomDataList: Boolean;
 begin
-  Result := _isCustomDataList;
+  Result := interfaces.Supports<ICustomComparableDataList>(_comparer);
 end;
 
-procedure TDataViewList.RecreateCustomDataList(const Context: IList);
+procedure TDataViewList.RecreateCustomDataList(FromViewListIndex: Integer = -1; ClearOneRowOnly: Boolean = False);
 begin
-  Assert(HasCustomDataList and (_comparer <> nil));
+  Assert(HasCustomDataList);
 
-  _comparer.Data.Clear;
-  var item: CObject;
-  for item in Context do
-    _comparer.Data.Add(item);
+  var customCmp: ICustomComparableDataList;
+  interfaces.Supports<ICustomComparableDataList>(_comparer, customCmp);
+  customCmp.ResetList(FromViewListIndex, ClearOneRowOnly);
+end;
 
-  _comparer.Comparer.ResetSortedRows(False);
+procedure TDataViewList.ResetItemInCustomDataList(const DataItem: CObject);
+begin
+  Assert(HasCustomDataList);
+
+  var customCmp: ICustomComparableDataList;
+  interfaces.Supports<ICustomComparableDataList>(_comparer, customCmp);
+  customCmp.ResetItem(DataItem);
 end;
 
 function TDataViewList.GetNewActiveRow: IDCRow;
@@ -929,6 +944,9 @@ end;
 
 procedure TDataViewList.ResetView(const FromViewListIndex: Integer = -1; ClearOneRowOnly: Boolean = False);
 begin
+  if HasCustomDataList then
+    RecreateCustomDataList(FromViewListIndex, ClearOneRowOnly);
+
   if FromViewListIndex = -1 then
   begin
     _activeRows := CList<IDCRow>.Create;
@@ -1133,6 +1151,48 @@ end;
 function TDataViewList.ActiveViewRows: List<IDCRow>;
 begin
   Result := _activeRows;
+end;
+
+{ CCustomComparableDataList }
+
+constructor CCustomComparableDataList.Create(const AOwner: IList; const ReusableComparer: IListComparer);
+begin
+  inherited Create(ConvertDataListToObjectList(AOwner), ReusableComparer);
+  _orgDataList := AOwner;
+end;
+
+procedure CCustomComparableDataList.ResetList(FromViewListIndex: Integer = -1; ClearOneRowOnly: Boolean = False);
+begin
+//  if FromViewListIndex = -1 then
+//    _data := ConvertDataListToObjectList(_orgDataList)
+//  else if ClearOneRowOnly then
+//  begin
+//    _comparer.SortedRows[FromViewListIndex}
+//  end;
+
+  _data := ConvertDataListToObjectList(_orgDataList);
+  _comparer.ResetSortedRows(False);
+end;
+
+procedure CCustomComparableDataList.ResetItem(const DataItem: CObject);
+begin
+  var ix := _orgDataList.IndexOf(DataItem);
+  if ix = -1 then
+  begin
+    ResetList;
+    Exit;
+  end;
+
+  _data[ix] := DataItem;
+  _comparer.ResetSortedRows(False);
+end;
+
+class function CCustomComparableDataList.ConvertDataListToObjectList(const DataList: IList): List<CObject>;
+begin
+  Result := CList<CObject>.Create(DataList.Count);
+  var item: CObject;
+  for item in DataList do
+    Result.Add(item);
 end;
 
 end.

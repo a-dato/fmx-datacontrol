@@ -97,7 +97,8 @@ type
     procedure EndEdit;
 
     function  HasCustomDataList: Boolean;
-    procedure RecreateCustomDataList(const Context: IList);
+    procedure RecreateCustomDataList(FromViewListIndex: Integer = -1; ClearOneRowOnly: Boolean = False);
+    procedure ResetItemInCustomDataList(const DataItem: CObject);
 
     function ActiveViewRows: List<IDCRow>;
     function ViewCount: Integer;

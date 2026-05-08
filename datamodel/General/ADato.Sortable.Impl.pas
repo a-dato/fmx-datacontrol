@@ -19,7 +19,7 @@ uses
 
 type
   CComparableList<T> = class(TVirtualListBase, IList, IList<T>, IComparableList)
-  private
+  protected
     _data: IList<T>;
     _comparer: IListComparer;
 

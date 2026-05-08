@@ -1123,10 +1123,20 @@ begin
     if NewItem = nil then
       Exit(False);
 
-    if (newViewListIndex = -1) or (Position = InsertPosition.After) then
-      inc(newViewListIndex);
+    if _dataList.IndexOf(NewItem) = -1 then
+    begin
+//      if not _view.HasCustomDataList then
+//      begin
+      if (newViewListIndex = -1) or (Position = InsertPosition.After) then
+        inc(newViewListIndex);
 
-    _view.GetViewList.Insert(newViewListIndex, NewItem);
+      _view.GetViewList.Insert(newViewListIndex, NewItem);
+//      end
+//      else begin
+//
+//      end;
+    end;
+
     ResetView;
 
     newDataItem := newItem;
@@ -2509,7 +2519,7 @@ begin
     Exit;
 
   if _Owner.View.HasCustomDataList then
-    _Owner.View.RecreateCustomDataList(_Owner.Model.Context);
+    _Owner.View.ResetItemInCustomDataList(DataItem);
 
   var current: IDCRow := nil;
   var row: IDCRow;
