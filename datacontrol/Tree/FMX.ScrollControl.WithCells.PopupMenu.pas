@@ -258,10 +258,12 @@ begin
   _dataControl.Columns.Add(column1);
 
   var column2: IDCTreeColumn := TDCTreeColumn.Create;
+  column2.Caption := 'Values';
   column2.PropertyName := '[object]';
   column2.Visualisation.ReadOnly := True;
   column2.WidthSettings.WidthType := TDCColumnWidthType.Percentage;
   column2.WidthSettings.Width := 100;
+  column2.Visualisation.HorzAlign := TDCTextAlign.Leading;
   _dataControl.Columns.Add(column2);
 end;
 

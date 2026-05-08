@@ -143,9 +143,10 @@ type
     procedure set_Value(const Value: CObject); override;
   end;
 
-  TCheckBoxControlImpl = class(TEditControlImpl, ICheckBoxControl, IIsChecked)
+  TCheckBoxControlImpl = class(TEditControlImpl, ICheckBoxControl, IIsChecked, IIsSemiChecked)
   protected
     function  get_IsChecked: IIsChecked;
+    function  get_IsSemiChecked: IIsSemiChecked;
 
     function  get_OnChange: TNotifyEvent; override;
     procedure set_OnChange(Value: TNotifyEvent); override;
@@ -153,6 +154,7 @@ type
     procedure set_Value(const Value: CObject); override;
 
     property IsChecked: IIsChecked read get_IsChecked implements IIsChecked;
+    property IsSemiChecked: IIsSemiChecked read get_IsSemiChecked implements IIsSemiChecked;
   end;
 
   TDateEditControlImpl = class(TEditControlImpl, IDateEditControl)
@@ -453,7 +455,7 @@ end;
 
 function TDataControlClassFactory.CreateCheckBox(const Owner: TComponent): IDCEditControl;
 begin
-  Result := TCheckBoxEditControl.Create(Owner);
+  Result := TFastCheckbox.Create(Owner);
   Result.Width := 16;
   Result.Height := 16;
 end;
@@ -1410,29 +1412,38 @@ end;
 { TCheckBoxControlImpl }
 function TCheckBoxControlImpl.get_OnChange: TNotifyEvent;
 begin
-  Result := (_control as TCheckBox).OnChange;
+  if _control is TCheckBox then
+    Result := (_control as TCheckBox).OnChange
+  else if _control is TFastCheckbox then
+    Result := (_control as TFastCheckbox).OnChange;
 end;
 
 function TCheckBoxControlImpl.get_Value: CObject;
 begin
-  if _control is TCheckBox then
-    Result := (_control as TCheckBox).IsChecked;
+  Result := get_IsChecked.IsChecked;
 end;
 
 procedure TCheckBoxControlImpl.set_OnChange(Value: TNotifyEvent);
 begin
-  (_control as TCheckBox).OnChange := Value;
+  if _control is TCheckBox then
+    (_control as TCheckBox).OnChange := Value
+  else if _control is TFastCheckbox then
+    (_control as TFastCheckbox).OnChange := Value;
 end;
 
 procedure TCheckBoxControlImpl.set_Value(const Value: CObject);
 begin
-  if (_control is TCheckBox) then
-    (_control as TCheckBox).IsChecked := Value.GetValue<Boolean>(False);
+  get_IsChecked.IsChecked := Value.GetValue<Boolean>(False);
 end;
 
 function TCheckBoxControlImpl.get_IsChecked: IIsChecked;
 begin
   Interfaces.Supports<IIsChecked>(_control, Result);
+end;
+
+function TCheckBoxControlImpl.get_IsSemiChecked: IIsSemiChecked;
+begin
+  Interfaces.Supports<IIsSemiChecked>(_control, Result);
 end;
 
 { TDateEditControlImpl }

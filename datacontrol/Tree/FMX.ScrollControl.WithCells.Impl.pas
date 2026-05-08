@@ -206,6 +206,8 @@ type
 
     procedure OnCurrentChanged; override;
     procedure OnSelectedItemsChanged; override;
+    procedure OnSelectionInfoTagChanged; override;
+
     procedure VisualizeRowSelection(const Row: IDCRow); override;
     procedure HandleRowChildRelation(const Row: IDCRow; IsOpenParent, IsOpenChild: Boolean); override;
     procedure CheckCorrectColumnSelection( const SelectionInfo: IRowSelectionInfo; const Row: IDCTreeRow);
@@ -316,6 +318,7 @@ type
 
     procedure SelectAll; override;
     function  RadioInsteadOfCheck: Boolean;
+    procedure TryUpdateHeaderCheckState;
 
     function  GetCellByMousePos(const Point: TPointF): IDCTreeCell;
 
@@ -1187,15 +1190,12 @@ begin
     Exit;
 
   AssignWidthsToAlignColumns;
-
   ProcessColumnVisibilityRules;
-
   UpdateHorzScrollbar;
-
   UpdatePositionAndWidthCells;
+  TryUpdateHeaderCheckState;
 
   PositionTree;
-
   SetBasicVertScrollBarValues;
 
   if DefaultLayout <> nil then
@@ -2470,29 +2470,21 @@ begin
   end;
 end;
 
-procedure TScrollControlWithCells.OnSelectedItemsChanged;
+procedure TScrollControlWithCells.OnCurrentChanged;
 begin
-  if not AutoMultiSelectColumnShowing then
-    CheckShowAutoMultiSelectColumn else
-    CheckHideAutoMultiSelectColumn(nil, []);
-
   inherited;
 
-  var clmn := SelectionCheckBoxColumn;
-  if clmn = nil then
-    Exit;
-
-  for var row in _view.ActiveViewRows do
+  // if row is changed, but not cell, then the tag change event (OnSelectionInfoTagChanged) will not be executed
+  // in that case we execute the DoCellSelected here..
+  if _selectionInfo.HasFocusedItem and not _selectionInfo.WaitingForTagChanged then
   begin
-    var treeRowCells := (row as IDCTreeRow).Cells;
-
-    var checkBoxCell: IDCTreeCell;
-    if treeRowCells.TryGetValue(clmn.Index, checkBoxCell) then
-      (checkBoxCell.InfoControl as IIsChecked).IsChecked := _selectionInfo.IsSelected(row.DataIndex);
+    var cell := GetActiveCell(True);
+    if cell <> nil then
+      DoCellSelected(cell, _selectionInfo.LastSelectionEventTrigger);
   end;
 end;
 
-procedure TScrollControlWithCells.OnCurrentChanged;
+procedure TScrollControlWithCells.OnSelectionInfoTagChanged;
 begin
   inherited;
 
@@ -2514,6 +2506,48 @@ begin
   var cell := GetActiveCell(True);
   if cell <> nil then
     DoCellSelected(cell, _selectionInfo.LastSelectionEventTrigger);
+end;
+
+procedure TScrollControlWithCells.OnSelectedItemsChanged;
+begin
+  if not AutoMultiSelectColumnShowing then
+    CheckShowAutoMultiSelectColumn else
+    CheckHideAutoMultiSelectColumn(nil, []);
+
+  inherited;
+
+  var clmn := SelectionCheckBoxColumn;
+  if clmn = nil then
+    Exit;
+
+  for var row in _view.ActiveViewRows do
+  begin
+    var treeRowCells := (row as IDCTreeRow).Cells;
+
+    var checkBoxCell: IDCTreeCell;
+    if treeRowCells.TryGetValue(clmn.Index, checkBoxCell) then
+      (checkBoxCell.InfoControl as IIsChecked).IsChecked := _selectionInfo.IsSelected(row.DataIndex);
+  end;
+
+  TryUpdateHeaderCheckState;
+end;
+
+procedure TScrollControlWithCells.TryUpdateHeaderCheckState;
+begin
+  if (_headerRow = nil) or (SelectionCheckBoxColumn = nil) then
+    Exit;
+
+  var headerCell: IDCTreeCell;
+  if _headerRow.Cells.TryGetValue(SelectionCheckBoxColumn.Index, headerCell) then
+  begin
+    var semiCheck: IIsSemiChecked;
+    var check: IIsChecked;
+
+    if interfaces.Supports<IIsSemiChecked>(headerCell.InfoControl, semiCheck) then
+      semiCheck.UpdateState(SelectionCount(False), _view.ViewCount)
+    else if interfaces.Supports<IIsChecked>(headerCell.InfoControl, check) then
+      check.IsChecked := SelectionCount(False) = _view.ViewCount;
+  end;
 end;
 
 procedure TScrollControlWithCells.SelectAll;
@@ -4321,7 +4355,7 @@ begin
     if Cell.Column.SortType = TSortType.PropertyValue then
       Exit(Cell.Column.ProvideCellData(cell, cell.Column.PropertyName))
     else if Cell.Column.SortType = TSortType.RowComparer then
-      Exit(Cell.Row.DataItem);
+      Exit(Cell.Row.ConvertedDataItem);
 
     var dummyPerfMode: Boolean;
     var dummyHeightVar: Single;
@@ -5442,7 +5476,10 @@ begin
 
     if Cell.IsHeaderCell and validMain then
     begin
-      var txt := Cell.InfoControl as ITextControl;
+      var txt: ITextControl;
+      if not interfaces.Supports<ITextControl>(Cell.InfoControl, txt) then
+        txt := nil;
+
       if Cell.InfoControl.Height < txt.TextHeight then
       begin
         Cell.InfoControl.Position.Y := CMath.Max(0, (Cell.Control.Height - txt.TextHeight)/2);
@@ -5565,7 +5602,10 @@ begin
   var ctrl: IDCControl;
   if Cell.IsHeaderCell then
   begin
-    ctrl := CreateInfoControl(Cell, TInfoControlClass.Text);
+    if Cell.Column.IsSelectionColumn and (TDCTreeOption.MultiSelectShowHeaderCheck in Cell.Row.RowsControl.Options) then
+      ctrl := CreateInfoControl(Cell, TInfoControlClass.CheckBox) else
+      ctrl := CreateInfoControl(Cell, TInfoControlClass.Text);
+
     ctrl.Height := (Cell.Row as IDCHeaderRow).ContentControl.Height - _treeControl.HeaderTextTopMargin - _treeControl.HeaderTextBottomMargin;
     ctrl.Position.Y := _treeControl.HeaderTextTopMargin;
   end else

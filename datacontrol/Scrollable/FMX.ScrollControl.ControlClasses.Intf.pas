@@ -100,6 +100,17 @@ type
     property Text: string read GetText write SetText;
   end;
 
+  TCheckState = (Unchecked, Checked, Grayed);
+  IIsSemiChecked = interface
+    ['{A8338DDB-4EB7-4868-BD4F-B24E72D5C7F2}']
+    function  get_CheckState: TCheckState;
+    procedure set_CheckState(const Value: TCheckState);
+
+    procedure UpdateState(CheckCount, TotalCount: Integer);
+
+    property CheckState: TCheckState read get_CheckState write set_CheckState;
+  end;
+
   // Interface that handles button en glyphs as Cell Data controls
   IImageControl = interface(IDCControl)
     ['{BBB416C1-0739-4EE9-B081-EEB73E78CBD6}']

@@ -48,6 +48,8 @@ type
     procedure KeyDown(var Key: Word; var KeyChar: System.WideChar; Shift: TShiftState); override;
   end;
 
+  TCheckPosition = (Left, Right);
+
   TFastText = class(TLayout, IDCControl, ITextControl, ICaption, ITextSettings)
   protected
     _dcControl: IDCControl;
@@ -168,6 +170,54 @@ type
     property OnChange: TNotifyEvent read _onChange write _onChange;
   end;
 
+  TFastCheckbox = class(TFastText, IDCEditControl, ITextControl, IIsChecked, IIsSemiChecked)
+  protected
+    _editControl: IDCEditControl;
+
+  strict private
+    _stateChangedThisHover: Boolean;
+  private
+    _checkPosition: TCheckPosition;
+    _checkState: TCheckState;
+    _checkSize: Single;
+    _checkTextMargin: Single;
+    _onCheckChange: TNotifyEvent;
+
+    function get_EditControl: IDCEditControl;
+    function  get_CheckState: TCheckState;
+    procedure set_CheckPosition(const Value: TCheckPosition);
+
+    function  IsCheckedStored: Boolean;
+
+  protected
+    procedure Calculate; override;
+    procedure DoPaint; override;
+    procedure DoMouseLeave; override;
+    function  GetCheckColor: TAlphaColor; virtual;
+    function  GetIsChecked: Boolean; virtual;
+    function  IsRadioButton: Boolean; virtual;
+    procedure MouseUp(Button: TMouseButton; Shift: TShiftState; X, Y: Single); override;
+    procedure KeyDown(var Key: Word; var KeyChar: WideChar; Shift: TShiftState); override;
+    procedure SetCheckStateCore(const Value: TCheckState; const TriggerEvents: Boolean = True); virtual;
+    procedure set_CheckState(const Value: TCheckState); virtual;
+    procedure SetIsChecked(const Value: Boolean); virtual;
+    procedure ToggleCheckState; virtual;
+
+  public
+    constructor Create(AOwner: TComponent); override;
+
+    procedure UpdateState(CheckCount, TotalCount: Integer);
+
+    property IsChecked: Boolean read GetIsChecked write SetIsChecked;
+    property EditControl: IDCEditControl read get_EditControl implements IDCEditControl;
+
+  published
+    property CheckPosition: TCheckPosition read _checkPosition write set_CheckPosition default TCheckPosition.Left;
+    property CheckState: TCheckState read get_CheckState write set_CheckState default TCheckState.Unchecked;
+    property OnCheckChange: TNotifyEvent read _onCheckChange write _onCheckChange;
+
+    property OnClick;
+  end;
 
   TFastTextControlBinding = class(TControlBinding<TFastText>)
   protected
@@ -178,6 +228,19 @@ type
   end;
 
   TFastTextControlSmartLinkBinding = class(TFastTextControlBinding)
+  protected
+    procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject); override;
+  end;
+
+  TFastCheckboxControlBinding = class(TControlBinding<TFastText>)
+  protected
+    function  GetValue: CObject; override;
+    procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject); override;
+
+    procedure UpdateControlEditability(IsEditable: Boolean); override;
+  end;
+
+  TFastCheckboxControlSmartLinkBinding = class(TFastCheckboxControlBinding)
   protected
     procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject); override;
   end;
@@ -687,6 +750,251 @@ begin
   Result := TextWidth + Padding.Left + Padding.Right + _internalLeftPadding + _internalRightPadding;
 end;
 
+{ TFastCheckBox }
+constructor TFastCheckBox.Create(AOwner: TComponent);
+begin
+  inherited;
+
+  HitTest := True;
+  CanFocus := True;
+
+  _checkPosition := TCheckPosition.Left;
+  _checkState := TCheckState.Unchecked;
+  _checkSize := 12;
+  _checkTextMargin := 6;
+  _internalLeftPadding := _checkSize + {2 *} _checkTextMargin;
+  _internalRightPadding := 0;
+
+  Self.set_VertTextAlign(TTextAlign.Center);
+  Self.set_HorzTextAlign(TTextAlign.Leading);
+
+  CanFocus := True;
+  HitTest := True;
+  EnableExecuteAction := True;
+
+  _editControl := TCheckBoxControlImpl.Create(Self);
+end;
+
+procedure TFastCheckBox.UpdateState(CheckCount, TotalCount: Integer);
+begin
+  if CheckCount = TotalCount then
+    set_CheckState(TCheckState.Checked)
+  else if CheckCount = 0 then
+    set_CheckState(TCheckState.Unchecked)
+  else
+    set_CheckState(TCheckState.Grayed);
+end;
+
+function TFastCheckBox.get_EditControl: IDCEditControl;
+begin
+  Result := _editControl;
+end;
+
+procedure TFastCheckBox.Calculate;
+begin
+  if _recalcNeeded then
+  begin
+    _internalLeftPadding := IfThen(_checkPosition = TCheckPosition.Left, _checkSize + {2 *} _checkTextMargin, 0);
+    _internalRightPadding := IfThen(_checkPosition = TCheckPosition.Right, _checkSize + {2 *} _checkTextMargin, 0);
+  end;
+
+  inherited;
+end;
+
+procedure TFastCheckBox.DoMouseLeave;
+begin
+  inherited;
+  _stateChangedThisHover := False;
+end;
+
+procedure TFastCheckBox.DoPaint;
+begin
+  var storedOpacity := GetAbsoluteOpacity;
+  if Enabled and _hover and not _stateChangedThisHover then
+    FAbsoluteOpacity := storedOpacity * 0.7;
+
+  inherited;
+
+  FAbsoluteOpacity := storedOpacity;
+
+  var availableHeight := Self.Height - Padding.Top - Padding.Bottom;
+  var checkSize := CMath.Min(availableHeight, _checkSize);
+  if checkSize <= 0 then
+    Exit;
+
+  var startYPos := Padding.Top + (availableHeight - checkSize) / 2;
+  var startXPos := IfThen(_checkPosition = TCheckPosition.Left, Padding.Left {+ _checkTextMargin}, Width - Padding.Right {- _checkTextMargin} - checkSize);
+  var rect := RectF(startXPos, startYPos, startXPos + checkSize, startYPos + checkSize);
+  var innerRect := RectF(startXPos + 2, startYPos + 2, startXPos + checkSize - 2, startYPos + checkSize - 2);
+  var radius := IfThen(IsRadioButton, checkSize / 2, 1);
+
+  var accentColor := GetCheckColor;
+
+  var checkMarkColor := IfThen(
+    (TAlphaColorRec(accentColor).R * 0.299) +
+    (TAlphaColorRec(accentColor).G * 0.587) +
+    (TAlphaColorRec(accentColor).B * 0.114) > 160,
+    TAlphaColors.Black,
+    TAlphaColors.White);
+
+  var drawOpacity := AbsoluteOpacity * IfThen(Enabled, 1, 0.45);
+
+  Canvas.Stroke.Kind := TBrushKind.Solid;
+  Canvas.Fill.Kind := TBrushKind.Solid;
+  Canvas.Stroke.Thickness := IfThen((_checkState <> TCheckState.Unchecked) or (_hover and not _stateChangedThisHover), 1.5, 1);
+
+  case _checkState of
+    TCheckState.Unchecked:
+    begin
+      Canvas.Fill.Color := accentColor;
+      if IsRadioButton then
+        Canvas.FillEllipse(rect, drawOpacity * IfThen(_hover or IsFocused, 0.1, 0.02)) else
+        Canvas.FillRect(rect, radius, radius, AllCorners, drawOpacity * IfThen(_hover or IsFocused, 0.1, 0.02));
+
+      Canvas.Stroke.Color := accentColor;
+      if IsRadioButton then
+        Canvas.DrawEllipse(rect, drawOpacity) else
+        Canvas.DrawRect(rect, radius, radius, AllCorners, drawOpacity);
+    end;
+
+    TCheckState.Checked:
+    begin
+      Canvas.Fill.Color := accentColor;
+      if IsRadioButton then
+        Canvas.FillEllipse(innerRect, drawOpacity) else
+        Canvas.FillRect(rect, radius, radius, AllCorners, drawOpacity);
+
+      Canvas.Stroke.Color := accentColor;
+      if IsRadioButton then
+        Canvas.DrawEllipse(rect, drawOpacity)
+      else
+      begin
+        // do not draw lines if checked..
+        Canvas.DrawRect(rect, radius, radius, AllCorners, drawOpacity);
+
+        Canvas.Stroke.Color := checkMarkColor;
+        Canvas.Stroke.Thickness := CMath.Max(1.5, checkSize / 6);
+
+        var p1 := PointF(startXPos + checkSize / 5, startYPos + checkSize / 2);
+        var p2 := PointF(startXPos + checkSize * 2 / 5, startYPos + checkSize * 7 / 10);
+        var p3 := PointF(startXPos + checkSize * 4 / 5, startYPos + checkSize / 4);
+
+        Canvas.DrawLine(p1, p2, drawOpacity);
+        Canvas.DrawLine(p2, p3, drawOpacity);
+      end;
+    end;
+
+    TCheckState.Grayed:
+    begin
+      Canvas.Fill.Color := accentColor;
+      if IsRadioButton then
+        Canvas.FillEllipse(innerRect, drawOpacity * 0.9) else
+        Canvas.FillRect(innerRect, radius, radius, AllCorners, drawOpacity * 0.9);
+
+      Canvas.Stroke.Color := accentColor;
+      if IsRadioButton then
+        Canvas.DrawEllipse(rect, drawOpacity) else
+        Canvas.DrawRect(rect, radius, radius, AllCorners, drawOpacity);
+    end;
+  end;
+end;
+
+function TFastCheckbox.GetIsChecked: Boolean;
+begin
+  Result := _checkState = TCheckState.Checked;
+end;
+
+function TFastCheckbox.IsRadioButton: Boolean;
+begin
+  Result := False;
+end;
+
+function TFastCheckbox.GetCheckColor: TAlphaColor;
+begin
+  Result := TAlphaColors.Grey;
+end;
+
+function TFastCheckbox.get_CheckState: TCheckState;
+begin
+  Result := _checkState;
+end;
+
+procedure TFastCheckBox.set_CheckPosition(const Value: TCheckPosition);
+begin
+  if _checkPosition <> Value then
+  begin
+    _checkPosition := Value;
+    case _checkPosition of
+      TCheckPosition.Left: set_HorzTextAlign(TTextAlign.Leading);
+      TCheckPosition.Right: set_HorzTextAlign(TTextAlign.Trailing);
+    end;
+
+    RecalcNeeded;
+  end;
+end;
+
+procedure TFastCheckBox.KeyDown(var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
+begin
+  inherited;
+
+  if Enabled and (KeyChar = ' ') then
+  begin
+    ToggleCheckState;
+    Click;
+    KeyChar := #0;
+  end;
+end;
+
+procedure TFastCheckBox.MouseUp(Button: TMouseButton; Shift: TShiftState; X, Y: Single);
+begin
+  if Enabled and _mouseIsDown then
+  begin
+    ToggleCheckState;
+    _stateChangedThisHover := True;
+  end;
+
+  inherited;
+end;
+
+procedure TFastCheckbox.SetIsChecked(const Value: Boolean);
+begin
+  if Value then
+    set_CheckState(TCheckState.Checked) else
+    set_CheckState(TCheckState.Unchecked);
+end;
+
+procedure TFastCheckbox.set_CheckState(const Value: TCheckState);
+begin
+  SetCheckStateCore(Value);
+end;
+
+procedure TFastCheckbox.SetCheckStateCore(const Value: TCheckState; const TriggerEvents: Boolean);
+begin
+  if _checkState <> Value then
+  begin
+    _checkState := Value;
+
+    if TriggerEvents and Assigned(_onCheckChange) and not Self.IsUpdating then
+      _onCheckChange(Self);
+
+    if TriggerEvents and Assigned(_onChange) and not Self.IsUpdating then
+      _onChange(Self);
+
+    RepaintNeeded;
+  end;
+end;
+
+procedure TFastCheckbox.ToggleCheckState;
+begin
+  if _checkState <> TCheckState.Checked then
+    Self.CheckState := TCheckState.Checked else
+    Self.CheckState := TCheckState.Unchecked;
+end;
+
+function TFastCheckbox.IsCheckedStored: Boolean;
+begin
+  Result := False;
+end;
 
 { TFastTextControlBinding }
 
@@ -703,6 +1011,7 @@ procedure TFastTextControlBinding.SetValue(const AProperty: _PropertyInfo; const
 begin
   if IsUpdating or not IsBoundProperty(AProperty) then Exit;
 
+  _value := Value;
   if Value <> nil then
     _Control.Text := CStringToString(Value.ToString) else
     _Control.Text := '';
@@ -725,9 +1034,50 @@ begin
     inherited;
 end;
 
+
+{ TFastTextControlBinding }
+
+function TFastCheckboxControlBinding.GetValue: CObject;
+begin
+  {$IFDEF DELPHI}
+  Result := nil;
+  {$ELSE}
+  Result := (_Control as IIsChecked).IsChecked;
+  {$ENDIF}
+end;
+
+procedure TFastCheckboxControlBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
+begin
+  if IsUpdating or not IsBoundProperty(AProperty) then Exit;
+
+  _value := Value;
+  if Value <> nil then
+    (_Control as IIsChecked).IsChecked := Value.AsType<Boolean> else
+    (_Control as IIsChecked).IsChecked := False;
+end;
+
+procedure TFastCheckboxControlBinding.UpdateControlEditability(IsEditable: Boolean);
+begin
+  _control.Enabled := IsEditable;
+end;
+
+{ TFastTextControlSmartLinkBinding }
+
+procedure TFastCheckboxControlSmartLinkBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
+begin
+  if _UpdateCount > 0 then Exit;
+
+  if not IsBoundProperty(AProperty) then
+    ExecuteFromLink(Obj) else
+    inherited;
+end;
+
 initialization
   TPropertyBinding.RegisterClassBinding(TFastText,
     function(const Control: TFMXObject): IPropertyBinding begin Result := TFastTextControlSmartLinkBinding.Create(TFastText(Control)) end);
+
+  TPropertyBinding.RegisterClassBinding(TFastCheckbox,
+    function(const Control: TFMXObject): IPropertyBinding begin Result := TFastCheckboxControlSmartLinkBinding.Create(TFastCheckbox(Control)) end);
 
 
 end.

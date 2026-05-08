@@ -46,6 +46,86 @@ type
 
   TSelectionCanChange = reference to function: Boolean;
 
+  TDCTreeOptionFlag = (
+    TreeOption_ShowHeaders,
+    TreeOption_ShowHeaderGrid,
+    TreeOption_ShowVertGrid,
+    TreeOption_ShowHorzGrid,
+
+    TreeOption_HideVScrollBar,
+    TreeOption_HideHScrollBar,
+
+    TreeOption_AlternatingRowBackground,
+    TreeOption_HideHoverEffect,
+    TreeOption_ReadOnly,
+    TreeOption_MultiSelect,
+    TreeOption_KeepCurrentSelection,
+    TreeOption_MultiSelectShowHeaderCheck,
+    TreeOption_AllowColumnUpdates,
+    TreeOption_AllowAddNewRows,
+    TreeOption_AllowAddNewRowsWithDownKey,
+    TreeOption_AllowDeleteRows,
+    TreeOption_ColumnsCanMove
+//    TreeOption_AutoCommit,
+//    TreeOption_DisplayPartialRows
+//    TreeOption_AssumeObjectTypesDiffer,
+//    TreeOption_ShowDragImage,
+//    TreeOption_ShowDragEffects,
+//    TreeOption_CheckPropertyNames,
+//    TreeOption_ColumnsCanResize,
+//    TreeOption_ColumnsCanMove,
+//    TreeOption_AllowColumnUpdates,
+//    TreeOption_ScrollThroughRows,
+//    TreeOption_AlwaysShowEditor,
+//    TreeOption_DoNotTranslateCaption,
+//    TreeOption_PreserveRowHeights
+    );
+
+//    TreeOption_AllowCellSelection,
+//    TreeOption_GoRowSelection,
+//    TreeOption_GoRowFocusRectangle,
+//    TreeOption_HideFocusRectangle,
+
+  TDCTreeOption = record
+  const
+    ShowHeaders: TDCTreeOptionFlag = TreeOption_ShowHeaders;
+    ShowHeaderGrid: TDCTreeOptionFlag = TreeOption_ShowHeaderGrid;
+    ShowVertGrid: TDCTreeOptionFlag = TreeOption_ShowVertGrid;
+    ShowHorzGrid: TDCTreeOptionFlag = TreeOption_ShowHorzGrid;
+    HideVScrollBar: TDCTreeOptionFlag = TreeOption_HideVScrollBar;
+    HideHScrollBar: TDCTreeOptionFlag = TreeOption_HideHScrollBar;
+    AlternatingRowBackground: TDCTreeOptionFlag = TreeOption_AlternatingRowBackground;
+    HideHoverEffect: TDCTreeOptionFlag = TreeOption_HideHoverEffect;
+    ReadOnly: TDCTreeOptionFlag = TreeOption_ReadOnly;
+    MultiSelect: TDCTreeOptionFlag = TreeOption_MultiSelect;
+    KeepCurrentSelection: TDCTreeOptionFlag = TreeOption_KeepCurrentSelection;
+    MultiSelectShowHeaderCheck: TDCTreeOptionFlag = TreeOption_MultiSelectShowHeaderCheck;
+    AllowColumnUpdates: TDCTreeOptionFlag = TreeOption_AllowColumnUpdates;
+    AllowAddNewRows: TDCTreeOptionFlag = TreeOption_AllowAddNewRows;
+    AllowAddNewRowsWithDownKey: TDCTreeOptionFlag = TreeOption_AllowAddNewRowsWithDownKey;
+    AllowDeleteRows: TDCTreeOptionFlag = TreeOption_AllowDeleteRows;
+    ColumnsCanMove: TDCTreeOptionFlag = TreeOption_ColumnsCanMove;
+//    AutoCommit: TDCTreeOptionFlag = TreeOption_AutoCommit;
+//    AllowCellSelection: TDCTreeOptionFlag = TreeOption_AllowCellSelection;
+//    DisplayPartialRows: TDCTreeOptionFlag = TreeOption_DisplayPartialRows;
+//    AssumeObjectTypesDiffer: TDCTreeOptionFlag = TreeOption_AssumeObjectTypesDiffer;
+//    ShowDragImage: TDCTreeOptionFlag = TreeOption_ShowDragImage;
+//    ShowDragEffects: TDCTreeOptionFlag = TreeOption_ShowDragEffects;
+//    CheckPropertyNames: TDCTreeOptionFlag = TreeOption_CheckPropertyNames;
+//    GoRowSelection: TDCTreeOptionFlag = TreeOption_GoRowSelection;
+//    GoRowFocusRectangle: TDCTreeOptionFlag = TreeOption_GoRowFocusRectangle;
+//    ColumnsCanResize: TDCTreeOptionFlag = TreeOption_ColumnsCanResize;
+//    ColumnsCanMove: TDCTreeOptionFlag = TreeOption_ColumnsCanMove;
+//    AllowColumnUpdates: TDCTreeOptionFlag = TreeOption_AllowColumnUpdates;
+//    HideFocusRectangle: TDCTreeOptionFlag = TreeOption_HideFocusRectangle;
+//    ScrollThroughRows: TDCTreeOptionFlag = TreeOption_ScrollThroughRows;
+//    AlwaysShowEditor: TDCTreeOptionFlag = TreeOption_AlwaysShowEditor;
+//    DoNotTranslateCaption: TDCTreeOptionFlag = TreeOption_DoNotTranslateCaption;
+//    PreserveRowHeights: TDCTreeOptionFlag = TreeOption_PreserveRowHeights;
+  end;
+
+  TDCTreeOptions = set of TDCTreeOptionFlag;
+
   IDCRow = interface;
 
   IRowsControl = interface(IScrollControl)
@@ -60,9 +140,12 @@ type
     procedure set_RowHeightMax(const Value: Single);
     function  get_IsPrinting: Boolean;
     procedure set_IsPrinting(const Value: Boolean);
+    function  get_Options: TDCTreeOptions;
+    procedure set_Options(const Value: TDCTreeOptions);
 
     procedure OnCurrentChanged;
     procedure OnSelectedItemsChanged;
+    procedure OnSelectionInfoTagChanged;
 
     function  IsSelected(const DataIndex: Integer; ReturnCurrentAtNoSelection: Boolean = False): Boolean;
     function  SelectionCount(ReturnCurrentAtNoSelection: Boolean = True): Integer;
@@ -83,6 +166,7 @@ type
     property RowHeightDefault: Single read get_rowHeightDefault write set_RowHeightDefault;
     property RowHeightMax: Single read get_RowHeightMax write set_RowHeightMax;
     property IsPrinting: Boolean read get_IsPrinting write set_IsPrinting;
+    property Options: TDCTreeOptions read get_options write set_Options;
   end;
 
   TDataIndexArray = array of Integer;
@@ -143,7 +227,9 @@ type
 
     procedure RemoveFromSelection(const DataIndex: Integer);
     function  AddToSelection(const DataIndex, ViewListIndex: Integer; const DataItem: CObject) : Boolean;
+
     function  WaitingForFocusChanged: Boolean; // current dataitem
+    function  WaitingForTagChanged: Boolean; // current column
 
 //    procedure UpdateLastSelection(const DataIndex, ViewListIndex: Integer; const DataItem: CObject);
 //    procedure UpdateSingleSelection(const DataIndex, ViewListIndex: Integer; const DataItem: CObject; ClearMultiSelection: Boolean);
@@ -286,84 +372,6 @@ type
     property SortDescriptions: List<IListSortDescription> read get_SortDescriptions write set_SortDescriptions;
     property FilterDescriptions: List<IListFilterDescription> read get_FilterDescriptions write set_FilterDescriptions;
   end;
-
-  TDCTreeOptionFlag = (
-    TreeOption_ShowHeaders,
-    TreeOption_ShowHeaderGrid,
-    TreeOption_ShowVertGrid,
-    TreeOption_ShowHorzGrid,
-
-    TreeOption_HideVScrollBar,
-    TreeOption_HideHScrollBar,
-
-    TreeOption_AlternatingRowBackground,
-    TreeOption_HideHoverEffect,
-    TreeOption_ReadOnly,
-    TreeOption_MultiSelect,
-    TreeOption_KeepCurrentSelection,
-    TreeOption_AllowColumnUpdates,
-    TreeOption_AllowAddNewRows,
-    TreeOption_AllowAddNewRowsWithDownKey,
-    TreeOption_AllowDeleteRows,
-    TreeOption_ColumnsCanMove
-//    TreeOption_AutoCommit,
-//    TreeOption_DisplayPartialRows
-//    TreeOption_AssumeObjectTypesDiffer,
-//    TreeOption_ShowDragImage,
-//    TreeOption_ShowDragEffects,
-//    TreeOption_CheckPropertyNames,
-//    TreeOption_ColumnsCanResize,
-//    TreeOption_ColumnsCanMove,
-//    TreeOption_AllowColumnUpdates,
-//    TreeOption_ScrollThroughRows,
-//    TreeOption_AlwaysShowEditor,
-//    TreeOption_DoNotTranslateCaption,
-//    TreeOption_PreserveRowHeights
-    );
-
-//    TreeOption_AllowCellSelection,
-//    TreeOption_GoRowSelection,
-//    TreeOption_GoRowFocusRectangle,
-//    TreeOption_HideFocusRectangle,
-
-  TDCTreeOption = record
-  const
-    ShowHeaders: TDCTreeOptionFlag = TreeOption_ShowHeaders;
-    ShowHeaderGrid: TDCTreeOptionFlag = TreeOption_ShowHeaderGrid;
-    ShowVertGrid: TDCTreeOptionFlag = TreeOption_ShowVertGrid;
-    ShowHorzGrid: TDCTreeOptionFlag = TreeOption_ShowHorzGrid;
-    HideVScrollBar: TDCTreeOptionFlag = TreeOption_HideVScrollBar;
-    HideHScrollBar: TDCTreeOptionFlag = TreeOption_HideHScrollBar;
-    AlternatingRowBackground: TDCTreeOptionFlag = TreeOption_AlternatingRowBackground;
-    HideHoverEffect: TDCTreeOptionFlag = TreeOption_HideHoverEffect;
-    ReadOnly: TDCTreeOptionFlag = TreeOption_ReadOnly;
-    MultiSelect: TDCTreeOptionFlag = TreeOption_MultiSelect;
-    KeepCurrentSelection: TDCTreeOptionFlag = TreeOption_KeepCurrentSelection;
-    AllowColumnUpdates: TDCTreeOptionFlag = TreeOption_AllowColumnUpdates;
-    AllowAddNewRows: TDCTreeOptionFlag = TreeOption_AllowAddNewRows;
-    AllowAddNewRowsWithDownKey: TDCTreeOptionFlag = TreeOption_AllowAddNewRowsWithDownKey;
-    AllowDeleteRows: TDCTreeOptionFlag = TreeOption_AllowDeleteRows;
-    ColumnsCanMove: TDCTreeOptionFlag = TreeOption_ColumnsCanMove;
-//    AutoCommit: TDCTreeOptionFlag = TreeOption_AutoCommit;
-//    AllowCellSelection: TDCTreeOptionFlag = TreeOption_AllowCellSelection;
-//    DisplayPartialRows: TDCTreeOptionFlag = TreeOption_DisplayPartialRows;
-//    AssumeObjectTypesDiffer: TDCTreeOptionFlag = TreeOption_AssumeObjectTypesDiffer;
-//    ShowDragImage: TDCTreeOptionFlag = TreeOption_ShowDragImage;
-//    ShowDragEffects: TDCTreeOptionFlag = TreeOption_ShowDragEffects;
-//    CheckPropertyNames: TDCTreeOptionFlag = TreeOption_CheckPropertyNames;
-//    GoRowSelection: TDCTreeOptionFlag = TreeOption_GoRowSelection;
-//    GoRowFocusRectangle: TDCTreeOptionFlag = TreeOption_GoRowFocusRectangle;
-//    ColumnsCanResize: TDCTreeOptionFlag = TreeOption_ColumnsCanResize;
-//    ColumnsCanMove: TDCTreeOptionFlag = TreeOption_ColumnsCanMove;
-//    AllowColumnUpdates: TDCTreeOptionFlag = TreeOption_AllowColumnUpdates;
-//    HideFocusRectangle: TDCTreeOptionFlag = TreeOption_HideFocusRectangle;
-//    ScrollThroughRows: TDCTreeOptionFlag = TreeOption_ScrollThroughRows;
-//    AlwaysShowEditor: TDCTreeOptionFlag = TreeOption_AlwaysShowEditor;
-//    DoNotTranslateCaption: TDCTreeOptionFlag = TreeOption_DoNotTranslateCaption;
-//    PreserveRowHeights: TDCTreeOptionFlag = TreeOption_PreserveRowHeights;
-  end;
-
-  TDCTreeOptions = set of TDCTreeOptionFlag;
 
 const
   ROW_CONTENT_MARGIN = 5;

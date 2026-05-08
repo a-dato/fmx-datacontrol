@@ -77,7 +77,6 @@ type
     _rowHeightMax: Single;
     _options: TDCTreeOptions;
 
-
     // events
     {$IFNDEF WEBASSEMBLY}
     _rowLoaded: RowLoadedEvent;
@@ -95,6 +94,7 @@ type
 
     function  get_SelectionType: TSelectionType;
     procedure set_SelectionType(const Value: TSelectionType);
+    function  get_Options: TDCTreeOptions;
     procedure set_Options(const Value: TDCTreeOptions);
     function  get_NotSelectableItems: IList;
     procedure set_NotSelectableItems(const Value: IList);
@@ -268,6 +268,8 @@ type
 
     procedure OnCurrentChanged; virtual;
     procedure OnSelectedItemsChanged; virtual;
+    procedure OnSelectionInfoTagChanged; virtual;
+
     procedure DoExecuteSelectionChanged;
 
     function  CreateSelectioninfoInstance: IRowSelectionInfo; virtual;
@@ -415,7 +417,7 @@ type
   public
     // designer properties & events
     property SelectionType: TSelectionType read get_SelectionType write set_SelectionType default RowSelection;
-    property Options: TDCTreeOptions read _options write set_Options;
+    property Options: TDCTreeOptions read get_options write set_Options;
     property CanDragDrop: Boolean read _canDragDrop write _canDragDrop default False;
 
     property RowHeightFixed: Single read get_rowHeightFixed write set_RowHeightFixed;
@@ -510,6 +512,7 @@ type
     _updateCount: Integer;
     _focusedChanged: Boolean;
     _multiSelectChanged: Boolean;
+    _tagChanged: Boolean;
 
     function  get_DataIndex: Integer;
     function  get_DataItem: CObject;
@@ -528,6 +531,7 @@ type
 
     procedure DoCurrentChanged;
     procedure DoMultiSelectChanged;
+    procedure DoTagChanged;
 //    procedure SetFocusedItem(const DataIndex, ViewListIndex: Integer; const DataItem: CObject);
 
     procedure DoChanged;
@@ -562,6 +566,7 @@ type
     function  SelectedRowCount: Integer; // multi selection
     function  SelectedDataIndexes: TDataIndexArray; // multi selection
     function  WaitingForFocusChanged: Boolean; // current dataitem
+    function  WaitingForTagChanged: Boolean; // current column
 
     function  GetRowInfo(const DataIndex: Integer): TRowDataItemInfo;
   end;
@@ -1317,8 +1322,10 @@ begin
     _horzScrollBar.Visible := False;
 
   if (TDCTreeOption.MultiSelect in OldFlags) and not (TDCTreeOption.MultiSelect in NewFlags) then
-    _options := _options - [TDCTreeOption.KeepCurrentSelection]
+    _options := _options - [TDCTreeOption.KeepCurrentSelection, TDCtreeOption.MultiSelectShowHeaderCheck]
   else if not (TDCTreeOption.KeepCurrentSelection in OldFlags) and (TDCTreeOption.KeepCurrentSelection in NewFlags) and not (TDCTreeOption.MultiSelect in NewFlags) then
+    set_Options(_options + [TDCTreeOption.MultiSelect])
+  else if not (TDCTreeOption.MultiSelectShowHeaderCheck in OldFlags) and (TDCTreeOption.MultiSelectShowHeaderCheck in NewFlags) and not (TDCTreeOption.MultiSelect in NewFlags) then
     set_Options(_options + [TDCTreeOption.MultiSelect]);
 
   if ((TDCTreeOption.AlternatingRowBackground in OldFlags) <> (TDCTreeOption.AlternatingRowBackground in NewFlags)) then
@@ -1987,6 +1994,11 @@ begin
       _selectionInfo.EndUpdate(True {ignore});
     end;
   end;
+end;
+
+function TScrollControlWithRows.get_Options: TDCTreeOptions;
+begin
+  Result := _options;
 end;
 
 procedure TScrollControlWithRows.set_Options(const Value: TDCTreeOptions);
@@ -3114,6 +3126,11 @@ procedure TScrollControlWithRows.DoExecuteSelectionChanged;
 begin
   if Assigned(_onSelectionChanged) then
     _onSelectionChanged(Self);
+end;
+
+procedure TScrollControlWithRows.OnSelectionInfoTagChanged;
+begin
+  // nothing to do...
 end;
 
 procedure TScrollControlWithRows.OnSelectedItemsChanged;
@@ -4743,6 +4760,8 @@ procedure TRowSelectionInfo.BeginUpdate;
 begin
   _multiSelectChanged := False;
   _focusedChanged := False;
+  _tagChanged := False;
+
   inc(_updateCount);
 end;
 
@@ -4876,12 +4895,17 @@ begin
     Exit;
 
   _tag := Value;
-  _focusedChanged := True;
+  _tagChanged := True;
 end;
 
 function TRowSelectionInfo.WaitingForFocusChanged: Boolean;
 begin
   Result := _focusedChanged;
+end;
+
+function TRowSelectionInfo.WaitingForTagChanged: Boolean;
+begin
+  Result := _tagChanged;
 end;
 
 function TRowSelectionInfo.Clone: IRowSelectionInfo;
@@ -4927,6 +4951,9 @@ begin
 
     if _focusedChanged then
       DoCurrentChanged;
+
+    if _tagChanged then
+      DoTagChanged;
   end;
 end;
 
@@ -4943,6 +4970,21 @@ begin
   end;
 
   _rowsControl.OnCurrentChanged;
+end;
+
+procedure TRowSelectionInfo.DoTagChanged;
+begin
+  // check if we are dealing with clone
+  if _rowsControl = nil then
+    Exit;
+
+  if _updateCount > 0 then
+  begin
+    _tagChanged := True;
+    Exit;
+  end;
+
+  _rowsControl.OnSelectionInfoTagChanged;
 end;
 
 procedure TRowSelectionInfo.DoMultiSelectChanged;

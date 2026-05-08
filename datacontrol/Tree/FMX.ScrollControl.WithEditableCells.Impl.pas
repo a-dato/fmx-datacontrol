@@ -1849,24 +1849,32 @@ begin
     var notify: IEditableModel;
     if Interfaces.Supports<IEditableModel>(_Model, notify) then
     begin
-      var u: IUpdatableObject;
-      if Interfaces.Supports<IUpdatableObject>(_modelListItemChanged, u) then
-      try
-        u.BeginUpdate;
-        notify.BeginEdit(ARow.ViewListIndex);
+      var es: IEditState;
+      if not Interfaces.Supports<IEditState>(_Model, es) or not es.IsNew then
+      begin
+        var u: IUpdatableObject;
+        if Interfaces.Supports<IUpdatableObject>(_modelListItemChanged, u) then
+        try
+          u.BeginUpdate;
+          notify.BeginEdit(ARow.ViewListIndex);
 
-        // can be cloned
-        if DataItem.IsOfType<IDataRowView> then
-          DataItem.AsType<IDataRowView>.Row.Data := _model.ObjectContext else
-          DataItem := _model.ObjectContext;
-      finally
-        u.EndUpdate
-      end else
-        notify.BeginEdit(ARow.ViewListIndex);
+          // can be cloned
+          if DataItem.IsOfType<IDataRowView> then
+            DataItem.AsType<IDataRowView>.Row.Data := _model.ObjectContext else
+            DataItem := _model.ObjectContext;
+        finally
+          u.EndUpdate
+        end else
+          notify.BeginEdit(ARow.ViewListIndex);
+      end;
     end
     else if ViewIsDataModelView then
     begin
-      GetDataModelView.DataModel.BeginEdit(ARow.DataItem.AsType<IDataRowView>.Row);
+      var row := ARow.DataItem.AsType<IDataRowView>.Row;
+      var dm := GetDataModelView.DataModel;
+      var flags := dm.EditFlags(row);
+      if not (EditStateFlag_IsNew in flags) and not (EditStateFlag_IsEdit in flags) then
+        dm.BeginEdit(ARow.DataItem.AsType<IDataRowView>.Row);
     end;
 
 //    ARow.UseBuffering := False;

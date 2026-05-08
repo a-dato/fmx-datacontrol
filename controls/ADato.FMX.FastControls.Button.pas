@@ -326,6 +326,9 @@ type
     property SubText;
     property SwabTextSubText;
     property ImageName;
+
+    property OnEnter;
+    property OnExit;
   end;
 
 implementation
