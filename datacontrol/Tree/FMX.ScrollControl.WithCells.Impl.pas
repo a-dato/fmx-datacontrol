@@ -304,7 +304,7 @@ type
     procedure ColumnsChangedFromExternal;
     function  CheckCanChangeRow: Boolean; override;
 
-    procedure AnimateMoveColumn(const OldCellLefts: Dictionary<IDCTreeColumn, Single>; const MovingColumn: IDCTreeLayoutColumn = nil);
+    procedure AnimateMoveColumn(const OldCellLefts: Dictionary<IDCTreeColumn, Single>; const MovingColumn: IDCTreeColumn = nil; MoveClmnOpacity: Single = 0.3);
     function  GetFlatColumnsLeft: DIctionary<IDCTreeColumn, Single>;
 
     procedure UpdateColumnSort(const Column: IDCTreeColumn; SortDirection: ListSortDirection; ClearOtherSort: Boolean);
@@ -1823,8 +1823,9 @@ end;
 function TScrollControlWithCells.GetFlatColumnsLeft: DIctionary<IDCTreeColumn, Single>;
 begin
   Result := CDictionary<IDCTreeColumn, Single>.Create;
-  for var clmn in _treeLayout.FlatColumns do
-    Result.Add(clmn.Column, clmn.Left - IfThen(_horzScrollBar.Visible, _horzScrollBar.Value - _treeLayout.FrozenColumnWidth));
+  if _treeLayout <> nil then
+    for var clmn in _treeLayout.FlatColumns do
+      Result.Add(clmn.Column, clmn.Left - IfThen(_horzScrollBar.Visible, _horzScrollBar.Value - _treeLayout.FrozenColumnWidth));
 end;
 
 procedure TScrollControlWithCells.EndMoveColumn;
@@ -1864,10 +1865,10 @@ begin
   _treeLayout := nil;
   ForceImmeditiateRealignContent;
   DoColumnChangedByUser(movingColumn);
-  AnimateMoveColumn(originalColumnsLeft, movingColumn);
+  AnimateMoveColumn(originalColumnsLeft, movingColumn.Column);
 end;
 
-procedure TScrollControlWithCells.AnimateMoveColumn(const OldCellLefts: Dictionary<IDCTreeColumn, Single>; const MovingColumn: IDCTreeLayoutColumn = nil);
+procedure TScrollControlWithCells.AnimateMoveColumn(const OldCellLefts: Dictionary<IDCTreeColumn, Single>; const MovingColumn: IDCTreeColumn = nil; MoveClmnOpacity: Single = 0.3);
 const
   MOVE_ANIMATION_DURATION = 0.22;
 begin
@@ -1880,41 +1881,43 @@ begin
   var rows := HeaderAndTreeRows(False);
   for var column in OldCellLefts.Keys do
   begin
-    if column.Frozen then
+    var oldAbsoluteLeft: Single;
+    if not OldCellLefts.TryGetValue(column, oldAbsoluteLeft) and (column <> MovingColumn) then
       Continue;
 
-    var oldAbsoluteLeft: Single;
     var flatColumn := FlatColumnByColumn(column);
-    if (flatColumn = nil) or not OldCellLefts.TryGetValue(column, oldAbsoluteLeft) then
+    if (flatColumn = nil) then
       Continue;
 
     // column is not moved
-    if SameValue(oldAbsoluteLeft, flatColumn.Left, 0.5) then
+    if SameValue(oldAbsoluteLeft, flatColumn.Left, 0.5) and (flatColumn.Column <> MovingColumn) then
       Continue;
 
     for var row in rows do
     begin
       var cell: IDCTreeCell;
-      if not row.Cells.TryGetValue(flatColumn.Index, cell) then
+      if not row.Cells.TryGetValue(flatColumn.Index, cell) or (cell.Control = nil) or (cell.Control.Parent = nil) then
         Continue;
 
-      if (cell.Control = nil) or (cell.Control.Parent = nil) then
-        Continue;
+      if not column.Frozen then
+      begin
+        var targetX := cell.Control.Position.X;
+        var startX := oldAbsoluteLeft - cell.Control.ParentControl.Position.X;
+        if SameValue(startX, targetX) then
+          Continue;
 
-      var targetX := cell.Control.Position.X;
-      var startX := oldAbsoluteLeft - cell.Control.ParentControl.Position.X;
-      if SameValue(startX, targetX) then
-        Continue;
+        TAnimator.StopPropertyAnimation(cell.Control, 'Position.X');
+        cell.Control.Position.X := startX;
+        TAnimator.AnimateFloat(cell.Control, 'Position.X', targetX, MOVE_ANIMATION_DURATION, TAnimationType.Out, TInterpolationType.Cubic);
+      end;
 
-      TAnimator.StopPropertyAnimation(cell.Control, 'Position.X');
-      cell.Control.Position.X := startX;
-      TAnimator.AnimateFloat(cell.Control, 'Position.X', targetX, MOVE_ANIMATION_DURATION, TAnimationType.Out, TInterpolationType.Cubic);
-
-      if (MovingColumn <> nil) and cell.LayoutColumn.Column.Equals(MovingColumn.Column) then
+      if (MovingColumn <> nil) and cell.LayoutColumn.Column.Equals(MovingColumn) then
       begin
         TAnimator.StopPropertyAnimation(cell.Control, 'Opacity');
-        cell.Control.Opacity := 0.3;
-        TAnimator.AnimateFloatDelay(cell.Control, 'Opacity', 1, 0.3, MOVE_ANIMATION_DURATION, TAnimationType.Out, TInterpolationType.Cubic);
+        cell.Control.Opacity := MoveClmnOpacity;
+
+        var aniDelay := IfThen(MoveClmnOpacity = 0, 0, MOVE_ANIMATION_DURATION);
+        TAnimator.AnimateFloatDelay(cell.Control, 'Opacity', 1, 0.3, aniDelay, TAnimationType.Out, TInterpolationType.Cubic);
       end;
     end;
   end;
@@ -2449,10 +2452,14 @@ begin
 
   if doHide then
   begin
+    var originalColumnsLeft := GetFlatColumnsLeft;
+
     _autoMultiSelectColumn.Visualisation.Visible := False;
     (GetInitializedWaitForRefreshInfo as IDCControlWaitForRepaintInfo).ColumnsChanged;
 
     ColumnVisibilityChanged(_autoMultiSelectColumn, False);
+
+    AnimateMoveColumn(originalColumnsLeft);
   end;
 end;
 
@@ -2463,10 +2470,15 @@ begin
 
   if SelectionCount(False) > 1 then
   begin
+    var originalColumnsLeft := GetFlatColumnsLeft;
+
     _autoMultiSelectColumn.Visualisation.Visible := True;
     (GetInitializedWaitForRefreshInfo as IDCControlWaitForRepaintInfo).ColumnsChanged;
 
     ColumnVisibilityChanged(_autoMultiSelectColumn, False);
+
+    originalColumnsLeft.Add(_autoMultiSelectColumn, 0);
+    AnimateMoveColumn(originalColumnsLeft, _autoMultiSelectColumn, 0);
   end;
 end;
 

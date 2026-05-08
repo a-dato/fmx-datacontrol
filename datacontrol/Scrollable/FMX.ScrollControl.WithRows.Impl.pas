@@ -3056,8 +3056,8 @@ begin
     _resetViewRec := TResetViewRec.CreateFrom(Index, False, True {recalculate the view}, _resetViewRec);
     ResetView(Index);
 
-    if _view.HasCustomDataList then
-      _view.RecreateCustomDataList(_dataList);
+//    if _view.HasCustomDataList then
+//      _view.RecreateCustomDataList(_dataList);
 
     _view.RecalcSortedRows;
   end;
@@ -3077,8 +3077,8 @@ begin
     _resetViewRec := TResetViewRec.CreateFrom(Index, False, True {recalculate the view}, _resetViewRec);
     ResetView(Index);
 
-    if _view.HasCustomDataList then
-      _view.RecreateCustomDataList(_dataList);
+//    if _view.HasCustomDataList then
+//      _view.RecreateCustomDataList(_dataList);
   end;
 end;
 
@@ -3559,7 +3559,7 @@ begin
       end else
         _selectionInfo.RemoveFromSelection(DataIndex);
     end
-    else if not (TDCTreeOption.KeepCurrentSelection in _Options) and not _selectionInfo.IsSelected(DataIndex) then
+    else if not (TDCTreeOption.KeepCurrentSelection in _Options) and (not _selectionInfo.IsSelected(DataIndex) or (not (ssCtrl in Shift)) and (not (ssShift in Shift))) then
       _selectionInfo.ClearMultiSelections;
   end;
 
@@ -4039,14 +4039,14 @@ begin
      Exit;
   end;
 
-  var isExternalChangeForCustomDataList := _view.HasCustomDataList and (_realignState in [TRealignState.RealignDone, TRealignState.Waiting]);
-  if isExternalChangeForCustomDataList then
-  begin
-    _view := nil;
-    if (_rowHeightSynchronizer <> nil) {and not SyncIsMasterSynchronizer} and (_rowHeightSynchronizer.View <> nil) then
-      _rowHeightSynchronizer._view := nil;
-  end else
-  begin
+//  var isExternalChangeForCustomDataList := _view.HasCustomDataList and (_realignState in [TRealignState.RealignDone, TRealignState.Waiting]);
+//  if isExternalChangeForCustomDataList then
+//  begin
+//    _view := nil;
+//    if (_rowHeightSynchronizer <> nil) {and not SyncIsMasterSynchronizer} and (_rowHeightSynchronizer.View <> nil) then
+//      _rowHeightSynchronizer._view := nil;
+//  end else
+//  begin
     _view.ResetView(FromViewListIndex, ClearOneRowOnly);
     if (_rowHeightSynchronizer <> nil) {and not SyncIsMasterSynchronizer} and (_rowHeightSynchronizer.View <> nil) then
         _rowHeightSynchronizer.View.ResetView(FromViewListIndex, ClearOneRowOnly);
@@ -4060,7 +4060,7 @@ begin
         dec(_updateCount);
       end;
     end;
-  end;
+//  end;
 
   if (_realignState = TRealignState.RealignDone) or (_resetViewRec.RecalcSortedRows) then
     RefreshControl;
