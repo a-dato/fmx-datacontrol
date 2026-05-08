@@ -176,12 +176,28 @@ type
 
   strict private
     _stateChangedThisHover: Boolean;
+    _checkAnimationTimer: TTimer;
+    _checkAnimationStartedAt: UInt64;
+    _checkAnimationDurationMs: Single;
+    _checkAnimationFromState: TCheckState;
+    _checkAnimationToState: TCheckState;
+    _checkAnimationProgress: Single;
   private
     _checkPosition: TCheckPosition;
     _checkState: TCheckState;
     _checkSize: Single;
     _checkTextMargin: Single;
     _onCheckChange: TNotifyEvent;
+
+    procedure CheckAnimationTimer(Sender: TObject);
+    procedure ConfigureCheckAnimation(const FromState: TCheckState; const Immediate: Boolean = False);
+    procedure EnsureCheckAnimationTimer;
+    function  GetCheckAnimationT: Single;
+    function  GetStateVisualProgress(const State: TCheckState): Single;
+    function  InterpolatePoint(const FromPoint, ToPoint: TPointF; const Progress: Single): TPointF;
+    function  InterpolateRect(const FromRect, ToRect: TRectF; const Progress: Single): TRectF;
+    procedure SetCheckAnimationProgress(const Progress: Single);
+    procedure StopCheckAnimation;
 
     function get_EditControl: IDCEditControl;
     function  get_CheckState: TCheckState;
@@ -198,6 +214,10 @@ type
     function  IsRadioButton: Boolean; virtual;
     procedure MouseUp(Button: TMouseButton; Shift: TShiftState; X, Y: Single); override;
     procedure KeyDown(var Key: Word; var KeyChar: WideChar; Shift: TShiftState); override;
+    procedure DrawAnimatedCheckMark(const Rect: TRectF; const DrawOpacity, Progress: Single; const Color: TAlphaColor); virtual;
+    procedure PaintCheckedVisual(const Rect, InnerRect: TRectF; const Radius, DrawOpacity, Progress: Single; const AccentColor, CheckMarkColor: TAlphaColor); virtual;
+    procedure PaintGrayedVisual(const Rect, InnerRect: TRectF; const Radius, DrawOpacity, Progress: Single; const AccentColor: TAlphaColor); virtual;
+    procedure PaintUncheckedVisual(const Rect: TRectF; const Radius, DrawOpacity, Progress, HighlightProgress: Single; const AccentColor: TAlphaColor); virtual;
     procedure SetCheckStateCore(const Value: TCheckState; const TriggerEvents: Boolean = True); virtual;
     procedure set_CheckState(const Value: TCheckState); virtual;
     procedure SetIsChecked(const Value: Boolean); virtual;
@@ -762,6 +782,10 @@ begin
   _checkState := TCheckState.Unchecked;
   _checkSize := 12;
   _checkTextMargin := 6;
+  _checkAnimationDurationMs := 140;
+  _checkAnimationFromState := TCheckState.Unchecked;
+  _checkAnimationToState := TCheckState.Unchecked;
+  _checkAnimationProgress := 1;
   _internalLeftPadding := _checkSize + {2 *} _checkTextMargin;
   _internalRightPadding := 0;
 
@@ -773,6 +797,117 @@ begin
   EnableExecuteAction := True;
 
   _editControl := TCheckBoxControlImpl.Create(Self);
+end;
+
+procedure TFastCheckbox.EnsureCheckAnimationTimer;
+begin
+  if _checkAnimationTimer = nil then
+  begin
+    _checkAnimationTimer := TTimer.Create(Self);
+    _checkAnimationTimer.Enabled := False;
+    _checkAnimationTimer.Interval := 15;
+    {$IFNDEF WEBASSEMBLY}
+    _checkAnimationTimer.OnTimer := CheckAnimationTimer;
+    {$ELSE}
+    _checkAnimationTimer.OnTimer := @CheckAnimationTimer;
+    {$ENDIF}
+  end;
+end;
+
+procedure TFastCheckbox.StopCheckAnimation;
+begin
+  if _checkAnimationTimer <> nil then
+    _checkAnimationTimer.Enabled := False;
+end;
+
+function TFastCheckbox.GetCheckAnimationT: Single;
+begin
+  if _checkAnimationDurationMs <= 0 then
+    Exit(1);
+
+  Result := EnsureRange((TThread.GetTickCount64 - _checkAnimationStartedAt) / _checkAnimationDurationMs, 0, 1);
+end;
+
+procedure TFastCheckbox.SetCheckAnimationProgress(const Progress: Single);
+begin
+  var nextProgress := EnsureRange(Progress, 0, 1);
+
+  if SameValue(_checkAnimationProgress, nextProgress, 0.001) then
+    Exit;
+
+  _checkAnimationProgress := nextProgress;
+  RepaintNeeded;
+end;
+
+function TFastCheckbox.GetStateVisualProgress(const State: TCheckState): Single;
+begin
+  if _checkAnimationFromState = _checkAnimationToState then
+    Exit(IfThen(State = _checkAnimationToState, 1, 0));
+
+  if State = _checkAnimationFromState then
+    Exit(1 - _checkAnimationProgress);
+
+  if State = _checkAnimationToState then
+    Exit(_checkAnimationProgress);
+
+  Result := 0;
+end;
+
+procedure TFastCheckbox.ConfigureCheckAnimation(const FromState: TCheckState; const Immediate: Boolean = False);
+begin
+  _checkAnimationFromState := FromState;
+  _checkAnimationToState := _checkState;
+
+  if Immediate then
+  begin
+    StopCheckAnimation;
+    _checkAnimationFromState := _checkState;
+    _checkAnimationToState := _checkState;
+    SetCheckAnimationProgress(1);
+    Exit;
+  end;
+
+  if _checkAnimationFromState = _checkAnimationToState then
+  begin
+    SetCheckAnimationProgress(1);
+    Exit;
+  end;
+
+  EnsureCheckAnimationTimer;
+  _checkAnimationStartedAt := TThread.GetTickCount64;
+  SetCheckAnimationProgress(0);
+  _checkAnimationTimer.Enabled := True;
+  RepaintNeeded;
+end;
+
+procedure TFastCheckbox.CheckAnimationTimer(Sender: TObject);
+begin
+  var t := GetCheckAnimationT;
+  var easedT := 1 - Power(1 - t, 3);
+
+  SetCheckAnimationProgress(easedT);
+
+  if t >= 1 then
+  begin
+    _checkAnimationFromState := _checkAnimationToState;
+    StopCheckAnimation;
+  end;
+end;
+
+function TFastCheckbox.InterpolatePoint(const FromPoint, ToPoint: TPointF; const Progress: Single): TPointF;
+begin
+  Result := PointF(
+    FromPoint.X + ((ToPoint.X - FromPoint.X) * Progress),
+    FromPoint.Y + ((ToPoint.Y - FromPoint.Y) * Progress));
+end;
+
+function TFastCheckbox.InterpolateRect(const FromRect, ToRect: TRectF; const Progress: Single): TRectF;
+begin
+  Result := RectF(
+    FromRect.Left + ((ToRect.Left - FromRect.Left) * Progress),
+    FromRect.Top + ((ToRect.Top - FromRect.Top) * Progress),
+    FromRect.Right + ((ToRect.Right - FromRect.Right) * Progress),
+    FromRect.Bottom + ((ToRect.Bottom - FromRect.Bottom) * Progress));
 end;
 
 procedure TFastCheckBox.UpdateState(CheckCount, TotalCount: Integer);
@@ -829,6 +964,10 @@ begin
   var radius := IfThen(IsRadioButton, checkSize / 2, 1);
 
   var accentColor := GetCheckColor;
+  var uncheckedProgress := GetStateVisualProgress(TCheckState.Unchecked);
+  var checkedProgress := GetStateVisualProgress(TCheckState.Checked);
+  var grayedProgress := GetStateVisualProgress(TCheckState.Grayed);
+  var highlightProgress := IfThen((_hover and not _stateChangedThisHover) or IsFocused, 1, 0);
 
   var checkMarkColor := IfThen(
     (TAlphaColorRec(accentColor).R * 0.299) +
@@ -841,62 +980,100 @@ begin
 
   Canvas.Stroke.Kind := TBrushKind.Solid;
   Canvas.Fill.Kind := TBrushKind.Solid;
-  Canvas.Stroke.Thickness := IfThen((_checkState <> TCheckState.Unchecked) or (_hover and not _stateChangedThisHover), 1.5, 1);
+  Canvas.Stroke.Thickness := 1 + (0.5 * CMath.Max(CMath.Max(checkedProgress, grayedProgress), highlightProgress));
 
-  case _checkState of
-    TCheckState.Unchecked:
-    begin
-      Canvas.Fill.Color := accentColor;
-      if IsRadioButton then
-        Canvas.FillEllipse(rect, drawOpacity * IfThen(_hover or IsFocused, 0.1, 0.02)) else
-        Canvas.FillRect(rect, radius, radius, AllCorners, drawOpacity * IfThen(_hover or IsFocused, 0.1, 0.02));
+  PaintUncheckedVisual(rect, radius, drawOpacity, uncheckedProgress, highlightProgress, accentColor);
+  PaintCheckedVisual(rect, innerRect, radius, drawOpacity, checkedProgress, accentColor, checkMarkColor);
+  PaintGrayedVisual(rect, innerRect, radius, drawOpacity, grayedProgress, accentColor);
 
-      Canvas.Stroke.Color := accentColor;
-      if IsRadioButton then
-        Canvas.DrawEllipse(rect, drawOpacity) else
-        Canvas.DrawRect(rect, radius, radius, AllCorners, drawOpacity);
-    end;
+  Canvas.Stroke.Color := accentColor;
+  if IsRadioButton then
+    Canvas.DrawEllipse(rect, drawOpacity) else
+    Canvas.DrawRect(rect, radius, radius, AllCorners, drawOpacity);
+end;
 
-    TCheckState.Checked:
-    begin
-      Canvas.Fill.Color := accentColor;
-      if IsRadioButton then
-        Canvas.FillEllipse(innerRect, drawOpacity) else
-        Canvas.FillRect(rect, radius, radius, AllCorners, drawOpacity);
+procedure TFastCheckbox.PaintUncheckedVisual(const Rect: TRectF; const Radius, DrawOpacity, Progress, HighlightProgress: Single; const AccentColor: TAlphaColor);
+begin
+  if Progress <= 0 then
+    Exit;
 
-      Canvas.Stroke.Color := accentColor;
-      if IsRadioButton then
-        Canvas.DrawEllipse(rect, drawOpacity)
-      else
-      begin
-        // do not draw lines if checked..
-        Canvas.DrawRect(rect, radius, radius, AllCorners, drawOpacity);
+  Canvas.Fill.Color := AccentColor;
 
-        Canvas.Stroke.Color := checkMarkColor;
-        Canvas.Stroke.Thickness := CMath.Max(1.5, checkSize / 6);
+  var backgroundOpacity := DrawOpacity * Progress * (0.02 + (0.08 * HighlightProgress));
+  if backgroundOpacity <= 0 then
+    Exit;
 
-        var p1 := PointF(startXPos + checkSize / 5, startYPos + checkSize / 2);
-        var p2 := PointF(startXPos + checkSize * 2 / 5, startYPos + checkSize * 7 / 10);
-        var p3 := PointF(startXPos + checkSize * 4 / 5, startYPos + checkSize / 4);
+  if IsRadioButton then
+    Canvas.FillEllipse(Rect, backgroundOpacity) else
+    Canvas.FillRect(Rect, Radius, Radius, AllCorners, backgroundOpacity);
+end;
 
-        Canvas.DrawLine(p1, p2, drawOpacity);
-        Canvas.DrawLine(p2, p3, drawOpacity);
-      end;
-    end;
+procedure TFastCheckbox.PaintCheckedVisual(const Rect, InnerRect: TRectF; const Radius, DrawOpacity, Progress: Single; const AccentColor, CheckMarkColor: TAlphaColor);
+begin
+  if Progress <= 0 then
+    Exit;
 
-    TCheckState.Grayed:
-    begin
-      Canvas.Fill.Color := accentColor;
-      if IsRadioButton then
-        Canvas.FillEllipse(innerRect, drawOpacity * 0.9) else
-        Canvas.FillRect(innerRect, radius, radius, AllCorners, drawOpacity * 0.9);
+  Canvas.Fill.Color := AccentColor;
 
-      Canvas.Stroke.Color := accentColor;
-      if IsRadioButton then
-        Canvas.DrawEllipse(rect, drawOpacity) else
-        Canvas.DrawRect(rect, radius, radius, AllCorners, drawOpacity);
-    end;
+  if IsRadioButton then
+  begin
+    var inset := (InnerRect.Width * 0.35) * (1 - Progress);
+    var animatedInnerRect := RectF(InnerRect.Left + inset, InnerRect.Top + inset, InnerRect.Right - inset, InnerRect.Bottom - inset);
+    Canvas.FillEllipse(animatedInnerRect, DrawOpacity * Progress);
+    Exit;
   end;
+
+  var fillInset := (Rect.Width * 0.22) * (1 - Progress);
+  var startRect := RectF(Rect.Left + fillInset, Rect.Top + fillInset, Rect.Right - fillInset, Rect.Bottom - fillInset);
+  var animatedRect := InterpolateRect(startRect, Rect, Progress);
+
+  Canvas.FillRect(animatedRect, Radius, Radius, AllCorners, DrawOpacity * Progress);
+  DrawAnimatedCheckMark(animatedRect, DrawOpacity, Progress, CheckMarkColor);
+end;
+
+procedure TFastCheckbox.PaintGrayedVisual(const Rect, InnerRect: TRectF; const Radius, DrawOpacity, Progress: Single; const AccentColor: TAlphaColor);
+begin
+  if Progress <= 0 then
+    Exit;
+
+  Canvas.Fill.Color := AccentColor;
+
+  if IsRadioButton then
+  begin
+    var inset := (InnerRect.Width * 0.35) * (1 - Progress);
+    var animatedInnerRect := RectF(InnerRect.Left + inset, InnerRect.Top + inset, InnerRect.Right - inset, InnerRect.Bottom - inset);
+    Canvas.FillEllipse(animatedInnerRect, DrawOpacity * 0.9 * Progress);
+    Exit;
+  end;
+
+  var fillInset := (InnerRect.Width * 0.28) * (1 - Progress);
+  var startRect := RectF(InnerRect.Left + fillInset, InnerRect.Top + fillInset, InnerRect.Right - fillInset, InnerRect.Bottom - fillInset);
+  var animatedRect := InterpolateRect(startRect, InnerRect, Progress);
+
+  Canvas.FillRect(animatedRect, Radius, Radius, AllCorners, DrawOpacity * 0.9 * Progress);
+end;
+
+procedure TFastCheckbox.DrawAnimatedCheckMark(const Rect: TRectF; const DrawOpacity, Progress: Single; const Color: TAlphaColor);
+begin
+  if Progress <= 0 then
+    Exit;
+
+  Canvas.Stroke.Color := Color;
+  Canvas.Stroke.Thickness := CMath.Max(1.5, Rect.Width / 6);
+
+  var p1 := PointF(Rect.Left + Rect.Width / 5, Rect.Top + Rect.Height / 2);
+  var p2 := PointF(Rect.Left + Rect.Width * 2 / 5, Rect.Top + Rect.Height * 7 / 10);
+  var p3 := PointF(Rect.Left + Rect.Width * 4 / 5, Rect.Top + Rect.Height / 4);
+  var markOpacity := DrawOpacity * EnsureRange(0.35 + (0.65 * Progress), 0, 1);
+
+  if Progress < 0.5 then
+  begin
+    Canvas.DrawLine(p1, InterpolatePoint(p1, p2, Progress / 0.5), markOpacity);
+    Exit;
+  end;
+
+  Canvas.DrawLine(p1, p2, markOpacity);
+  Canvas.DrawLine(p2, InterpolatePoint(p2, p3, (Progress - 0.5) / 0.5), markOpacity);
 end;
 
 function TFastCheckbox.GetIsChecked: Boolean;
@@ -972,7 +1149,9 @@ procedure TFastCheckbox.SetCheckStateCore(const Value: TCheckState; const Trigge
 begin
   if _checkState <> Value then
   begin
+    var previousState := _checkState;
     _checkState := Value;
+    ConfigureCheckAnimation(previousState, Self.IsUpdating or not Visible or (csLoading in ComponentState));
 
     if TriggerEvents and Assigned(_onCheckChange) and not Self.IsUpdating then
       _onCheckChange(Self);

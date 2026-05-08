@@ -3559,7 +3559,7 @@ begin
       end else
         _selectionInfo.RemoveFromSelection(DataIndex);
     end
-    else if not (TDCTreeOption.KeepCurrentSelection in _Options) and not _selectionInfo.IsSelected(DataIndex) then
+    else if not (TDCTreeOption.KeepCurrentSelection in _Options) and (not _selectionInfo.IsSelected(DataIndex) or (not (ssCtrl in Shift)) and (not (ssShift in Shift))) then
       _selectionInfo.ClearMultiSelections;
   end;
 
