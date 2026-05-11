@@ -3767,6 +3767,9 @@ procedure TScrollControlWithRows.UpdateDragDropVisualisation;
 begin
   HideHoverRect;
 
+  if _view = nil then
+    Exit;
+
   var row: IDCRow;
   for row in _view.ActiveViewRows do
     VisualizeRowSelection(row);

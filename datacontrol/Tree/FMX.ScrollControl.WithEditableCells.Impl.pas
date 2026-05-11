@@ -496,10 +496,13 @@ begin
   end
 
   // check delete cell content
-  else if ((Key = vkDelete) or (Key = vkBack)) and CanEditCell(GetActiveCell) then
+  else if ((Key = vkDelete) or (Key = vkBack)) then
   begin
-    StartEditCell(GetActiveCell, True, '' {clear cell});
-    Key := 0;
+    if not (ssCtrl in Shift) and not (ssCtrl in Shift) and CanEditCell(GetActiveCell) then
+    begin
+      StartEditCell(GetActiveCell, True, '' {clear cell});
+      Key := 0;
+    end;
   end
 
   else

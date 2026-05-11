@@ -1282,9 +1282,10 @@ end;
 
 procedure TComboEditControlImpl.set_ItemIndex(const Value: Integer);
 begin
-  (_control as TComboEdit).ItemIndex := Value;
+  var ed := TComboEdit(_control);
+  ed.ItemIndex := Value;
   if Value = -1 then
-    (_control as TComboEdit).Text := '';
+    ed.Text := '';
 end;
 
 function TComboEditControlImpl.get_FilterItem: TFilterItem;
