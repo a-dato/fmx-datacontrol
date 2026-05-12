@@ -51,7 +51,7 @@ type
     function IsEmpty: Boolean;
   end;
 
-  TADatoClickLayout = class(TLayout, ICaption, IDCControl, IImageControl)
+  TADatoClickLayout = class(TFastControl, ICaption, IDCControl, IImageControl)
   protected
     _imageControl: IImageControl;
 
@@ -113,7 +113,7 @@ type
 
     function  CreateConfig: TFastButtonConfig; virtual;
 
-    procedure Calculate; virtual;
+    procedure Calculate; override;
 
     procedure DoPaint; override;
     function  GetDefaultSize: TSizeF; override;
@@ -154,7 +154,7 @@ type
   TChangeType = (DoRepaint, DoRecalc, ControlAdded, ControlRemoved);
   TOnTagChange = procedure(const ADatoClickLayout: TADatoClickLayout; const ChangeType: TChangeType) of object;
 
-  TCustomADatoTagRunTimeControl = class(TLayout);
+  TCustomADatoTagRunTimeControl = class(TFastControl);
 
   TFastButtonConfig = class(TCollectionItem)
   strict private
@@ -227,7 +227,6 @@ type
 
   TFastButton = class(TADatoClickLayout, IIsChecked)
   protected
-    _lock: IInterface;
     _buttonType: TButtonType;
     _emphasizePicture: Boolean;
     _showHoverEffect: Boolean;
@@ -236,11 +235,9 @@ type
     _underlineType: TUnderlineType;
     _waitForRepaint: Boolean;
     _mouseIsDown: Boolean;
-    _autoWidth: Boolean;
     _contentHorzAlign: TTextAlign;
     _imagesLink: TImageLink;
     _additionalText: CString;
-    _recalcNeeded: Boolean;
 
     procedure set_ButtonType(const Value: TButtonType);
     procedure set_EmphasizePicture(const Value: Boolean);
@@ -268,8 +265,6 @@ type
 
     procedure Calculate; override;
     procedure DoPaint; override;
-    procedure Painting; override;
-    procedure DoResized; override;
 
     procedure SetEnabled(const Value: Boolean); override;
     procedure SetVisible(const Value: Boolean); override;
@@ -281,9 +276,9 @@ type
 
     procedure ActionChange(Sender: TBasicAction; CheckDefaults: Boolean); override;
 
-    procedure RecalcNeeded;
-    procedure RepaintNeeded;
     procedure OnConfigRequestRecalc(const ADatoClickLayout: TADatoClickLayout; const ChangeType: TChangeType);
+    procedure InvalidateBoundsChange(const OldBounds, NewBounds: TRectF);
+    procedure ApplyAutoWidth; override;
 
     procedure PaddingChanged; override;
     function  GetSidePadding: Single;
@@ -297,7 +292,6 @@ type
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
 
-    procedure PrepareForPaint; override;
     function  GetUnderline: TADatoLineF; override;
     function  CalcWidth: Single;
 
@@ -382,6 +376,11 @@ end;
 
 procedure TADatoClickLayout.Calculate;
 begin
+  if not ShouldRecalculate then
+    Exit;
+
+  inherited;
+
   var w := 0.0;
 
   var cv := Self.Canvas;
@@ -966,42 +965,10 @@ begin
 end;
 
 procedure TFastButton.Calculate;
-
-  procedure SafeQueue([weak]lock: IInterface);
-  begin
-    TThread.ForceQueue(nil, procedure
-    begin
-      if lock = nil then
-        Exit;
-
-      var newWidth := _innerBounds.Width + 2*GetSidePadding;
-      if not SameValue(Self.Width, newWidth) then
-      begin
-        Self.Width := newWidth;
-        _recalcNeeded := True;
-        Calculate;
-        Repaint;
-      end;
-    end);
-  end;
-
 begin
-  if _recalcNeeded then
+  if ShouldRecalculate then
   begin
-    _recalcNeeded := False;
     inherited;
-
-    if _autoWidth then
-    begin
-      if FInPaintTo then
-      begin
-        if _lock = nil then
-          _lock := TInterfacedObject.Create;
-
-        SafeQueue(_lock);
-      end else
-        Self.Width := _innerBounds.Width + 2*GetSidePadding;
-    end;
 
     var innerPadding := GetSidePadding;
     var horzAlign := get_ContentHorzAlign;
@@ -1021,7 +988,7 @@ end;
 
 function TFastButton.CalcWidth: Single;
 begin
-  Calculate;
+  ControlLoadedCalculate;
   Result := _innerBounds.Width + (2*GetSidePadding);
 end;
 
@@ -1030,8 +997,6 @@ begin
   inherited;
 
   HitTest := True;
-  Width := 100;
-  Height := 25;
 
   _config := CreateConfig;
   _config.TagType := TTagType.NoBounds;
@@ -1060,7 +1025,7 @@ end;
 procedure TFastButton.DoPaint;
 begin
   // wait for the repaint..
-  if _recalcNeeded then
+  if ShouldRecalculate then
     Exit;
 
   _waitForRepaint := False;
@@ -1149,12 +1114,6 @@ begin
   end;
 end;
 
-procedure TFastButton.DoResized;
-begin
-  inherited;
-  RecalcNeeded;
-end;
-
 function TFastButton.GetIsChecked: Boolean;
 begin
 //  if Action <> nil then
@@ -1201,19 +1160,32 @@ begin
   Result := False;
 end;
 
-procedure TFastButton.RecalcNeeded;
+procedure TFastButton.InvalidateBoundsChange(const OldBounds, NewBounds: TRectF);
 begin
-  _recalcNeeded := True;
-  RepaintNeeded;
+  var dirtyRect := TRectF.Union(OldBounds, NewBounds);
+  var padding := 2.0;
+  if (Scene <> nil) and (Scene.GetSceneScale > 0) then
+    padding := padding / Scene.GetSceneScale;
+
+  dirtyRect.Inflate(padding, padding);
+
+  if ParentControl <> nil then
+    ParentControl.InvalidateRect(dirtyRect)
+  else
+    Repaint;
 end;
 
-procedure TFastButton.RepaintNeeded;
+procedure TFastButton.ApplyAutoWidth;
 begin
-  if not FInPaintTo and not _waitForRepaint then
-  begin
-    _waitForRepaint := True;
-    Repaint;
-  end;
+  var newWidth := _innerBounds.Width + 2*GetSidePadding;
+  if SameValue(Self.Width, newWidth) then
+    Exit;
+
+  var oldBounds := BoundsRect;
+  Self.Width := newWidth;
+  var newBounds := BoundsRect;
+
+  InvalidateBoundsChange(oldBounds, newBounds);
 end;
 
 procedure TFastButton.SetEnabled(const Value: Boolean);
@@ -1255,18 +1227,6 @@ procedure TFastButton.PaddingChanged;
 begin
   inherited;
   RecalcNeeded;
-end;
-
-procedure TFastButton.Painting;
-begin
-  Calculate;
-  inherited;
-end;
-
-procedure TFastButton.PrepareForPaint;
-begin
-  Calculate;
-  inherited;
 end;
 
 procedure TFastButton.MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Single);
@@ -1429,7 +1389,8 @@ end;
 
 function TFastButton.GetUnderline: TADatoLineF;
 begin
-  if _recalcNeeded then
+  _controlIsLoaded := True;
+  if ShouldRecalculate then
     Calculate;
 
   Result := inherited;

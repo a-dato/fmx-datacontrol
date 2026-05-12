@@ -43,6 +43,39 @@ uses
   FMX.ScrollControl.ControlClasses.Intf;
 
 type
+  TFastControl = class(TLayout)
+  protected
+    _controlIsLoaded: Boolean;
+
+    _waitingForRepaint: Boolean;
+    _recalcNeeded: Boolean;
+    _autoWidth: Boolean;
+
+    _recalcIndex: Integer;
+
+    procedure Loaded; override;
+    procedure RepaintNeeded;
+    procedure RecalcNeeded; virtual;
+
+    function  ShouldRecalculate: Boolean;
+    procedure ControlLoadedCalculate;
+    procedure Calculate; virtual;
+    procedure CalculateSafeAutoWidth;
+
+    procedure ApplyAutoWidth; virtual; abstract;
+
+    procedure DoResized; override;
+    procedure EndUpdate; override;
+
+    procedure PrepareForPaint; override;
+
+  public
+    procedure Painting; override;
+
+    procedure ForceRealign;
+    procedure RequestRealign;
+  end;
+
   TDateTimeEditOnKeyDownOverride = class(TDateEdit)
   protected
     procedure KeyDown(var Key: Word; var KeyChar: System.WideChar; Shift: TShiftState); override;
@@ -50,7 +83,7 @@ type
 
   TCheckPosition = (Left, Right);
 
-  TFastText = class(TLayout, IDCControl, ITextControl, ICaption, ITextSettings)
+  TFastText = class(TFastControl, IDCControl, ITextControl, ICaption, ITextSettings)
   protected
     _dcControl: IDCControl;
     function get_DCControl: IDCControl;
@@ -59,17 +92,11 @@ type
     property DCControl: IDCControl read get_DCControl implements IDCControl;
 
   protected
-    _lock: IInterface;
-
     _text: string;
     _layout: TTextLayout;
     _settings: TTextSettings;
-    _autoWidth: Boolean;
     _calcAsAutoHeight: Boolean;
     _underlineOnHover: Boolean;
-
-    _recalcNeeded: Boolean;
-    _waitingForRepaint: Boolean;
 
     _textBounds: TRectF;
     _onChange: TNotifyEvent;
@@ -116,14 +143,13 @@ type
 
   protected
     procedure DoPaint; override;
-    procedure DoResized; override;
     function  GetDefaultSize: TSizeF; override;
 //    function  IsControlRectEmpty: Boolean; override;
 
-    procedure Calculate; virtual;
+    procedure Calculate; override;
     procedure EnsureLayoutForCanvas(const ACanvas: TCanvas);
-    procedure RecalcNeeded;
-    procedure RepaintNeeded;
+    procedure InvalidateBoundsChange(const OldBounds, NewBounds: TRectF);
+    procedure ApplyAutoWidth; override;
 
     function  CalculateTextXPos: Single;
     function  CalculateTextYPos: Single;
@@ -138,7 +164,6 @@ type
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
 
-    procedure Paint; override;
     procedure RecalcOpacity; override;
 
     function HasText: Boolean;
@@ -379,8 +404,6 @@ begin
     _layout.TopLeft := (Self.Parent as TControl).LocalToAbsolute({TPointF.Create(0, 0}TPointF.Create(0, 15));
   {$ENDIF}
 
-  _waitingForRepaint := False;
-
   inherited;
 
   if not _ignoreDefaultPaint then
@@ -415,18 +438,6 @@ begin
   end;
 end;
 
-procedure TFastText.DoResized;
-begin
-  inherited;
-  RecalcNeeded;
-end;
-
-procedure TFastText.Paint;
-begin
-  Calculate;
-  inherited;
-end;
-
 //function TFastText.IsControlRectEmpty: Boolean;
 //begin
 //  Result := inherited or (Length(GetText) = 0) or SameValue(AbsoluteOpacity, 0)
@@ -439,13 +450,13 @@ end;
 
 function TFastText.GetDefaultTextSettings: TTextSettings;
 begin
-  Calculate;
+  ControlLoadedCalculate;
   Result := _settings;
 end;
 
 function TFastText.GetResultingTextSettings: TTextSettings;
 begin
-  Calculate;
+  ControlLoadedCalculate;
   Result := _settings;
 end;
 
@@ -536,40 +547,41 @@ begin
   RepaintNeeded;
 end;
 
-procedure TFastText.RecalcNeeded;
-begin
-  _recalcNeeded := True;
-  RepaintNeeded;
-end;
-
 procedure TFastText.RecalcOpacity;
 begin
   inherited;
   Repaint;
 end;
 
-procedure TFastText.RepaintNeeded;
+procedure TFastText.InvalidateBoundsChange(const OldBounds, NewBounds: TRectF);
 begin
-  if not FInPaintTo and not _waitingForRepaint then
-  begin
-    _waitingForRepaint := True;
+  var dirtyRect := TRectF.Union(OldBounds, NewBounds);
+  var padding := 2.0;
+  if (Scene <> nil) and (Scene.GetSceneScale > 0) then
+    padding := padding / Scene.GetSceneScale;
+
+  dirtyRect.Inflate(padding, padding);
+
+  if ParentControl <> nil then
+    ParentControl.InvalidateRect(dirtyRect)
+  else
     Repaint;
-  end;
+end;
+
+procedure TFastText.ApplyAutoWidth;
+begin
+  var newWidth := TextWidthWithPadding;
+  if SameValue(Self.Width, newWidth) then
+    Exit;
+
+  var oldBounds := BoundsRect;
+  Self.Width := newWidth;
+  var newBounds := BoundsRect;
+
+  InvalidateBoundsChange(oldBounds, newBounds);
 end;
 
 procedure TFastText.Calculate;
-
-  procedure SafeQueue([weak]lock: IInterface);
-  begin
-    TThread.ForceQueue(nil, procedure
-    begin
-      if lock = nil then
-        Exit;
-
-      Self.Width := TextWidthWithPadding;
-    end);
-  end;
-
 begin
   var layoutCanvas := Self.Canvas;
   if layoutCanvas = nil then
@@ -577,10 +589,10 @@ begin
 
   EnsureLayoutForCanvas(layoutCanvas);
 
-  if not _recalcNeeded then
+  if not ShouldRecalculate then
     Exit;
 
-  _recalcNeeded := False;
+  inherited;
 
   var maxInternalWidth := _maxWidth - Padding.Left - Padding.Right - _internalLeftPadding - _internalRightPadding;
   var maxWidth := IfThen(_maxWidth > 0, maxInternalWidth, IfThen(get_WordWrap, Self.Width, 9999));
@@ -615,18 +627,6 @@ begin
   if GlobalUseSkia and (TFontStyle.fsItalic in _layout.Font.Style) then
     _textBounds := RectF(_textBounds.Left, _textBounds.Top, _textBounds.Right + 3, _textBounds.Bottom);
   {$ENDIF}
-
-  if _autoWidth then
-  begin
-    if FInPaintTo then
-    begin
-      if _lock = nil then
-        _lock := TInterfacedObject.Create;
-
-      SafeQueue(_lock);
-    end else
-      Self.Width := TextWidthWithPadding;
-  end;
 end;
 
 procedure TFastText.SetStyledSettings(const Value: TStyledSettings);
@@ -640,9 +640,6 @@ begin
     _text := Value;
 
     RecalcNeeded;
-
-    if _autoWidth then
-      Calculate; // do immideate outside paint
 
     if Assigned(_onChange) then
       _onChange(Self);
@@ -745,7 +742,7 @@ end;
 
 function TFastText.TextHeight: Single;
 begin
-  Calculate;
+  ControlLoadedCalculate;
   Result := _textBounds.Height;
 end;
 
@@ -761,7 +758,7 @@ end;
 
 function TFastText.TextWidth: Single;
 begin
-  Calculate;
+  ControlLoadedCalculate;
   Result := _textBounds.Width;
 end;
 
@@ -927,7 +924,7 @@ end;
 
 procedure TFastCheckBox.Calculate;
 begin
-  if _recalcNeeded then
+  if ShouldRecalculate then
   begin
     _internalLeftPadding := IfThen(_checkPosition = TCheckPosition.Left, _checkSize + {2 *} _checkTextMargin, 0);
     _internalRightPadding := IfThen(_checkPosition = TCheckPosition.Right, _checkSize + {2 *} _checkTextMargin, 0);
@@ -1249,6 +1246,94 @@ begin
   if not IsBoundProperty(AProperty) then
     ExecuteFromLink(Obj) else
     inherited;
+end;
+
+{ TFastControl }
+procedure TFastControl.Loaded;
+begin
+  _controlIsLoaded := True;
+  inherited;
+end;
+
+procedure TFastControl.RepaintNeeded;
+begin
+  if not FInPaintTo and not _waitingForRepaint then
+  begin
+    _waitingForRepaint := True;
+    Repaint;
+  end;
+end;
+
+procedure TFastControl.ForceRealign;
+begin
+  RequestRealign;
+  ControlLoadedCalculate;
+end;
+
+procedure TFastControl.RequestRealign;
+begin
+  RecalcNeeded;
+end;
+
+procedure TFastControl.Painting;
+begin
+  _waitingForRepaint := False;
+  ControlLoadedCalculate;
+
+  inherited;
+end;
+
+procedure TFastControl.PrepareForPaint;
+begin
+  Calculate;
+  inherited;
+end;
+
+procedure TFastControl.Calculate;
+begin
+  _recalcNeeded := False;
+end;
+
+function TFastControl.ShouldRecalculate: Boolean;
+begin
+  Result := _recalcNeeded and _controlIsLoaded and (_recalcIndex = 0) and not IsUpdating;
+end;
+
+procedure TFastControl.ControlLoadedCalculate;
+begin
+  // for runtime controls, the method "Loaded" is not called!
+  // sometimes we want to force calculate..
+  _controlIsLoaded := True;
+  Calculate;
+end;
+
+procedure TFastControl.RecalcNeeded;
+begin
+  _recalcNeeded := True;
+  CalculateSafeAutoWidth;
+  RepaintNeeded;
+end;
+
+procedure TFastControl.CalculateSafeAutoWidth;
+begin
+  if ShouldRecalculate and _autoWidth and not FInPaintTo then
+  begin
+    Calculate;
+    ApplyAutoWidth;
+    RepaintNeeded;
+  end;
+end;
+
+procedure TFastControl.DoResized;
+begin
+  inherited;
+  RecalcNeeded;
+end;
+
+procedure TFastControl.EndUpdate;
+begin
+  inherited;
+  CalculateSafeAutoWidth;
 end;
 
 initialization
