@@ -29,6 +29,8 @@ uses
 type
   ICustomComparableDataList = interface
     ['{45AC59E7-6FF9-471D-93DF-2A6B94893A60}']
+    procedure InsertItem(index: Integer; const Value: CObject);
+    procedure RemoveItemAt(index: Integer);
     procedure ResetList(FromViewListIndex: Integer = -1; ClearOneRowOnly: Boolean = False);
     procedure ResetItem(const DataItem: CObject);
   end;
@@ -38,6 +40,9 @@ type
     [weak] _orgDataList: IList;
 
     class function ConvertDataListToObjectList(const DataList: IList): List<CObject>;
+
+    procedure InsertItem(index: Integer; const Value: CObject);
+    procedure RemoveItemAt(index: Integer);
 
     procedure ResetList(FromViewListIndex: Integer = -1; ClearOneRowOnly: Boolean = False);
     procedure ResetItem(const DataItem: CObject);
@@ -123,6 +128,8 @@ type
     procedure ClearViewRecInfo(const FromViewListIndex: Integer = -1; ClearOneRowOnly: Boolean = False);
     procedure RecalcSortedRows;
     function  GetViewList: IList;
+    procedure InsertViewItem(const ViewListIndex: Integer; const DataItem: CObject);
+    procedure RemoveViewItemAt(const ViewListIndex: Integer);
 
     function  GetDataIndex(const ViewListIndex: Integer): Integer; overload;
     function  GetDataIndex(const DataItem: CObject): Integer; overload;
@@ -425,6 +432,7 @@ begin
   var customCmp: ICustomComparableDataList;
   interfaces.Supports<ICustomComparableDataList>(_comparer, customCmp);
   customCmp.ResetList(FromViewListIndex, ClearOneRowOnly);
+  _originalData := nil;
 end;
 
 procedure TDataViewList.ResetItemInCustomDataList(const DataItem: CObject);
@@ -572,6 +580,28 @@ begin
   if _comparer <> nil then
     Result := _comparer as IList else
     Result := _dataModelView.Rows as IList;
+end;
+
+procedure TDataViewList.InsertViewItem(const ViewListIndex: Integer; const DataItem: CObject);
+begin
+  var customComparableList: ICustomComparableDataList;
+  if interfaces.Supports<ICustomComparableDataList>(_comparer, customComparableList) then
+  begin
+    customComparableList.InsertItem(ViewListIndex, DataItem);
+    _originalData := nil;
+  end else
+    GetViewList.Insert(ViewListIndex, DataItem);
+end;
+
+procedure TDataViewList.RemoveViewItemAt(const ViewListIndex: Integer);
+begin
+  var customComparableList: ICustomComparableDataList;
+  if interfaces.Supports<ICustomComparableDataList>(_comparer, customComparableList) then
+  begin
+    customComparableList.RemoveItemAt(ViewListIndex);
+    _originalData := nil;
+  end else
+    GetViewList.RemoveAt(ViewListIndex);
 end;
 
 function TDataViewList.GetViewListIndex(const DataIndex: Integer): Integer;
@@ -1161,6 +1191,23 @@ begin
   _orgDataList := AOwner;
 end;
 
+procedure CCustomComparableDataList.InsertItem(index: Integer; const Value: CObject);
+begin
+  var dataIndex := index;
+  if dataIndex < get_Count then
+    dataIndex := Transpose(index) else
+    dataIndex := _orgDataList.Count;
+
+  _orgDataList.Insert(dataIndex, Value);
+  ResetList;
+end;
+
+procedure CCustomComparableDataList.RemoveItemAt(index: Integer);
+begin
+  _orgDataList.RemoveAt(Transpose(index));
+  ResetList;
+end;
+
 procedure CCustomComparableDataList.ResetList(FromViewListIndex: Integer = -1; ClearOneRowOnly: Boolean = False);
 begin
 //  if FromViewListIndex = -1 then
@@ -1170,6 +1217,7 @@ begin
 //    _comparer.SortedRows[FromViewListIndex}
 //  end;
 
+  _data.Clear;
   _data := ConvertDataListToObjectList(_orgDataList);
   _comparer.ResetSortedRows(False);
 end;
