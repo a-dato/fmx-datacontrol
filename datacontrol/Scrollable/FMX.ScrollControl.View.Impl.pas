@@ -29,8 +29,6 @@ uses
 type
   ICustomComparableDataList = interface
     ['{45AC59E7-6FF9-471D-93DF-2A6B94893A60}']
-    procedure InsertItem(index: Integer; const Value: CObject);
-    procedure RemoveItemAt(index: Integer);
     procedure ResetList(FromViewListIndex: Integer = -1; ClearOneRowOnly: Boolean = False);
     procedure ResetItem(const DataItem: CObject);
   end;
@@ -41,8 +39,8 @@ type
 
     class function ConvertDataListToObjectList(const DataList: IList): List<CObject>;
 
-    procedure InsertItem(index: Integer; const Value: CObject);
-    procedure RemoveItemAt(index: Integer);
+    procedure RemoveAt(index: Integer); override;
+    procedure Insert(index: Integer; const item: CObject); override;
 
     procedure ResetList(FromViewListIndex: Integer = -1; ClearOneRowOnly: Boolean = False);
     procedure ResetItem(const DataItem: CObject);
@@ -584,24 +582,18 @@ end;
 
 procedure TDataViewList.InsertViewItem(const ViewListIndex: Integer; const DataItem: CObject);
 begin
-  var customComparableList: ICustomComparableDataList;
-  if interfaces.Supports<ICustomComparableDataList>(_comparer, customComparableList) then
-  begin
-    customComparableList.InsertItem(ViewListIndex, DataItem);
+  GetViewList.Insert(ViewListIndex, DataItem);
+
+  if HasCustomDataList then
     _originalData := nil;
-  end else
-    GetViewList.Insert(ViewListIndex, DataItem);
 end;
 
 procedure TDataViewList.RemoveViewItemAt(const ViewListIndex: Integer);
 begin
-  var customComparableList: ICustomComparableDataList;
-  if interfaces.Supports<ICustomComparableDataList>(_comparer, customComparableList) then
-  begin
-    customComparableList.RemoveItemAt(ViewListIndex);
+  GetViewList.RemoveAt(ViewListIndex);
+
+  if HasCustomDataList then
     _originalData := nil;
-  end else
-    GetViewList.RemoveAt(ViewListIndex);
 end;
 
 function TDataViewList.GetViewListIndex(const DataIndex: Integer): Integer;
@@ -1191,20 +1183,24 @@ begin
   _orgDataList := AOwner;
 end;
 
-procedure CCustomComparableDataList.InsertItem(index: Integer; const Value: CObject);
+procedure CCustomComparableDataList.RemoveAt(index: Integer);
 begin
+  // Bvdl: We intentionally dont do inherited behavior here
+  // _data mutated and _comparer reset via ResetList
+  _orgDataList.RemoveAt(Transpose(index));
+  ResetList;
+end;
+
+procedure CCustomComparableDataList.Insert(index: Integer; const item: CObject);
+begin
+  // Bvdl: We intentionally dont do inherited behavior here
+  // _data mutated and _comparer reset via ResetList
   var dataIndex := index;
   if dataIndex < get_Count then
     dataIndex := Transpose(index) else
     dataIndex := _orgDataList.Count;
 
-  _orgDataList.Insert(dataIndex, Value);
-  ResetList;
-end;
-
-procedure CCustomComparableDataList.RemoveItemAt(index: Integer);
-begin
-  _orgDataList.RemoveAt(Transpose(index));
+  _orgDataList.Insert(dataIndex, item);
   ResetList;
 end;
 
@@ -1218,7 +1214,10 @@ begin
 //  end;
 
   _data.Clear;
-  _data := ConvertDataListToObjectList(_orgDataList);
+  var item: CObject;
+  for item in _orgDataList do
+    _data.Add(item);
+
   _comparer.ResetSortedRows(False);
 end;
 
