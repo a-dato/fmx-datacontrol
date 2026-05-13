@@ -114,6 +114,7 @@ type
     ['{6517C7BC-2590-4194-A3EA-288136A7635C}']
     function  get_Visible: Boolean;
     procedure set_Visible(const Value: Boolean);
+    procedure set_VisibleChangedCallback(const Value: TProc);
     function  get_Frozen: Boolean;
     procedure set_Frozen(const Value: Boolean);
     function  get_ReadOnly: Boolean;
@@ -140,6 +141,7 @@ type
     function  Clone: IDCColumnVisualisation;
 
     property Visible: Boolean read get_Visible write set_Visible;
+    property VisibleChangedCallback: TProc write set_VisibleChangedCallback;
     property Frozen: Boolean read get_Frozen write set_Frozen;
     property ReadOnly: Boolean read get_ReadOnly write set_ReadOnly;
     property Selectable: Boolean read get_Selectable write set_Selectable;
@@ -334,6 +336,7 @@ type
 
     procedure ColumnVisibilityChanged(const Column: IDCTreeColumn; IsUserChange: Boolean);
     procedure ColumnWidthChanged(const Column: IDCTreeColumn);
+    procedure ResetLayoutColumns;
     function  CalculateRowControlWidth(const ForceRealContentWidth: Boolean): Single;
     function  FlatColumnByColumn(const Column: IDCTreeColumn): IDCTreeLayoutColumn;
 

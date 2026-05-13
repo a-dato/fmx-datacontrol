@@ -279,6 +279,7 @@ type
     // IColumnsControl
     procedure ColumnVisibilityChanged(const Column: IDCTreeColumn; IsUserChange: Boolean);
     procedure ColumnWidthChanged(const Column: IDCTreeColumn);
+    procedure ResetLayoutColumns;
     function  Control: TControl;
     function  Content: TControl;
     function  FullColumnList: IList<IDCTreeColumn>;
@@ -458,6 +459,7 @@ type
   TDCColumnVisualisation = class(TObservableObject, IDCColumnVisualisation)
   private
     _visible: Boolean;
+    _visibleChangedCallback: TProc;
     _frozen: Boolean;
     _readOnly: Boolean;
     _selectable: Boolean;
@@ -473,6 +475,7 @@ type
 
     function  get_Visible: Boolean;
     procedure set_Visible(const Value: Boolean);
+    procedure set_VisibleChangedCallback(const Value: TProc);
     function  get_Frozen: Boolean;
     procedure set_Frozen(const Value: Boolean);
     function  get_ReadOnly: Boolean;
@@ -1296,7 +1299,7 @@ begin
     _hoverRect.Position.X := clmn.Left + hoverMargin;
 
     var hoverWidth := clmn.Width;
-    if not clmn.Column.Frozen and _horzScrollBar.Visible then
+    if not clmn.Column.Frozen and _horzScrollBar.Visible and (_horzScrollBar.Opacity > 0) then
     begin
       var xPos := _hoverRect.Position.X - (_horzScrollBar.Value - _horzScrollBar.Min);
       if xPos < _horzScrollBar.Min then
@@ -1556,7 +1559,7 @@ end;
 function TScrollControlWithCells.GetFlatColumnByMouseX(const X: Single; IsInnerControlX: Boolean = False): IDCTreeLayoutColumn;
 begin
   var virtualMouseposition: Single;
-  if _horzScrollBar.Visible and (X > _treeLayout.FrozenColumnWidth) then
+  if _horzScrollBar.Visible and (_horzScrollBar.Opacity > 0) and (X > _treeLayout.FrozenColumnWidth) then
     virtualMouseposition := X + (_horzScrollBar.Value - _horzScrollBar.Min {frozen width if set}) else
     virtualMouseposition := X;
 
@@ -1811,13 +1814,15 @@ begin
 
   var pos1 := flatColumn.Left;
   var pos2 := flatColumn.Left + flatColumn.Width;
-  var realX := X - _headerRow.Control.Position.X {autocentertree} + IfThen(_horzScrollBar.Visible, _horzScrollBar.Value - _treeLayout.FrozenColumnWidth);
+  var realX := X - _headerRow.Control.Position.X {autocentertree} +
+    IfThen(_horzScrollBar.Visible and (_horzScrollBar.Opacity > 0), _horzScrollBar.Value - _treeLayout.FrozenColumnWidth);
   var newPos: Single;
   if (realX - pos1) > (pos2 - realX) then
     newPos := pos2 else
     newPos := pos1;
 
-  _columnMoveRect.Position.X := newPos - (_columnMoveRect.Width / 2) - IfThen(_horzScrollBar.Visible, _horzScrollBar.Value - _treeLayout.FrozenColumnWidth);
+  _columnMoveRect.Position.X := newPos - (_columnMoveRect.Width / 2) -
+    IfThen(_horzScrollBar.Visible and (_horzScrollBar.Opacity > 0), _horzScrollBar.Value - _treeLayout.FrozenColumnWidth);
 end;
 
 function TScrollControlWithCells.GetFlatColumnsLeft: DIctionary<IDCTreeColumn, Single>;
@@ -1825,7 +1830,8 @@ begin
   Result := CDictionary<IDCTreeColumn, Single>.Create;
   if _treeLayout <> nil then
     for var clmn in _treeLayout.FlatColumns do
-      Result.Add(clmn.Column, clmn.Left - IfThen(_horzScrollBar.Visible, _horzScrollBar.Value - _treeLayout.FrozenColumnWidth));
+      Result.Add(clmn.Column, clmn.Left -
+        IfThen(_horzScrollBar.Visible and (_horzScrollBar.Opacity > 0), _horzScrollBar.Value - _treeLayout.FrozenColumnWidth));
 end;
 
 procedure TScrollControlWithCells.EndMoveColumn;
@@ -2500,7 +2506,7 @@ procedure TScrollControlWithCells.OnSelectionInfoTagChanged;
 begin
   inherited;
 
-  if _horzScrollBar.Visible and (_treeLayout <> nil) and (_selectionType = TSelectionType.CellSelection) and (_selectionInfo.Tag >= 0) then
+  if _horzScrollBar.Visible and (_horzScrollBar.Opacity > 0) and (_treeLayout <> nil) and (_selectionType = TSelectionType.CellSelection) and (_selectionInfo.Tag >= 0) then
   begin
     var currentFlatColumn := _treeLayout.LayoutColumns[_selectionInfo.Tag];
     if not currentFlatColumn.Column.Frozen {those are always visible} then
@@ -2737,6 +2743,14 @@ end;
 procedure TScrollControlWithCells.ColumnWidthChanged(const Column: IDCTreeColumn);
 begin
   DoColumnsChanged(Column);
+  ResetLayoutColumns;
+end;
+
+procedure TScrollControlWithCells.ResetLayoutColumns;
+begin
+  // still needs to be created..
+  if _treeLayout = nil then
+    Exit;
 
   _treeLayout.ForceRecalc;
   ResetView; // rowheighst need to be recalculated..
@@ -3838,7 +3852,7 @@ begin
   if not _scrollStopWatch_mouse.IsRunning then
     Exit;
 
-  if _horzScrollBar.Visible then
+  if _horzScrollBar.Visible and (_horzScrollBar.Opacity > 0) then
   begin
     var xDiffSinceLastMove := (X - _mousePositionOnMouseDown.X);
     var xAlreadyMovedSinceMouseDown := _scrollbarPositionsOnMouseDown.X - _horzScrollBar.Value;
@@ -4207,16 +4221,19 @@ begin
     _treeLayout := nil;
   end;
 
+  var clmn: IDCTreeColumn;
+  for clmn in _columns do
+    clmn.Visualisation.VisibleChangedCallback := ResetLayoutColumns;
+
   // if during reading the component the "OptionsChanged" came before the "loading of columns"
   if (_autoMultiSelectColumn <> nil) then
   begin
-    var clmn: IDCTreeColumn;
     for clmn in _columns do
       if clmn.IsSelectionColumn then
       begin
         _autoMultiSelectColumn := nil;
         Break;
-      end;    
+      end;
   end;
 
   if _treeLayout = nil then
@@ -4750,6 +4767,8 @@ begin
       column.CustomWidth := customWidth;
     end;
   end;
+
+  _treeControl.ResetLayoutColumns;
 end;
 
 { TDCTreeColumn }
@@ -7084,7 +7103,18 @@ end;
 
 procedure TDCColumnVisualisation.set_Visible(const Value: Boolean);
 begin
+  if _visible = Value then
+    Exit;
+
   _visible := Value;
+
+  if Assigned(_visibleChangedCallback) then
+    _visibleChangedCallback();
+end;
+
+procedure TDCColumnVisualisation.set_VisibleChangedCallback(const Value: TProc);
+begin
+  _visibleChangedCallback := Value;
 end;
 
 { THeaderColumnResizeControl }
