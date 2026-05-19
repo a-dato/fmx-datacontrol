@@ -1128,16 +1128,15 @@ begin
 
     if _dataList.IndexOf(NewItem) = -1 then
     begin
-//      if not _view.HasCustomDataList then
-//      begin
       if (newViewListIndex = -1) or (Position = InsertPosition.After) then
         inc(newViewListIndex);
 
-      _view.GetViewList.Insert(newViewListIndex, NewItem);
-//      end
-//      else begin
-//
-//      end;
+      inc(_updateCount);
+      try
+        _view.InsertViewItem(newViewListIndex, NewItem);
+      finally
+        dec(_updateCount);
+      end;
     end;
 
     ResetView;
@@ -1200,23 +1199,50 @@ begin
   for var ix in _selectionInfo.SelectedDataIndexes do
     dataIndexes.Add(ix);
 
+  if (dataIndexes.Count = 0) and (Self.Current <> -1) then
+    dataIndexes.Add(_view.GetDataIndex(Self.Current));
+
   dataIndexes.Sort(function(const x, y: Integer): Integer begin Result := -CInteger(x).CompareTo(y); end);
 
   Result := False;
   var currentIndex := Self.Current;
+
+  _selectionInfo.BeginUpdate;
+  try
+    _selectionInfo.ClearAllSelections;
+  finally
+    _selectionInfo.EndUpdate(True {ignore change event});
+  end;
+
   var ix: Integer;
   for ix in dataIndexes do
   begin
+    if (ix < 0) or (ix >= _view.OriginalData.Count) then
+      Continue;
+
     var obj := _view.OriginalData[ix];
+    var viewListIndex := _view.GetViewListIndex(ix);
+    var dataListCountBeforeDelete := -1;
+    if not ViewIsDataModelView and (_dataList <> nil) then
+      dataListCountBeforeDelete := _dataList.Count;
 
     if DoUserDeletingRow(obj) then
     begin
-      if ViewIsDataModelView then
-      begin
-        var location := GetDataModelView.Rows[ix].Row;
-        GetDataModelView.DataModel.Remove(location);
-      end else
-        _view.OriginalData.RemoveAt(ix);
+      inc(_updateCount);
+      try
+        if ViewIsDataModelView then
+        begin
+          if (viewListIndex >= 0) and (viewListIndex < GetDataModelView.Rows.Count) then
+          begin
+            var location := GetDataModelView.Rows[viewListIndex].Row;
+            GetDataModelView.DataModel.Remove(location);
+          end;
+        end
+        else if (viewListIndex >= 0) and (viewListIndex < _view.GetViewList.Count) and ((_dataList = nil) or (_dataList.Count = dataListCountBeforeDelete) {Item could be deleted already after DoUserDeletingRow}) then
+          _view.RemoveViewItemAt(viewListIndex);
+      finally
+        dec(_updateCount);
+      end;
 
       DoUserDeletedRow;
 
@@ -1226,7 +1252,13 @@ begin
 
   if Result then
   begin
-    _view.RecalcSortedRows;
+    inc(_updateCount);
+    try
+      _view.RecalcSortedRows;
+      ResetView;
+    finally
+      dec(_updateCount);
+    end;
 
     if _view.ViewCount > 0 then
     begin
@@ -1987,7 +2019,13 @@ begin
     var dataIndex := _editingInfo.EditItemDataIndex;
 
     if not ViewIsDataModelView then
-      _view.OriginalData[dataIndex] := editItem;
+    begin
+      if (dataIndex < 0) or (dataIndex >= _view.OriginalData.Count) or not CObject.Equals(_view.OriginalData[dataIndex], editItem) then
+        dataIndex := _view.OriginalData.IndexOf(editItem);
+
+      if (dataIndex >= 0) and (dataIndex < _view.OriginalData.Count) then
+        _view.OriginalData[dataIndex] := editItem;
+    end;
 
     _view.EndEdit;
     _editingInfo.RowEditingFinished;

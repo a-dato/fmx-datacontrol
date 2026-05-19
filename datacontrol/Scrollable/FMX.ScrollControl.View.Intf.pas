@@ -90,6 +90,8 @@ type
     procedure ClearViewRecInfo(const FromViewListIndex: Integer = -1; ClearOneRowOnly: Boolean = False);
     procedure RecalcSortedRows;
     function  GetViewList: IList;
+    procedure InsertViewItem(const ViewListIndex: Integer; const DataItem: CObject);
+    procedure RemoveViewItemAt(const ViewListIndex: Integer);
 
     function  SortChangedForItem(const ViewListIndex: Integer): Boolean;
 

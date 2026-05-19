@@ -44,7 +44,7 @@ type
     function  get_Item(Index: Integer): T;
     procedure set_Item(Index: Integer; const Value: T);
     function  IndexOf(const item: T): Integer; reintroduce; overload;
-    procedure Insert(index: Integer; const item: T); reintroduce; overload;
+    procedure Insert(index: Integer; const item: T); reintroduce; overload; virtual;
     function  RawArray: TArray<T>;
     function  InnerArray: TArray<T>;
     function  ToArray: TArray<T>;
@@ -82,8 +82,7 @@ uses
 
 procedure CComparableList<T>.Add(const item: T);
 begin
-  _data.Add(item);
-  _comparer.ResetSortedRows(True);
+  Insert(_data.Count, item);
 end;
 
 function CComparableList<T>.Add(const Value: CObject): Integer;
@@ -211,13 +210,13 @@ end;
 
 procedure CComparableList<T>.Insert(index: Integer; const Value: CObject);
 begin
-  _data.Insert(index, Value.AsType<T>);
-  _comparer.ResetSortedRows(True);
+  Insert(Index, Value.AsType<T>);
 end;
 
 procedure CComparableList<T>.Insert(index: Integer; const item: T);
 begin
-  raise NotImplementedException.Create;
+  _data.Insert(index, item);
+  _comparer.ResetSortedRows(True);
 end;
 
 function CComparableList<T>.RawArray: TArray<T>;
