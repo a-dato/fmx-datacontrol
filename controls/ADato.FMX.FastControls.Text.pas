@@ -68,6 +68,7 @@ type
     procedure EndUpdate; override;
 
     procedure PrepareForPaint; override;
+    procedure PaddingChanged; override;
 
   public
     procedure Painting; override;
@@ -1287,6 +1288,11 @@ procedure TFastControl.PrepareForPaint;
 begin
   Calculate;
   inherited;
+end;
+
+procedure TFastControl.PaddingChanged;
+begin
+  RecalcNeeded;
 end;
 
 procedure TFastControl.Calculate;

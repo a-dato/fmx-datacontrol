@@ -1351,7 +1351,12 @@ begin
 //  Assert(MultiSelectEnabled);
 
   if _view = nil then
+  begin
+    if not CanGenerateNewView then
+      Exit;
+
     GenerateView;
+  end;
 
   var ix := _view.GetViewListIndex(DataItem);
   var dataIndex := _view.GetDataIndex(ix);
@@ -3141,7 +3146,12 @@ begin
   if (_multiSelectUpdateCount = 0) and ((_rowHeightSynchronizer = nil) or (_rowHeightSynchronizer._multiSelectUpdateCount = 0)) then
   begin
     if _view = nil then
+    begin
+      if not CanGenerateNewView then
+        Exit;
+
       GenerateView;
+    end;
 
     AtomicIncrement(_internalSelectCount);
     try
@@ -3170,7 +3180,12 @@ begin
     Exit;
 
   if _view = nil then
+  begin
+    if not CanGenerateNewView then
+      Exit;
+
     GenerateView;
+  end;
 
   AtomicIncrement(_internalSelectCount);
   try
@@ -3767,7 +3782,7 @@ procedure TScrollControlWithRows.UpdateDragDropVisualisation;
 begin
   HideHoverRect;
 
-  if _view = nil then
+  if (_view = nil) or (_view.ActiveViewRows = nil) then
     Exit;
 
   var row: IDCRow;

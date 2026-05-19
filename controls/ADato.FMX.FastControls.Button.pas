@@ -138,7 +138,7 @@ type
     procedure SetTagPosition(const LeftTop: TPointF; const WidthWithPadding: Single);
     procedure UpdateBoundsByRowNo(const RowNo, RowCount: Integer);
 
-    function  GetUnderline: TADatoLineF; virtual;
+    function  GetUnderline(LocalUnderlinePoints: Boolean = False): TADatoLineF; virtual;
 
     procedure PaintBitmap;
 
@@ -231,6 +231,9 @@ type
     _emphasizePicture: Boolean;
     _showHoverEffect: Boolean;
     _showUnderline: Boolean;
+    _underlineAnimationProgress: Single;
+    _underlineAnimationTarget: Single;
+    _underlineAnimationTimer: TTimer;
     _translatable: Boolean;
     _underlineType: TUnderlineType;
     _waitForRepaint: Boolean;
@@ -257,11 +260,15 @@ type
     procedure set_ContentHorzAlign(const Value: TTextAlign);
     procedure set_Images(const Value: TCustomImageList);
     procedure set_AdditionalText(const Value: CString);
+    procedure UnderlineAnimationTimer(Sender: TObject);
+    procedure StartUnderlineAnimation;
+    procedure StopUnderlineAnimation;
 
   protected
     function  get_Images: TCustomImageList; override;
     function  get_Radius: Single; override;
     function  MouseIsDown: Boolean; override;
+    procedure Click; override;
 
     procedure Calculate; override;
     procedure DoPaint; override;
@@ -292,7 +299,7 @@ type
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
 
-    function  GetUnderline: TADatoLineF; override;
+    function  GetUnderline(LocalUnderlinePoints: Boolean = False): TADatoLineF; override;
     function  CalcWidth: Single;
 
     procedure DoExternalClick;
@@ -446,27 +453,34 @@ begin
     end;
   end;
 
+  var leftOffset := offset + Padding.Left;
+  var mostRight := leftOffset + w + Padding.Right;
+
+  // not implemented correctly yet for Top / Bottom..
+  var innerTopOffset := 0; //Padding.Top;
+  var mostBottom := h ;//innerTopOffset + h + Padding.Top;
+
   case get_TagType of
     SignPost: begin
       SetLength(_polygon, 6);
-      _polygon[0] := PointF(offset, 0);
-      _polygon[1] := PointF(w + offset, 0);
+      _polygon[0] := PointF(leftOffset, innerTopOffset);
+      _polygon[1] := PointF(w + offset, innerTopOffset);
       _polygon[2] := PointF(w + offset, h);
-      _polygon[3] := PointF(offset, h);
-      _polygon[4] := PointF(0, h / 2);
+      _polygon[3] := PointF(leftOffset, h);
+      _polygon[4] := PointF(Padding.Left, h / 2);
       _polygon[5] := _polygon[0];
 
-      _innerBounds := RectF(0, 0, w + offset, h);
+      _innerBounds := RectF(0, 0, mostRight, mostBottom);
     end else
     begin
       SetLength(_polygon, 5);
-      _polygon[0] := PointF(offset, 0);
-      _polygon[1] := PointF(w + offset, 0);
+      _polygon[0] := PointF(leftOffset, innerTopOffset);
+      _polygon[1] := PointF(w + offset, innerTopOffset);
       _polygon[2] := PointF(w + offset, h);
-      _polygon[3] := PointF(offset, h);
+      _polygon[3] := PointF(leftOffset, h);
       _polygon[4] := _polygon[0];
 
-      _innerBounds := RectF(0, 0, w + offset, h);
+      _innerBounds := RectF(0, 0, mostRight, mostBottom);
     end;
   end;
 
@@ -486,24 +500,24 @@ begin
     case _config.ImagePosition of
       TImagePosition.Left: begin
         var topBottomPadding := System.Math.Max(0, (h - imgSize) / 2);
-        _imageBounds := RectF(offset, topBottomPadding, offSet+imgSize, h-topBottomPadding);
+        _imageBounds := RectF(leftOffset, topBottomPadding, leftOffset+imgSize, h-topBottomPadding);
         wLeft := wLeft - _imageBounds.Width - _config.ImagePositionMargin;
       end;
       TImagePosition.Right: begin
         var topBottomPadding := System.Math.Max(0, (h - imgSize) / 2);
-        _imageBounds := RectF(_innerBounds.Right - imgSize, topBottomPadding, _innerBounds.Right, h-topBottomPadding);
+        _imageBounds := RectF(_innerBounds.Right - imgSize - Padding.Right, topBottomPadding, _innerBounds.Right - Padding.Right, h-topBottomPadding);
         wLeft := wLeft - _imageBounds.Width - _config.ImagePositionMargin;
       end;
       TImagePosition.Top: begin
-        var xStart := offSet + (w-imgSize)/2;
+        var xStart := leftOffset + (w-imgSize)/2;
         _imageBounds := RectF(xStart, Padding.Top, xStart + imgSize, Padding.Top + imgSize);
       end;
       TImagePosition.Bottom: begin
-        var xStart := offSet + (w-imgSize)/2;
+        var xStart := leftOffset + (w-imgSize)/2;
         _imageBounds := RectF(xStart, _innerBounds.Bottom - imgSize - Padding.Bottom, xStart + imgSize, _innerBounds.Bottom - Padding.Bottom);
       end;
       TImagePosition.Center: begin
-        var xStart := offSet + (w-imgSize)/2;
+        var xStart := leftOffset + (w-imgSize)/2;
         var yStart := System.Math.Max(0, (h-imgSize) / 2);
         _imageBounds := RectF(xStart, yStart, xStart + imgSize, yStart + imgSize);
       end;
@@ -731,7 +745,7 @@ begin
   end;
 end;
 
-function TADatoClickLayout.GetUnderline: TADatoLineF;
+function TADatoClickLayout.GetUnderline(LocalUnderlinePoints: Boolean = False): TADatoLineF;
 begin
   var bounds := BoundsRect;
   var localY := (bounds.Height / 2) + 10;
@@ -739,6 +753,9 @@ begin
     localY := _innerBounds.Bottom + 2;
 
   var y := localY + bounds.Top;
+
+  if LocalUnderlinePoints then
+    bounds := TRectF.Empty;
 
   if HasText then
   begin
@@ -1013,6 +1030,8 @@ begin
 
   _showHoverEffect := True;
   _showUnderline := False;
+  _underlineAnimationProgress := 0;
+  _underlineAnimationTarget := 0;
   _underlineType := TUnderlineType.NoUnderline;
   set_ButtonType(TButtonType.None);
   _contentHorzAlign := TTextAlign.Leading;
@@ -1020,6 +1039,15 @@ begin
   ImagePositionMargin := 3;
 
   _imagesLink := TImageLink.Create;
+
+  _underlineAnimationTimer := TTimer.Create(nil);
+  _underlineAnimationTimer.Enabled := False;
+  _underlineAnimationTimer.Interval := 15;
+  {$IFNDEF WEBASSEMBLY}
+  _underlineAnimationTimer.OnTimer := UnderlineAnimationTimer;
+  {$ELSE}
+  _underlineAnimationTimer.OnTimer := @UnderlineAnimationTimer;
+  {$ENDIF}
 end;
 
 procedure TFastButton.DoPaint;
@@ -1112,6 +1140,32 @@ begin
       Canvas.Font.Style := oldStyle;
     end;
   end;
+
+  if (_underlineType <> TUnderlineType.NoUnderline) and (_showUnderline or (_underlineAnimationProgress > 0)) then
+  begin
+    var color: TAlphaColor;
+    case _underlineType of
+      Color1: color := TAlphaColors.Lightslategray;
+      Color2: color := TAlphaColors.Orange;
+      Color3: color := TAlphaColor($FFEA580C);
+      Color4: color := TAlphaColor($FF7C3AED);
+    end;
+
+    var animationProgress := 1 - Power(1 - _underlineAnimationProgress, 3);
+    var underline := GetUnderline(True {local points});
+    if (animationProgress > 0) and (not underline.IsEmpty) then
+    begin
+      var centerX := (underline.Start.X + underline.Stop.X) / 2;
+      var halfWidth := (underline.Width * animationProgress) / 2;
+      var startPoint := PointF(centerX - halfWidth, underline.Start.Y);
+      var stopPoint := PointF(centerX + halfWidth, underline.Stop.Y);
+
+      Canvas.Stroke.Thickness := 2;// 1 + (1 - (animationProgress * 0.75));
+      Canvas.Stroke.Color := color;
+      Canvas.Stroke.Kind := TBrushKind.Solid;
+      Canvas.DrawLine(startPoint, stopPoint, AbsoluteOpacity * (0.35 + (animationProgress * 0.65)));
+    end;
+  end;
 end;
 
 function TFastButton.GetIsChecked: Boolean;
@@ -1193,6 +1247,11 @@ begin
   if Enabled <> Value then
   begin
     inherited;
+
+    if Value then
+      StartUnderlineAnimation else
+      StopUnderlineAnimation;
+
     RepaintNeeded;
   end;
 end;
@@ -1211,6 +1270,9 @@ procedure TFastButton.SetVisible(const Value: Boolean);
 begin
   inherited;
 
+  if Value then
+    StartUnderlineAnimation else
+    StopUnderlineAnimation;
 end;
 
 procedure TFastButton.OnConfigRequestRecalc(const ADatoClickLayout: TADatoClickLayout; const ChangeType: TChangeType);
@@ -1242,6 +1304,11 @@ begin
   Result := _mouseIsDown;
 end;
 
+procedure TFastButton.Click;
+begin
+  inherited;
+end;
+
 procedure TFastButton.MouseMove(Shift: TShiftState; X, Y: Single);
 begin
   inherited;
@@ -1266,6 +1333,7 @@ end;
 
 destructor TFastButton.Destroy;
 begin
+  FreeAndNil(_underlineAnimationTimer);
   FreeAndNil(_imagesLink);
   inherited;
 end;
@@ -1360,7 +1428,7 @@ begin
   if _showUnderline <> Value then
   begin
     _showUnderline := Value;
-    RepaintNeeded;
+    StartUnderlineAnimation;
   end;
 end;
 
@@ -1378,8 +1446,62 @@ begin
   if _underlineType <> Value then
   begin
     _underlineType := Value;
-    RepaintNeeded;
+    if _underlineType = TUnderlineType.NoUnderline then
+    begin
+      _underlineAnimationProgress := 0;
+      _underlineAnimationTarget := 0;
+      StopUnderlineAnimation;
+      RepaintNeeded;
+    end else
+      StartUnderlineAnimation;
   end;
+end;
+
+procedure TFastButton.UnderlineAnimationTimer(Sender: TObject);
+begin
+  if (csDestroying in ComponentState) or not Visible then
+  begin
+    StopUnderlineAnimation;
+    Exit;
+  end;
+
+  var step := 0.14;
+  if _underlineAnimationProgress < _underlineAnimationTarget then
+    _underlineAnimationProgress := System.Math.Min(_underlineAnimationTarget, _underlineAnimationProgress + step)
+  else
+    _underlineAnimationProgress := System.Math.Max(_underlineAnimationTarget, _underlineAnimationProgress - step);
+
+  if SameValue(_underlineAnimationProgress, _underlineAnimationTarget, 0.001) then
+    StopUnderlineAnimation;
+
+  RepaintNeeded;
+end;
+
+procedure TFastButton.StartUnderlineAnimation;
+begin
+  if _showUnderline then
+  begin
+    _underlineAnimationTarget := IfThen(_showUnderline and (_underlineType <> TUnderlineType.NoUnderline), 1.0, 0.0);
+
+    if SameValue(_underlineAnimationProgress, _underlineAnimationTarget, 0.001) then
+    begin
+      _underlineAnimationProgress := _underlineAnimationTarget;
+      StopUnderlineAnimation;
+      RepaintNeeded;
+      Exit;
+    end;
+
+    if _underlineAnimationTimer <> nil then
+      _underlineAnimationTimer.Enabled := True;
+  end;
+
+  RepaintNeeded;
+end;
+
+procedure TFastButton.StopUnderlineAnimation;
+begin
+  if _underlineAnimationTimer <> nil then
+    _underlineAnimationTimer.Enabled := False;
 end;
 
 function TFastButton.GetSidePadding: Single;
@@ -1387,7 +1509,7 @@ begin
   Result := System.Math.Min(10, System.Math.Max(5, (Self.Height - _innerBounds.Height)/2));
 end;
 
-function TFastButton.GetUnderline: TADatoLineF;
+function TFastButton.GetUnderline(LocalUnderlinePoints: Boolean = False): TADatoLineF;
 begin
   _controlIsLoaded := True;
   if ShouldRecalculate then

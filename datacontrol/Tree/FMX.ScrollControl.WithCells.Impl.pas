@@ -2532,6 +2532,9 @@ begin
     CheckShowAutoMultiSelectColumn else
     CheckHideAutoMultiSelectColumn(nil, []);
 
+  if (_view = nil) and not CanGenerateNewView then
+    Exit;
+
   inherited;
 
   var clmn := SelectionCheckBoxColumn;
