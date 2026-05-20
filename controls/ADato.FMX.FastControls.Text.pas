@@ -1302,7 +1302,8 @@ end;
 
 function TFastControl.ShouldRecalculate: Boolean;
 begin
-  Result := _recalcNeeded and _controlIsLoaded and (_recalcIndex = 0) and not IsUpdating;
+  Result := _recalcNeeded and _controlIsLoaded and (_recalcIndex = 0)
+    { and not IsUpdating}; // check kanbanboard if it should be on, for textwidth calcs are done in applystylelookup
 end;
 
 procedure TFastControl.ControlLoadedCalculate;

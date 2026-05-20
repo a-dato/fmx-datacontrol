@@ -40,7 +40,7 @@ uses
   function  OwnerForm(AControl: TControl): TCustomForm;
 
   function  ProvideAnimation(const Control: TControl; const PropertyName: CString; const NewValue: Single; const Duration: Single = 0.22): TFloatAnimation;
-  function  ProvideAnimationDelay(const Control: TControl; const PropertyName: CString; const NewValue: Single; const Duration: Single = 0.22; const Delay: Single = 0.2): TFloatAnimation;
+  function  ProvideAnimationDelay(const Control: TControl; const PropertyName: CString; const NewValue: Single; const Delay: Single = 0.2; const Duration: Single = 0.22): TFloatAnimation;
 
 var
   DefaultLayout: TTextLayout;
@@ -322,7 +322,7 @@ begin
   Result.StopValue := NewValue;
 end;
 
-function ProvideAnimationDelay(const Control: TControl; const PropertyName: CString; const NewValue: Single; const Duration: Single = 0.22; const Delay: Single = 0.2): TFloatAnimation;
+function ProvideAnimationDelay(const Control: TControl; const PropertyName: CString; const NewValue: Single; const Delay: Single = 0.2; const Duration: Single = 0.22): TFloatAnimation;
 begin
   Result := ProvideAnimation(Control, PropertyName, NewValue);
   Result.Delay := Delay;

@@ -1479,21 +1479,18 @@ end;
 
 procedure TFastButton.StartUnderlineAnimation;
 begin
-  if _showUnderline then
+  _underlineAnimationTarget := IfThen(_showUnderline and (_underlineType <> TUnderlineType.NoUnderline), 1.0, 0.0);
+
+  if SameValue(_underlineAnimationProgress, _underlineAnimationTarget, 0.001) then
   begin
-    _underlineAnimationTarget := IfThen(_showUnderline and (_underlineType <> TUnderlineType.NoUnderline), 1.0, 0.0);
-
-    if SameValue(_underlineAnimationProgress, _underlineAnimationTarget, 0.001) then
-    begin
-      _underlineAnimationProgress := _underlineAnimationTarget;
-      StopUnderlineAnimation;
-      RepaintNeeded;
-      Exit;
-    end;
-
-    if _underlineAnimationTimer <> nil then
-      _underlineAnimationTimer.Enabled := True;
+    _underlineAnimationProgress := _underlineAnimationTarget;
+    StopUnderlineAnimation;
+    RepaintNeeded;
+    Exit;
   end;
+
+  if _underlineAnimationTimer <> nil then
+    _underlineAnimationTimer.Enabled := True;
 
   RepaintNeeded;
 end;
