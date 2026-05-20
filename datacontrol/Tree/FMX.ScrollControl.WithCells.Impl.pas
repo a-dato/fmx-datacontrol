@@ -244,9 +244,9 @@ type
     procedure TryScrollToCellByKey(var Key: Word; var KeyChar: WideChar);
 
     function  TextForSizeCalc(const Text: string): string;
-
+  public
     procedure DoDataItemChangedInternal(const DataItem: CObject); override;
-
+  protected
     function  CalculateRowControlWidth(const ForceRealContentWidth: Boolean): Single; override;
     function  CalculateRowHeight(const Row: IDCTreeRow): Single;
     function  CalculateCellWidth(const LayoutColumn: IDCTreeLayoutColumn; const Cell: IDCTreeCell): Single;
@@ -1249,7 +1249,6 @@ end;
 
 procedure TScrollControlWithCells.UpdateHorzScrollbar;
 begin
-  var wasVisible := _horzScrollBar.Visible;
   var contentOverflow := _treeLayout.ContentOverFlow;
   if contentOverflow > 0 then
   begin
@@ -3069,7 +3068,7 @@ begin
     on e: Exception do
     begin
       if DoHandleException(e) then
-        Exit;
+        Exit(False);
 
       raise;
     end;

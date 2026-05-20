@@ -28,7 +28,9 @@ type
 
     function  NeedsBitmapReload: Boolean;
     procedure LoadBitmap;
+  public
     procedure PrepareForPaint; override;
+  protected
     procedure Painting; override;
     procedure Paint; override;
     procedure DoPaint; override;

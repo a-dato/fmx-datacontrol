@@ -65,12 +65,11 @@ type
     procedure ApplyAutoWidth; virtual; abstract;
 
     procedure DoResized; override;
-    procedure EndUpdate; override;
-
-    procedure PrepareForPaint; override;
     procedure PaddingChanged; override;
 
   public
+    procedure EndUpdate; override;
+    procedure PrepareForPaint; override;
     procedure Painting; override;
 
     procedure ForceRealign;
@@ -381,6 +380,7 @@ end;
 
 function TFastText.CalculateTextXPos: Single;
 begin
+  Result := Padding.Left + _internalLeftPadding;
   case get_HorzTextAlign of
     TTextAlign.Center: Result := (Self.Width - _textBounds.Width) / 2;
     TTextAlign.Leading: Result := Padding.Left + _internalLeftPadding;
@@ -391,6 +391,7 @@ end;
 function TFastText.CalculateTextYPos: Single;
 begin
   var totHeight := _textBounds.Height;
+  Result := Padding.Top;
   case get_VertTextAlign of
     TTextAlign.Center: Result := (Self.Height - totHeight - _internalBottomPadding) / 2;
     TTextAlign.Leading: Result := Padding.Top;

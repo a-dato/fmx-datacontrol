@@ -781,7 +781,6 @@ begin
     if not EndEditCell({out} changeUpdatedSort) or changeUpdatedSort then
       Exit;
 
-    var crr := Self.Current;
     if not DoEditRowEnd(GetActiveRow as IDCTreeRow, {out} changeUpdatedSort) or changeUpdatedSort then
       Exit;
 
@@ -1831,7 +1830,7 @@ begin
     on e: Exception do
     begin
       if DoHandleException(e) then
-        Exit;
+        Exit(False);
 
       raise;
     end;

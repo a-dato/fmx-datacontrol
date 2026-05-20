@@ -1143,7 +1143,7 @@ begin
 
   if (_underlineType <> TUnderlineType.NoUnderline) and (_showUnderline or (_underlineAnimationProgress > 0)) then
   begin
-    var color: TAlphaColor;
+    var color: TAlphaColor := TAlphaColors.Lightslategray;
     case _underlineType of
       Color1: color := TAlphaColors.Lightslategray;
       Color2: color := TAlphaColors.Orange;

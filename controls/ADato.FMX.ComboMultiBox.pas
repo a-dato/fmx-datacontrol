@@ -6,6 +6,7 @@ uses
   {$IFNDEF WEBASSEMBLY}
   System.SysUtils,
   System.Classes,
+  System.Math,
   System.Generics.Collections,
   System.UITypes,
   FMX.Edit,
