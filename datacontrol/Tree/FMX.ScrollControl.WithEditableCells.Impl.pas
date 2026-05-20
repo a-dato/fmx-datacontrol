@@ -93,6 +93,8 @@ type
   private
     procedure SetCellData(const Cell: IDCTreeCell; const Data: CObject);
 
+    procedure StopEditMode;
+
   // events
   protected
     _copyToClipboard: TNotifyEvent;
@@ -412,7 +414,8 @@ end;
 
 function TScrollControlWithEditableCells.CanRealignContent: Boolean;
 begin
-  Result := inherited and not _editingInfo.CellIsEditing;
+  Result := inherited and not (_editingInfo.CellIsEditing);
+  // Maybe we should check also for RowIsEditing
 end;
 
 procedure TScrollControlWithEditableCells.KeyDown(var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
@@ -702,11 +705,16 @@ begin
   begin
     if not HasUpdateCount then
     begin
-      var stillExistsInDataList := not IsNew or (_view.GetDataIndex(_editingInfo.EditItem) <> -1);
+      if GetActiveRow = nil then
+        StopEditMode
+      else
+      begin
+        var stillExistsInDataList := not IsNew or (_view.GetDataIndex(_editingInfo.EditItem) <> -1);
 
-      if stillExistsInDataList then
-        EndEditFromExternal else
-        CancelEditFromExternal;
+        if stillExistsInDataList then
+          EndEditFromExternal else
+          CancelEditFromExternal;
+      end;
     end;
 
     Exit;
@@ -1023,6 +1031,13 @@ begin
     CancelEdit;
 
   Exit(False);
+end;
+
+procedure TScrollControlWithEditableCells.StopEditMode;
+begin
+  Assert(IsEditOrNew);
+  _view.EndEdit;
+  _editingInfo.RowEditingFinished;
 end;
 
 function TScrollControlWithEditableCells.TryAddRow(const Position: InsertPosition): Boolean;
@@ -1370,8 +1385,7 @@ begin
     isModelRemove := True;
   end;
 
-  _view.EndEdit;
-  _editingInfo.RowEditingFinished;
+  StopEditMode;
 
   if not isModelRemove then
   begin
@@ -2026,9 +2040,7 @@ begin
         _view.OriginalData[dataIndex] := editItem;
     end;
 
-    _view.EndEdit;
-    _editingInfo.RowEditingFinished;
-
+    StopEditMode;
     DoDataItemChanged(ARow.ViewListIndex, editItem, {out} ChangeUpdatedSort);
 
 //    ARow.UseBuffering := True;
