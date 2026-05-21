@@ -390,7 +390,7 @@ end;
 function TScrollControlWithEditableCells.CheckedItemsInColumn(const Column: IDCTreeColumn): List<CObject>;
 begin
   var checkedItems: List<Integer>;
-  if (checkedItems = nil) or not _checkedItems.TryGetValue(Column, checkedItems) then
+  if (_checkedItems = nil) or not _checkedItems.TryGetValue(Column, checkedItems) then
     Exit(nil);
 
   var orgData := _view.OriginalData;
