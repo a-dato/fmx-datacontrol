@@ -132,7 +132,7 @@ type
     function  get_Stop: CDateTime;
     procedure set_Stop(const Value: CDateTime);
 
-    procedure TreeCellSelected(Sender: TObject);
+    procedure TreeCellSelected(const Sender: TObject; e: DCSelectionEvent);
     procedure TreeCellFormatting(const Sender: TObject; e: DCCellFormattingEventArgs);
 
   public
@@ -402,7 +402,7 @@ begin
   btnApplyDateRange.Enabled := True;
 end;
 
-procedure TfrmFMXPopupMenuDataControl.TreeCellSelected(Sender: TObject);
+procedure TfrmFMXPopupMenuDataControl.TreeCellSelected(const Sender: TObject; e: DCSelectionEvent);
 begin
   btnApplyFilters.Enabled := True;
 end;

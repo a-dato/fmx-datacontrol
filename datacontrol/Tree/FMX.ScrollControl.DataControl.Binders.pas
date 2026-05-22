@@ -26,7 +26,7 @@ type
   TDataControlBinding = class(TControlBinding<TDataControl>)
   private
     _orgRowEndEdit: FMX.ScrollControl.Events.RowEditEvent;
-    _orgCellSelectedEvent: CellSelectedEvent;
+    _orgSelectionChangedEvent: SelectionChangedEvent;
 
     _propType: TTreePropertyType;
 
@@ -34,7 +34,7 @@ type
     _currentItem: CObject;
 
     procedure OnEditRowEnd(const Sender: TObject; e: DCRowEditEventArgs);
-    procedure OnCellSelectedEvent(const Sender: TObject; e: DCCellSelectedEventArgs);
+    procedure OnSelectionChangedEvent(const Sender: TObject; e: DCSelectionEvent);
 
     procedure InternalSetValue(const Value: CObject);
 
@@ -52,9 +52,9 @@ type
 
   TComboMultiBoxBinding = class(TControlBinding<TComboMultiBox>)
   protected
-    _orgCellSelectedEvent: CellSelectedEvent;
+    _orgSelectionChangedEvent: SelectionChangedEvent;
 
-    procedure OnCellSelected(const Sender: TObject; e: DCCellSelectedEventArgs);
+    procedure OnSelectionChanged(const Sender: TObject; e: DCSelectionEvent);
 
     function  GetValue: CObject; override;
     procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject); override;
@@ -91,8 +91,8 @@ begin
       _Control.EditRowEnd := OnEditRowEnd;
     end;
     CheckedItems: begin
-      _orgCellSelectedEvent :=   _Control.CellSelected;
-      _Control.CellSelected := OnCellSelectedEvent;
+      _orgSelectionChangedEvent :=   _Control.OnSelectionChanged;
+      _Control.OnSelectionChanged := OnSelectionChangedEvent;
     end;
   end;
   {$ENDIF}
@@ -104,7 +104,7 @@ begin
   begin
     case _propType of
       DataList: _Control.EditRowEnd := _orgRowEndEdit;
-      CheckedItems: _Control.CellSelected := _orgCellSelectedEvent;
+      CheckedItems: _Control.OnSelectionChanged := _orgSelectionChangedEvent;
     end;
   end;
 
@@ -154,13 +154,13 @@ begin
   end;
 end;
 
-procedure TDataControlBinding.OnCellSelectedEvent(const Sender: TObject; e: DCCellSelectedEventArgs);
+procedure TDataControlBinding.OnSelectionChangedEvent(const Sender: TObject; e: DCSelectionEvent);
 begin
   if not e.EventTrigger.IsUserEvent then
     Exit;
 
-  if Assigned(_orgCellSelectedEvent) then
-    _orgCellSelectedEvent(Sender, e);
+  if Assigned(_orgSelectionChangedEvent) then
+    _orgSelectionChangedEvent(Sender, e);
 
   // strange, why do I have this here?
   // if NotifyModel is called, IsEditOrNew is automatically True, while nothing changed yet..
@@ -271,14 +271,14 @@ constructor TComboMultiBoxBinding.Create(AControl: TComboMultiBox);
 begin
   inherited Create(AControl);
 
-  _orgCellSelectedEvent := AControl.CellSelected;
-  AControl.CellSelected := OnCellSelected;
+  _orgSelectionChangedEvent := AControl.SelectionChanged;
+  AControl.SelectionChanged := OnSelectionChanged;
 end;
 
 destructor TComboMultiBoxBinding.Destroy;
 begin
   if (_Control <> nil) and ([csDestroying] * _Control.ComponentState = []) then
-    _Control.CellSelected := _orgCellSelectedEvent;
+    _Control.SelectionChanged := _orgSelectionChangedEvent;
 
   inherited;
 end;
@@ -288,13 +288,13 @@ begin
   Result := _control.SelectedItems;
 end;
 
-procedure TComboMultiBoxBinding.OnCellSelected(const Sender: TObject; e: DCCellSelectedEventArgs);
+procedure TComboMultiBoxBinding.OnSelectionChanged(const Sender: TObject; e: DCSelectionEvent);
 begin
   if not e.EventTrigger.IsUserEvent and not _control.InClearClick then
     Exit;
 
-  if Assigned(_orgCellSelectedEvent) then
-    _orgCellSelectedEvent(Sender, e);
+  if Assigned(_orgSelectionChangedEvent) then
+    _orgSelectionChangedEvent(Sender, e);
 
   TThread.ForceQueue(nil, procedure
   begin

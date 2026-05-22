@@ -68,11 +68,13 @@ type
     procedure PaddingChanged; override;
 
   public
+    constructor Create(AOwner: TComponent); override;
+
     procedure EndUpdate; override;
     procedure PrepareForPaint; override;
     procedure Painting; override;
 
-    procedure ForceRealign;
+    procedure ForceRealign(OnlyWhenRealignNeeded: Boolean = False);
     procedure RequestRealign;
   end;
 
@@ -1251,6 +1253,12 @@ begin
 end;
 
 { TFastControl }
+constructor TFastControl.Create(AOwner: TComponent);
+begin
+  inherited;
+  _recalcNeeded := True;
+end;
+
 procedure TFastControl.Loaded;
 begin
   _controlIsLoaded := True;
@@ -1266,9 +1274,11 @@ begin
   end;
 end;
 
-procedure TFastControl.ForceRealign;
+procedure TFastControl.ForceRealign(OnlyWhenRealignNeeded: Boolean = False);
 begin
-  RequestRealign;
+  if not OnlyWhenRealignNeeded then
+    RequestRealign;
+
   ControlLoadedCalculate;
 end;
 

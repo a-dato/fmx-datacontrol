@@ -63,14 +63,14 @@ type
     _oldSelection: List<CObject>;
 
     _selectUpdateCount: Integer;
-    _CellSelected: CellSelectedEvent;
+    _SelectionChanged: SelectionChangedEvent;
 
     function  get_IsOpen: Boolean;
     procedure set_IsOpen(const Value: Boolean);
 
     function  get_SelectedItems: List<CObject>;
 
-    procedure TreeCellSelected(const Sender: TObject; e: DCCellSelectedEventArgs);
+    procedure TreeSelectionChanged(const Sender: TObject; e: DCSelectionEvent);
     procedure TreeCellFormatting(const Sender: TObject; e: DCCellFormattingEventArgs);
 
     procedure CancelChanges;
@@ -85,7 +85,7 @@ type
     property  SelectedItems: List<CObject> read get_SelectedItems;
 
     property IsOpen: Boolean read get_IsOpen write set_IsOpen;
-    property CellSelected: CellSelectedEvent write _CellSelected;
+    property OnSelectionChanged: SelectionChangedEvent write _SelectionChanged;
   end;
 
 implementation
@@ -110,7 +110,7 @@ begin
   DataControl.Align := TAlignLayout.Client;
   DataControl.Options := [TDCTreeOption.ShowVertGrid, TDCTreeOption.ShowHorzGrid, TDCTreeOption.AlternatingRowBackground, TDCTreeOption.MultiSelect, TDCTreeOption.KeepCurrentSelection];
   DataControl.RowHeightFixed := 26;
-  DataControl.CellSelected := TreeCellSelected;
+  DataControl.OnSelectionChanged := TreeSelectionChanged;
   DataControl.CellFormatting := TreeCellFormatting;
   filterlist.AddObject(DataControl);
 
@@ -172,8 +172,6 @@ begin
       DataControl.AddToSelection(DataControl.DataItem, False) else
       DataControl.RemoveFromSelection(DataControl.DataItem);
 
-    TreeCellSelected(DataControl, nil);
-
     Key := 0;
     Exit;
   end
@@ -186,9 +184,9 @@ end;
 
 procedure TfrmComboMultiBoxPopup.CancelChanges;
 begin
-  DataControl.ClearSelectedItems;
   if _oldSelection <> nil then
-    DataControl.AssignSelection(_oldSelection as IList);
+    DataControl.AssignSelection(_oldSelection as IList, True) else
+    DataControl.ClearSelectedItems(True);
 end;
 
 procedure TfrmComboMultiBoxPopup.set_IsOpen(const Value: Boolean);
@@ -237,7 +235,7 @@ begin
   end);
 end;
 
-procedure TfrmComboMultiBoxPopup.TreeCellSelected(const Sender: TObject; e: DCCellSelectedEventArgs);
+procedure TfrmComboMultiBoxPopup.TreeSelectionChanged(const Sender: TObject; e: DCSelectionEvent);
 begin
   var totalCount := DataControl.View.ViewCount;
   var doCheck := DataControl.SelectionCount = totalCount;
@@ -252,8 +250,8 @@ begin
     end;
   end;
 
-  if Assigned(_CellSelected) then
-    _CellSelected(Self, e);
+  if Assigned(_SelectionChanged) then
+    _SelectionChanged(Self, e);
 end;
 
 procedure TfrmComboMultiBoxPopup.edSearchChangeTracking(Sender: TObject);

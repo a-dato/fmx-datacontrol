@@ -37,6 +37,13 @@ type
     property RequestValueForSorting: Boolean read _RequestValueForSorting write _RequestValueForSorting;
   end;
 
+  DCSelectionEvent = class(EventArgs)
+  public
+    EventTrigger: TSelectionEventTrigger;
+
+    constructor Create(Trigger: TSelectionEventTrigger); reintroduce;
+  end;
+
   DCCellSelectedEventArgs = class(BasicEventArgs)
   public
     EventTrigger: TSelectionEventTrigger;
@@ -304,12 +311,11 @@ type
   CellChangedEvent = procedure(const Sender: TObject; e: DCCellChangedEventArgs) of object;
 
   CellSelectedEvent = procedure(const Sender: TObject; e: DCCellSelectedEventArgs) of object;
-  SelectionChangedEvent = TNotifyEvent;
+  SelectionChangedEvent = procedure(const Sender: TObject; e: DCSelectionEvent) of object;
 
   GetColumnComparerEvent  = procedure(const Sender: TObject; e: DCColumnComparerEventArgs) of object;
   TOnCompareRows = function (Sender: TObject; const Left, Right: CObject): integer of object;
   TOnCompareColumnCells = function(Sender: TObject; const TreeColumn: IDCTreeColumn; const Left, Right: CObject): integer of object;
-
 
   RowLoadedEvent  = procedure (const Sender: TObject; e: DCRowEventArgs) of object;
   RowHoverEvent = procedure (const Sender: TObject; e: DCHoverRowEventArgs) of object;
@@ -524,6 +530,14 @@ begin
 
   _calculateRowCellAfterScrolling := False;
   _performanceModeWhileScrolling := APerformanceModeWhileScrolling;
+end;
+
+{ DCSelectionEvent }
+
+constructor DCSelectionEvent.Create(Trigger: TSelectionEventTrigger);
+begin
+  inherited Create;
+  EventTrigger := Trigger;
 end;
 
 { DCCellSelectedEventArgs }

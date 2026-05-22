@@ -4647,7 +4647,11 @@ begin
       var p: _PropertyInfo;
       {$IFNDEF WEBASSEMBLY}
       if column.Tag.IsInterface and Interfaces.Supports<_PropertyInfo>(column.Tag, p) then
-        co.AddPair('Tag', p.OwnerType.Name + '.' + p.Name)
+      begin
+        if not p.OwnerType.IsUnknown then
+          co.AddPair('Tag', p.OwnerType.Name + '.' + p.Name) else
+          co.AddPair('Tag', p.Name);
+      end
       else if not CString.IsNullOrEmpty(column.Tag.ToString) then
         co.AddPair('Tag', column.Tag.ToString);
       {$ELSE}
@@ -5165,6 +5169,11 @@ end;
 procedure TDCTreeColumn.set_Tag(const Value: CObject);
 begin
   _tag := Value;
+
+  {$IFDEF DEBUG}
+  if (_tag <> nil) and _tag.IsString and (_tag.ToString = 'TUnknown.CalculatedFinish') then
+    _tag := 'Got you....';
+  {$ENDIF}
 end;
 
 procedure TDCTreeColumn.set_TreeControl(const Value: IColumnsControl);
@@ -5227,7 +5236,7 @@ begin
   _calculatedHorzAlign := TTextAlign.Leading;
   _calculatedVertAlign := TTextAlign.Center;
 
-  _hideColumnInView := not AColumn.Visible;
+  _hideColumnInView := not AColumn.Visible or AColumn.CustomHidden;
 end;
 
 procedure TTreeLayoutColumn.UpdateCellControlsByRow(const Cell: IDCTreeCell);

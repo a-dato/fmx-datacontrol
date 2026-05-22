@@ -942,7 +942,7 @@ begin
     // check if row change came through if it was needed
     var newCell := GetActiveCell;
     var clmn := GetFlatColumnByMouseX(X);
-    if (newCell <> nil) and IsSelected(newCell.Row.DataIndex, True) and (newCell.LayoutColumn = clmn) and not newCell.Column.ReadOnly then
+    if (newCell <> nil) and not newCell.Column.IsSelectionColumn and IsSelected(newCell.Row.DataIndex, True) and (newCell.LayoutColumn = clmn) and not newCell.Column.ReadOnly then
     begin
       if not newCell.Column.IsSelectionColumn and (newCell.Column.InfoControlClass = TInfoControlClass.CheckBox) then
         (newCell.InfoControl as IIsChecked).IsChecked := not (newCell.InfoControl as IIsChecked).IsChecked

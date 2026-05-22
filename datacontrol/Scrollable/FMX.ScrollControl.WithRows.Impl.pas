@@ -361,7 +361,7 @@ type
     // start public selection
     function  MultiSelectEnabled: Boolean;
     procedure SelectAll; virtual;
-    procedure ClearSelectedItems; virtual;
+    procedure ClearSelectedItems(HandleAsUserChange: Boolean = False);
     procedure ClearCurrentFocused; virtual;
 
     function  CanRealignContent: Boolean; override;
@@ -379,7 +379,7 @@ type
     function  SelectionCount(ReturnCurrentAtNoSelection: Boolean = True): Integer;
     function  SelectedItems(ReturnCurrentAtNoSelection: Boolean): List<CObject>;
 
-    procedure AssignSelection(const SelectedItems: IList);
+    procedure AssignSelection(const SelectedItems: IList; HandleAsUserChange: Boolean = False);
     // end public selection
 
     // start public expand/collapse
@@ -1562,12 +1562,15 @@ begin
   end;
 end;
 
-procedure TScrollControlWithRows.ClearSelectedItems;
+procedure TScrollControlWithRows.ClearSelectedItems(HandleAsUserChange: Boolean = False);
 begin
   if not _selectionInfo.HasSelectedItems then
     Exit;
 
-  _selectionInfo.LastSelectionEventTrigger := TSelectionEventTrigger.External;
+  if HandleAsUserChange then
+    _selectionInfo.LastSelectionEventTrigger := TSelectionEventTrigger.Click else
+    _selectionInfo.LastSelectionEventTrigger := TSelectionEventTrigger.External;
+
   _selectionInfo.BeginUpdate;
   try
     var cln := _selectionInfo.Clone;
@@ -3084,7 +3087,12 @@ end;
 procedure TScrollControlWithRows.DoExecuteSelectionChanged;
 begin
   if Assigned(_onSelectionChanged) then
-    _onSelectionChanged(Self);
+  begin
+    var selectionEvent: DCSelectionEvent;
+    AutoObject.Guard(DCSelectionEvent.Create(_selectionInfo.LastSelectionEventTrigger), selectionEvent);
+
+    _onSelectionChanged(Self, selectionEvent);
+  end;
 end;
 
 procedure TScrollControlWithRows.OnSelectionInfoTagChanged;
@@ -3404,12 +3412,15 @@ begin
   UpdateAndIgnoreVertScrollbar(NewValue);
 end;
 
-procedure TScrollControlWithRows.AssignSelection(const SelectedItems: IList);
+procedure TScrollControlWithRows.AssignSelection(const SelectedItems: IList; HandleAsUserChange: Boolean = False);
 begin
   if (SelectedItems = nil) or (SelectedItems.Count = 0) then
     Exit;
 
-  _selectionInfo.LastSelectionEventTrigger := TSelectionEventTrigger.External;
+  if HandleAsUserChange then
+    _selectionInfo.LastSelectionEventTrigger := TSelectionEventTrigger.Click else
+    _selectionInfo.LastSelectionEventTrigger := TSelectionEventTrigger.External;
+
   _selectionInfo.BeginUpdate;
   try
     _selectionInfo.ClearAllSelections;
