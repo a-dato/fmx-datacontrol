@@ -414,7 +414,6 @@ begin
   // but if no other scrollaction is coming when this check returns False
   // we have to make sure that the scrolling is done anyway
 
-  var restartAgain := False;
   if (_vertScrollBar as TCustomSmallScrollBar).IsTracking then
   begin
     // still scrolling, so nothing to do now
@@ -422,7 +421,6 @@ begin
       Exit;
 
     _scrollingType := TScrollingType.WithScrollBar;
-    restartAgain := True;
   end else
   begin
     // still scrolling, so nothing to do now
@@ -442,11 +440,8 @@ begin
 
   DoRealignContent;
 
-  if restartAgain then
-  begin
-    RestartWaitForRealignTimer(True);
-    TryStartWaitForRealignTimer;
-  end;
+  RestartWaitForRealignTimer(True);
+  TryStartWaitForRealignTimer;
 end;
 
 procedure TScrollControl.TryStartWaitForRealignTimer;

@@ -613,7 +613,7 @@ begin
 
   // Check type compatability, allow casts from Integer to Enums
   if (vt.TypeInfo <> Inst.TypeInfo) and (vt.TypeInfo.Kind <> tkInteger) then
-    raise InvalidCastException.Create(CString.Format('Cannot cast ''{0}'' to enum ''{1}''', vt.TypeInfo.Name, Inst.TypeInfo.Name));
+    raise InvalidCastException.Create(CString.Format('Cannot cast ''{0}'' to enum ''{1}''', string(vt.TypeInfo.Name), string(Inst.TypeInfo.Name)));
 
   vt.ExtractRawData(@Obj);
 end;

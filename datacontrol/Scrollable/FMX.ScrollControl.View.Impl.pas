@@ -38,14 +38,12 @@ type
     [weak] _orgDataList: IList;
 
     class function ConvertDataListToObjectList(const DataList: IList): List<CObject>;
-
+  protected
     procedure RemoveAt(index: Integer); override;
     procedure Insert(index: Integer; const item: CObject); override;
-
+  public
     procedure ResetList(FromViewListIndex: Integer = -1; ClearOneRowOnly: Boolean = False);
     procedure ResetItem(const DataItem: CObject);
-
-  public
     constructor Create(const AOwner: IList; const ReusableComparer: IListComparer); reintroduce;
   end;
 
@@ -672,6 +670,7 @@ end;
 
 function TDataViewList.SortChangedForItem(const ViewListIndex: Integer): Boolean;
 begin
+  Result := False;
   if _dataModelView <> nil then
   begin
     var cmp: IComparer<IDataRowView> := DataRowViewComparer.Create(_dataModelView.DataModel, GetSortDescriptions, False);
@@ -679,13 +678,13 @@ begin
     if ViewListIndex > 0 then
     begin
       var int := cmp.Compare(_dataModelView.Rows[ViewListIndex - 1], _dataModelView.Rows[ViewListIndex]);
-      Result := int > 0;
+      Result := Result or (int > 0);
     end;
 
     if ViewListIndex < _dataModelView.Rows.Count - 1 then
     begin
       var int := cmp.Compare(_dataModelView.Rows[ViewListIndex], _dataModelView.Rows[ViewListIndex + 1]);
-      Result := int > 0;
+      Result := Result or (int > 0);
     end;
   end
   else if _comparer <> nil then
@@ -844,7 +843,6 @@ begin
 
   var viewListCount := GetViewList.Count;
   var goUp := {(BottomTop and (startIx <> 0)) or} (pos > checkPos);
-  var endIndex := IfThen(goUp, 0, viewListCount - 1);
   Assert(viewListCount > 0);
 
   var isLastIndex: Boolean := False;

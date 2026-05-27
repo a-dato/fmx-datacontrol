@@ -65,15 +65,16 @@ type
     procedure ApplyAutoWidth; virtual; abstract;
 
     procedure DoResized; override;
-    procedure EndUpdate; override;
-
-    procedure PrepareForPaint; override;
     procedure PaddingChanged; override;
 
   public
+    constructor Create(AOwner: TComponent); override;
+
+    procedure EndUpdate; override;
+    procedure PrepareForPaint; override;
     procedure Painting; override;
 
-    procedure ForceRealign;
+    procedure ForceRealign(OnlyWhenRealignNeeded: Boolean = False);
     procedure RequestRealign;
   end;
 
@@ -381,6 +382,7 @@ end;
 
 function TFastText.CalculateTextXPos: Single;
 begin
+  Result := Padding.Left + _internalLeftPadding;
   case get_HorzTextAlign of
     TTextAlign.Center: Result := (Self.Width - _textBounds.Width) / 2;
     TTextAlign.Leading: Result := Padding.Left + _internalLeftPadding;
@@ -391,6 +393,7 @@ end;
 function TFastText.CalculateTextYPos: Single;
 begin
   var totHeight := _textBounds.Height;
+  Result := Padding.Top;
   case get_VertTextAlign of
     TTextAlign.Center: Result := (Self.Height - totHeight - _internalBottomPadding) / 2;
     TTextAlign.Leading: Result := Padding.Top;
@@ -1250,6 +1253,12 @@ begin
 end;
 
 { TFastControl }
+constructor TFastControl.Create(AOwner: TComponent);
+begin
+  inherited;
+  _recalcNeeded := True;
+end;
+
 procedure TFastControl.Loaded;
 begin
   _controlIsLoaded := True;
@@ -1265,9 +1274,11 @@ begin
   end;
 end;
 
-procedure TFastControl.ForceRealign;
+procedure TFastControl.ForceRealign(OnlyWhenRealignNeeded: Boolean = False);
 begin
-  RequestRealign;
+  if not OnlyWhenRealignNeeded then
+    RequestRealign;
+
   ControlLoadedCalculate;
 end;
 

@@ -133,9 +133,6 @@ type
     function  get_DataItem: CObject;
     procedure set_DataItem(const Value: CObject);
 
-//    function  RequestedOrActualCurrent: Integer;
-    function  RequestedOrActualDataItem: CObject;
-
   // row calculations
   private
 //    _scrollbarRefToTopHeightChangeSinceViewLoading: Single;
@@ -148,11 +145,9 @@ type
 
     procedure CreateAndSynchronizeSynchronizerRow(const Row: IDCRow);
     procedure UpdateRowHeightSynchronizerScrollbar;
-    procedure ValidateSelectionInfo;
 
     procedure AnimateRow(const Row: IDCRow; StartY, StopY: Single; AnimateOpacity: Boolean; Hide: Boolean; ExtraDelay: Single = 0);
     procedure ExecuteAfterAnimateRow(const Row: IDCRow; Event: TNotifyEvent; ExtraDelay: Single = 0);
-    function IsPartOfSelectedParentChildGroup(const Row: IDCRow): Boolean;
 
   // expand / collapse
   protected
@@ -366,7 +361,7 @@ type
     // start public selection
     function  MultiSelectEnabled: Boolean;
     procedure SelectAll; virtual;
-    procedure ClearSelectedItems; virtual;
+    procedure ClearSelectedItems(HandleAsUserChange: Boolean = False);
     procedure ClearCurrentFocused; virtual;
 
     function  CanRealignContent: Boolean; override;
@@ -384,7 +379,7 @@ type
     function  SelectionCount(ReturnCurrentAtNoSelection: Boolean = True): Integer;
     function  SelectedItems(ReturnCurrentAtNoSelection: Boolean): List<CObject>;
 
-    procedure AssignSelection(const SelectedItems: IList);
+    procedure AssignSelection(const SelectedItems: IList; HandleAsUserChange: Boolean = False);
     // end public selection
 
     // start public expand/collapse
@@ -1567,12 +1562,15 @@ begin
   end;
 end;
 
-procedure TScrollControlWithRows.ClearSelectedItems;
+procedure TScrollControlWithRows.ClearSelectedItems(HandleAsUserChange: Boolean = False);
 begin
   if not _selectionInfo.HasSelectedItems then
     Exit;
 
-  _selectionInfo.LastSelectionEventTrigger := TSelectionEventTrigger.External;
+  if HandleAsUserChange then
+    _selectionInfo.LastSelectionEventTrigger := TSelectionEventTrigger.Click else
+    _selectionInfo.LastSelectionEventTrigger := TSelectionEventTrigger.External;
+
   _selectionInfo.BeginUpdate;
   try
     var cln := _selectionInfo.Clone;
@@ -2658,13 +2656,13 @@ procedure TScrollControlWithRows.AnimateRow(const Row: IDCRow; StartY, StopY: Si
     var delay := CMath.Max(ANI_DELAY + ExtraDelay, 0.01);
 
     if AnimateOpacity then
-      Row.Control.AnimateFloatDelay('Position.Y', StopY, ANI_DURATION, delay, TAnimationType.Out, TInterpolationType.Quadratic) else
-      Row.Control.AnimateFloatDelay('Position.Y', StopY, ANI_DURATION, delay, TAnimationType.InOut, TInterpolationType.Quadratic);
+      TAnimator.AnimateFloatDelay(Row.Control, 'Position.Y', StopY, ANI_DURATION, delay, TAnimationType.Out, TInterpolationType.Quadratic) else
+      TAnimator.AnimateFloatDelay(Row.Control, 'Position.Y', StopY, ANI_DURATION, delay, TAnimationType.InOut, TInterpolationType.Quadratic);
 
     if AnimateOpacity then
     begin
       Row.Control.Opacity := IfThen(Hide, Row.Control.Opacity, 0);
-      Row.Control.AnimateFloatDelay('Opacity', IfThen(Hide, 0, 1), ANI_DURATION, delay, TAnimationType.InOut, TInterpolationType.Quadratic);
+      TAnimator.AnimateFloatDelay(Row.Control, 'Opacity', IfThen(Hide, 0, 1), ANI_DURATION, delay, TAnimationType.InOut, TInterpolationType.Quadratic);
     end
     else if Hide then
       Row.Control.Opacity := 0;
@@ -2699,7 +2697,6 @@ end;
 
 function TScrollControlWithRows.CreateCollapseOverlay(const ParentRow: IDCRow; const ChildCount: Integer; out OverlayHeight: Single): Boolean;
 begin
-  Result := False;
   OverlayHeight := 0;
 
   ClearCollapseOverlay;
@@ -2889,7 +2886,7 @@ begin
   begin
     var newHeight := parentRow.Height;
     parentRow.Control.Height := newHeight + parentRowDiff;
-    parentRow.Control.AnimateFloatDelay('Height', newHeight, ANI_DURATION, ANI_DELAY, TAnimationType.InOut, TInterpolationType.Quadratic);
+    TAnimator.AnimateFloatDelay(parentRow.Control, 'Height', newHeight, ANI_DURATION, ANI_DELAY, TAnimationType.InOut, TInterpolationType.Quadratic);
   end;
 
   ExecuteAfterAnimateRow(parentRow, OnExpandTimer, extraDelay);
@@ -2983,7 +2980,7 @@ begin
   if not SameValue(parentRowDiff, 0) then
   begin
     parentRow.Control.Height := orgHeight;
-    parentRow.Control.AnimateFloatDelay('Height', newHeight, ANI_DURATION, ANI_DELAY, TAnimationType.InOut, TInterpolationType.Quadratic);
+    TAnimator.AnimateFloatDelay(parentRow.Control, 'Height', newHeight, ANI_DURATION, ANI_DELAY, TAnimationType.InOut, TInterpolationType.Quadratic);
   end;
 
   _collapseOverlay.Position.X := parentRow.Control.Position.X;
@@ -2992,9 +2989,9 @@ begin
   _collapseOverlay.Height := overlayHeight;
   _collapseOverlay.Opacity := 1;
   _collapseOverlay.BringToFront;
-  _collapseOverlay.AnimateFloatDelay('Position.Y', parentRow.Control.Position.Y + newHeight, ANI_DURATION, ANI_DELAY, TAnimationType.InOut, TInterpolationType.Quadratic);
-  _collapseOverlay.AnimateFloatDelay('Height', 0, ANI_DURATION, ANI_DELAY, TAnimationType.InOut, TInterpolationType.Quadratic);
-  _collapseOverlay.AnimateFloatDelay('Opacity', 0, ANI_DURATION, ANI_DELAY, TAnimationType.InOut, TInterpolationType.Quadratic);
+  TAnimator.AnimateFloatDelay(_collapseOverlay, 'Position.Y', parentRow.Control.Position.Y + newHeight, ANI_DURATION, ANI_DELAY, TAnimationType.InOut, TInterpolationType.Quadratic);
+  TAnimator.AnimateFloatDelay(_collapseOverlay, 'Height', 0, ANI_DURATION, ANI_DELAY, TAnimationType.InOut, TInterpolationType.Quadratic);
+  TAnimator.AnimateFloatDelay(_collapseOverlay, 'Opacity', 0, ANI_DURATION, ANI_DELAY, TAnimationType.InOut, TInterpolationType.Quadratic);
 
   for var rowBelowIx := parentRow.ViewPortIndex + 1 to _view.ActiveViewRows.Count - 1 do
   begin
@@ -3087,50 +3084,15 @@ begin
   end;
 end;
 
-procedure TScrollControlWithRows.ValidateSelectionInfo;
-begin
-  if (_view = nil) or (_view.ViewCount = 0) then
-    Exit;
-
-  if ViewIsDataModelView then
-  begin
-
-  end else
-  begin
-    if ((_model = nil) or (_model.ObjectContext = nil)) then
-      Exit;
-  end;
-
-  _selectionInfo.BeginUpdate;
-  try
-    if ViewIsDataModelView then
-    begin
-      var dmv := _dataModelView;
-      if dmv = nil then
-        dmv := (_dataList as IDataModel).DefaultView;
-
-      if dmv.CurrencyManager.Current <> -1 then
-      begin
-        var drv := dmv.Rows[dmv.CurrencyManager.Current];
-        _selectionInfo.SetFocusedItem(drv.Row.get_Index, drv.ViewIndex, drv);
-      end;
-    end else
-    begin
-      var di := _model.ObjectContext;
-      var diIndex := _view.GetViewListIndex(di);
-      var diViewIndex := _view.GetViewListIndex(diIndex);
-
-      _selectionInfo.SetFocusedItem(diIndex, diViewIndex, di);
-    end;
-  finally
-    _selectionInfo.EndUpdate(True {Ignore events at this point});
-  end;
-end;
-
 procedure TScrollControlWithRows.DoExecuteSelectionChanged;
 begin
   if Assigned(_onSelectionChanged) then
-    _onSelectionChanged(Self);
+  begin
+    var selectionEvent: DCSelectionEvent;
+    AutoObject.Guard(DCSelectionEvent.Create(_selectionInfo.LastSelectionEventTrigger), selectionEvent);
+
+    _onSelectionChanged(Self, selectionEvent);
+  end;
 end;
 
 procedure TScrollControlWithRows.OnSelectionInfoTagChanged;
@@ -3240,29 +3202,6 @@ begin
   Result := (_dataModelView <> nil) or interfaces.Supports<IDataModel>(_dataList);
 end;
 
-function TScrollControlWithRows.IsPartOfSelectedParentChildGroup(const Row: IDCRow): Boolean;
-begin
-  if not ViewIsDataModelView then
-    Exit(False);
-
-  if not Row.HasVisibleChildren and (Row.ParentCount = 0) then
-    Exit(False);
-
-  var drv := Row.DataItem.AsType<IDataRowView>;
-  var view := drv.DataView;
-
-  var selDrv := view.Rows[view.CurrencyManager.Current];
-
-  if drv = selDrv then
-    Result := True
-  else if drv.Row.Level < selDrv.Row.Level then
-    Result := view.Parent(selDrv) = drv
-  else if drv.Row.Level > selDrv.Row.Level then
-    Result := view.Parent(drv) = selDrv
-  else
-    Result := (drv.Row.Level > 0) and (view.Parent(drv) = view.Parent(selDrv));
-end;
-
 procedure TScrollControlWithRows.HandleRowChildRelation(const Row: IDCRow; IsOpenParent, IsOpenChild: Boolean);
 begin
   DataControlClassFactory.HandleRowChildRelation(Row.ControlAsRowLayout, isOpenParent, isOpenChild, Row.Control.Width);
@@ -3310,7 +3249,7 @@ begin
     if _selectionInfo.DataItem = nil then
       Exit;
 
-    var crrIsSame := True;
+    var crrIsSame: Boolean;
     if ViewIsDataModelView then
     begin
       var dmv := GetDataModelView;
@@ -3473,12 +3412,15 @@ begin
   UpdateAndIgnoreVertScrollbar(NewValue);
 end;
 
-procedure TScrollControlWithRows.AssignSelection(const SelectedItems: IList);
+procedure TScrollControlWithRows.AssignSelection(const SelectedItems: IList; HandleAsUserChange: Boolean = False);
 begin
   if (SelectedItems = nil) or (SelectedItems.Count = 0) then
     Exit;
 
-  _selectionInfo.LastSelectionEventTrigger := TSelectionEventTrigger.External;
+  if HandleAsUserChange then
+    _selectionInfo.LastSelectionEventTrigger := TSelectionEventTrigger.Click else
+    _selectionInfo.LastSelectionEventTrigger := TSelectionEventTrigger.External;
+
   _selectionInfo.BeginUpdate;
   try
     _selectionInfo.ClearAllSelections;
@@ -3809,8 +3751,6 @@ procedure TScrollControlWithRows.RealignFromSelectionChange;
 begin
   var goMaster := TryStartMasterSynchronizer(True);
   try
-    var val := _vertScrollBar.Value;
-
     var wasScrolling := _scrollingType <> TScrollingType.None;
 
     if not wasScrolling then
@@ -4038,13 +3978,6 @@ begin
   end;
 
   inherited;
-end;
-
-function TScrollControlWithRows.RequestedOrActualDataItem: CObject;
-begin
-  if (_waitForRepaintInfo <> nil) and (_waitForRepaintInfo.DataItem <> nil) then
-    Result := _waitForRepaintInfo.DataItem else
-    Result := _selectioninfo.DataItem;
 end;
 
 procedure TScrollControlWithRows.ResetView(const FromViewListIndex: Integer = -1; ClearOneRowOnly: Boolean = False);

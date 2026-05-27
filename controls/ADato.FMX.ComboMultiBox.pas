@@ -6,6 +6,7 @@ uses
   {$IFNDEF WEBASSEMBLY}
   System.SysUtils,
   System.Classes,
+  System.Math,
   System.Generics.Collections,
   System.UITypes,
   FMX.Edit,
@@ -62,7 +63,7 @@ type
     _txt: TFastText;
     _beforeDropDown: TProc;
     _popupClosed: TProc;
-    _cellSelected: CellSelectedEvent;
+    _SelectionChanged: SelectionChangedEvent;
     _showNoneSelected: Boolean;
     _inClearClick: Boolean;
 
@@ -74,9 +75,9 @@ type
     procedure MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Single); override;
     procedure KeyDown(var Key: Word; var KeyChar: WideChar; Shift: TShiftState); override;
 
-    procedure CellSelectedEvent(const Sender: TObject; e: DCCellSelectedEventArgs);
+    procedure SelectionChangedEvent(const Sender: TObject; e: DCSelectionEvent);
 
-    function  get_items: IList;
+    function  get_Items: IList;
     procedure set_Items(Value: IList);
     function  get_SelectedItems: IList;
     procedure set_SelectedItems(const Value: IList);
@@ -86,7 +87,7 @@ type
     function  CreateDropDownButton: TControl; virtual;
     function  CreateClearButton: TControl; virtual;
 
-    function get_EditControl: IDCEditControl;
+    function  get_EditControl: IDCEditControl;
 
     procedure InitializePopupMenu;
 
@@ -107,7 +108,7 @@ type
     property DropDownClosed: TProc read _popupClosed write _popupClosed;
     property Items: IList read get_items write set_Items;
     property SelectedItems: IList read get_SelectedItems write set_SelectedItems;
-    property CellSelected: CellSelectedEvent read _cellSelected write _cellSelected;
+    property SelectionChanged: SelectionChangedEvent read _SelectionChanged write _SelectionChanged;
     property ShowNoneSelected: Boolean write _showNoneSelected default True;
   end;
 
@@ -258,12 +259,12 @@ begin
     _popupClosed();
 end;
 
-procedure TComboMultiBox.CellSelectedEvent(const Sender: TObject; e: DCCellSelectedEventArgs);
+procedure TComboMultiBox.SelectionChangedEvent(const Sender: TObject; e: DCSelectionEvent);
 begin
   UpdateDisplayText;
 
-  if Assigned(_cellSelected) then
-    _cellSelected(Self, e);
+  if Assigned(_SelectionChanged) then
+    _SelectionChanged(Self, e);
 end;
 
 procedure TComboMultiBox.UpdateDisplayText;
@@ -331,7 +332,7 @@ begin
   begin
     _popupMenu := TfrmComboMultiBoxPopup.Create(Self);
     _popupMenu.OnClose := OnClosePopup;
-    _popupMenu.CellSelected := CellSelectedEvent;
+    _popupMenu.OnSelectionChanged := SelectionChangedEvent;
   end;
   {$ENDIF}
 end;
