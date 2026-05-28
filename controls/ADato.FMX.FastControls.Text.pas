@@ -66,6 +66,7 @@ type
 
     procedure DoResized; override;
     procedure PaddingChanged; override;
+    procedure RecalcOpacity; override;
 
   public
     constructor Create(AOwner: TComponent); override;
@@ -165,8 +166,6 @@ type
   public
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
-
-    procedure RecalcOpacity; override;
 
     function HasText: Boolean;
     function TextWidth: Single; virtual;
@@ -549,12 +548,6 @@ begin
 
   _mouseIsDown := False;
   RepaintNeeded;
-end;
-
-procedure TFastText.RecalcOpacity;
-begin
-  inherited;
-  Repaint;
 end;
 
 procedure TFastText.InvalidateBoundsChange(const OldBounds, NewBounds: TRectF);
@@ -1282,6 +1275,12 @@ begin
   ControlLoadedCalculate;
 end;
 
+procedure TFastControl.RecalcOpacity;
+begin
+  inherited;
+  Repaint;
+end;
+
 procedure TFastControl.RequestRealign;
 begin
   RecalcNeeded;
@@ -1303,6 +1302,7 @@ end;
 
 procedure TFastControl.PaddingChanged;
 begin
+  inherited;
   RecalcNeeded;
 end;
 

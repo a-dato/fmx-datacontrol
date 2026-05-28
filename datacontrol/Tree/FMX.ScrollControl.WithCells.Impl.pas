@@ -5396,30 +5396,30 @@ begin
   if Cell.IsHeaderCell then
   begin
     var headerCell := Cell as IHeaderCell;
-    var startYPos := Cell.Control.Width - CELL_MIN_INDENT - (2*_treeControl.CellLeftRightPadding);
+    var glyphStartYPos := Cell.Control.Width - CELL_MIN_INDENT - (2*_treeControl.CellLeftRightPadding);
 
     (headerCell.InfoControl as ITextSettings).TextSettings.HorzAlign := headerCell.LayoutColumn.CalculatedHorzAlign;
 
     if headerCell.FilterControl <> nil then
     begin
       headerCell.FilterControl.Position.Y := (headerCell.Control.Height - HEADER_IMG_SIZE)/2;
-      headerCell.FilterControl.Position.X := startYPos;
+      headerCell.FilterControl.Position.X := glyphStartYPos;
       headerCell.FilterControl.Width := HEADER_IMG_SIZE;
       headerCell.FilterControl.Height := HEADER_IMG_SIZE;
 
-      startYPos := startYPos - HEADER_IMG_SIZE - (2*_treeControl.CellLeftRightPadding);
+      glyphStartYPos := glyphStartYPos - HEADER_IMG_SIZE - (2*_treeControl.CellLeftRightPadding);
     end;
     if headerCell.SortControl <> nil then
     begin
       headerCell.SortControl.Position.Y := (headerCell.Control.Height - HEADER_IMG_SIZE)/2;
-      headerCell.SortControl.Position.X := startYPos;
+      headerCell.SortControl.Position.X := glyphStartYPos;
       headerCell.SortControl.Width := HEADER_IMG_SIZE;
       headerCell.SortControl.Height := HEADER_IMG_SIZE;
 
-      startYPos := startYPos - HEADER_IMG_SIZE - (2*_treeControl.CellLeftRightPadding);
+      glyphStartYPos := glyphStartYPos - HEADER_IMG_SIZE - (2*_treeControl.CellLeftRightPadding);
     end;
 
-    headerCell.InfoControl.Padding.Right := Cell.Control.Width - CELL_MIN_INDENT - (2*_treeControl.CellLeftRightPadding) - startYPos;
+    headerCell.InfoControl.Padding.Right := Cell.Control.Width - CELL_MIN_INDENT - (2*_treeControl.CellLeftRightPadding) - glyphStartYPos;
   end
   else begin
     if Cell.ExpandButton <> nil then

@@ -947,6 +947,14 @@ begin
   if not _ItemsLoaded then
     RefreshItems;
 
+  if (Key = vkDown) and (ssAlt in Shift) and (_control is TComboEdit) then
+  begin
+    DropDown;
+    Key := 0;
+    KeyChar := #0;
+    Exit;
+  end;
+
   if ssAlt in Shift then
     Exit;
 
@@ -1163,7 +1171,7 @@ begin
     Exit;
 
   var items: List<string>;
-  if not _itemsLoaded or IsFiltered then
+  if not _itemsLoaded or IsFiltered {$IFDEF DEBUG}or Assigned(_BeforePopup){$ENDIF} {TODO: DISCUSS} then
   begin
     _itemsLoaded := True;
     var itemsShowing := CList<CObject>.Create(_PickList.Count);

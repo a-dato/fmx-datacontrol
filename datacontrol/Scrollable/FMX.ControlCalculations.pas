@@ -318,8 +318,8 @@ begin
   Result.AnimationType := TAnimationType.Out;
   Result.Interpolation := TInterpolationType.Circular;
   Result.PropertyName := PropertyName;
-  Result.StartFromCurrent := True;
   Result.StopValue := NewValue;
+  Result.StartFromCurrent := True;
 end;
 
 function ProvideAnimationDelay(const Control: TControl; const PropertyName: CString; const NewValue: Single; const Delay: Single = 0.2; const Duration: Single = 0.22): TFloatAnimation;
