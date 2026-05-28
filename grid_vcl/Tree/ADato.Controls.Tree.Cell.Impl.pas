@@ -692,7 +692,8 @@ begin
       _Bounds := CRectangle.Create(OuterRectangle.Location, _Size);
 
     HContentAlignment.Right:
-      _Bounds := OuterRectangle;
+      // _Bounds := OuterRectangle;
+      _Bounds := CRectangle.Create(OuterRectangle.X, OuterRectangle.Y, OuterRectangle.Width, _Size._height);
 
     HContentAlignment.Center:
       _Bounds := CRectangle.Create(OuterRectangle.X, OuterRectangle.Y, OuterRectangle.Width, _Size._height);
