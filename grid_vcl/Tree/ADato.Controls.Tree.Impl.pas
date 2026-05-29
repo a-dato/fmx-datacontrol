@@ -14528,12 +14528,16 @@ begin
 
     ClearPositioning;
 
-    if not _ListSupportsNotifyCollectionChanged then
-      // Call event handler
-      DataCollectionChanged(Self, nil);
+//    if not _ListSupportsNotifyCollectionChanged then
+//      // Call event handler
+//      DataCollectionChanged(Self, nil);
   finally
     _EditItem := nil
   end;
+
+  if not _ListSupportsNotifyCollectionChanged then
+    // Call event handler
+    DataCollectionChanged(Self, nil);
 end;
 
 function TTreeRowList.GetCellData(const row: ITreeRow; const cell: ITreeCell): CObject;
