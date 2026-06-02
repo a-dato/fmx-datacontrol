@@ -285,7 +285,7 @@ type
 
     procedure OnConfigRequestRecalc(const ADatoClickLayout: TADatoClickLayout; const ChangeType: TChangeType);
     procedure InvalidateBoundsChange(const OldBounds, NewBounds: TRectF);
-    procedure ApplyAutoWidth; override;
+    procedure ApplyAutoSize; override;
 
     procedure PaddingChanged; override;
     function  GetSidePadding: Single;
@@ -976,6 +976,8 @@ begin
 
   var ac := TAction(Sender);
   SetIsChecked(ac.Checked);
+  SetEnabled(ac.Enabled);
+  SetVisible(ac.Visible);
 
   if Length(GetText) = 0 then
     SetText(ac.Text);
@@ -1058,28 +1060,20 @@ begin
 
   _waitForRepaint := False;
 
-  var outerRect := RectF(0, 0, Width, Height);
   if _buttonType = TButtonType.Emphasized then
   begin
     _innerFillColor := TAlphaColor($AA4E6CA3);
     _innerStrokeColor := TAlphaColors.Null;
-//    Canvas.Fill.Color := TAlphaColor($FF4E6CA3);
-//    Canvas.FillRect(outerRect, 3, 3, AllCorners, GetPaintOpacity * 0.2);
   end
   else if _buttonType = TButtonType.Positive then
   begin
     _innerFillColor := TAlphaColor($FF37539E);
     _innerStrokeColor := TAlphaColors.Null;
-
-//    Canvas.Fill.Color := TAlphaColor($FF37539E);
-//    Canvas.FillRect(outerRect, 3, 3, AllCorners, GetPaintOpacity);
   end
   else if _buttonType = TButtonType.Negative then
   begin
     _innerFillColor := TAlphaColor($FFFDFDFE);
     _innerStrokeColor := TAlphaColor($FF37539E);
-//    Canvas.Fill.Color := TAlphaColor($FFFDFDFE);
-//    Canvas.FillRect(outerRect, 3, 3, AllCorners, GetPaintOpacity);
   end
   else
   begin
@@ -1088,14 +1082,19 @@ begin
 
     if _buttonType = TButtonType.Circle then
     begin
-      var w: Single := CMath.Min(_config.ImageSizeInt + 4, CMath.Min(Width, Height));
-      outerRect := RectF((Width-w)/2, (Height-w)/2, (Width-w)/2 + w, (Height-w)/2 + w);
+      var rect: TRectF;
+      if HasImage then
+        rect := _imageBounds
+      else begin
+        var w: Single := CMath.Min(_config.ImageSizeInt + 4, CMath.Min(Width, Height));
+        rect := RectF((Width-w)/2, (Height-w)/2, (Width-w)/2 + w, (Height-w)/2 + w);
+      end;
 
       // circle
       Canvas.Fill.Color := TAlphaColors.Orangered;
-      Canvas.FillRect(outerRect, outerRect.Width/2, outerRect.Height/2, AllCorners, 0.15);
+      Canvas.FillRect(rect, rect.Width/2, rect.Height/2, AllCorners, 0.15);
       Canvas.Stroke.Color := TAlphaColors.Orangered;
-      Canvas.DrawRect(outerRect, outerRect.Width/2, outerRect.Height/2, AllCorners, 1);
+      Canvas.DrawRect(rect, rect.Width/2, rect.Height/2, AllCorners, 1);
     end;
   end;
 
@@ -1108,18 +1107,10 @@ begin
   if _hover and (get_TagType = TTagType.NoBounds) then
   begin
     Canvas.Fill.Color := DEFAULT_ROW_HOVER_COLOR;
-    Canvas.FillRect(outerRect, get_Radius, get_Radius, AllCorners, AbsoluteOpacity * IfThen(MouseIsDown, 0.8, 1));
+    Canvas.FillRect(RectF(0, 0, Width, Height), get_Radius, get_Radius, AllCorners, AbsoluteOpacity * IfThen(MouseIsDown, 0.8, 1));
   end;
 
   inherited;
-
-//  Canvas.Stroke.Thickness := 1;
-//  if _buttonType = TButtonType.Negative then
-//  begin
-//    var rect := RectF(outerRect.Left+1, outerRect.Top+1, outerRect.Right-1, outerRect.Bottom-1);
-//    Canvas.Stroke.Color := TAlphaColor($FF37539E) ;//99ACCF);
-//    Canvas.DrawRect(rect, 3, 3, AllCorners, GetPaintOpacity);
-//  end;
 
   if not CString.IsNullOrEmpty(_additionalText) then
   begin
@@ -1229,7 +1220,7 @@ begin
     Repaint;
 end;
 
-procedure TFastButton.ApplyAutoWidth;
+procedure TFastButton.ApplyAutoSize;
 begin
   var newWidth := _innerBounds.Width + 2*GetSidePadding;
   if SameValue(Self.Width, newWidth) then
@@ -1326,7 +1317,8 @@ begin
 
   _mouseIsDown := False;
 
-//  CheckActionClick;
+  if not Assigned(Self.OnClick) and (Action <> nil) and Assigned(Action.OnExecute) then
+    Action.Execute;
 
   RepaintNeeded;
 end;

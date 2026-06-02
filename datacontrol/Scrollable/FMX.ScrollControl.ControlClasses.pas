@@ -1005,7 +1005,10 @@ end;
 procedure TComboEditControlImpl.DoBeforePopup;
 begin
   if Assigned(_BeforePopup) then
+  begin
+    _itemsLoaded := False;
     _BeforePopup({var} _PickList);
+  end;
 end;
 
 function TComboEditControlImpl.DoFilterItem(const Item: CObject; const ItemText, Filter: string) : Boolean;
@@ -1171,7 +1174,7 @@ begin
     Exit;
 
   var items: List<string>;
-  if not _itemsLoaded or IsFiltered {$IFDEF DEBUG}or Assigned(_BeforePopup){$ENDIF} {TODO: DISCUSS} then
+  if not _itemsLoaded or IsFiltered then
   begin
     _itemsLoaded := True;
     var itemsShowing := CList<CObject>.Create(_PickList.Count);

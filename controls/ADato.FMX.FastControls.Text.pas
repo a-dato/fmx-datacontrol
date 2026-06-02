@@ -46,10 +46,12 @@ type
   TFastControl = class(TLayout)
   protected
     _controlIsLoaded: Boolean;
+    _isAlive: IInterface;
 
     _waitingForRepaint: Boolean;
     _recalcNeeded: Boolean;
     _autoWidth: Boolean;
+    _autoSizeNeeded: Boolean;
 
     _recalcIndex: Integer;
 
@@ -60,9 +62,10 @@ type
     function  ShouldRecalculate: Boolean;
     procedure ControlLoadedCalculate;
     procedure Calculate; virtual;
-    procedure CalculateSafeAutoWidth;
 
-    procedure ApplyAutoWidth; virtual; abstract;
+    procedure CalculateSafeAutoSize;
+    function  DoAutoSize: Boolean; virtual;
+    procedure ApplyAutoSize; virtual; abstract;
 
     procedure DoResized; override;
     procedure PaddingChanged; override;
@@ -70,6 +73,7 @@ type
 
   public
     constructor Create(AOwner: TComponent); override;
+    destructor Destroy; override;
 
     procedure EndUpdate; override;
     procedure PrepareForPaint; override;
@@ -152,7 +156,7 @@ type
     procedure Calculate; override;
     procedure EnsureLayoutForCanvas(const ACanvas: TCanvas);
     procedure InvalidateBoundsChange(const OldBounds, NewBounds: TRectF);
-    procedure ApplyAutoWidth; override;
+    procedure ApplyAutoSize; override;
 
     function  CalculateTextXPos: Single;
     function  CalculateTextYPos: Single;
@@ -565,7 +569,7 @@ begin
     Repaint;
 end;
 
-procedure TFastText.ApplyAutoWidth;
+procedure TFastText.ApplyAutoSize;
 begin
   var newWidth := TextWidthWithPadding;
   if SameValue(Self.Width, newWidth) then
@@ -1250,6 +1254,13 @@ constructor TFastControl.Create(AOwner: TComponent);
 begin
   inherited;
   _recalcNeeded := True;
+  _isAlive := TInterfacedObject.Create;
+end;
+
+destructor TFastControl.Destroy;
+begin
+  _isAlive := nil;
+  inherited;
 end;
 
 procedure TFastControl.Loaded;
@@ -1328,30 +1339,49 @@ end;
 procedure TFastControl.RecalcNeeded;
 begin
   _recalcNeeded := True;
-  CalculateSafeAutoWidth;
+  CalculateSafeAutoSize;
   RepaintNeeded;
 end;
 
-procedure TFastControl.CalculateSafeAutoWidth;
+function TFastControl.DoAutoSize: Boolean;
 begin
-  if ShouldRecalculate and _autoWidth and not FInPaintTo then
+  Result := _autoWidth;
+end;
+
+procedure TFastControl.CalculateSafeAutoSize;
+begin
+  if not ShouldRecalculate or not DoAutoSize then
+    Exit;
+
+  _autoSizeNeeded := True;
+  TThread.ForceQueue(nil, procedure
   begin
-    Calculate;
-    ApplyAutoWidth;
-    RepaintNeeded;
-  end;
+    if not _autoSizeNeeded then
+      Exit;
+
+    if (Scene <> nil) and DoAutoSize then
+    begin
+      Calculate;
+      ApplyAutoSize;
+      RepaintNeeded;
+
+      _autoSizeNeeded := False;
+    end;
+  end);
 end;
 
 procedure TFastControl.DoResized;
 begin
   inherited;
-  RecalcNeeded;
+
+  if not IsUpdating then
+    RecalcNeeded;
 end;
 
 procedure TFastControl.EndUpdate;
 begin
   inherited;
-  CalculateSafeAutoWidth;
+  CalculateSafeAutoSize;
 end;
 
 initialization

@@ -2459,6 +2459,7 @@ begin
   begin
     var originalColumnsLeft := GetFlatColumnsLeft;
 
+    _autoMultiSelectColumn.CustomWidth := 0;
     _autoMultiSelectColumn.Visualisation.Visible := False;
     (GetInitializedWaitForRefreshInfo as IDCControlWaitForRepaintInfo).ColumnsChanged;
 
@@ -2563,10 +2564,38 @@ begin
     var semiCheck: IIsSemiChecked;
     var check: IIsChecked;
 
+    var selCount := SelectionCount(False);
+    var viewCount := _view.ViewCount;
+
     if interfaces.Supports<IIsSemiChecked>(headerCell.InfoControl, semiCheck) then
-      semiCheck.UpdateState(SelectionCount(False), _view.ViewCount)
+      semiCheck.UpdateState(selCount, viewCount)
     else if interfaces.Supports<IIsChecked>(headerCell.InfoControl, check) then
-      check.IsChecked := SelectionCount(False) = _view.ViewCount;
+      check.IsChecked := selCount = viewCount;
+
+    var textCtrl: ITextControl;
+    if interfaces.Supports<ITextControl>(headerCell.InfoControl, textCtrl) and (TDCTreeOption.MultiSelectShowHeaderCheck in _options) then
+    begin
+      if selCount = viewCount then
+        textCtrl.Text := CString.Format('All ({0})', viewCount.ToString)
+      else if selCount > 0 then
+        textCtrl.Text := CString.Format('{0}/{1}', selCount, viewCount)
+      else
+        textCtrl.Text := '';
+
+      textCtrl.MaxWidth := 0;
+      var newWidth := textCtrl.TextWidthWithPadding + 2*_cellLeftRightPadding;
+
+      if headerCell.Column.CustomWidth < newWidth then
+      begin
+        headerCell.Column.CustomWidth := newWidth;
+        ColumnWidthChanged(headerCell.Column);
+      end;
+    end
+    else if headerCell.Column.CustomWidth <> -1 then
+    begin
+      headerCell.Column.CustomWidth := -1;
+      ColumnWidthChanged(headerCell.Column);
+    end;
   end;
 end;
 
@@ -2744,8 +2773,12 @@ end;
 
 procedure TScrollControlWithCells.ColumnWidthChanged(const Column: IDCTreeColumn);
 begin
+
   DoColumnsChanged(Column);
-  ResetLayoutColumns;
+
+  _treeLayout.ForceRecalc;
+  ResetView; // rowheighst need to be recalculated..
+  RefreshControl(False);
 end;
 
 procedure TScrollControlWithCells.ResetLayoutColumns;
@@ -2910,7 +2943,7 @@ begin
     _autoMultiSelectColumn := TDCTreeCheckboxColumn.Create;
     _autoMultiSelectColumn.TreeControl := Self;
     _autoMultiSelectColumn.WidthSettings.WidthType := TDCColumnWidthType.Pixel;
-    _autoMultiSelectColumn.WidthSettings.Width := 30;
+    _autoMultiSelectColumn.WidthSettings.Width := 45;
     _autoMultiSelectColumn.Visualisation.Selectable := False;
     _autoMultiSelectColumn.Visualisation.Frozen := True;
     _autoMultiSelectColumn.Visualisation.Visible := False;
