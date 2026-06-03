@@ -27,7 +27,7 @@ uses
   System.Collections.Generic,
   FMX.ScrollControl.WithRows.Intf,
   FMX.ScrollControl.Events, ADato.Data.DataModel.intf,
-  FMX.ScrollControl.ControlClasses.Intf;
+  FMX.ScrollControl.ControlClasses.Intf, ADato.Models.VirtualListItemDelegate;
 
 type
   TScrollControlWithEditableCells = class(TScrollControlWithCells, IDataControlEditorHandler)
@@ -320,17 +320,16 @@ type
     property SaveData: Boolean read _saveData write _saveData;
   end;
 
-  TObjectListModelItemChangedDelegate = class(TBaseInterfacedObject, IListItemChanged, IUpdatableObject)
+  TObjectListModelItemChangedDelegate = class(TVirtualListItemChanged, IListItemChanged, IUpdatableObject)
   protected
     _Owner: TScrollControlWithEditableCells;
     _UpdateCount: Integer;
 
-    procedure AddingNew(const Value: CObject; var Index: Integer; Position: InsertPosition);
-    procedure Added(const Value: CObject; const Index: Integer);
-    procedure Removed(const Value: CObject; const Index: Integer);
-    procedure BeginEdit(const Item: CObject);
-    procedure CancelEdit(const Item: CObject);
-    procedure EndEdit(const Item: CObject);
+    procedure AddingNew(const Value: CObject; var Index: Integer; Position: InsertPosition); override;
+    procedure Removed(const Value: CObject; const Index: Integer); override;
+    procedure BeginEdit(const Item: CObject); override;
+    procedure CancelEdit(const Item: CObject); override;
+    procedure EndEdit(const Item: CObject); override;
 
     procedure SetItemInCurrentView(const DataItem: CObject);
 
@@ -1483,7 +1482,7 @@ begin
       end;
 
       var formattedVal: CObject := _cellEditor.OriginalValue;
-      if (_cellEditor.OriginalValue <> nil) and DoCellFormatting(cell, False, {var} formattedVal) and CObject.Equals(val, formattedVal) then
+      if (_cellEditor.OriginalValue <> nil) and DoCellFormatting(cell, False, False, {var} formattedVal) and CObject.Equals(val, formattedVal) then
       begin
         CancelEdit(True);
         Exit(False);
@@ -2310,7 +2309,7 @@ function TDCCellEditor.FormatItem(const Item: CObject) : CString;
 begin
   var cellData := Item;
 
-  if _editorHandler.DoCellFormatting(_cell, False, {var} cellData) then
+  if _editorHandler.DoCellFormatting(_cell, False, False, {var} cellData) then
     Result := cellData.ToString(True) else
     Result := _cell.Column.GetFormattedValue(_cell, cellData);
 end;
@@ -2550,10 +2549,6 @@ begin
 end;
 
 { TObjectListModelItemChangedDelegate }
-
-procedure TObjectListModelItemChangedDelegate.Added(const Value: CObject; const Index: Integer);
-begin
-end;
 
 procedure TObjectListModelItemChangedDelegate.AddingNew(const Value: CObject; var Index: Integer; Position: InsertPosition);
 begin

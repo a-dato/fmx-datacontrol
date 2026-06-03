@@ -147,7 +147,7 @@ type
 
     procedure DoCellLoaded(const Cell: IDCTreeCell; RequestForSort: Boolean; var PerformanceModeWhileScrolling: Boolean; var OverrideRowHeight: Single); virtual;
     function  DoCellLoading(const Cell: IDCTreeCell; RequestForSort: Boolean; var PerformanceModeWhileScrolling: Boolean; var OverrideRowHeight: Single): Boolean; virtual;
-    function  DoCellFormatting(const Cell: IDCTreeCell; RequestForSort: Boolean; var Value: CObject) : Boolean; virtual;
+    function  DoCellFormatting(const Cell: IDCTreeCell; RequestForSort, IsSubProp: Boolean; var Value: CObject) : Boolean; virtual;
     function  DoCellCanChange(const OldCell, NewCell: IDCTreeCell): Boolean; virtual;
     procedure DoCellChanging(const OldCell, NewCell: IDCTreeCell);
     procedure DoCellChanged(const OldCell, NewCell: IDCTreeCell);
@@ -2143,7 +2143,7 @@ var
   function GetText(const obj: CObject) : CString;
   begin
     var o := obj;
-    if DoCellFormatting(filterDescription as IDCTreeCell, False, {var} o) then
+    if DoCellFormatting(filterDescription as IDCTreeCell, False, False, {var} o) then
       Result := o.ToString(True) else
       Result := LayoutColumn.Column.GetFormattedValue(filterDescription as IDCTreeCell, o);
 
@@ -2357,6 +2357,8 @@ end;
 function TScrollControlWithCells.ClearTreeSorts: Boolean;
 begin
   Result := False;
+  if _view = nil then
+    Exit;
 
   var sorts := _view.GetSortDescriptions;
   if (sorts <> nil) and (sorts.Count > 0) then
@@ -2376,6 +2378,9 @@ end;
 
 procedure TScrollControlWithCells.ClearTreeFilters;
 begin
+  if _view = nil then
+    Exit;
+
   var filters := _view.GetFilterDescriptions;
   if (filters <> nil) and (filters.Count > 0) then
   begin
@@ -3155,7 +3160,7 @@ begin
   end;
 end;
 
-function TScrollControlWithCells.DoCellFormatting(const Cell: IDCTreeCell; RequestForSort: Boolean; var Value: CObject) : Boolean;
+function TScrollControlWithCells.DoCellFormatting(const Cell: IDCTreeCell; RequestForSort, IsSubProp: Boolean; var Value: CObject) : Boolean;
 begin
   EventTracer.StartTimer('TDataControl', Self.ClassName + '.DoCellFormatting');
   try
@@ -3163,7 +3168,7 @@ begin
 
     if Assigned(_cellFormatting) then
     begin
-      var args := DCCellFormattingEventArgs.Create(Cell, Value);
+      var args := DCCellFormattingEventArgs.Create(Cell, Value, IsSubProp);
       try
         args.RequestValueForSorting := RequestForSort;
 
@@ -3850,7 +3855,7 @@ begin
         if infoClass = TInfoControlClass.Text then
         begin
           var cellText: CString;
-          if DoCellFormatting(cell, False, {var} cellValue) then
+          if DoCellFormatting(cell, False, IsSubProp, {var} cellValue) then
           begin
             celltext := cellValue.ToString(True);
           end
@@ -3863,7 +3868,7 @@ begin
         end
         else if infoClass = TInfoControlClass.CheckBox then
         begin
-          DoCellFormatting(cell, False, {var} cellValue);
+          DoCellFormatting(cell, False, IsSubProp, {var} cellValue);
           (ctrl as IIsChecked).IsChecked := cellValue.GetValue<Boolean>(False);
           _localCheckSetInDefaultData := True;
         end;
@@ -4429,7 +4434,7 @@ begin
     begin
       Result := Cell.Column.ProvideCellData(cell, cell.Column.PropertyName);
 
-      if not DoCellFormatting(cell, True, {var} Result) then
+      if not DoCellFormatting(cell, True, False, {var} Result) then
       begin
         if (Cell.Column.SortType = TSortType.Displaytext) then
           Result := Cell.Column.GetFormattedValue(cell, Result);

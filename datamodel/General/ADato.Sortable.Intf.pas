@@ -67,6 +67,9 @@ type
     procedure AddSort(const Sort: IListSortDescription);
     procedure AddFilter(const Filter: IListFilterDescription);
 
+    procedure BeginUpdate;
+    procedure EndUpdate;
+
     procedure ToggleDirection;
 
     property  SortedRows: List<Integer> read get_SortedRows;

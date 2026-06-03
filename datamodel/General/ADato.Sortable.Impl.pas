@@ -15,10 +15,10 @@ uses
   System.Collections.Generic,
   ADato.ComponentModel,
   ADato.Sortable.Intf,
-  System.Collections;
+  System.Collections, System.ComponentModel;
 
 type
-  CComparableList<T> = class(TVirtualListBase, IList, IList<T>, IComparableList)
+  CComparableList<T> = class(TVirtualListBase, IList, IList<T>, IComparableList, IUpdatableObject)
   protected
     _data: IList<T>;
     _comparer: IListComparer;
@@ -65,6 +65,11 @@ type
 
     // just myself
     function Transpose(const Index: Integer): Integer;
+
+    // IUpdatableObject
+    procedure BeginUpdate;
+    procedure EndUpdate;
+
   public
     constructor Create(const AOwner: IList<T>; const ReusableComparer: IListComparer); reintroduce;
     destructor Destroy; override;
@@ -265,6 +270,16 @@ begin
   if (_comparer <> nil) and (_comparer.SortedRows <> nil) then
     Result := _comparer.SortedRows[Index] else
     Result := Index;
+end;
+
+procedure CComparableList<T>.BeginUpdate;
+begin
+  _comparer.BeginUpdate;
+end;
+
+procedure CComparableList<T>.EndUpdate;
+begin
+  _comparer.EndUpdate;
 end;
 
 end.

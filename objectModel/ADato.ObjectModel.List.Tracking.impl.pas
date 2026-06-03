@@ -140,6 +140,9 @@ function TObjectListModelWithChangeTracking<T>.AddNew(Index: Integer = -1; AddBe
 begin
   Result := False;
 
+  if get_IsEditOrNew and not ContextCanChange then
+    Exit;
+
   BeginUpdate;
   try
     var item := CreateInstance;
@@ -200,6 +203,10 @@ end;
 procedure TObjectListModelWithChangeTracking<T>.BeginUpdate;
 begin
   inc(_UpdateCount);
+
+  var update: IUpdatableObject;
+  if interfaces.Supports<IUpdatableObject>(_Context, update) then
+    update.BeginUpdate;
 end;
 
 function TObjectListModelWithChangeTracking<T>.CanAdd: Boolean;
@@ -469,6 +476,10 @@ end;
 procedure TObjectListModelWithChangeTracking<T>.EndUpdate;
 begin
   dec(_UpdateCount);
+
+  var update: IUpdatableObject;
+  if interfaces.Supports<IUpdatableObject>(_Context, update) then
+    update.EndUpdate;
 end;
 
 procedure TObjectListModelWithChangeTracking<T>.NotifyAddingNew(const Context: IObjectModelContext; var Index: Integer; Position: InsertPosition);
@@ -536,18 +547,23 @@ begin
   var ix: Integer;
   var newSelected: CObject;
 
-  ix := _Context.IndexOf(Item);
-  if ix <> -1 then
-  begin
-    if ix > 0 then
-      newSelected := _Context[ix - 1]
-    else if _Context.Count > 1 then
-      newSelected := _Context[1];
+  BeginUpdate;
+  try
+    ix := _Context.IndexOf(Item);
+    if ix <> -1 then
+    begin
+      if ix > 0 then
+        newSelected := _Context[ix - 1]
+      else if _Context.Count > 1 then
+        newSelected := _Context[1];
 
-    _Context.RemoveAt(ix);
+      _Context.RemoveAt(ix);
+    end;
+
+    NotifyRemoved(Item, ix);
+  finally
+    EndUpdate;
   end;
-
-  NotifyRemoved(Item, ix);
 
   inherited set_ObjectContext(newSelected);
 end;

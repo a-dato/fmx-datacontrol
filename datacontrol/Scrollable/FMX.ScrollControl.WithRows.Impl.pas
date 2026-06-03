@@ -1037,6 +1037,9 @@ end;
 
 procedure TScrollControlWithRows.TriggerFilterOrSortChanged(FilterChanged, SortChanged: Boolean);
 begin
+  if _view = nil then
+    Exit;
+
   var refreshInfo := GetInitializedWaitForRefreshInfo;
 
   if FilterChanged then

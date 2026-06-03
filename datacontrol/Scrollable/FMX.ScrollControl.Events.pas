@@ -111,15 +111,18 @@ type
   DCCellFormattingEventArgs = class(DCCellEventArgs)
   private
     _formatRowCellAfterScrolling: Boolean;
+    _isSubProp: Boolean;
   public
     Value: CObject;
     FormattingApplied: Boolean;
+
    {  Related to CellFormatting event.
       True: Use e.Value 'as is' and put the text value in a cell
       False: Convert e.Value to a string calling: var text: string := e.Value.ToString(_Format, nil);}
 
-    constructor Create(const ACell: IDCTreeCell; const AValue: CObject); reintroduce;
+    constructor Create(const ACell: IDCTreeCell; const AValue: CObject; const AIsSubProp: Boolean); reintroduce;
     property FormatCellAfterScrolling: Boolean read _formatRowCellAfterScrolling write _formatRowCellAfterScrolling;
+    property IsSubProperty: Boolean read _isSubProp;
   end;
 
 //  TCellUserEventType = (Mouse, Key);
@@ -386,10 +389,11 @@ end;
 
 { DCCellFormattingEventArgs }
 
-constructor DCCellFormattingEventArgs.Create(const ACell: IDCTreeCell; const AValue: CObject);
+constructor DCCellFormattingEventArgs.Create(const ACell: IDCTreeCell; const AValue: CObject; const AIsSubProp: Boolean);
 begin
   inherited Create(ACell);
   Value := AValue;
+  _isSubProp := AIsSubProp;
   _formatRowCellAfterScrolling := False;
 end;
 

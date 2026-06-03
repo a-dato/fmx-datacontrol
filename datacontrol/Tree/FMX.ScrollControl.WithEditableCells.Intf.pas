@@ -84,7 +84,7 @@ type
     procedure OnEditorExit;
 
     function  DoCellParsing(const Cell: IDCTreeCell; IsCheckOnEndEdit: Boolean; var AValue: CObject): Boolean;
-    function  DoCellFormatting(const Cell: IDCTreeCell; RequestForSort: Boolean; var Value: CObject) : Boolean;
+    function  DoCellFormatting(const Cell: IDCTreeCell; RequestForSort, IsSubProp: Boolean; var Value: CObject) : Boolean;
   end;
 
 implementation

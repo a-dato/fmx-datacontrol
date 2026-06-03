@@ -15,7 +15,8 @@ uses
   System.Collections,
   System.Collections.Generic,
   ADato.ComponentModel,
-  ADato.Sortable.Intf;
+  ADato.Sortable.Intf,
+  System.ComponentModel;
 
 type
   TKeyRow = record
@@ -23,7 +24,7 @@ type
     Row: Integer;
   end;
 
-  TListComparer = class(TBaseInterfacedObject, IListComparer, IComparer<TKeyRow>)
+  TListComparer = class(TBaseInterfacedObject, IListComparer, IComparer<TKeyRow>, IUpdatableObject)
   type
     TSortItem = record
       Comparer: IComparer<CObject>;
@@ -46,9 +47,11 @@ type
     _loading: Boolean;
     _sorts: List<TSortItem>;
     _filters: List<TFilterItem>;
+    _updateCount: Integer;
 
     _sortDescriptions: List<IListSortDescription>;
     _filterDescriptions: List<IListFilterDescription>;
+    _waitingForChangeEvent: Boolean;
 
     function  get_SortedRows: List<Integer>;
     function  get_SortDescriptions: List<IListSortDescription>;
@@ -66,6 +69,8 @@ type
     function  Load(const DataList: IList): List<Integer>;
     function  Compare(const x, y: TKeyRow): Integer;
 
+    procedure ExecuteChangeDelegate;
+
   public
     constructor Create(const SortDescriptions: List<IListSortDescription>; const FilterDescriptions: List<IListFilterDescription>; ListHoldsOrdinalType: TlistHoldsOrdinalType);
     destructor Destroy; override;
@@ -73,6 +78,9 @@ type
     procedure ResetSortedRows(ExecuteSortFilterChange: Boolean);
     function  SortCompleted: Boolean;
     procedure ToggleDirection;
+
+    procedure BeginUpdate;
+    procedure EndUpdate;
 
     {$IFDEF WEBASSEMBLY}
     event OnComparingChanged: IOnDataChangeDelegate delegate _onDataChangedDelegate;
@@ -311,9 +319,23 @@ end;
 procedure TListComparer.ResetSortedRows(ExecuteSortFilterChange: Boolean);
 begin
   _sortedRows := nil;
+  if ExecuteSortFilterChange then
+    ExecuteChangeDelegate;
+end;
 
-  if ExecuteSortFilterChange and (_onDataChangedDelegate <> nil) then
-    _onDataChangedDelegate.Invoke();
+procedure TListComparer.ExecuteChangeDelegate;
+begin
+  if (_onDataChangedDelegate = nil) then
+    Exit;
+
+  if _updateCount > 0 then
+  begin
+    _waitingForChangeEvent := True;
+    Exit;
+  end;
+
+  _waitingForChangeEvent := False;
+  _onDataChangedDelegate.Invoke();
 end;
 
 procedure TListComparer.set_FuncDataList(const Value: TGetDataList);
@@ -333,6 +355,19 @@ begin
     _sortDescriptions[0].ToggleDirection;
     ResetSortedRows(True);
   end;
+end;
+
+procedure TListComparer.BeginUpdate;
+begin
+  AtomicIncrement(_updateCount);
+end;
+
+procedure TListComparer.EndUpdate;
+begin
+  AtomicDecrement(_updateCount);
+
+  if _waitingForChangeEvent then
+    ExecuteChangeDelegate;
 end;
 
 function TListComparer.Load(const DataList: IList): List<Integer>;
