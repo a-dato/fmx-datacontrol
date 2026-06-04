@@ -122,7 +122,7 @@ type
 
     // ICaption
     function  GetText: string;
-    procedure SetText(const Value: string);
+    procedure SetText(const Value: string); virtual;
     function  TextStored: Boolean;
 
     // ITextSettings

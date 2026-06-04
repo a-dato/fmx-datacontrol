@@ -80,7 +80,7 @@ type
 
     // ICaption
     function  GetText: string;
-    procedure SetText(const Value: string);
+    procedure SetText(const Value: string); virtual;
     function  TextStored: Boolean;
 
     function  get_Polygon: TPolygon;
@@ -234,7 +234,6 @@ type
     _underlineAnimationProgress: Single;
     _underlineAnimationTarget: Single;
     _underlineAnimationTimer: TTimer;
-    _translatable: Boolean;
     _underlineType: TUnderlineType;
     _waitForRepaint: Boolean;
     _mouseIsDown: Boolean;
@@ -245,7 +244,6 @@ type
     procedure set_ButtonType(const Value: TButtonType);
     procedure set_EmphasizePicture(const Value: Boolean);
     procedure set_ShowUnderline(const Value: Boolean);
-    procedure set_Translatable(const Value: Boolean);
 
     procedure set_UnderlineType(const Value: TUnderlineType);
 
@@ -313,7 +311,6 @@ type
     property ImagePositionMargin: Integer read get_imagePositionMargin write set_ImagePositionMargin default -1;
     property ImageIndex: Integer read get_imageIndex write set_ImageIndex;
 
-    property Translatable: Boolean read _translatable write set_Translatable default False;
     property ShowHoverEffect: Boolean read _showHoverEffect write _showHoverEffect default True;
     property ShowUnderline: Boolean read _showUnderline write set_ShowUnderline default False;
     property UnderlineType: TUnderlineType read _underlineType write set_UnderlineType default TUnderlineType.NoUnderline;
@@ -1421,15 +1418,6 @@ begin
   begin
     _showUnderline := Value;
     StartUnderlineAnimation;
-  end;
-end;
-
-procedure TFastButton.set_Translatable(const Value: Boolean);
-begin
-  if _translatable <> Value then
-  begin
-    _translatable := Value;
-    RecalcNeeded;
   end;
 end;
 
