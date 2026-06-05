@@ -1454,8 +1454,10 @@ begin
     var ix := _waitForRepaintInfo.Current;
     if ix = -1 then
     begin
+      var di := _waitForRepaintInfo.DataItem;
+
       GenerateView;
-      ix := _view.GetViewListIndex(_waitForRepaintInfo.DataItem);
+      ix := _view.GetViewListIndex(di);
     end;
 
     if (_view <> nil) and (ix >= 0) and (ix <= _view.ViewCount - 1) then
