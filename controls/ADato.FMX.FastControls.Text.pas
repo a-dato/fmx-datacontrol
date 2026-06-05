@@ -16,6 +16,7 @@ uses
   System.UITypes,
   FMX.ActnList,
   FMX.ImgList,
+  FMX.Menus,
   FMX.Types,
   FMX.Layouts,
   FMX.TextLayout,
@@ -40,7 +41,8 @@ uses
   {$ENDIF}
   System_,
   ADato.ObjectModel.Binders,
-  FMX.ScrollControl.ControlClasses.Intf;
+  FMX.ScrollControl.ControlClasses.Intf, 
+  FMX.Text;
 
 type
   TFastControl = class(TLayout)
@@ -90,13 +92,31 @@ type
 
   TCheckPosition = (Left, Right);
 
-  TFastText = class(TFastControl, IDCControl, ITextControl, ICaption, ITextSettings)
+  TFastText = class(TFastControl, IDCControl, ITextControl, ICaption, ITextSettings, ITextActions)
   protected
     _dcControl: IDCControl;
     function get_DCControl: IDCControl;
 
   public
     property DCControl: IDCControl read get_DCControl implements IDCControl;
+
+  private
+    // ITextActions
+    procedure DeleteSelection;
+    procedure CopyToClipboard; // only for this one!
+    procedure CutToClipboard;
+    procedure PasteFromClipboard;
+    procedure SelectAll;
+    procedure SelectWord;
+    procedure ResetSelection;
+    procedure GoToTextEnd;
+    procedure GoToTextBegin;
+    procedure Replace(const AStartPos: Integer; const ALength: Integer; const AStr: string);
+
+    {$IFNDEF WEBASSEMBLY}
+    procedure CopyMenuItemClick(Sender: TObject);
+    procedure CreateCopyPopupMenu;
+    {$ENDIF}
 
   protected
     _text: string;
@@ -108,6 +128,10 @@ type
     _textBounds: TRectF;
     _onChange: TNotifyEvent;
     _maxWidth: Integer;
+
+    {$IFNDEF WEBASSEMBLY}
+    _copyPopupMenu: TPopupMenu;
+    {$ENDIF}
 
     _mouseIsDown: Boolean;
     _hover: Boolean;
@@ -315,7 +339,7 @@ uses
   {$IFDEF SKIA}
   FMX.Skia,
   {$ENDIF}
-  System.Math.Vectors;
+  System.Math.Vectors, FMX.Platform;
 
 { TDateTimeEditOnKeyDownOverride }
 
@@ -368,6 +392,10 @@ begin
   _settings.HorzAlign := TTextAlign.Leading;
 
   _calcAsAutoHeight := True;
+
+  {$IFNDEF WEBASSEMBLY}
+  CreateCopyPopupMenu;
+  {$ENDIF}
 end;
 
 function TFastText.get_DCControl: IDCControl;
@@ -377,11 +405,36 @@ end;
 
 destructor TFastText.Destroy;
 begin
+  {$IFNDEF WEBASSEMBLY}
+  PopupMenu := nil;
+  FreeAndNil(_copyPopupMenu);
+  {$ENDIF}
+
   FreeAndNil(_layout);
   FreeAndNil(_settings);
 
   inherited;
 end;
+
+{$IFNDEF WEBASSEMBLY}
+procedure TFastText.CopyMenuItemClick(Sender: TObject);
+begin
+  CopyToClipboard;
+end;
+
+procedure TFastText.CreateCopyPopupMenu;
+begin
+  _copyPopupMenu := TPopupMenu.Create(Self);
+  _copyPopupMenu.Stored := False;
+
+  var copyItem := TMenuItem.Create(_copyPopupMenu);
+  copyItem.Text := 'Copy';
+  copyItem.OnClick := CopyMenuItemClick;
+  _copyPopupMenu.AddObject(copyItem);
+
+  PopupMenu := _copyPopupMenu;
+end;
+{$ENDIF}
 
 function TFastText.CalculateTextXPos: Single;
 begin
@@ -766,6 +819,60 @@ end;
 function TFastText.TextWidthWithPadding: Single;
 begin
   Result := TextWidth + Padding.Left + Padding.Right + _internalLeftPadding + _internalRightPadding;
+end;
+
+procedure TFastText.DeleteSelection;
+begin
+  raise ENotImplemented.Create('Not implemented for this control');
+end;
+
+procedure TFastText.CopyToClipboard;
+var
+  ClipService: IFMXClipboardService;
+begin
+  if TPlatformServices.Current.SupportsPlatformService(IFMXClipboardService, ClipService) then
+    ClipService.SetClipboard(Self.Text);
+end;
+
+procedure TFastText.CutToClipboard;
+begin
+  raise ENotImplemented.Create('Not implemented for this control');
+end;
+
+procedure TFastText.PasteFromClipboard;
+begin
+  // nothing to do..
+//  raise ENotImplemented.Create('Not implemented for this control');
+end;
+
+procedure TFastText.SelectAll;
+begin
+  raise ENotImplemented.Create('Not implemented for this control');
+end;
+
+procedure TFastText.SelectWord;
+begin
+  raise ENotImplemented.Create('Not implemented for this control');
+end;
+
+procedure TFastText.ResetSelection;
+begin
+  raise ENotImplemented.Create('Not implemented for this control');
+end;
+
+procedure TFastText.GoToTextEnd;
+begin
+  raise ENotImplemented.Create('Not implemented for this control');
+end;
+
+procedure TFastText.GoToTextBegin;
+begin
+  raise ENotImplemented.Create('Not implemented for this control');
+end;
+
+procedure TFastText.Replace(const AStartPos: Integer; const ALength: Integer; const AStr: string);
+begin
+  raise ENotImplemented.Create('Not implemented for this control');
 end;
 
 { TFastCheckBox }
@@ -1349,25 +1456,31 @@ begin
 end;
 
 procedure TFastControl.CalculateSafeAutoSize;
+
+  procedure SafeForceQueue([weak] Alive: IInterface);
+  begin
+    TThread.ForceQueue(nil, procedure
+    begin
+      if (Alive = nil) or not _autoSizeNeeded then
+        Exit;
+
+      if (Scene <> nil) and DoAutoSize then
+      begin
+        Calculate;
+        ApplyAutoSize;
+        RepaintNeeded;
+
+        _autoSizeNeeded := False;
+      end;
+    end);
+  end;
+
 begin
   if not ShouldRecalculate or not DoAutoSize then
     Exit;
 
   _autoSizeNeeded := True;
-  TThread.ForceQueue(nil, procedure
-  begin
-    if not _autoSizeNeeded then
-      Exit;
-
-    if (Scene <> nil) and DoAutoSize then
-    begin
-      Calculate;
-      ApplyAutoSize;
-      RepaintNeeded;
-
-      _autoSizeNeeded := False;
-    end;
-  end);
+  SafeForceQueue(_isAlive);
 end;
 
 procedure TFastControl.DoResized;

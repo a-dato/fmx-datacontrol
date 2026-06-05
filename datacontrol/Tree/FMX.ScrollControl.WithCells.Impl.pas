@@ -2560,7 +2560,7 @@ end;
 
 procedure TScrollControlWithCells.TryUpdateHeaderCheckState;
 begin
-  if (_headerRow = nil) or (SelectionCheckBoxColumn = nil) then
+  if (_headerRow = nil) or (SelectionCheckBoxColumn = nil) or (_view = nil) then
     Exit;
 
   var headerCell: IDCTreeCell;
@@ -2570,6 +2570,7 @@ begin
     var check: IIsChecked;
 
     var selCount := SelectionCount(False);
+
     var viewCount := _view.ViewCount;
 
     if interfaces.Supports<IIsSemiChecked>(headerCell.InfoControl, semiCheck) then
