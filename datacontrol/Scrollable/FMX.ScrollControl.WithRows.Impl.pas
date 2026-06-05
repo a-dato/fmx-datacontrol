@@ -1085,9 +1085,21 @@ begin
   else if (ssCtrl in Shift) and (Key in [vkDown, vkEnd]) then
     Exit(GetSelectableViewIndex(_view.ViewCount - 1, False))
   else if (Key = vkUp) then
-    Exit(GetSelectableViewIndex(_selectionInfo.ViewListIndex-1, False))
+  begin
+    Result := GetSelectableViewIndex(_selectionInfo.ViewListIndex-1, False);
+    if (Result = -1) and (_view.ViewCount > 0) then
+      Result := GetSelectableViewIndex(0, False);  // just give first row it a try, for filter can be set..
+
+    Exit;
+  end
   else if (Key = vkDown) then
-    Exit(GetSelectableViewIndex(_selectionInfo.ViewListIndex+1, True));
+  begin
+    Result := GetSelectableViewIndex(_selectionInfo.ViewListIndex+1, True);
+    if (Result = -1) and (_view.ViewCount > 0) then
+      Result := GetSelectableViewIndex(0, False);  // just give first row it a try, for filter can be set..
+
+    Exit;
+  end;
 
   // no change
   Result := _selectionInfo.ViewListIndex;
@@ -1438,17 +1450,39 @@ begin
   // even if it is not set yet in the view, the new is already set and therefor becomes the dataitem we are looking for
   if (_waitForRepaintInfo <> nil) and (RowChanged in _waitForRepaintInfo.RowStateFlags) then
   begin
-    if _waitForRepaintInfo.DataItem <> nil then
-      Result := _waitForRepaintInfo.DataItem
-    else if _waitForRepaintInfo.Current >= 0 then
+    // try get dataitem from current, because in case of DataModelView this will return the DataRowView instead of dataitem
+    var ix := _waitForRepaintInfo.Current;
+    if ix = -1 then
     begin
       GenerateView;
-      if (_view <> nil) and (_waitForRepaintInfo.Current <= _view.ViewCount - 1) then
-        Result := _view.GetViewList[_waitForRepaintInfo.Current] else
-        Result := nil;
-    end
-    else
+      ix := _view.GetViewListIndex(_waitForRepaintInfo.DataItem);
+    end;
+
+    if (_view <> nil) and (ix >= 0) and (ix <= _view.ViewCount - 1) then
+      Result := _view.GetViewList[ix] else
       Result := nil;
+
+//    if _waitForRepaintInfo.DataItem <> nil then
+//    begin
+//      Result := _waitForRepaintInfo.DataItem;
+//      if ViewIsDataModelView then
+//      begin
+//        GenerateView;
+//        var ix := _waitForRepaintInfo.Current;
+//        if ix = -1 then
+//          ix := _view.GetViewListIndex(_waitForRepaintInfo.DataItem);
+//        Result := _view.GetViewList[_waitForRepaintInfo.Current];
+//      end;
+//    end
+//    else if _waitForRepaintInfo.Current >= 0 then
+//    begin
+//      GenerateView;
+//      if (_view <> nil) and (_waitForRepaintInfo.Current <= _view.ViewCount - 1) then
+//        Result := _view.GetViewList[_waitForRepaintInfo.Current] else
+//        Result := nil;
+//    end
+//    else
+//      Result := nil;
 
     Exit;
   end;
