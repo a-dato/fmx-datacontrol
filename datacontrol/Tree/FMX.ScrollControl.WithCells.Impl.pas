@@ -1499,7 +1499,7 @@ begin
   var horzScroll := GetHorzScroll(Key, Shift);
   if horzScroll = TRightLeftScroll.None then
   begin
-    if FromColumnIndex = -1 then
+    if FromColumnIndex < 0 then
       Exit(GetFlatColumnByKey(vkHome, Shift, 0));
 
     Result := _treeLayout.LayoutColumns[FromColumnIndex];
@@ -2924,7 +2924,7 @@ begin
   if _treeLayout = nil then Exit;
 
   var Tag := _selectionInfo.Tag;
-  if (Tag = -1) or (_treeLayout.LayoutColumns.Count = 0) then Exit;
+  if (Tag < 0) or (_treeLayout.LayoutColumns.Count = 0) then Exit;
   Result := _treeLayout.LayoutColumns[Tag];
 end;
 
@@ -3532,7 +3532,6 @@ begin
   try
     if (_treeLayout = nil { will get here later again}) or not _selectionInfo.CanFocus(RequestedSelectionInfo.DataIndex) then
       Exit;
-
 
     var rowChange := _selectionInfo.DataIndex <> RequestedSelectionInfo.DataIndex;
     var rowAlreadySelected := not rowChange or _selectionInfo.IsSelected(RequestedSelectionInfo.DataIndex);

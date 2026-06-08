@@ -1431,10 +1431,12 @@ begin
   begin
     if _waitForRepaintInfo.Current <> -1 then
       Result := _waitForRepaintInfo.Current
-    else if _waitForRepaintInfo.DataItem <> nil then
+    else if (_waitForRepaintInfo.DataItem <> nil) then
     begin
       GenerateView;
-      Result := _view.GetViewListIndex(_waitForRepaintInfo.DataItem);
+      if _view <> nil then
+        Result := _view.GetViewListIndex(_waitForRepaintInfo.DataItem) else
+        Result := -1;
     end
     else
       Result := -1;
@@ -1457,34 +1459,13 @@ begin
       var di := _waitForRepaintInfo.DataItem;
 
       GenerateView;
-      ix := _view.GetViewListIndex(di);
+      if _view <> nil then
+        ix := _view.GetViewListIndex(di);
     end;
 
     if (_view <> nil) and (ix >= 0) and (ix <= _view.ViewCount - 1) then
       Result := _view.GetViewList[ix] else
       Result := nil;
-
-//    if _waitForRepaintInfo.DataItem <> nil then
-//    begin
-//      Result := _waitForRepaintInfo.DataItem;
-//      if ViewIsDataModelView then
-//      begin
-//        GenerateView;
-//        var ix := _waitForRepaintInfo.Current;
-//        if ix = -1 then
-//          ix := _view.GetViewListIndex(_waitForRepaintInfo.DataItem);
-//        Result := _view.GetViewList[_waitForRepaintInfo.Current];
-//      end;
-//    end
-//    else if _waitForRepaintInfo.Current >= 0 then
-//    begin
-//      GenerateView;
-//      if (_view <> nil) and (_waitForRepaintInfo.Current <= _view.ViewCount - 1) then
-//        Result := _view.GetViewList[_waitForRepaintInfo.Current] else
-//        Result := nil;
-//    end
-//    else
-//      Result := nil;
 
     Exit;
   end;
@@ -2009,7 +1990,12 @@ begin
   end;
 
   if _view = nil then
+  begin
+    if not CanGenerateNewView then
+      Exit;
+
     GenerateView;
+  end;
 
   var arr: TDataIndexArray;
   SetLength(arr, 0);
@@ -3468,7 +3454,12 @@ begin
     for item in SelectedItems do
     begin
       if _view = nil then
+      begin
+        if not CanGenerateNewView then
+          Exit;
+
         GenerateView;
+      end;
 
       var viewListIndex := _view.GetViewListIndex(item);
       var dataIndex := _view.GetDataIndex(viewListIndex);

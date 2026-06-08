@@ -1830,7 +1830,7 @@ begin
         Exit(False);
 
       // stop row editing
-      var goToNewRow := (NewCell = nil) or (OldCell.Row.DataIndex <> NewCell.Row.DataIndex);
+      var goToNewRow := (NewCell = nil) or (OldCell = nil) or (OldCell.Row.DataIndex <> NewCell.Row.DataIndex);
       if goToNewRow then
       begin
         if not DoEditRowEnd(OldCell.Row as IDCTreeRow, {out} changeUpdatedSort) or changeUpdatedSort then

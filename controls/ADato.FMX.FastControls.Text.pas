@@ -821,11 +821,6 @@ begin
   Result := TextWidth + Padding.Left + Padding.Right + _internalLeftPadding + _internalRightPadding;
 end;
 
-procedure TFastText.DeleteSelection;
-begin
-  raise ENotImplemented.Create('Not implemented for this control');
-end;
-
 procedure TFastText.CopyToClipboard;
 var
   ClipService: IFMXClipboardService;
@@ -834,9 +829,16 @@ begin
     ClipService.SetClipboard(Self.Text);
 end;
 
+procedure TFastText.DeleteSelection;
+begin
+  // nothing to do..
+//  raise ENotImplemented.Create('Not implemented for this control');
+end;
+
 procedure TFastText.CutToClipboard;
 begin
-  raise ENotImplemented.Create('Not implemented for this control');
+  // nothing to do..
+//  raise ENotImplemented.Create('Not implemented for this control');
 end;
 
 procedure TFastText.PasteFromClipboard;
@@ -847,32 +849,38 @@ end;
 
 procedure TFastText.SelectAll;
 begin
-  raise ENotImplemented.Create('Not implemented for this control');
+  // nothing to do..
+//  raise ENotImplemented.Create('Not implemented for this control');
 end;
 
 procedure TFastText.SelectWord;
 begin
-  raise ENotImplemented.Create('Not implemented for this control');
+  // nothing to do..
+//  raise ENotImplemented.Create('Not implemented for this control');
 end;
 
 procedure TFastText.ResetSelection;
 begin
-  raise ENotImplemented.Create('Not implemented for this control');
+  // nothing to do..
+//  raise ENotImplemented.Create('Not implemented for this control');
 end;
 
 procedure TFastText.GoToTextEnd;
 begin
-  raise ENotImplemented.Create('Not implemented for this control');
+  // nothing to do..
+//  raise ENotImplemented.Create('Not implemented for this control');
 end;
 
 procedure TFastText.GoToTextBegin;
 begin
-  raise ENotImplemented.Create('Not implemented for this control');
+  // nothing to do..
+//  raise ENotImplemented.Create('Not implemented for this control');
 end;
 
 procedure TFastText.Replace(const AStartPos: Integer; const ALength: Integer; const AStr: string);
 begin
-  raise ENotImplemented.Create('Not implemented for this control');
+  // nothing to do..
+//  raise ENotImplemented.Create('Not implemented for this control');
 end;
 
 { TFastCheckBox }
