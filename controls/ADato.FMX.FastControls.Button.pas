@@ -54,6 +54,7 @@ type
   TADatoClickLayout = class(TFastControl, ICaption, IDCControl, IImageControl)
   protected
     _imageControl: IImageControl;
+    _maxWidth: Integer;
 
     function get_DCControl: IDCControl;
     function get_ImageControl: IImageControl;
@@ -92,6 +93,8 @@ type
     procedure set_SwabTextSubText(const Value: Boolean);
     function  get_ImageName: string;
     procedure set_ImageName(const Value: string);
+    function  get_MaxWidth: Integer;
+    procedure set_MaxWidth(const Value: Integer);
 
   protected
     _isAddTag: Boolean;
@@ -149,6 +152,7 @@ type
     property TagType: TTagType read get_TagType;
     property ImageName: string read get_ImageName write set_ImageName;
     property Config: TFastButtonConfig read _config;
+    property MaxWidth: Integer read get_MaxWidth write set_MaxWidth default 0;
   end;
 
   TChangeType = (DoRepaint, DoRecalc, ControlAdded, ControlRemoved);
@@ -258,6 +262,7 @@ type
     procedure set_ContentHorzAlign(const Value: TTextAlign);
     procedure set_Images(const Value: TCustomImageList);
     procedure set_AdditionalText(const Value: CString);
+
     procedure UnderlineAnimationTimer(Sender: TObject);
     procedure StartUnderlineAnimation;
     procedure StopUnderlineAnimation;
@@ -451,6 +456,10 @@ begin
   end;
 
   var leftOffset := offset + Padding.Left;
+
+  if _maxWidth > 0 then
+    w := CMath.Max(0, CMath.Min(_maxWidth, w - leftOffset - Padding.Right));
+
   var mostRight := leftOffset + w + Padding.Right;
 
   // not implemented correctly yet for Top / Bottom..
@@ -710,6 +719,16 @@ begin
     _config.ImageName := Value;
     _imageIndex := -1;
   end;
+end;
+
+function TADatoClickLayout.get_MaxWidth: Integer;
+begin
+  Result := _maxWidth;
+end;
+
+procedure TADatoClickLayout.set_MaxWidth(const Value: Integer);
+begin
+  _maxWidth := Value;
 end;
 
 procedure TADatoClickLayout.set_SubText(const Value: string);
@@ -1219,7 +1238,7 @@ end;
 
 procedure TFastButton.ApplyAutoSize;
 begin
-  var newWidth := _innerBounds.Width + 2*GetSidePadding;
+  var newWidth := CalcWidth;
   if SameValue(Self.Width, newWidth) then
     Exit;
 
@@ -1359,7 +1378,6 @@ begin
     RecalcNeeded;
   end;
 end;
-
 procedure TFastButton.set_AutoWidth(const Value: Boolean);
 begin
   if _autoWidth <> Value then
@@ -1537,6 +1555,7 @@ begin
     AskForRecalc(TChangeType.DoRecalc);
   end;
 end;
+
 
 procedure TFastButtonConfig.set_FontColor(const Value: TAlphaColor);
 begin
