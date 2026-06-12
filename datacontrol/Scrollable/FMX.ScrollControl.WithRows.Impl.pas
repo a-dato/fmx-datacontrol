@@ -33,7 +33,7 @@ uses
 type
   TScrollControlWithRows = class(TScrollControl, IRowsControl)
   // data
-  strict private
+  private
     _previousHardAssignedDataModelView: IDataModelView;
 
     function  TryStartMasterSynchronizer(CheckSyncVisibility: Boolean = False): Boolean;
@@ -147,7 +147,7 @@ type
     procedure UpdateRowHeightSynchronizerScrollbar;
 
     procedure AnimateRow(const Row: IDCRow; StartY, StopY: Single; AnimateOpacity: Boolean; Hide: Boolean; ExtraDelay: Single = 0);
-    procedure ExecuteAfterAnimateRow(const Row: IDCRow; Event: TNotifyEvent; ExtraDelay: Single = 0);
+    procedure ExecuteAfterAnimateRow(const Row: IDCRow; AEvent: TNotifyEvent; ExtraDelay: Single = 0);
 
   // expand / collapse
   protected
@@ -329,7 +329,9 @@ type
 
   public
     constructor Create(AOwner: TComponent); override;
+    {$IFNDEF WEBASSEMBLY}
     destructor Destroy; override;
+    {$ENDIF}
 
     function  FitRowsDownwards(StartIndex: Integer): Integer;
     function  GetActiveRow(CheckRealign: Boolean = False): IDCRow;
@@ -476,8 +478,9 @@ type
 
   public
     constructor Create(const RowsControl: IRowsControl); reintroduce;
-
+    {$IFNDEF WEBASSEMBLY}
     destructor Destroy; override;
+    {$ENDIF}
 
     function  ControlAsRowLayout: IRowLayout;
     procedure UpdateSelectionVisibility(const SelectionInfo: IRowSelectionInfo; OwnerIsFocused: Boolean); virtual;
@@ -689,6 +692,7 @@ begin
     Result := Result * 2;
 end;
 
+{$IFNDEF WEBASSEMBLY}
 destructor TScrollControlWithRows.Destroy;
 begin
 //  AtomicIncrement(_viewChangedIndex);
@@ -713,6 +717,7 @@ begin
 
   inherited;
 end;
+{$ENDIF}
 
 function TScrollControlWithRows.DoCreateNewRow: IDCRow;
 begin
@@ -2704,7 +2709,7 @@ begin
   end;
 end;
 
-procedure TScrollControlWithRows.ExecuteAfterAnimateRow(const Row: IDCRow; Event: TNotifyEvent; ExtraDelay: Single = 0);
+procedure TScrollControlWithRows.ExecuteAfterAnimateRow(const Row: IDCRow; AEvent: TNotifyEvent; ExtraDelay: Single = 0);
 begin
   Row.UseBuffering := False;
   Row.Control.Opacity := 0.5;
@@ -2716,7 +2721,7 @@ begin
   ani.PropertyName := 'Opacity';
   ani.StartFromCurrent := True;
   ani.StopValue := 1;
-  ani.OnFinish := Event;
+  ani.OnFinish := AEvent;
   ani.Start;
 end;
 
@@ -4493,6 +4498,7 @@ begin
   _enabled := True;
 end;
 
+{$IFNDEF WEBASSEMBLY}
 destructor TDCRow.Destroy;
 begin
   if (_control <> nil) and not (csDestroying in _control.ComponentState) then
@@ -4506,6 +4512,7 @@ begin
 
   inherited;
 end;
+{$ENDIF}
 
 function TDCRow.get_Control: TControl;
 begin

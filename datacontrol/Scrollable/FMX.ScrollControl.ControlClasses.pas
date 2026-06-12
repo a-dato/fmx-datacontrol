@@ -36,6 +36,7 @@ uses
   Wasm.FMX.ImgList,
   Wasm.FMX.Types,
   Wasm.FMX.Layouts,
+  Wasm.FMX.Text,
   Wasm.FMX.TextLayout,
   {$ENDIF}
   System_,
@@ -345,6 +346,10 @@ type
   private
     _isCustomFactory: Boolean;
   public
+    {$IFDEF WEBASSEMBLY}
+    class constructor Create;
+    {$ENDIF}
+
     constructor Create; reintroduce;
 
     function CreateHeaderRect(const Owner: TComponent): IBackgroundControl; virtual;
@@ -396,13 +401,17 @@ implementation
 
 uses
   {$IFNDEF WEBASSEMBLY}
-  System.SysUtils
+  System.SysUtils,
+  FMX.ListBox, 
+  System.Math
   {$ELSE}
   Wasm.System.SysUtils,
-  Wasm.System.Types
+  Wasm.System.Types,
+  Wasm.System.Math
   {$ENDIF}
-  , ADato.FMX.FastControls.Text, FMX.ListBox, ADato.TraceEvents.intf,
-  System.Math;
+  , ADato.FMX.FastControls.Text
+  , ADato.TraceEvents.intf;
+
 
 { TDataControlClassFactory }
 

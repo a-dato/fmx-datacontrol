@@ -8,14 +8,18 @@ uses
   {$IFNDEF WEBASSEMBLY}
   System.Classes,
   System.Types,
+  System.UITypes,
   FMX.Types,
   FMX.Controls,
   FMX.Objects
   {$ELSE}
   Wasm.FMX.Controls,
   Wasm.FMX.Types,
+  Wasm.System.Classes,
+  Wasm.System.Types,
+  Wasm.System.UITypes
   {$ENDIF}
-  , System.UITypes;
+  ;
 
 type
   // Interface that handles communication between a cell editor inside the tree control
