@@ -320,11 +320,12 @@ begin
   Result.PropertyName := PropertyName;
   Result.StopValue := NewValue;
   Result.StartFromCurrent := True;
+  Result.Duration := Duration;
 end;
 
 function ProvideAnimationDelay(const Control: TControl; const PropertyName: CString; const NewValue: Single; const Delay: Single = 0.2; const Duration: Single = 0.22): TFloatAnimation;
 begin
-  Result := ProvideAnimation(Control, PropertyName, NewValue);
+  Result := ProvideAnimation(Control, PropertyName, NewValue, Duration);
   Result.Delay := Delay;
 end;
 

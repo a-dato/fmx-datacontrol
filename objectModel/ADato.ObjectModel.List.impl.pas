@@ -122,12 +122,14 @@ constructor TObjectListModel<T>.Create(const AType: &Type; MultiSelectEnabled: B
 begin
   _ObjectType := AType;
   Initialize;
+  _multiModelContext := MultiSelectEnabled;
 end;
 
 constructor TObjectListModel<T>.Create(MultiSelectEnabled: Boolean = False);
 begin
   _ObjectType := Global.GetTypeOf<T>;
   Initialize;
+  _multiModelContext := MultiSelectEnabled;
 end;
 
 destructor TObjectListModel<T>.Destroy;
@@ -218,7 +220,7 @@ end;
 
 function TObjectListModel<T>.get_MultiSelect: IObjectModelMultiSelect;
 begin
-  if _multiSelect = nil then
+  if (_multiSelect = nil) then
   begin
     _multiSelect := TObjectModelMultiSelect.Create(Self);
     {$IFDEF DELPHI}

@@ -945,8 +945,8 @@ begin
     begin
       if not newCell.Column.IsSelectionColumn and (newCell.Column.InfoControlClass = TInfoControlClass.CheckBox) then
         (newCell.InfoControl as IIsChecked).IsChecked := not (newCell.InfoControl as IIsChecked).IsChecked
-      else if ((ssDouble in Shift) or (crrntCell = newCell)) and not _editingInfo.CellIsEditing then
-        StartEditCell(newCell, True, nil {keep cell data value});
+      else if (ssDouble in Shift) or ((crrntCell = newCell) and _controlWasFocusedBeforeMouseDown) and not _editingInfo.CellIsEditing then
+        StartEditCell(newCell, True, nil {keep cell data value})
     end;
   end;
 end;
@@ -1100,7 +1100,7 @@ begin
   if ViewIsDataModelView then
   begin
     var location: IDataRow := nil;
-    if (newViewListIndex < GetDataModelView.Rows.Count) and (GetDataModelView.Rows.Count > 0) then
+    if (newViewListIndex >= 0) and (newViewListIndex < GetDataModelView.Rows.Count) and (GetDataModelView.Rows.Count > 0) then
       location := GetDataModelView.Rows[newViewListIndex].Row;
 
     // make sure ViewChanged is not called at this point by using inc(_updateCount);
@@ -1123,6 +1123,8 @@ begin
         var drv := GetDataModelView.FindRow(dataRow);
         if drv <> nil then
         begin
+          ResetView(drv.ViewIndex);
+          _selectionInfo.SetFocusedItem(drv.Row.get_Index, drv.ViewIndex, drv);
           _editingInfo.StartRowEdit(drv.Row.get_Index, drv, True);
 
           newDataItem := drv;
@@ -1156,21 +1158,23 @@ begin
 
     newDataItem := newItem;
     var newDataIndex := _view.OriginalData.IndexOf(NewItem);
+
+    _selectionInfo.SetFocusedItem(newDataIndex, newViewListIndex, NewItem);
     _editingInfo.StartRowEdit(newDataIndex, NewItem, True);
   end;
 
   Result := _editingInfo.IsNew;
   if Result then
   begin
-    // do not execute FocusedChanged!!
-    // the reason is that the models are already in IsNew mode since the new item is already created here
-    // but setting the focused item here will trigger a try to EndEdit
-    _selectionInfo.BeginUpdate;
-    try
-      _selectionInfo.SetFocusedItem(_editingInfo.EditItemDataIndex, _view.GetViewListIndex(_editingInfo.EditItemDataIndex), newDataItem);
-    finally
-      _selectionInfo.EndUpdate(True {ignore change event});
-    end;
+//    // do not execute FocusedChanged!!
+//    // the reason is that the models are already in IsNew mode since the new item is already created here
+//    // but setting the focused item here will trigger a try to EndEdit
+//    _selectionInfo.BeginUpdate;
+//    try
+//      _selectionInfo.SetFocusedItem(_editingInfo.EditItemDataIndex, _view.GetViewListIndex(_editingInfo.EditItemDataIndex), newDataItem);
+//    finally
+//      _selectionInfo.EndUpdate(True {ignore change event});
+//    end;
 
     // let the view know that we started with editing
     _view.StartEdit(_editingInfo.EditItem);

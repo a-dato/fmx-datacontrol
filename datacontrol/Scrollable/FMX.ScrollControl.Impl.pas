@@ -84,6 +84,8 @@ type
 
     _lastMouseWheel1, _lastMouseWheel2, _lastMouseWheel3: Integer;
 
+    _controlWasFocusedBeforeMouseDown: Boolean;
+
     procedure MouseWheel(Shift: TShiftState; WheelDelta: Integer; var Handled: Boolean); override;
     procedure MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Single); override;
     procedure MouseMove(Shift: TShiftState; X, Y: Single); override;
@@ -678,6 +680,8 @@ begin
     Exit;
 
   _clickEnable := True;
+
+  _controlWasFocusedBeforeMouseDown := FIsFocused;
 
   inherited;
 

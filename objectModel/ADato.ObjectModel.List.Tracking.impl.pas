@@ -261,7 +261,7 @@ function TObjectListModelWithChangeTracking<T>.CreateObjectModelContext : IObjec
 begin
   if ListHoldsObjectType then
   begin
-    if _multiSelect <> nil then
+    if {_multiSelect <> nil} _multiModelContext then
       Result := TMultiEditableObjectModelContext.Create(get_ObjectModel, Self) else
       Result := TEditableObjectModelContext.Create(get_ObjectModel, Self);
   end else

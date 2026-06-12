@@ -3876,7 +3876,9 @@ begin
         else if _vertScrollBar.Max - _vertScrollBar.ViewportSize < Result.VirtualYPosition then
           startY := _vertScrollBar.Max - _vertScrollBar.ViewportSize;
       end;
-    end;
+    end
+    else if existed and (Result.VirtualYPosition < _vertScrollBar.Value {row moved up and is partly invisible}) then
+      startY := Result.VirtualYPosition;
   end else
   begin
     AlignBottomToTop := ((_vertScrollBar.Value > 0) and (_vertScrollBar.Value + _vertScrollBar.ViewportSize = _vertScrollBar.Max));

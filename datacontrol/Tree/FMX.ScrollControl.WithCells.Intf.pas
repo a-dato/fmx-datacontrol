@@ -463,12 +463,8 @@ type
 
     function  get_InfoControl: IDCControl;
     procedure set_InfoControl(const Value: IDCControl);
-    function  get_CustomInfoControlBounds: TRectF;
-    procedure set_CustomInfoControlBounds(const Value: TRectF);
     function  get_SubInfoControl: IDCControl;
     procedure set_SubInfoControl(const Value: IDCControl);
-    function  get_CustomSubInfoControlBounds: TRectF;
-    procedure set_CustomSubInfoControlBounds(const Value: TRectF);
 
 //    function  get_ColSpan: Byte;
 //    procedure set_ColSpan(const Value: Byte);
@@ -495,9 +491,7 @@ type
     property Control: TControl read get_Control;
     property BackgroundControl: IBackgroundControl read get_BackgroundControl write set_BackgroundControl;
     property InfoControl: IDCControl read get_InfoControl write set_InfoControl;
-    property CustomInfoControlBounds: TRectF read get_CustomInfoControlBounds write set_CustomInfoControlBounds;
     property SubInfoControl: IDCControl read get_SubInfoControl write set_SubInfoControl;
-    property CustomSubInfoControlBounds: TRectF read get_CustomSubInfoControlBounds write set_CustomSubInfoControlBounds;
 
     // control below can be used to insert custom controls and recycle them if needed.
     property CustomTag: CObject read get_CustomTag write set_CustomTag;

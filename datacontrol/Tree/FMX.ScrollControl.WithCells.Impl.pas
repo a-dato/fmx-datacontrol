@@ -806,8 +806,6 @@ type
     _infoControl: IDCControl;
     _subInfoControl: IDCControl;
     _expandButton: TLayout;
-    _customInfoControlBounds: TRectF;
-    _customSubInfoControlBounds: TRectF;
     _customTag: CObject;
 
     {$IFNDEF WEBASSEMBLY}[unsafe]{$ENDIF} _row     : IDCRow;
@@ -833,12 +831,8 @@ type
 
     function  get_InfoControl: IDCControl;
     procedure set_InfoControl(const Value: IDCControl);
-    function  get_CustomInfoControlBounds: TRectF;
-    procedure set_CustomInfoControlBounds(const Value: TRectF);
     function  get_SubInfoControl: IDCControl;
     procedure set_SubInfoControl(const Value: IDCControl);
-    function  get_CustomSubInfoControlBounds: TRectF;
-    procedure set_CustomSubInfoControlBounds(const Value: TRectF);
 
     function  get_Data: CObject; virtual;
     procedure set_Data(const Value: CObject); virtual;
@@ -1046,7 +1040,7 @@ begin
   var currentClmns := _treeLayout.FlatColumns;
   var clmn: IDCTreeLayoutColumn;
   for clmn in currentClmns do
-    if clmn.ContainsData = TColumnContainsData.Unknown then
+    if (clmn.ContainsData = TColumnContainsData.Unknown) then
     begin
       clmn.UpdateColumnContainsData(TColumnContainsData.No, nil);
       _treeLayout.ForceRecalc;
@@ -4061,6 +4055,8 @@ begin
         var ctrlData := GetCellControlData(Cell);
         if ctrlData <> nil then
           flatColumn.UpdateColumnContainsData(TColumnContainsData.Yes, ctrlData)
+        else if (Cell.Column.InfoControlClass = TInfoControlClass.Custom) and (Cell.InfoControl <> nil) then
+          flatColumn.UpdateColumnContainsData(TColumnContainsData.Yes, ctrlData);
       end;
     end;
 
@@ -4088,10 +4084,18 @@ begin
   begin
     Result := 0;
     if Cell.InfoControl <> nil then
-      Result := Cell.InfoControl.Width + (2*_cellLeftRightPadding);
+    begin
+      if Cell.Column.InfoControlClass <> TInfoControlClass.Custom then
+        Result := Cell.InfoControl.Width + (2*_cellLeftRightPadding) else
+        Result := Cell.InfoControl.Width + Cell.InfoControl.Margins.Left + Cell.InfoControl.Margins.Right;
+    end;
 
     if Cell.SubInfoControl <> nil then
-      Result := CMath.Max(Result, Cell.SubInfoControl.Width + (2*_cellLeftRightPadding));
+    begin
+      if Cell.Column.SubInfoControlClass <> TInfoControlClass.Custom then
+        Result := CMath.Max(Result, Cell.SubInfoControl.Width + (2*_cellLeftRightPadding)) else
+        Result := CMath.Max(Result, Cell.SubInfoControl.Width + Cell.SubInfoControl.Margins.Left + Cell.SubInfoControl.Margins.Right);
+    end;
 
     if Result = 0 then
     begin
@@ -4158,21 +4162,19 @@ begin
   try
     var ctrl: IDCControl;
     var infoCtrlClass: TInfoControlClass;
-    var bounds: TRectF;
 
     if not GoSub then begin
       ctrl := Cell.InfoControl;
       infoCtrlClass := Cell.Column.InfoControlClass;
-      bounds := Cell.CustomInfoControlBounds;
     end else begin
       ctrl := Cell.SubInfoControl;
       infoCtrlClass := Cell.Column.SubInfoControlClass;
-      bounds := Cell.CustomSubInfoControlBounds;
     end;
 
     if Cell.Column.Visualisation.IgnoreHeightByRowCalculation or (ctrl = nil) or not ctrl.Visible then
       Exit(0);
 
+    var bounds := RectF(0, 0, ctrl.Width, ctrl.Height);
     if not bounds.IsEmpty then
       Exit(bounds.Height);
 
@@ -5493,40 +5495,36 @@ begin
 
   if validSub then
   begin
-    if Cell.CustomSubInfoControlBounds.IsEmpty then
+    if not Cell.IsHeaderCell and (Cell.Column.SubInfoControlClass = TInfoControlClass.CheckBox) then
     begin
-      if not Cell.IsHeaderCell and (Cell.Column.SubInfoControlClass = TInfoControlClass.CheckBox) then
-      begin
-        Cell.SubInfoControl.Width := 16;
-        Cell.SubInfoControl.Position.X := spaceUsed + _treeControl.CellLeftRightPadding + ((availableCtrlWidth - Cell.SubInfoControl.Width) / 2);
-      end else
-      begin
-        Cell.SubInfoControl.Width := availableCtrlWidth;
-        Cell.SubInfoControl.Position.X := spaceUsed + _treeControl.CellLeftRightPadding + Cell.SubInfoControl.Margins.Left;
-      end;
-
-      heightSet := False;
+      Cell.SubInfoControl.Width := 16;
+      Cell.SubInfoControl.Position.X := spaceUsed + _treeControl.CellLeftRightPadding + ((availableCtrlWidth - Cell.SubInfoControl.Width) / 2);
+    end
+    else if Cell.IsHeaderCell or (Cell.Column.SubInfoControlClass <> TInfoControlClass.Custom) then
+    begin
+      Cell.SubInfoControl.Width := availableCtrlWidth;
+      Cell.SubInfoControl.Position.X := spaceUsed + _treeControl.CellLeftRightPadding + Cell.SubInfoControl.Margins.Left;
     end else
-      Cell.SubInfoControl.BoundsRect := Cell.CustomSubInfoControlBounds;
+      Cell.SubInfoControl.Position.X := spaceUsed + Cell.SubInfoControl.Margins.Left;
+
+    heightSet := False;
   end;
 
   if validMain then
   begin
-    if Cell.CustomInfoControlBounds.IsEmpty then
+    if not Cell.IsHeaderCell and (Cell.Column.InfoControlClass = TInfoControlClass.CheckBox) then
     begin
-      if not Cell.IsHeaderCell and (Cell.Column.InfoControlClass = TInfoControlClass.CheckBox) then
-      begin
-        Cell.InfoControl.Width := 16;
-        Cell.InfoControl.Position.X := spaceUsed + _treeControl.CellLeftRightPadding + ((availableCtrlWidth - Cell.InfoControl.Width) / 2);
-      end else
-      begin
-        Cell.InfoControl.Width := get_Width - spaceUsed - (2*_treeControl.CellLeftRightPadding);
-        Cell.InfoControl.Position.X := spaceUsed + _treeControl.CellLeftRightPadding + Cell.InfoControl.Margins.Left;
-      end;
-
-      heightSet := False;
+      Cell.InfoControl.Width := 16;
+      Cell.InfoControl.Position.X := spaceUsed + _treeControl.CellLeftRightPadding + ((availableCtrlWidth - Cell.InfoControl.Width) / 2);
+    end
+    else if Cell.IsHeaderCell or (Cell.Column.InfoControlClass <> TInfoControlClass.Custom) then
+    begin
+      Cell.InfoControl.Width := get_Width - spaceUsed - (2*_treeControl.CellLeftRightPadding);
+      Cell.InfoControl.Position.X := spaceUsed + _treeControl.CellLeftRightPadding + Cell.InfoControl.Margins.Left;
     end else
-      Cell.InfoControl.BoundsRect := Cell.CustomInfoControlBounds;
+      Cell.InfoControl.Position.X := spaceUsed + Cell.InfoControl.Margins.Left;
+
+    heightSet := False;
   end;
 
   if heightSet then
@@ -6332,16 +6330,6 @@ begin
   Result := _backgroundControl;
 end;
 
-function TDCTreeCell.get_CustomInfoControlBounds: TRectF;
-begin
-  Result := _customInfoControlBounds;
-end;
-
-function TDCTreeCell.get_CustomSubInfoControlBounds: TRectF;
-begin
-  Result := _customSubInfoControlBounds;
-end;
-
 function TDCTreeCell.get_CustomTag: CObject;
 begin
   Result := _customTag;
@@ -6421,16 +6409,6 @@ begin
     _backgroundControl.AsControl.Free;
 
   _backgroundControl := Value;
-end;
-
-procedure TDCTreeCell.set_CustomInfoControlBounds(const Value: TRectF);
-begin
-  _customInfoControlBounds := Value;
-end;
-
-procedure TDCTreeCell.set_CustomSubInfoControlBounds(const Value: TRectF);
-begin
-  _customSubInfoControlBounds := Value;
 end;
 
 procedure TDCTreeCell.set_CustomTag(const Value: CObject);
