@@ -46,14 +46,14 @@ type
     // ICustomTypeDescriptor
     function  GetProperties(const AType: &Type) : PropertyInfoArray;
     function  GetCustomProperties(const AType: &Type) : PropertyInfoArray;
-    function  PropertyByName(const AType: &Type; const Name: string) : _PropertyInfo;
+    function  PropertyByName(const AType: &Type; const Name: String) : _PropertyInfo;
 
     function  get_OnTypePropertiesChanged: TypePropertiesChangedEventHandler;
 
     function  GetPropertyDescriptorType(const AType: &Type) : &Type;
 
     {$IFDEF DOTNET}
-    event OnTypePropertiesChanged: TypePropertiesChangedEventHandler delegate _onTypePropertiesChanged; 
+    event OnTypePropertiesChanged: TypePropertiesChangedEventHandler delegate _onTypePropertiesChanged;
     {$ENDIF}
   public
     {$IFDEF DELPHI}
@@ -405,5 +405,3 @@ finalization
   TExtensionManager.FinalizeGlobalExtensionManager;
 
 end.
-
-

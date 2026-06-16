@@ -5,9 +5,21 @@ interface
 {$SCOPEDENUMS ON}
 
 uses
+  {$IFNDEF WEBASSEMBLY}
   System.Classes, System.Math, System.SysUtils, System.Generics.Collections, System.Types, System.UITypes,
   System.Messaging, FMX.Types, FMX.Controls, FMX.Graphics, FMX.Platform,
-  FMX.Layouts, FMX.ScrollControl.ControlClasses.Intf;
+  FMX.Layouts, 
+  {$ELSE}
+  Wasm.System.Classes,
+  Wasm.System.Types,
+  Wasm.System.UITypes,
+  Wasm.FMX.Types,
+  Wasm.FMX.Controls,
+  Wasm.FMX.Layouts,
+  Wasm.FMX.Graphics,
+  {$ENDIF}
+  System_,
+  FMX.ScrollControl.ControlClasses.Intf;
 
 type
   TAdaptableBitmapLayout = class(TLayout)
@@ -20,11 +32,16 @@ type
     _resetBufferRequired: Boolean;
     _creatingBitmap: Boolean;
     _stylesPreparedForBuffer: Boolean;
+    {$IFNDEF WEBASSEMBLY}
     _styleChangedId: TMessageSubscriptionId;
+    {$ENDIF}
 
     function  get_UseBuffering: Boolean;
     procedure set_UseBuffering(const Value: Boolean); virtual;
+
+    {$IFNDEF WEBASSEMBLY}
     procedure StyleChangedHandler(const Sender: TObject; const Msg: System.Messaging.TMessage);
+    {$ENDIF}
 
     function  NeedsBitmapReload: Boolean;
     procedure LoadBitmap;
@@ -105,7 +122,11 @@ type
 implementation
 
 uses
+  {$IFNDEF WEBASSEMBLY}
   FMX.Forms, FMX.Text, System.Rtti, System.Math.Vectors, ADato.TraceEvents.intf;
+  {$ELSE}
+  Wasm.FMX.Forms;
+  {$ENDIF}
 
 { TBackgroundControl }
 
@@ -314,12 +335,16 @@ begin
   _resetBufferRequired := True;
   _stylesPreparedForBuffer := False;
   _originalBackgroundColorIsNull := True;
+  {$IFNDEF WEBASSEMBLY}
   _styleChangedId := TMessageManager.DefaultManager.SubscribeToMessage(TStyleChangedMessage, StyleChangedHandler);
+  {$ENDIF}
 end;
 
 destructor TAdaptableBitmapLayout.Destroy;
 begin
+  {$IFNDEF WEBASSEMBLY}
   TMessageManager.DefaultManager.Unsubscribe(TStyleChangedMessage, _styleChangedId);
+  {$ENDIF}
   FreeAndNil(_bitmap);
   inherited;
 end;
@@ -490,6 +515,7 @@ begin
   Result := not get_UseBuffering or _creatingBitmap;
 end;
 
+{$IFNDEF WEBASSEMBLY}
 procedure TAdaptableBitmapLayout.StyleChangedHandler(const Sender: TObject; const Msg: System.Messaging.TMessage);
 var
   Message: TStyleChangedMessage;
@@ -502,6 +528,7 @@ begin
   _stylesPreparedForBuffer := False;
   ResetBuffer;
 end;
+{$ENDIF}
 
 procedure TAdaptableBitmapLayout.ResetBuffer;
 begin

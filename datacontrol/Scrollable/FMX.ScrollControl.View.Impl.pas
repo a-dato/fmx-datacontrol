@@ -35,7 +35,11 @@ type
 
   CCustomComparableDataList = class(CComparableList<CObject>, ICustomComparableDataList)
   private
+    {$IFDEF WEBASSEMBLY}
+    _orgDataList: IList;
+    {$ELSE}
     [weak] _orgDataList: IList;
+    {$ENDIF}
 
     class function ConvertDataListToObjectList(const DataList: IList): List<CObject>;
   protected
@@ -165,13 +169,14 @@ uses
   System.Math,
   FMX.Objects,
   FMX.Types,
+  System.Generics.Defaults, 
   System.Generics.Collections,
   {$ELSE}
   Wasm.System.Math,
   Wasm.FMX.Objects,
   Wasm.FMX.Types,
   {$ENDIF}
-  System.Generics.Defaults, ADato.Data.DataModel.impl;
+  ADato.Data.DataModel.impl;
 
 { TDataViewList }
 

@@ -566,9 +566,9 @@ begin
   if _properties = nil then
     Exit;
 
-  SetLength(_data, Length(_properties));
+  SetLength(_data, length(_properties));
 
-  for i := 0 to High(_properties) do
+  for i := 0 to high(_properties) do
     _data[i] := _properties[i].GetValue(_target, []);
 end;
 
@@ -611,11 +611,11 @@ end;
 
 procedure TRemoteQueryControllerSupport.AddQueryController(const Value: IInterface);
 begin
-  SetLength(_QueryControllers, Length(_QueryControllers) + 1);
+  SetLength(_QueryControllers, length(_QueryControllers) + 1);
   {$IFDEF DELPHI}
   _QueryControllers[High(_QueryControllers)] := Pointer(Value);
   {$ELSE}
-  _QueryControllers[High(_QueryControllers)] := Value;
+  _QueryControllers[high(_QueryControllers)] := Value;
   {$ENDIF}
 end;
 
@@ -624,7 +624,7 @@ var
   i, y: Integer;
 
 begin
-  for i := 0 to High(_QueryControllers) do
+  for i := 0 to high(_QueryControllers) do
   begin
     {$IFDEF DELPHI}
     if _QueryControllers[i] = Pointer(Value) then
@@ -637,15 +637,15 @@ begin
     {$ELSE}
     if _QueryControllers[i] = Value then
     begin
-      for y := i to High(_QueryControllers) - 1 do
+      for y := i to high(_QueryControllers) - 1 do
         _QueryControllers[y] := _QueryControllers[y+1];
-      SetLength(_QueryControllers, High(_QueryControllers));
+      SetLength(_QueryControllers, high(_QueryControllers));
       Exit;
     end;
     {$ENDIF}
   end;
 
-  Assert(False, 'QueryController could not be found');
+  assert(False, 'QueryController could not be found');
 end;
 //
 function TRemoteQueryControllerSupport.QueryInterface(const IID: TGUID; out Obj): HResult;
@@ -653,7 +653,7 @@ const
   {$IFDEF DELPHI}
   GUID_IInterfaceComponentReference: TGUID = '{E28B1858-EC86-4559-8FCD-6B4F824151ED}';
   {$ELSE}
-  GUID_IInterfaceComponentReference: TGUID = TGuid.Parse('{E28B1858-EC86-4559-8FCD-6B4F824151ED}');
+  GUID_IInterfaceComponentReference: TGUID = TGUID.Parse('{E28B1858-EC86-4559-8FCD-6B4F824151ED}');
   {$ENDIF}
 
 var
@@ -684,7 +684,7 @@ end;
 
 function TRemoteQueryControllerSupport.DotNetQueryInterface<T>: T;
 begin
-  Result := Default(T);
+  Result := default(T);
 
   {$IFDEF LYNXWEB}
   for item in _QueryControllers do
@@ -696,5 +696,3 @@ begin
 end;
 
 end.
-
-

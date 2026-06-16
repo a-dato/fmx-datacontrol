@@ -80,19 +80,19 @@ type
     _innerStrokeColor: TAlphaColor;
 
     // ICaption
-    function  GetText: string;
-    procedure SetText(const Value: string); virtual;
+    function  GetText: String;
+    procedure SetText(const Value: String); virtual;
     function  TextStored: Boolean;
 
     function  get_Polygon: TPolygon;
     function  get_TagType: TTagType;
     procedure set_TagType(const Value: TTagType);
-    function  get_SubText: string;
-    procedure set_SubText(const Value: string);
+    function  get_SubText: String;
+    procedure set_SubText(const Value: String);
     function  get_SwabTextSubText: Boolean;
     procedure set_SwabTextSubText(const Value: Boolean);
-    function  get_ImageName: string;
-    procedure set_ImageName(const Value: string);
+    function  get_ImageName: String;
+    procedure set_ImageName(const Value: String);
     function  get_MaxWidth: Integer;
     procedure set_MaxWidth(const Value: Integer);
 
@@ -146,11 +146,11 @@ type
     procedure PaintBitmap;
 
   public
-    property Text: string read GetText write SetText;
-    property SubText: string read get_SubText write set_SubText;
+    property Text: String read GetText write SetText;
+    property SubText: String read get_SubText write set_SubText;
     property SwabTextSubText: Boolean read get_SwabTextSubText write set_SwabTextSubText default False;
     property TagType: TTagType read get_TagType;
-    property ImageName: string read get_ImageName write set_ImageName;
+    property ImageName: String read get_ImageName write set_ImageName;
     property Config: TFastButtonConfig read _config;
     property MaxWidth: Integer read get_MaxWidth write set_MaxWidth default 0;
   end;
@@ -162,11 +162,11 @@ type
 
   TFastButtonConfig = class(TCollectionItem)
   strict private
-    _id: string;
-    _text: string;
-    _subText: string;
+    _id: String;
+    _text: String;
+    _subText: String;
     _swabTextSubText: Boolean;
-    _imageName: string;
+    _imageName: String;
     _imageSizeInt: Single;
     _imagePosition: TImagePosition;
     _imagePositionMargin: Integer;
@@ -184,14 +184,14 @@ type
     procedure set_Innertagscontrol(const Value: TCustomADatoTagRunTimeControl);
 
   protected
-    procedure set_Imagename(const Value: string);
+    procedure set_Imagename(const Value: String);
     procedure set_TagType(const Value: TTagType);
-    procedure SetText(const Value: string);
-    procedure set_SubText(const Value: string);
+    procedure SetText(const Value: String);
+    procedure set_SubText(const Value: String);
     procedure set_ImagePosition(const Value: TImagePosition);
     procedure set_ImageSizeInt(const Value: Single);
     procedure set_ImagePositionMargin(const Value: Integer);
-    function  get_SubText: string;
+    function  get_SubText: String;
     procedure set_DrawLineLeft(const Value: Boolean);
     procedure set_FontColor(const Value: TAlphaColor);
     procedure set_FontSize(const Value: Single); virtual;
@@ -213,12 +213,12 @@ type
     property ImageSizeInt: Single read _imageSizeInt write set_ImageSizeInt;
 
   published
-    property ID: string read _id write _id;
-    property Text: string read _text write SetText;
-    property SubText: string read get_SubText write set_SubText;
+    property ID: String read _id write _id;
+    property Text: String read _text write SetText;
+    property SubText: String read get_SubText write set_SubText;
     property SwabTextSubText: Boolean read _swabTextSubText write set_SwabTextSubText default False;
 
-    property Imagename: string read _imageName write set_Imagename;
+    property Imagename: String read _imageName write set_Imagename;
     property ImagePosition: TImagePosition read _imagePosition write set_ImagePosition default TImagePosition.Left;
     property ImagePositionMargin: Integer read _imagePositionMargin write set_ImagePositionMargin default 3;
 
@@ -339,7 +339,7 @@ implementation
 uses
   {$IFNDEF WEBASSEMBLY}
   System.Math,
-  System.Actions, 
+  System.Actions,
   FMX.Controls
   {$ELSE}
   Wasm.System.Math,
@@ -1684,5 +1684,3 @@ begin
 end;
 
 end.
-
-

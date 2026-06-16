@@ -8,13 +8,13 @@ interface
 
 uses
   {$IFDEF DELPHI}
-  System.TypInfo, 
+  System.TypInfo,
   System.SysUtils,
   {$ELSE}
   System.ComponentModel,
-  {$ENDIF}  
+  {$ENDIF}
   System_,
-  System.Collections, 
+  System.Collections,
   System.Collections.Generic
   {$IFDEF APP_PLATFORM}
   , App.PropertyDescriptor.intf
@@ -141,9 +141,9 @@ type
     function  ContextCanChange: Boolean;
 
     procedure Bind(const AProperty: _PropertyInfo; const ABinding: IPropertyBinding); overload;
-    procedure Bind(const PropName: string; const ABinding: IPropertyBinding); overload;
+    procedure Bind(const PropName: String; const ABinding: IPropertyBinding); overload;
     procedure Link(const AProperty: _PropertyInfo; const ABinding: IPropertyBinding); overload;
-    procedure Link(const PropName: string; const ABinding: IPropertyBinding); overload;
+    procedure Link(const PropName: String; const ABinding: IPropertyBinding); overload;
     procedure Unbind({const} ABinding: IPropertyBinding); overload;
     procedure Unbind; overload;
     function  CheckValueFromBoundProperty(const ABinding: IPropertyBinding; const Value: CObject) : Boolean;
@@ -345,5 +345,3 @@ end;
 {$ENDIF}
 
 end.
-
-
