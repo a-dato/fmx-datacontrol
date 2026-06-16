@@ -3,7 +3,9 @@
 interface
 
 uses
+  System_,
   {$IFNDEF WEBASSEMBLY}
+  System.Types,
   FMX.Controls,
   FMX.StdCtrls,
   FMX.Memo,
@@ -12,8 +14,10 @@ uses
   FMX.TextLayout,
   FMX.Layouts,
   FMX.Types,
-  FMX.Forms
+  FMX.Forms,
+  FMX.Ani
   {$ELSE}
+  Wasm.System.Types,
   Wasm.FMX.Controls,
   Wasm.FMX.StdCtrls,
   Wasm.FMX.Memo,
@@ -22,12 +26,13 @@ uses
   Wasm.FMX.TextLayout,
   Wasm.FMX.Layouts,
   Wasm.FMX.Types,
-  Wasm.FMX.Forms
+  Wasm.FMX.Forms,
+  Wasm.FMX.Ani
   {$ENDIF}
-  , System.Types, FMX.Ani, System_;
+  ;
 
-  function  TextControlWidth(const TextControl: TControl; const Settings: TTextSettings; const Text: string; MinWidth: Single = -1; MaxWidth: Single = -1; TextHeight: Single = -1): Single;
-  function  TextControlHeight(const TextControl: TControl; const Settings: TTextSettings; const Text: string; MinHeight: Single = -1; MaxHeight: Single = -1; TextWidth: Single = -1): Single;
+  function  TextControlWidth(const TextControl: TControl; const Settings: TTextSettings; const Text: String; MinWidth: Single = -1; MaxWidth: Single = -1; TextHeight: Single = -1): Single;
+  function  TextControlHeight(const TextControl: TControl; const Settings: TTextSettings; const Text: String; MinHeight: Single = -1; MaxHeight: Single = -1; TextWidth: Single = -1): Single;
   function  MemoTextHeight(const Memo: TMemo; MinHeight: Single = -1; MaxHeight: Single = -1): Single;
 
   procedure ScrollControlInView(const Control: TControl; const ScrollBox: TCustomScrollBox; ControlMargin: Single = 10);
@@ -330,5 +335,3 @@ begin
 end;
 
 end.
-
-

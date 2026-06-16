@@ -10,6 +10,7 @@ uses
   FMX.Objects,
   System.UITypes,
   System.Types,
+  FMX.Types,
   FMX.Graphics,
   {$ELSE}
   Wasm.FMX.Controls,
@@ -18,6 +19,7 @@ uses
   Wasm.FMX.Objects,
   Wasm.System.UITypes,
   Wasm.System.Types,
+  Wasm.FMX.Types,
   {$ENDIF}
   System_,
   FMX.ScrollControl.WithRows.Intf,
@@ -28,7 +30,7 @@ uses
   FMX.ScrollControl.Impl, ADato.Data.DataModel.intf,
   ADato.ObjectModel.List.intf, ADato.ObjectModel.intf,
   FMX.ScrollControl.View.Intf, FMX.ScrollControl.Events,
-  System.Diagnostics, FMX.ScrollControl.ControlClasses.Intf, FMX.Types;
+  System.Diagnostics, FMX.ScrollControl.ControlClasses.Intf;
 
 type
   TScrollControlWithRows = class(TScrollControl, IRowsControl)
@@ -178,7 +180,11 @@ type
     _masterSynchronizerIndex: Integer;
 
     _hoverRect: TRectangle;
+    {$IFDEF WEBASSEMBLY}
+    _hoveredRow: IDCRow;
+    {$ELSE}
     [weak] _hoveredRow: IDCRow;
+    {$ENDIF}
     _resetViewRec: TResetViewRec;
     _canDragDrop: Boolean;
     _dragObject: CObject;
@@ -500,7 +506,11 @@ type
 
   TRowSelectionInfo = class(TInterfacedObject, IRowSelectionInfo)
   protected
+    {$IFDEF WEBASSEMBLY}
+    _rowsControl: IRowsControl;
+    {$ELSE}
     [unsafe] _rowsControl: IRowsControl;
+    {$ENDIF}
 
     _focusedItem: TRowDataItemInfo;
     _eventTrigger: TSelectionEventTrigger;
@@ -624,6 +634,8 @@ uses
   System.Rtti, 
   FMX.Forms,
   FMX.ActnList,
+  FMX.Layouts, 
+  FMX.Ani,
   {$ELSE}
   Wasm.FMX.Types,
   Wasm.FMX.StdCtrls,
@@ -633,11 +645,13 @@ uses
   Wasm.FMX.Forms,
   Wasm.FMX.Graphics,
   Wasm.FMX.ActnList,
+  Wasm.FMX.Layouts, 
+  Wasm.FMX.Ani,
   {$ENDIF}
   FMX.ScrollControl.ControlClasses,
   FMX.ScrollControl.View.Impl, FMX.ControlCalculations,
   ADato.TraceEvents.intf, FMX.ScrollControl.SortAndFilter,
-  System.ComponentModel, FMX.Layouts, FMX.Ani;
+  System.ComponentModel;
 
 
 { TScrollControlWithRows }

@@ -67,7 +67,7 @@ type
   end;
 
   TControlBinding<T: TControl> = class;
-  TControlBindingCreator = reference to function(const Control: TFMXObject): IPropertyBinding;
+  TControlBindingCreator = reference to function(const Control: TFmxObject): IPropertyBinding;
 
   TPropertyBinding = class(TBaseInterfacedObject, IPropertyBinding)
   protected
@@ -105,7 +105,7 @@ type
     function TryGetPropertyDescriptor(out ADescriptor: IPropertyDescriptor) : Boolean;
     {$ENDIF}
   public
-    class function  CreateBindingByControl(const Control: TFMXObject): IPropertyBinding;
+    class function  CreateBindingByControl(const Control: TFmxObject): IPropertyBinding;
     class procedure RegisterClassBinding(const ControlClass: TClass; const ControlBindingCreator: TControlBindingCreator);
   end;
 
@@ -212,7 +212,7 @@ type
     procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject); override;
 
   public
-    constructor Create(AControl: TNumberbox); reintroduce;
+    constructor Create(AControl: TNumberBox); reintroduce;
     destructor Destroy; override;
   end;
 
@@ -232,7 +232,7 @@ type
     destructor Destroy; override;
   end;
 
-  TComboBoxControlBinding = class(TControlBinding<TCombobox>)
+  TComboBoxControlBinding = class(TControlBinding<TComboBox>)
   protected
     {$IFDEF APP_PLATFORM}
     _pickList: IList;
@@ -246,14 +246,14 @@ type
     {$ENDIF}
 
   public
-    constructor Create(AControl: TCombobox); reintroduce;
+    constructor Create(AControl: TComboBox); reintroduce;
     destructor Destroy; override;
   end;
 
   TComboEditControlBinding = class(TControlBinding<TComboEdit>)
   protected
     _lastItemIndex: Integer;
-    _lastItemText: string;
+    _lastItemText: String;
 
     function  GetValue: CObject; override;
     procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject); override;
@@ -312,7 +312,7 @@ type
 
   TDateControlBinding = class(TControlBinding<TDateEdit>)
   protected
-    _defaultFormat: string;
+    _defaultFormat: String;
     function  GetValue: CObject; override;
     procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject); override;
   public
@@ -322,7 +322,7 @@ type
 
   TTimeControlBinding = class(TControlBinding<TTimeEdit>)
   protected
-    _defaultFormat: string;
+    _defaultFormat: String;
     function  GetValue: CObject; override;
     procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject); override;
   public
@@ -1797,5 +1797,3 @@ initialization
     function(const Control: TFMXObject): IPropertyBinding begin Result := TComboColorBoxControlBinding.Create(TComboColorBox(Control)) end);
   {$ENDIF}
 end.
-
-

@@ -1,4 +1,4 @@
-unit FMX.ScrollControl.ControlClasses;
+﻿unit FMX.ScrollControl.ControlClasses;
 
 interface
 
@@ -120,7 +120,7 @@ type
     procedure set_ShowClearButton(const Value: Boolean);
 
     procedure Dispose; override;
-    function  DoFormatItem(const Item: CObject; out Value: string) : Boolean; virtual;
+    function  DoFormatItem(const Item: CObject; out Value: String) : Boolean; virtual;
     procedure DoMouseClick(Button: TMouseButton; Shift: TShiftState; X, Y: Single); virtual;
     procedure DoKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState); virtual;
     procedure DoKeyUp(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState); virtual;
@@ -214,27 +214,27 @@ type
     function  get_Value: CObject; override;
     procedure set_Value(const Value: CObject); override;
 
-    function  ComboItems : List<string>; virtual;
+    function  ComboItems : List<String>; virtual;
     function  ComboIsDroppedDown : Boolean; virtual;
     procedure ComboClear; virtual;
-    procedure ComboAdd(const str: string); virtual;
+    procedure ComboAdd(const str: String); virtual;
 
     procedure CheckUpdateComboPopupWidth; virtual;
-    function  ComboUpdateItems(const Items: List<string>; CurrentValue: CObject) : Boolean; virtual;
+    function  ComboUpdateItems(const Items: List<String>; CurrentValue: CObject) : Boolean; virtual;
 
     procedure DoMouseClick(Button: TMouseButton; Shift: TShiftState; X, Y: Single); override;
     procedure DoKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState); override;
     procedure DoKeyUp(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState); override;
 
-    function  MatchText(const Text: string; const Search: string) : Boolean;
-    function  MatchTextIndex(const Text: string; const Search: string) : Integer;
-    function  FindBestMatch(const Text: string) : Integer; overload;
-    function  FindBestMatch(const Items: List<string>; const Text: string; var Pos: Integer) : Integer; overload;
+    function  MatchText(const Text: String; const Search: String) : Boolean;
+    function  MatchTextIndex(const Text: String; const Search: String) : Integer;
+    function  FindBestMatch(const Text: String) : Integer; overload;
+    function  FindBestMatch(const Items: List<String>; const Text: String; var Pos: Integer) : Integer; overload;
 
     function  ActivePickList: IList;
     function  IsFiltered: Boolean;
     procedure DropDown; virtual;
-    function  DoFilterItem(const Item: CObject; const ItemText, Filter: string) : Boolean; virtual;
+    function  DoFilterItem(const Item: CObject; const ItemText, Filter: String) : Boolean; virtual;
     procedure RefreshItems;
     procedure DoBeforePopup;
     procedure UpdateSelection;
@@ -402,7 +402,7 @@ implementation
 uses
   {$IFNDEF WEBASSEMBLY}
   System.SysUtils,
-  FMX.ListBox, 
+  FMX.ListBox,
   System.Math
   {$ELSE}
   Wasm.System.SysUtils,
@@ -1734,5 +1734,3 @@ finalization
   DataControlClassFactory := nil;
 
 end.
-
-

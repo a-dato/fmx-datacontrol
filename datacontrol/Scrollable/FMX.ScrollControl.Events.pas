@@ -6,11 +6,15 @@ uses
   {$IFNDEF WEBASSEMBLY}
   System.Classes,
   System.Generics.Defaults,
-  FMX.Controls,
   System.ComponentModel,
   System.Types,
+  System.SysUtils,
+  FMX.Controls,
+  FMX.Types,
   {$ELSE}
+  Wasm.System.SysUtils,
   Wasm.FMX.Controls,
+  Wasm.FMX.Types,
   Wasm.System.Types,
   {$ENDIF}
   System_,
@@ -18,7 +22,7 @@ uses
   ADato.ComponentModel,
   FMX.ScrollControl.WithCells.Intf,
   FMX.ScrollControl.WithRows.Intf, System.Collections.Generic,
-  FMX.ScrollControl.ControlClasses.Intf, FMX.Types, System.SysUtils;
+  FMX.ScrollControl.ControlClasses.Intf;
 
 type
   TDataControlEventRegistration = class
@@ -317,8 +321,8 @@ type
   SelectionChangedEvent = procedure(const Sender: TObject; e: DCSelectionEvent) of object;
 
   GetColumnComparerEvent  = procedure(const Sender: TObject; e: DCColumnComparerEventArgs) of object;
-  TOnCompareRows = function (Sender: TObject; const Left, Right: CObject): integer of object;
-  TOnCompareColumnCells = function(Sender: TObject; const TreeColumn: IDCTreeColumn; const Left, Right: CObject): integer of object;
+  TOnCompareRows = function (Sender: TObject; const Left, Right: CObject): Integer of object;
+  TOnCompareColumnCells = function(Sender: TObject; const TreeColumn: IDCTreeColumn; const Left, Right: CObject): Integer of object;
 
   RowLoadedEvent  = procedure (const Sender: TObject; e: DCRowEventArgs) of object;
   RowHoverEvent = procedure (const Sender: TObject; e: DCHoverRowEventArgs) of object;
@@ -619,11 +623,3 @@ begin
 end;
 
 end.
-
-
-
-
-
-
-
-

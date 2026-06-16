@@ -20,7 +20,7 @@ type
 
   TDoLog = procedure(const Message: CString) of object;
   TOnViewportPositionChange = procedure(Sender: TObject; const OldViewportPosition, NewViewportPosition: TPointF; const ContentSizeChanged: Boolean) of object;
-  TPointFArray = array of CDatetime;
+  TPointFArray = array of CDateTime;
 
   IRefreshControl = interface
     ['{601E6614-EED5-4ACF-8032-9971E71C8BA1}']
@@ -84,5 +84,3 @@ begin
 end;
 
 end.
-
-

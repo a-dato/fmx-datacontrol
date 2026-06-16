@@ -349,6 +349,7 @@ uses
   FMX.ComboEdit,
   System.Math, 
   FMX.Memo,
+  FMX.Text, 
   FMX.StdCtrls, 
   FMX.Graphics, 
   FMX.ActnList,
@@ -364,6 +365,7 @@ uses
   Wasm.FMX.ComboEdit,
   Wasm.System.Math,
   Wasm.FMX.Memo,
+  Wasm.FMX.Text, 
   Wasm.FMX.StdCtrls,
   Wasm.FMX.Graphics,
   Wasm.FMX.ActnList,
@@ -374,7 +376,8 @@ uses
   {$ENDIF}
   FMX.ControlCalculations,
   ADato.Collections.Specialized,
-  System.Reflection, FMX.Text, FMX.ScrollControl.ControlClasses,
+  System.Reflection, 
+  FMX.ScrollControl.ControlClasses,
   ADato.TraceEvents.intf;
 
 { TScrollControlWithEditableCells }

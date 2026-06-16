@@ -66,9 +66,14 @@ type
 implementation
 
 uses
-  ADato.Data.DataModel.intf, FMX.Types, System.Collections.Generic,
+  {$IFNDEF WEBASSEMBLY}
+  Fmx.Types,
+  {$ELSE}
+  Wasm.Fmx.Types,
+  {$ENDIF}
+  ADato.Data.DataModel.intf, 
+  System.Collections.Generic,
   FMX.ScrollControl.WithRows.Intf;
-
 
 { TDATACONTROL}
 

@@ -91,8 +91,8 @@ type
 //    procedure set_CalcAsAutoWidth(const Value: Boolean);
     function  get_MaxWidth: Integer;
     procedure set_MaxWidth(const Value: Integer);
-    function  GetText: string;
-    procedure SetText(const Value: string);
+    function  GetText: String;
+    procedure SetText(const Value: String);
 
     function TextWidth: Single;
     function TextHeight: Single;
@@ -101,7 +101,7 @@ type
 
     property CalcAsAutoHeight: Boolean read get_CalcAsAutoHeight write set_CalcAsAutoHeight;
     property MaxWidth: Integer read get_MaxWidth write set_MaxWidth;
-    property Text: string read GetText write SetText;
+    property Text: String read GetText write SetText;
   end;
 
   TCheckState = (Unchecked, Checked, Grayed);
@@ -132,7 +132,7 @@ type
   end;
 
   TFormatItem = function(const Item: CObject): CString of object;
-  TFilterItem = function(const Item: CObject; const ItemText, Filter: string) : Boolean of object;
+  TFilterItem = function(const Item: CObject; const ItemText, Filter: String) : Boolean of object;
   TComboBeforePopup = procedure(var APicklist: IList) of object;
 
   // Interface that handles communication between a cell editor inside the tree control
@@ -200,7 +200,7 @@ type
     function  get_Text: CString;
     procedure set_Text(const Value: CString);
 
-    function  FindBestMatch(const Text: string) : Integer;
+    function  FindBestMatch(const Text: String) : Integer;
     procedure RefreshItems;
     procedure DropDown;
 
@@ -287,5 +287,3 @@ type
 implementation
 
 end.
-
-

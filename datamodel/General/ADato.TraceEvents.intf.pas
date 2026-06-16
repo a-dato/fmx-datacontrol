@@ -8,7 +8,7 @@ interface
 
 uses
   {$IFNDEF WEBASSEMBLY}
-  System.Classes, 
+  System.Classes,
   System.SysUtils,
   {$ELSE}
   Wasm.System.Classes,
@@ -30,12 +30,12 @@ type
 
   IEventTracer = interface
     ['{4BC8E544-161B-418A-AB6F-6F8FCEA44F27}']
-    function  IsActive(const AGroup: string; const ALevel: TLevel = TLevel.Normal): Boolean;
+    function  IsActive(const AGroup: String; const ALevel: TLevel = TLevel.Normal): Boolean;
 
     function  GetHasException: Boolean;
     procedure SetHasException(const Value: Boolean);
-    function  GetFilename: string;
-    function  GetPath: string;
+    function  GetFilename: String;
+    function  GetPath: String;
     function  GetGroups: TStringList;
     function  GetLevel: TLevel;
     procedure SetLevel(const Value: TLevel);
@@ -44,24 +44,24 @@ type
     function  GetWriteToStdOut: Boolean;
     procedure SetWriteToStdOut(const Value: Boolean);
 
-    function  StartGroup(const AGroup: string; AOptions: TTraceOptions; PerThreadLogging: Boolean = False) : Boolean;
-    function  StopGroup(const AGroup: string) : Boolean;
-    procedure EndGroupFile(const AGroup: string; const DeleteFile: Boolean = False);
+    function  StartGroup(const AGroup: String; AOptions: TTraceOptions; PerThreadLogging: Boolean = False) : Boolean;
+    function  StopGroup(const AGroup: String) : Boolean;
+    procedure EndGroupFile(const AGroup: String; const DeleteFile: Boolean = False);
 
-    procedure TraceMessage(const Group: string; const AMessage: string; const Level: TLevel = TLevel.Normal); overload;
-    procedure TraceMessage(const Group: string; const Func: TFunc<string>; const Level: TLevel = TLevel.Normal); overload;
-    procedure TraceException(const Group: string; const Func: TFunc<string>; const Level: TLevel = TLevel.Normal); overload;
+    procedure TraceMessage(const Group: String; const AMessage: String; const Level: TLevel = TLevel.Normal); overload;
+    procedure TraceMessage(const Group: String; const Func: TFunc<String>; const Level: TLevel = TLevel.Normal); overload;
+    procedure TraceException(const Group: String; const Func: TFunc<String>; const Level: TLevel = TLevel.Normal); overload;
     procedure StopTracing(CleanupTempFile: Boolean);
 
-    function  StartTimer(const Group: string; const TimerID: string; const Level: TLevel = TLevel.Normal) : Boolean;
-    procedure PauseTimer(const Group: string; const TimerID: string);
-    procedure StopTimer(const Group: string; const TimerID: string);
-    procedure StopTimers(const Group: string);
+    function  StartTimer(const Group: String; const TimerID: String; const Level: TLevel = TLevel.Normal) : Boolean;
+    procedure PauseTimer(const Group: String; const TimerID: String);
+    procedure StopTimer(const Group: String; const TimerID: String);
+    procedure StopTimers(const Group: String);
 
     property UseCsvFormatting: Boolean read get_UseCsvFormatting write set_UseCsvFormatting;
     property HasException: Boolean read GetHasException write SetHasException;
-    property Filename: string read GetFilename;
-    property Path: string read GetPath;
+    property Filename: String read GetFilename;
+    property Path: String read GetPath;
     property Groups: TStringList read GetGroups;
     property Level: TLevel read GetLevel write SetLevel;
     property WriteToStdOut: Boolean read GetWriteToStdOut write SetWriteToStdOut;
@@ -74,15 +74,15 @@ type
 
     var _HasException: Boolean;
 
-    function  FormatTraceMessage(const Group, AMessage: string) : string; virtual;
-    procedure TraceMessageInternal(const Group: string; const AMessage: string; const Level: TLevel); virtual;
+    function  FormatTraceMessage(const Group, AMessage: String) : String; virtual;
+    procedure TraceMessageInternal(const Group: String; const AMessage: String; const Level: TLevel); virtual;
 
-    function  IsActive(const AGroup: string; const ALevel: TLevel = TLevel.Normal): Boolean; virtual;
+    function  IsActive(const AGroup: String; const ALevel: TLevel = TLevel.Normal): Boolean; virtual;
 
     function  GetHasException: Boolean; virtual;
     procedure SetHasException(const Value: Boolean); virtual;
-    function  GetFilename: string; virtual;
-    function  GetPath: string; virtual;
+    function  GetFilename: String; virtual;
+    function  GetPath: String; virtual;
     function  GetGroups: TStringList;  virtual;
     function  GetLevel: TLevel; virtual;
     procedure SetLevel(const Value: TLevel); virtual;
@@ -91,24 +91,24 @@ type
     function  GetWriteToStdOut: Boolean;
     procedure SetWriteToStdOut(const Value: Boolean);
 
-    function  StartGroup(const AGroup: string; AOptions: TTraceOptions; PerThreadLogging: Boolean = False) : Boolean; virtual;
-    function  StopGroup(const AGroup: string) : Boolean; virtual;
-    procedure EndGroupFile(const AGroup: string; const DeleteFile: Boolean = False); virtual;
+    function  StartGroup(const AGroup: String; AOptions: TTraceOptions; PerThreadLogging: Boolean = False) : Boolean; virtual;
+    function  StopGroup(const AGroup: String) : Boolean; virtual;
+    procedure EndGroupFile(const AGroup: String; const DeleteFile: Boolean = False); virtual;
 
-    procedure TraceMessage(const Group: string; const AMessage: string; const Level: TLevel); overload;
-    procedure TraceMessage(const Group: string; const Func: TFunc<string>; const Level: TLevel = TLevel.Normal); overload;
+    procedure TraceMessage(const Group: String; const AMessage: String; const Level: TLevel); overload;
+    procedure TraceMessage(const Group: String; const Func: TFunc<String>; const Level: TLevel = TLevel.Normal); overload;
     // procedure TraceMessageParts(const Group: string; const MessagesFunc: TFunc<CObject.ObjectArray>; const Level: TLevel = TLevel.Normal);
-    procedure TraceException(const Group: string; const Func: TFunc<string>; const Level: TLevel = TLevel.Normal); overload;
+    procedure TraceException(const Group: String; const Func: TFunc<String>; const Level: TLevel = TLevel.Normal); overload;
 
     procedure StopTracing(CleanupTempFile: Boolean); virtual;
 
-    function  StartTimer(const Group: string; const TimerID: string; const Level: TLevel = TLevel.Normal) : Boolean; virtual;
-    procedure PauseTimer(const Group: string; const TimerID: string); virtual;
-    procedure StopTimer(const Group: string; const TimerID: string); virtual;
-    procedure StopTimers(const Group: string); virtual;
+    function  StartTimer(const Group: String; const TimerID: String; const Level: TLevel = TLevel.Normal) : Boolean; virtual;
+    procedure PauseTimer(const Group: String; const TimerID: String); virtual;
+    procedure StopTimer(const Group: String; const TimerID: String); virtual;
+    procedure StopTimers(const Group: String); virtual;
   end;
 
-  function PointerToString(P: Pointer) : string;
+  function PointerToString(P: Pointer) : String;
 
 var
   EventTracer: IEventTracer;
@@ -282,5 +282,3 @@ finalization
   EventTracer.StopTracing(not EventTracer.HasException);
 
 end.
-
-
