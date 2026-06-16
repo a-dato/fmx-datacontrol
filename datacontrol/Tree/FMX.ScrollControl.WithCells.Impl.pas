@@ -5500,7 +5500,7 @@ begin
       Cell.SubInfoControl.Width := 16;
       Cell.SubInfoControl.Position.X := spaceUsed + _treeControl.CellLeftRightPadding + ((availableCtrlWidth - Cell.SubInfoControl.Width) / 2);
     end
-    else if Cell.IsHeaderCell or (Cell.Column.SubInfoControlClass <> TInfoControlClass.Custom) then
+    else if Cell.IsHeaderCell or (Cell.Column.SubInfoControlClass <> TInfoControlClass.Custom) or (Cell.Column.WidthType <> TDCColumnWidthType.AlignToContent) then
     begin
       Cell.SubInfoControl.Width := availableCtrlWidth;
       Cell.SubInfoControl.Position.X := spaceUsed + _treeControl.CellLeftRightPadding + Cell.SubInfoControl.Margins.Left;
@@ -5517,7 +5517,7 @@ begin
       Cell.InfoControl.Width := 16;
       Cell.InfoControl.Position.X := spaceUsed + _treeControl.CellLeftRightPadding + ((availableCtrlWidth - Cell.InfoControl.Width) / 2);
     end
-    else if Cell.IsHeaderCell or (Cell.Column.InfoControlClass <> TInfoControlClass.Custom) then
+    else if Cell.IsHeaderCell or (Cell.Column.InfoControlClass <> TInfoControlClass.Custom) or (Cell.Column.WidthType <> TDCColumnWidthType.AlignToContent) then
     begin
       Cell.InfoControl.Width := get_Width - spaceUsed - (2*_treeControl.CellLeftRightPadding);
       Cell.InfoControl.Position.X := spaceUsed + _treeControl.CellLeftRightPadding + Cell.InfoControl.Margins.Left;
