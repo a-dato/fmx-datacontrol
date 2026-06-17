@@ -40,7 +40,7 @@ type
     end;
 
   private
-    _funcDataList: TGetDatalist;
+    _funcDataList: TGetDataList;
     _sortedRows: List<Integer>;
     _onDataChangedDelegate: IOnDataChangeDelegate;
     _listHoldsOrdinalType: TlistHoldsOrdinalType;
@@ -454,5 +454,3 @@ begin
 end;
 
 end.
-
-

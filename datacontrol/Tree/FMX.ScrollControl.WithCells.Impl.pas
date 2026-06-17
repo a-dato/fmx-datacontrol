@@ -1,4 +1,4 @@
-unit FMX.ScrollControl.WithCells.Impl;
+﻿unit FMX.ScrollControl.WithCells.Impl;
 
 interface
 
@@ -9,9 +9,9 @@ uses
   FMX.StdCtrls,
   System.Classes,
   System.SysUtils,
-  FMX.Layouts, 
-  System.UITypes, 
-  System.Types, 
+  FMX.Layouts,
+  System.UITypes,
+  System.Types,
   FMX.ImgList,
   FMX.Objects,
   FMX.Forms,
@@ -22,16 +22,16 @@ uses
   {$ELSE}
   Wasm.FMX.Controls,
   Wasm.FMX.StdCtrls,
-  Wasm.System.Classes, 
+  Wasm.System.Classes,
   Wasm.System.SysUtils,
-  Wasm.FMX.Layouts, 
-  Wasm.System.UITypes, 
-  Wasm.System.Types, 
-  Wasm.FMX.ImgList, 
+  Wasm.FMX.Layouts,
+  Wasm.System.UITypes,
+  Wasm.System.Types,
+  Wasm.FMX.ImgList,
   Wasm.FMX.Objects,
   Wasm.FMX.Forms,
   Wasm.FMX.Types,
-  Wasm.FMX.ActnList, 
+  Wasm.FMX.ActnList,
   Wasm.FMX.Text,
   {$ENDIF}
   System_,
@@ -43,7 +43,7 @@ uses
   FMX.ScrollControl.WithRows.Impl,
 
   ADato.ComponentModel,
-  ADato.Collections.Specialized, 
+  ADato.Collections.Specialized,
   System.Collections.Specialized,
   FMX.ScrollControl.WithRows.Intf,
   FMX.ScrollControl.Events, ADato.Data.DataModel.intf,
@@ -243,7 +243,7 @@ type
 
     procedure TryScrollToCellByKey(var Key: Word; var KeyChar: WideChar);
 
-    function  TextForSizeCalc(const Text: string): string;
+    function  TextForSizeCalc(const Text: String): String;
   public
     procedure DoDataItemChangedInternal(const DataItem: CObject); override;
   protected
@@ -289,7 +289,7 @@ type
     function  TreeInnerXPosition: Single;
 
     {$IFDEF WEBASSEMBLY}
-    function  GetItemType: &Type; 
+    function  GetItemType: &Type;
     {$ENDIF}
 
   public
@@ -306,7 +306,7 @@ type
     function  CheckCanChangeRow: Boolean; override;
 
     procedure AnimateMoveColumn(const OldCellLefts: Dictionary<IDCTreeColumn, Single>; const MovingColumn: IDCTreeColumn = nil; MoveClmnOpacity: Single = 0.3);
-    function  GetFlatColumnsLeft: DIctionary<IDCTreeColumn, Single>;
+    function  GetFlatColumnsLeft: Dictionary<IDCTreeColumn, Single>;
 
     procedure UpdateColumnSort(const Column: IDCTreeColumn; SortDirection: ListSortDirection; ClearOtherSort: Boolean);
     procedure UpdateColumnFilter(const Column: IDCTreeColumn; const FilterText: CString; const FilterValues: List<CObject>; const NullValueSelected: Boolean); overload;
@@ -337,7 +337,7 @@ type
     property HeaderTextTopMargin: Single read get_headerTextTopMargin write set_headerTextTopMargin;
     property HeaderTextBottomMargin: Single read get_headerTextBottomMargin write set_headerTextBottomMargin;
     property AutoExtraColumnSizeMax: Single read get_AutoExtraColumnSizeMax write set_AutoExtraColumnSizeMax;
-    property ScrollingHideColumnsFromIndex: integer read _scrollingHideColumnsFromIndex write _scrollingHideColumnsFromIndex {$IFNDEF WEBASSEMBLY}stored IsScrollingHideColumnsFromIndexStored{$ENDIF};
+    property ScrollingHideColumnsFromIndex: Integer read _scrollingHideColumnsFromIndex write _scrollingHideColumnsFromIndex {$IFNDEF WEBASSEMBLY}stored IsScrollingHideColumnsFromIndexStored{$ENDIF};
     property CellTopBottomPadding: Single read get_CellTopBottomPadding write set_CellTopBottomPadding;
     property CellLeftRightPadding: Single read get_CellLeftRightPadding write set_CellLeftRightPadding;
     property PopupMenuClosed: TNotifyEvent read _popupMenuClosed write _popupMenuClosed;
@@ -1004,7 +1004,7 @@ uses
   System.ClassHelpers,
   FMX.Ani,
   FMX.ScrollControl.WithCells.PopupMenu,
-  System.Rtti, 
+  System.Rtti,
   System.TypInfo,
   {$ELSE}
   Wasm.FMX.ActnList,
@@ -1013,16 +1013,15 @@ uses
   Wasm.FMX.Graphics,
   {$ENDIF}
   FMX.ControlCalculations,
-  FMX.ScrollControl.Intf, 
+  FMX.ScrollControl.Intf,
   FMX.ScrollControl.SortAndFilter,
   FMX.ScrollControl.Impl
   {$IFDEF APP_PLATFORM}
   , app.intf
   , app.PropertyDescriptor.intf
   {$ENDIF}
-  , FMX.ScrollControl.ControlClasses,
-  System.Generics.Collections, ADato.TraceEvents.intf;
-
+  , FMX.ScrollControl.ControlClasses
+  , ADato.TraceEvents.intf;
 
 { TScrollControlWithCells }
 
@@ -1173,7 +1172,7 @@ begin
 end;
 
 {$IFDEF WEBASSEMBLY}
-function  TScrollControlWithCells.GetItemType: &Type; 
+function  TScrollControlWithCells.GetItemType: &Type;
 begin
   Result := inherited;
 end;
@@ -2027,7 +2026,7 @@ begin
       sortDesc := TTreeSortDescription.Create(FlatColumn, @OnGetCellDataForSorting);
       {$ENDIF}
     end;
-      
+
     FlatColumn.ActiveSort := sortDesc;
   end;
 
@@ -4768,9 +4767,9 @@ begin
     for clmnIx := Count - 1 downto 0 do
       if get_Item(clmnIx).IsCustomColumn then
         RemoveAt(clmnIx);
-    
+
   end;
-    
+
   if (Value <> nil) and Value.TryGetValue<TJSONArray>('columns', arr) then
   begin
     for jv in arr do
@@ -5500,7 +5499,7 @@ begin
       Cell.SubInfoControl.Width := 16;
       Cell.SubInfoControl.Position.X := spaceUsed + _treeControl.CellLeftRightPadding + ((availableCtrlWidth - Cell.SubInfoControl.Width) / 2);
     end
-    else if Cell.IsHeaderCell or (Cell.Column.SubInfoControlClass <> TInfoControlClass.Custom) then
+    else if Cell.IsHeaderCell or (Cell.Column.SubInfoControlClass <> TInfoControlClass.Custom) or (Cell.Column.WidthType <> TDCColumnWidthType.AlignToContent) then
     begin
       Cell.SubInfoControl.Width := availableCtrlWidth;
       Cell.SubInfoControl.Position.X := spaceUsed + _treeControl.CellLeftRightPadding + Cell.SubInfoControl.Margins.Left;
@@ -5517,7 +5516,7 @@ begin
       Cell.InfoControl.Width := 16;
       Cell.InfoControl.Position.X := spaceUsed + _treeControl.CellLeftRightPadding + ((availableCtrlWidth - Cell.InfoControl.Width) / 2);
     end
-    else if Cell.IsHeaderCell or (Cell.Column.InfoControlClass <> TInfoControlClass.Custom) then
+    else if Cell.IsHeaderCell or (Cell.Column.InfoControlClass <> TInfoControlClass.Custom) or (Cell.Column.WidthType <> TDCColumnWidthType.AlignToContent) then
     begin
       Cell.InfoControl.Width := get_Width - spaceUsed - (2*_treeControl.CellLeftRightPadding);
       Cell.InfoControl.Position.X := spaceUsed + _treeControl.CellLeftRightPadding + Cell.InfoControl.Margins.Left;
@@ -5842,7 +5841,7 @@ begin
   RecalcColumnWidthsBasic;
 
   Result := 0.0;
-  
+
   var clmn: IDCTreeLayoutColumn;
   for clmn in get_FlatColumns do
   begin
@@ -5903,9 +5902,9 @@ begin
     for clmn in _layoutColumns do
       if clmn.Column.Frozen and not clmn.HideColumnInView then
         Exit(True);
-    
+
   end;
-    
+
   Result := False;
 end;
 
@@ -7332,4 +7331,3 @@ begin
 end;
 
 end.
-

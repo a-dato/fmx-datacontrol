@@ -28,13 +28,13 @@ type
     function  get_Count: Integer; override;
     procedure Add(const item: T); reintroduce; overload;
     procedure Clear; overload; override;
-    function  Contains(const item: T): boolean; reintroduce;
+    function  Contains(const item: T): Boolean; reintroduce;
     {$IFDEF DELPHI}
     procedure CopyTo(var destination: array of T; arrayIndex: Integer); reintroduce;
     {$ELSE}
     procedure CopyTo(&array: array of T; arrayIndex: Integer); reintroduce; implements IList<T>.CopyTo;
     {$ENDIF}
-    function  Remove(const item: T): boolean; reintroduce;
+    function  Remove(const item: T): Boolean; reintroduce;
     procedure RemoveRange(index, count: Integer);
 
     function  get_Item_object(Index: Integer): CObject; override;
@@ -283,5 +283,3 @@ begin
 end;
 
 end.
-
-

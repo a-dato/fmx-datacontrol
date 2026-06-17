@@ -19,7 +19,7 @@ type
     ['{5EBCBEAD-AEAE-4F4B-8E1F-662F3440F062}']
 
     procedure AddPackage(const Package: IExtensionPackage);
-    function  GetTypeFromName(const Name: string) : &Type;
+    function  GetTypeFromName(const Name: String) : &Type;
   end;
 
 var
@@ -28,5 +28,3 @@ var
 implementation
 
 end.
-
-

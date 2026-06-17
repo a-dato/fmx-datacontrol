@@ -10,6 +10,7 @@ uses
   FMX.Objects,
   System.UITypes,
   System.Types,
+  FMX.Types,
   FMX.Graphics,
   {$ELSE}
   Wasm.FMX.Controls,
@@ -18,6 +19,7 @@ uses
   Wasm.FMX.Objects,
   Wasm.System.UITypes,
   Wasm.System.Types,
+  Wasm.FMX.Types,
   {$ENDIF}
   System_,
   FMX.ScrollControl.WithRows.Intf,
@@ -28,12 +30,12 @@ uses
   FMX.ScrollControl.Impl, ADato.Data.DataModel.intf,
   ADato.ObjectModel.List.intf, ADato.ObjectModel.intf,
   FMX.ScrollControl.View.Intf, FMX.ScrollControl.Events,
-  System.Diagnostics, FMX.ScrollControl.ControlClasses.Intf, FMX.Types;
+  System.Diagnostics, FMX.ScrollControl.ControlClasses.Intf;
 
 type
   TScrollControlWithRows = class(TScrollControl, IRowsControl)
   // data
-  strict private
+  private
     _previousHardAssignedDataModelView: IDataModelView;
 
     function  TryStartMasterSynchronizer(CheckSyncVisibility: Boolean = False): Boolean;
@@ -147,7 +149,7 @@ type
     procedure UpdateRowHeightSynchronizerScrollbar;
 
     procedure AnimateRow(const Row: IDCRow; StartY, StopY: Single; AnimateOpacity: Boolean; Hide: Boolean; ExtraDelay: Single = 0);
-    procedure ExecuteAfterAnimateRow(const Row: IDCRow; Event: TNotifyEvent; ExtraDelay: Single = 0);
+    procedure ExecuteAfterAnimateRow(const Row: IDCRow; AEvent: TNotifyEvent; ExtraDelay: Single = 0);
 
   // expand / collapse
   protected
@@ -178,7 +180,11 @@ type
     _masterSynchronizerIndex: Integer;
 
     _hoverRect: TRectangle;
+    {$IFDEF WEBASSEMBLY}
+    _hoveredRow: IDCRow;
+    {$ELSE}
     [weak] _hoveredRow: IDCRow;
+    {$ENDIF}
     _resetViewRec: TResetViewRec;
     _canDragDrop: Boolean;
     _dragObject: CObject;
@@ -329,7 +335,9 @@ type
 
   public
     constructor Create(AOwner: TComponent); override;
+    {$IFNDEF WEBASSEMBLY}
     destructor Destroy; override;
+    {$ENDIF}
 
     function  FitRowsDownwards(StartIndex: Integer): Integer;
     function  GetActiveRow(CheckRealign: Boolean = False): IDCRow;
@@ -476,8 +484,9 @@ type
 
   public
     constructor Create(const RowsControl: IRowsControl); reintroduce;
-
+    {$IFNDEF WEBASSEMBLY}
     destructor Destroy; override;
+    {$ENDIF}
 
     function  ControlAsRowLayout: IRowLayout;
     procedure UpdateSelectionVisibility(const SelectionInfo: IRowSelectionInfo; OwnerIsFocused: Boolean); virtual;
@@ -497,7 +506,11 @@ type
 
   TRowSelectionInfo = class(TInterfacedObject, IRowSelectionInfo)
   protected
+    {$IFDEF WEBASSEMBLY}
+    _rowsControl: IRowsControl;
+    {$ELSE}
     [unsafe] _rowsControl: IRowsControl;
+    {$ENDIF}
 
     _focusedItem: TRowDataItemInfo;
     _eventTrigger: TSelectionEventTrigger;
@@ -621,6 +634,8 @@ uses
   System.Rtti, 
   FMX.Forms,
   FMX.ActnList,
+  FMX.Layouts, 
+  FMX.Ani,
   {$ELSE}
   Wasm.FMX.Types,
   Wasm.FMX.StdCtrls,
@@ -630,11 +645,13 @@ uses
   Wasm.FMX.Forms,
   Wasm.FMX.Graphics,
   Wasm.FMX.ActnList,
+  Wasm.FMX.Layouts, 
+  Wasm.FMX.Ani,
   {$ENDIF}
   FMX.ScrollControl.ControlClasses,
   FMX.ScrollControl.View.Impl, FMX.ControlCalculations,
   ADato.TraceEvents.intf, FMX.ScrollControl.SortAndFilter,
-  System.ComponentModel, FMX.Layouts, FMX.Ani;
+  System.ComponentModel;
 
 
 { TScrollControlWithRows }
@@ -689,6 +706,7 @@ begin
     Result := Result * 2;
 end;
 
+{$IFNDEF WEBASSEMBLY}
 destructor TScrollControlWithRows.Destroy;
 begin
 //  AtomicIncrement(_viewChangedIndex);
@@ -713,6 +731,7 @@ begin
 
   inherited;
 end;
+{$ENDIF}
 
 function TScrollControlWithRows.DoCreateNewRow: IDCRow;
 begin
@@ -2704,7 +2723,7 @@ begin
   end;
 end;
 
-procedure TScrollControlWithRows.ExecuteAfterAnimateRow(const Row: IDCRow; Event: TNotifyEvent; ExtraDelay: Single = 0);
+procedure TScrollControlWithRows.ExecuteAfterAnimateRow(const Row: IDCRow; AEvent: TNotifyEvent; ExtraDelay: Single = 0);
 begin
   Row.UseBuffering := False;
   Row.Control.Opacity := 0.5;
@@ -2716,7 +2735,7 @@ begin
   ani.PropertyName := 'Opacity';
   ani.StartFromCurrent := True;
   ani.StopValue := 1;
-  ani.OnFinish := Event;
+  ani.OnFinish := AEvent;
   ani.Start;
 end;
 
@@ -4495,6 +4514,7 @@ begin
   _enabled := True;
 end;
 
+{$IFNDEF WEBASSEMBLY}
 destructor TDCRow.Destroy;
 begin
   if (_control <> nil) and not (csDestroying in _control.ComponentState) then
@@ -4508,6 +4528,7 @@ begin
 
   inherited;
 end;
+{$ENDIF}
 
 function TDCRow.get_Control: TControl;
 begin

@@ -85,7 +85,7 @@ type
     procedure OnPropertyChanged(const PropName: CString); {$IFDEF DELPHI}overload;{$ENDIF} virtual;
     procedure OnPropertyChanged(  const PropName: CString;
                                   Sender: TObject;
-                                  Args: eventArgs); {$IFDEF DELPHI}overload;{$ENDIF} virtual;
+                                  Args: EventArgs); {$IFDEF DELPHI}overload;{$ENDIF} virtual;
 
   public
     procedure Assign(const Source: CObject); virtual;
@@ -563,6 +563,3 @@ begin
 end;
 
 end.
-
-
-

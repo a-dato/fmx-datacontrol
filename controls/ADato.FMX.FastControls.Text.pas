@@ -1,4 +1,4 @@
-unit ADato.FMX.FastControls.Text;
+﻿unit ADato.FMX.FastControls.Text;
 
 interface
 
@@ -20,6 +20,7 @@ uses
   FMX.Types,
   FMX.Layouts,
   FMX.TextLayout,
+  FMX.Text,
   System.Types,
   {$ELSE}
   Wasm.FMX.Controls,
@@ -37,12 +38,12 @@ uses
   Wasm.FMX.Types,
   Wasm.FMX.Layouts,
   Wasm.FMX.TextLayout,
+  Wasm.FMX.Text,
   Wasm.System.Types,
   {$ENDIF}
   System_,
   ADato.ObjectModel.Binders,
-  FMX.ScrollControl.ControlClasses.Intf, 
-  FMX.Text;
+  FMX.ScrollControl.ControlClasses.Intf;
 
 type
   TFastControl = class(TLayout)
@@ -71,7 +72,6 @@ type
 
     procedure DoResized; override;
     procedure PaddingChanged; override;
-    procedure RecalcOpacity; override;
 
   public
     constructor Create(AOwner: TComponent); override;
@@ -80,6 +80,7 @@ type
     procedure EndUpdate; override;
     procedure PrepareForPaint; override;
     procedure Painting; override;
+    procedure RecalcOpacity; override;
 
     procedure ForceRealign(OnlyWhenRealignNeeded: Boolean = False);
     procedure RequestRealign;
@@ -111,7 +112,7 @@ type
     procedure ResetSelection;
     procedure GoToTextEnd;
     procedure GoToTextBegin;
-    procedure Replace(const AStartPos: Integer; const ALength: Integer; const AStr: string);
+    procedure Replace(const AStartPos: Integer; const ALength: Integer; const AStr: String);
 
     {$IFNDEF WEBASSEMBLY}
     procedure CopyMenuItemClick(Sender: TObject);
@@ -119,7 +120,7 @@ type
     {$ENDIF}
 
   protected
-    _text: string;
+    _text: String;
     _layout: TTextLayout;
     _settings: TTextSettings;
     _calcAsAutoHeight: Boolean;
@@ -145,8 +146,8 @@ type
     _ignoreDefaultPaint: Boolean;
 
     // ICaption
-    function  GetText: string;
-    procedure SetText(const Value: string); virtual;
+    function  GetText: String;
+    procedure SetText(const Value: String); virtual;
     function  TextStored: Boolean;
 
     // ITextSettings
@@ -207,7 +208,7 @@ type
     property StyledSettings: TStyledSettings read GetStyledSettings write SetStyledSettings;
 
   published
-    property Text: string read GetText write SetText;
+    property Text: String read GetText write SetText;
     property WordWrap: Boolean read get_WordWrap write set_WordWrap default False;
     property Trimming: TTextTrimming read get_Trimming write set_Trimming default TTextTrimming.None;
     property Style: TFontStyles read get_Style write set_Style default [];
@@ -323,23 +324,27 @@ const
   SUBTEXT_NEGATIVE_MARGIN = 0;
 
 var
-  APPLICATION_FONT_FAMILY: string = 'Segoe UI';
+  APPLICATION_FONT_FAMILY: String = 'Segoe UI';
 
 implementation
 
 uses
   {$IFNDEF WEBASSEMBLY}
   System.SysUtils,
-  System.Math
+  System.Math,
+  System.Math.Vectors,
+  FMX.Platform
   {$ELSE}
   Wasm.System.SysUtils,
-  Wasm.System.Math
+  Wasm.System.Math,
+  Wasm.FMX.Platform
   {$ENDIF}
-  , ADato.ObjectModel.intf, FMX.ScrollControl.ControlClasses,
+  , ADato.ObjectModel.intf
+  , FMX.ScrollControl.ControlClasses
   {$IFDEF SKIA}
-  FMX.Skia,
+  , FMX.Skia
   {$ENDIF}
-  System.Math.Vectors, FMX.Platform;
+  ;
 
 { TDateTimeEditOnKeyDownOverride }
 
@@ -1514,5 +1519,3 @@ initialization
 
 
 end.
-
-
