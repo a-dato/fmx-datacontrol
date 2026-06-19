@@ -40,7 +40,9 @@ uses
   procedure BeginDefaultTextLayout;
   procedure EndDefaultTextLayout;
 
+  function  ActiveControl: TControl;
   function  ControlEffectiveVisible(Control: TControl): Boolean;
+  function  ControlHasSelection(Control: TControl): Boolean;
   function  MouseInObject(AControl: TControl): Boolean;
   function  OwnerForm(AControl: TControl): TCustomForm;
 
@@ -60,7 +62,7 @@ uses
   Wasm.System.Math,
   Wasm.FMX.Types
   {$ENDIF}
-  ;
+  , FMX.Text, FMX.Edit;
 
 var
   _textLayoutUpdateCount: Integer;
@@ -239,6 +241,13 @@ begin
   end;
 end;
 
+function ActiveControl: TControl;
+begin
+  if Screen.ActiveForm is TCustomForm then
+    Result := TCustomForm(Screen.ActiveForm).ActiveControl else
+    Result := nil;
+end;
+
 function ControlEffectiveVisible(Control: TControl): Boolean;
 begin
   var ctrl := Control;
@@ -251,6 +260,18 @@ begin
   end;
 
   Result := True;
+end;
+
+function ControlHasSelection(Control: TControl): Boolean;
+begin
+  Result := False;
+  if (control = nil) or not interfaces.Supports<ITextActions>(Control) then
+    Exit;
+
+  if (control is TEdit) then
+    Result := TEdit(control).SelLength > 0
+  else if (control is TMemo) then
+    Result := TMemo(control).SelLength > 0;
 end;
 
 procedure ScrollControlInView(const Control: TControl; const ScrollBox: TCustomScrollBox; ControlMargin: Single = 10);
