@@ -107,9 +107,16 @@ type
     NotifyCollectionChangedEventHandler)
 
   protected
+    {$IFDEF DEBUG}Dummy: Integer;{$ENDIF}
+
     procedure Add(Value: NotifyCollectionChangedEventHandlerProc);
     procedure Remove(value: NotifyCollectionChangedEventHandlerProc);
     procedure Invoke(Sender: TObject; Args: NotifyCollectionChangedEventArgs);
+
+    {$IFDEF DEBUG}
+    public
+    constructor Create(ADummy: Integer = 1); reintroduce;
+    {$ENDIF}
   end;
 
   INotifyCollectionChanged = {$IFDEF DOTNET}public{$ENDIF} Interface(IBaseInterface)
@@ -439,9 +446,15 @@ begin
 end;
 
 { NotifyCollectionChangedDelegate }
+{$IFDEF DEBUG}
+constructor NotifyCollectionChangedDelegate.Create(ADummy: Integer = 1);
+begin
+  inherited Create;
+  Dummy := ADummy;
+end;
+{$ENDIF}
 
-procedure NotifyCollectionChangedDelegate.Add(
-  Value: NotifyCollectionChangedEventHandlerProc);
+procedure NotifyCollectionChangedDelegate.Add(Value: NotifyCollectionChangedEventHandlerProc);
 begin
   inherited Add(TMethod(Value));
 end;
