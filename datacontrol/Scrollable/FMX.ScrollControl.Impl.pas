@@ -85,12 +85,14 @@ type
     _lastMouseWheel1, _lastMouseWheel2, _lastMouseWheel3: Integer;
 
     _controlWasFocusedBeforeMouseDown: Boolean;
+    _rightClickPopupIsOpen: Boolean;
 
     procedure MouseWheel(Shift: TShiftState; WheelDelta: Integer; var Handled: Boolean); override;
     procedure MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Single); override;
     procedure MouseMove(Shift: TShiftState; X, Y: Single); override;
     procedure MouseUp(Button: TMouseButton; Shift: TShiftState; X, Y: Single); override;
     procedure DoMouseLeave; override;
+    procedure HandleRightClick(Shift: TShiftState; X, Y: Single);
 
     procedure MouseRollingBoostTimer(Sender: TObject);
 
@@ -748,9 +750,29 @@ begin
   end;
 end;
 
+procedure TScrollControl.HandleRightClick(Shift: TShiftState; X, Y: Single);
+begin
+  // popupmenu is already handled automatically
+//  if (PopupMenu = nil) or _rightClickPopupIsOpen then
+//    Exit;
+//
+//  _rightClickPopupIsOpen := True;
+//  try
+//    ShowContextMenu(LocalToScreen(PointF(X, Y)));
+//  finally
+//    _rightClickPopupIsOpen := False;
+//  end;
+end;
+
 procedure TScrollControl.MouseUp(Button: TMouseButton; Shift: TShiftState; X, Y: Single);
 begin
-  if not _clickEnable then Exit;
+  if not _clickEnable then
+  begin
+    if Button = TMouseButton.mbRight then
+      HandleRightClick(Shift, X, Y);
+
+    Exit;
+  end;
 
   try
     inherited;

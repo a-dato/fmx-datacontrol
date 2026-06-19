@@ -4317,7 +4317,7 @@ begin
   begin
     typeData := GetItemType;
 
-    if not typeData.IsUnknown {and not typeData.Equals(_ColumnPropertiesTypeData)} then
+    if not typeData.IsString {maybe we have to add more?} and not typeData.IsUnknown {and not typeData.Equals(_ColumnPropertiesTypeData)} then
     begin
       BeginUpdate;
       try
@@ -5499,7 +5499,7 @@ begin
       Cell.SubInfoControl.Width := 16;
       Cell.SubInfoControl.Position.X := spaceUsed + _treeControl.CellLeftRightPadding + ((availableCtrlWidth - Cell.SubInfoControl.Width) / 2);
     end
-    else if Cell.IsHeaderCell or (Cell.Column.SubInfoControlClass <> TInfoControlClass.Custom) or (Cell.Column.WidthType <> TDCColumnWidthType.AlignToContent) then
+    else if Cell.IsHeaderCell or (Cell.Column.SubInfoControlClass <> TInfoControlClass.Custom) or (Cell.Column.WidthType <> TDCColumnWidthType.AlignToContent) {or (Cell.Column.CustomWidth > 0) jva feels not logical} then
     begin
       Cell.SubInfoControl.Width := availableCtrlWidth;
       Cell.SubInfoControl.Position.X := spaceUsed + _treeControl.CellLeftRightPadding + Cell.SubInfoControl.Margins.Left;
@@ -5516,7 +5516,7 @@ begin
       Cell.InfoControl.Width := 16;
       Cell.InfoControl.Position.X := spaceUsed + _treeControl.CellLeftRightPadding + ((availableCtrlWidth - Cell.InfoControl.Width) / 2);
     end
-    else if Cell.IsHeaderCell or (Cell.Column.InfoControlClass <> TInfoControlClass.Custom) or (Cell.Column.WidthType <> TDCColumnWidthType.AlignToContent) then
+    else if Cell.IsHeaderCell or (Cell.Column.InfoControlClass <> TInfoControlClass.Custom) or (Cell.Column.WidthType <> TDCColumnWidthType.AlignToContent) {or (Cell.Column.CustomWidth > 0) jva feels not logical} then
     begin
       Cell.InfoControl.Width := get_Width - spaceUsed - (2*_treeControl.CellLeftRightPadding);
       Cell.InfoControl.Position.X := spaceUsed + _treeControl.CellLeftRightPadding + Cell.InfoControl.Margins.Left;
@@ -5525,6 +5525,11 @@ begin
 
     heightSet := False;
   end;
+
+  Cell.Control.ClipChildren :=
+    not Cell.IsHeaderCell and
+    ((Cell.Column.InfoControlClass = TInfoControlClass.Custom) or (Cell.Column.SubInfoControlClass = TInfoControlClass.Custom)) and
+    ((Cell.Column.WidthType = TDCColumnWidthType.AlignToContent) and (Cell.Column.CustomWidth > 0));
 
   if heightSet then
     Exit;
@@ -5575,7 +5580,11 @@ begin
   if (cell.Column.SubInfoControlClass = TInfoControlClass.Text) then
     cell.SubInfoControl.Height := (cell.SubInfoControl as ITextControl).TextHeight;
 
-  case Cell.LayoutColumn.CalculatedVertAlign of
+  var vertAlign := TTextAlign.Center;
+  if not Cell.IsHeaderCell then
+    vertAlign := Cell.LayoutColumn.CalculatedVertAlign;
+
+  case vertAlign of
     TTextAlign.Leading: cell.InfoControl.Position.Y := _treeControl.CellTopBottomPadding;
     TTextAlign.Center: cell.InfoControl.Position.Y := CMath.Max(0, (ctrlHeight - cell.InfoControl.Height - cell.SubInfoControl.Height) / 2);
     TTextAlign.Trailing: cell.InfoControl.Position.Y := ctrlHeight - cell.InfoControl.Height - cell.SubInfoControl.Height - _treeControl.CellTopBottomPadding;

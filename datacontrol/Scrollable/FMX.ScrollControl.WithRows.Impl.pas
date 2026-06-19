@@ -30,10 +30,11 @@ uses
   FMX.ScrollControl.Impl, ADato.Data.DataModel.intf,
   ADato.ObjectModel.List.intf, ADato.ObjectModel.intf,
   FMX.ScrollControl.View.Intf, FMX.ScrollControl.Events,
-  System.Diagnostics, FMX.ScrollControl.ControlClasses.Intf;
+  System.Diagnostics, FMX.ScrollControl.ControlClasses.Intf,
+  ADato.FMX.Controls.Intf;
 
 type
-  TScrollControlWithRows = class(TScrollControl, IRowsControl)
+  TScrollControlWithRows = class(TScrollControl, IRowsControl, IFocusableControlsContainer)
   // data
   private
     _previousHardAssignedDataModelView: IDataModelView;
@@ -345,7 +346,10 @@ type
     // drag & drop
     procedure BeginDrag;
 
-    procedure ExecuteKeyFromExternal(var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
+    // IFocusableControlsContainer
+    function  FirstFocusableControl: TControl;
+    procedure ExecuteKeyFromExternal(var Key: Word; var KeyChar: WideChar; Shift: TShiftState; const ActiveChild: TControl = nil);
+
     function  GetRowByLocalY(const Y: Single): IDCRow;
 
     function  ConvertToDataItem(const Item: CObject): CObject;
@@ -1643,7 +1647,12 @@ begin
   RealignFinished;  // => EndUpdate
 end;
 
-procedure TScrollControlWithRows.ExecuteKeyFromExternal(var Key: Word; var KeyChar: WideChar; Shift: TShiftState);
+function TScrollControlWithRows.FirstFocusableControl: TControl;
+begin
+  Result := Self;
+end;
+
+procedure TScrollControlWithRows.ExecuteKeyFromExternal(var Key: Word; var KeyChar: WideChar; Shift: TShiftState; const ActiveChild: TControl = nil);
 begin
   KeyDown(Key, KeyChar, Shift);
 end;
