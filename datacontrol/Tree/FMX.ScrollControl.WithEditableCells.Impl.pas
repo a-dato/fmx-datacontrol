@@ -787,6 +787,12 @@ begin
 
     end;
 
+    {$IFDEF DEBUG}
+    // TOOD: Discuss with Jan.
+    if CellEditor.Editor is TCustomDateEdit then
+      Exit; // Let date edit handle it.
+    {$ENDIF}
+
     var changeUpdatedSort: Boolean;
     if not EndEditCell({out} changeUpdatedSort) or changeUpdatedSort then
       Exit;

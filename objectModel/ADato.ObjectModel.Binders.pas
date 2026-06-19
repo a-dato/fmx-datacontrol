@@ -455,11 +455,15 @@ begin
 
   set_ObjectModelContext(nil);
   {$IFDEF DELPHI}
+  // When destroyed via FreeNotification, _control is already nil.
+  // Do not release _freeNotification here or we destroy the notifier mid-callback.
   if (_control <> nil) then
+  begin
     _control.RemoveFreeNotify(_freeNotification);
+    _freeNotification := nil;
+  end;
   {$ENDIF}
 
-  _freeNotification := nil;
   _control := nil;
 
   inherited;
@@ -1169,16 +1173,25 @@ begin
 end;
 
 procedure TFreeControlNotification.FreeNotification(AObject: TObject);
+var
+  binding: IControlBinding;
 begin
-  // normally ObjectModelContext will free the bindings in it's Unbind/Destroy :)
-  // But is some cases the controls are freed without the Unbind being called
-  // then we get here
+  // Normally ObjectModelContext will free the bindings in it's Unbind/Destroy :)
+  // But in some cases the controls are freed without the Unbind being called,
+  // then we get here.
+
+  // _binding is weak and does not keep the binding alive during the call below.
+  // Promote to a strong local ref first, then clear the weak ref while still valid.
+  binding := _binding;
+  _binding := nil;
+
+  if binding = nil then
+    Exit;
 
   try
-    _binding.OnFreeNotificationDestroy;
-    _binding := nil;
+    binding.OnFreeNotificationDestroy;
   except
-    _binding := nil;
+    // swallow cleanup errors during control destruction
   end;
 end;
 
