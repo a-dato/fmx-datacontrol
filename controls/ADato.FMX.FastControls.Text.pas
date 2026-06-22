@@ -66,6 +66,7 @@ type
     procedure ControlLoadedCalculate;
     procedure Calculate; virtual;
 
+    procedure ImmidiateAutoSize; virtual;
     procedure CalculateSafeAutoSize;
     function  DoAutoSize: Boolean; virtual;
     procedure ApplyAutoSize; virtual; abstract;
@@ -1403,7 +1404,12 @@ begin
   if not OnlyWhenRealignNeeded then
     RequestRealign;
 
-  ControlLoadedCalculate;
+  BeginUpdate;
+  try
+    ControlLoadedCalculate;
+  finally
+    EndUpdate;
+  end;
 end;
 
 procedure TFastControl.RecalcOpacity;
@@ -1468,23 +1474,26 @@ begin
   Result := _autoWidth;
 end;
 
+procedure TFastControl.ImmidiateAutoSize;
+begin
+  if _autoSizeNeeded and (Scene <> nil) and DoAutoSize then
+  begin
+    _autoSizeNeeded := False;
+
+    Calculate;
+    ApplyAutoSize;
+    RepaintNeeded;
+  end;
+end;
+
 procedure TFastControl.CalculateSafeAutoSize;
 
   procedure SafeForceQueue([weak] Alive: IInterface);
   begin
     TThread.ForceQueue(nil, procedure
     begin
-      if (Alive = nil) or not _autoSizeNeeded then
-        Exit;
-
-      if (Scene <> nil) and DoAutoSize then
-      begin
-        Calculate;
-        ApplyAutoSize;
-        RepaintNeeded;
-
-        _autoSizeNeeded := False;
-      end;
+      if (Alive <> nil) then
+        ImmidiateAutoSize;
     end);
   end;
 
@@ -1501,13 +1510,17 @@ begin
   inherited;
 
   if not IsUpdating then
-    RecalcNeeded;
+    RecalcNeeded
+  else begin
+    _recalcNeeded := True;
+    RepaintNeeded;
+  end;
 end;
 
 procedure TFastControl.EndUpdate;
 begin
   inherited;
-  CalculateSafeAutoSize;
+  ImmidiateAutoSize;
 end;
 
 initialization
