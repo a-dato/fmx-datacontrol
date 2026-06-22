@@ -555,17 +555,17 @@ end;
 
 function CObservableCollection<T>.get_CollectionChanged: NotifyCollectionChangedEventHandler;
 begin
-{$IFDEF DEBUG}
+  {$IFDEF DEBUG}
   if Self.ClassName = 'TSortedResourceRequirementList' then
   begin
     if _CollectionChanged = nil then
-      _CollectionChanged := NotifyCollectionChangedDelegate.Create;
-  end;
-{$ENDIF}
-
+      _CollectionChanged := NotifyCollectionChangedDelegate.Create(2);
+  end else
+  {$ENDIF}
 
   if _CollectionChanged = nil then
     _CollectionChanged := NotifyCollectionChangedDelegate.Create;
+
   Result := _CollectionChanged;
 end;
 
