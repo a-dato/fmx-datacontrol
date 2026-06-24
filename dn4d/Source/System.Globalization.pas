@@ -3798,7 +3798,7 @@ end;
 
 constructor CCultureInfo.Create(const Name: CString);
 begin
-  {$IFDEF LINUX}
+  {$IFNDEF MSWINDOWS}
   Create('en-en');
   {$ELSE}
   Create(LocaleNameToLCID(PWideChar(Name.ToString), 0));

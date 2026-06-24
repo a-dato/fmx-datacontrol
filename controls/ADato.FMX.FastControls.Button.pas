@@ -257,7 +257,6 @@ type
     procedure set_ImagePositionMargin(const Value: Integer);
     procedure set_ImageIndex(const Value: Integer);
     function  get_imageIndex: Integer;
-    procedure set_AutoWidth(const Value: Boolean);
     function  get_ContentHorzAlign: TTextAlign;
     procedure set_ContentHorzAlign(const Value: TTextAlign);
     procedure set_Images(const Value: TCustomImageList);
@@ -321,7 +320,6 @@ type
     property UnderlineType: TUnderlineType read _underlineType write set_UnderlineType default TUnderlineType.NoUnderline;
     property ButtonType: TButtonType read _buttonType write set_ButtonType default TButtonType.None;
     property ForceOrange: Boolean read _emphasizePicture write set_EmphasizePicture;
-    property AutoWidth: Boolean read _autoWidth write set_AutoWidth default False;
     property ContentHorzAlign: TTextAlign read get_ContentHorzAlign write set_ContentHorzAlign default TTextAlign.Leading;
 
     property Action;
@@ -1238,6 +1236,9 @@ end;
 
 procedure TFastButton.ApplyAutoSize;
 begin
+  if _autoSize <> TAutoSize.AutoWidth then
+    Exit;
+
   var newWidth := CalcWidth;
   if SameValue(Self.Width, newWidth) then
     Exit;
@@ -1378,15 +1379,6 @@ begin
     RecalcNeeded;
   end;
 end;
-procedure TFastButton.set_AutoWidth(const Value: Boolean);
-begin
-  if _autoWidth <> Value then
-  begin
-    _autoWidth := Value;
-    RecalcNeeded;
-  end;
-end;
-
 procedure TFastButton.set_ContentHorzAlign(const Value: TTextAlign);
 begin
   if _contentHorzAlign <> Value then

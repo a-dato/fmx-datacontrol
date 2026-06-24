@@ -46,6 +46,8 @@ uses
   FMX.ScrollControl.ControlClasses.Intf;
 
 type
+  TAutoSize = (None, AutoWidth, AutoHeight);
+
   TFastControl = class(TLayout)
   protected
     _controlIsLoaded: Boolean;
@@ -53,8 +55,9 @@ type
 
     _waitingForRepaint: Boolean;
     _recalcNeeded: Boolean;
-    _autoWidth: Boolean;
+    _autoSize: TAutoSize;
     _autoSizeNeeded: Boolean;
+    _forbiddenAutoSizeOptions: TArray<TAutoSize>;
 
     _recalcIndex: Integer;
 
@@ -68,8 +71,9 @@ type
 
     procedure ImmidiateAutoSize; virtual;
     procedure CalculateSafeAutoSize;
-    function  DoAutoSize: Boolean; virtual;
-    procedure ApplyAutoSize; virtual; abstract;
+    function  DoAutoSize: Boolean; //virtual;
+    procedure ApplyAutoSize; virtual;
+    procedure set_AutoSize(const Value: TAutoSize); virtual;
 
     procedure DoResized; override;
     procedure PaddingChanged; override;
@@ -85,6 +89,8 @@ type
 
     procedure ForceRealign(OnlyWhenRealignNeeded: Boolean = False);
     procedure RequestRealign;
+
+    property AutoSize: TAutoSize read _autoSize write set_AutoSize default None;
   end;
 
   TDateTimeEditOnKeyDownOverride = class(TDateEdit)
@@ -166,7 +172,7 @@ type
     procedure set_HorzTextAlign(const Value: TTextAlign);
     function  get_VertTextAlign: TTextAlign;
     procedure set_VertTextAlign(const Value: TTextAlign);
-    procedure set_AutoWidth(const Value: Boolean);
+    procedure set_AutoSize(const Value: TAutoSize); override;
     function  get_MaxWidth: Integer;
     procedure set_MaxWidth(const Value: Integer);
     function  get_CalcAsAutoHeight: Boolean;
@@ -177,7 +183,6 @@ type
   protected
     procedure DoPaint; override;
     function  GetDefaultSize: TSizeF; override;
-//    function  IsControlRectEmpty: Boolean; override;
 
     procedure Calculate; override;
     procedure EnsureLayoutForCanvas(const ACanvas: TCanvas);
@@ -216,7 +221,6 @@ type
     property VertTextAlign: TTextAlign read get_VertTextAlign write set_VertTextAlign default TTextAlign.Leading;
     property HorzTextAlign: TTextAlign read get_HorzTextAlign write set_HorzTextAlign default TTextAlign.Leading;
 
-    property AutoWidth: Boolean read _autoWidth write set_AutoWidth default False;
     property MaxWidth: Integer read get_MaxWidth write set_MaxWidth default 0;
     property CalcAsAutoHeight: Boolean read get_calcAsAutoHeight write set_CalcAsAutoHeight default True;
     property UnderlineOnHover: Boolean read _underlineOnHover write _underlineOnHover default False;
@@ -255,7 +259,7 @@ type
     procedure SetCheckAnimationProgress(const Progress: Single);
     procedure StopCheckAnimation;
 
-    function get_EditControl: IDCEditControl;
+    function  get_EditControl: IDCEditControl;
     function  get_CheckState: TCheckState;
     procedure set_CheckPosition(const Value: TCheckPosition);
 
@@ -345,7 +349,7 @@ uses
   {$IFDEF SKIA}
   , FMX.Skia
   {$ENDIF}
-  ;
+  , System.Generics.Collections;
 
 { TDateTimeEditOnKeyDownOverride }
 
@@ -630,12 +634,30 @@ end;
 
 procedure TFastText.ApplyAutoSize;
 begin
-  var newWidth := TextWidthWithPadding;
-  if SameValue(Self.Width, newWidth) then
-    Exit;
-
   var oldBounds := BoundsRect;
-  Self.Width := newWidth;
+
+  case _autoSize of
+    TAutoSize.AutoWidth:
+      begin
+        var newWidth := TextWidthWithPadding;
+        if SameValue(Self.Width, newWidth) then
+          Exit;
+
+        Self.Width := newWidth;
+      end;
+
+    TAutoSize.AutoHeight:
+      begin
+        var newHeight := TextHeightWithPadding;
+        if SameValue(Self.Height, newHeight) then
+          Exit;
+
+        Self.Height := newHeight;
+      end;
+  else
+    Exit;
+  end;
+
   var newBounds := BoundsRect;
 
   InvalidateBoundsChange(oldBounds, newBounds);
@@ -717,16 +739,12 @@ begin
     inherited;
 end;
 
-procedure TFastText.set_AutoWidth(const Value: Boolean);
+procedure TFastText.set_AutoSize(const Value: TAutoSize);
 begin
-  if _autoWidth <> Value then
-  begin
-    _autoWidth := Value and not (Self.Align in [TAlignLayout.Client, TAlignLayout.Top, TAlignLayout.MostTop, TAlignLayout.Bottom, TAlignLayout.MostBottom]);
-    if _autoWidth then
-      set_WordWrap(False);
+  if Value = TAutoSize.AutoWidth then
+    set_WordWrap(False);
 
-    RecalcNeeded;
-  end;
+  inherited;
 end;
 
 function TFastText.get_CalcAsAutoHeight: Boolean;
@@ -793,8 +811,8 @@ begin
   if _settings.WordWrap <> Value then
   begin
     _settings.WordWrap := Value;
-    if _settings.WordWrap then
-      _autoWidth := False;
+    if _settings.WordWrap and (_autoSize = TAutoSize.AutoWidth) then
+      _autoSize := TAutoSize.None;
 
     RecalcNeeded;
   end;
@@ -1376,6 +1394,7 @@ begin
   inherited;
   _recalcNeeded := True;
   _isAlive := TInterfacedObject.Create;
+  _forbiddenAutoSizeOptions := [TAutoSize.AutoHeight];
 end;
 
 destructor TFastControl.Destroy;
@@ -1471,7 +1490,48 @@ end;
 
 function TFastControl.DoAutoSize: Boolean;
 begin
-  Result := _autoWidth;
+  if _autoSize = TAutoSize.None then
+    Exit(False);
+
+  if _autoSize = TAutoSize.AutoWidth then
+  begin
+    Result := not (Self.Align in
+      [
+      TAlignLayout.MostTop,
+      TAlignLayout.Top,
+      TAlignLayout.Client,
+      TAlignLayout.Bottom,
+      TAlignLayout.MostBottom
+      ]);
+  end
+  else if _autoSize = TAutoSize.AutoHeight then
+  begin
+    Result := not (Self.Align in
+      [
+      TAlignLayout.MostLeft,
+      TAlignLayout.Left,
+      TAlignLayout.Client,
+      TAlignLayout.Right,
+      TAlignLayout.MostRight
+      ]);
+  end;
+end;
+
+procedure TFastControl.ApplyAutoSize;
+begin
+end;
+
+procedure TFastControl.set_AutoSize(const Value: TAutoSize);
+begin
+  var val := Value;
+  if TArray.Contains<TAutoSize>(_forbiddenAutoSizeOptions, Value) then
+    val := TAutoSize.None;
+
+  if _autoSize <> val then
+  begin
+    _autoSize := val;
+    RecalcNeeded;
+  end;
 end;
 
 procedure TFastControl.ImmidiateAutoSize;
@@ -1510,17 +1570,15 @@ begin
   inherited;
 
   if not IsUpdating then
-    RecalcNeeded
-  else begin
-    _recalcNeeded := True;
-    RepaintNeeded;
-  end;
+    RecalcNeeded;
 end;
 
 procedure TFastControl.EndUpdate;
 begin
   inherited;
-  ImmidiateAutoSize;
+
+  if not IsUpdating then
+    RecalcNeeded;
 end;
 
 initialization
