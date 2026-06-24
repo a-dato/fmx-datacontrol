@@ -1,5 +1,7 @@
 ﻿{$IFNDEF WEBASSEMBLY}
+{$IFDEF DELPHI}
 {$I Adato.inc}
+{$ENDIF}
 {$ENDIF}
 
 unit ADato.MultiObjectModelContextSupport.impl;
@@ -78,7 +80,9 @@ implementation
 
 uses
   {$IFNDEF WEBASSEMBLY}
+  {$IFDEF DELPHI}
   System.SysUtils,
+  {$ENDIF}
   System.ComponentModel
   {$ELSE}
   Wasm.System.SysUtils,
@@ -106,7 +110,7 @@ begin
     support.OnItemChanged.Add(_onListItemChanged);
   end;
 
-  {$IFNDEF WEBASSEMBLY}
+  {$IFNDEF ECHOES}
   _Owner.OnContextChanging.Add(OnContextChanging);
   _Owner.OnContextChanged.Add(OnContextChanged);
   {$ELSE}
@@ -119,7 +123,7 @@ destructor TMultiEditableObjectModelContext.Destroy;
 begin
   if (_Owner <> nil) then
   begin
-    {$IFNDEF WEBASSEMBLY}
+    {$IFNDEF ECHOES}
     _Owner.OnContextChanging.Remove(OnContextChanging);
     _Owner.OnContextChanged.Remove(OnContextChanged);
     {$ELSE}

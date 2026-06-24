@@ -1,5 +1,7 @@
 ﻿{$IFNDEF WEBASSEMBLY}
-{$I ..\Source\Adato.inc}
+{$IFDEF DELPHI}
+//{$I ..\Source\Adato.inc}
+{$ENDIF}
 {$ENDIF}
 
 unit ADato.Resources;

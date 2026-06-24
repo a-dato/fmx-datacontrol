@@ -8,8 +8,10 @@ interface
 
 uses
   {$IFNDEF WEBASSEMBLY}
+  {$IFDEF DELPHI}
   System.Collections.Generic.Casting,
   System.Collections.ListInterface.impl,
+  {$ENDIF}
   System.ComponentModel,
   {$ELSE}
   Wasm.System.ComponentModel,
@@ -181,7 +183,7 @@ end;
 
 function CComparableList<T>.get_OnComparingChanged: IOnDataChangeDelegate;
 begin
-  {$IFNDEF WEBASSEMBLY}
+  {$IFNDEF ECHOES}
   if _comparer <> nil then
     Result := _comparer.OnComparingChanged else
     Result := nil;

@@ -1,5 +1,5 @@
 ﻿{$IFNDEF WEBASSEMBLY}
-{$I ..\Source\Adato.inc}
+//{$I ..\Source\Adato.inc}
 {$ENDIF}
 
 unit ADato.Factory;
@@ -7,7 +7,7 @@ unit ADato.Factory;
 interface
 
 uses
-  {$IFNDEF WEBASSEMBLY}
+  {$IFNDEF DOTNET}
   System.Rtti,
   System.TypInfo,
   {$ELSE}
@@ -53,10 +53,12 @@ type
 implementation
 
 uses
-  {$IFNDEF WEBASSEMBLY}
+  {$IFNDEF DOTNET}
   System.SysUtils
   {$ELSE}
+  {$IFDEF WEBASSEMBLY}
   Wasm.System.SysUtils
+  {$ENDIF}
   {$ENDIF}
   ;
 

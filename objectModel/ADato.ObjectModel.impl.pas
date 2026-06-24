@@ -1,5 +1,7 @@
 ﻿{$IFNDEF WEBASSEMBLY}
+{$IFDEF DELPHI}
 {$I ADato.inc}
+{$ENDIF}
 {$ENDIF}
 
 unit ADato.ObjectModel.impl;
@@ -14,7 +16,9 @@ uses
   {$ELSE}
   System.Reflection,
   ADato.TypeCustomization,
+  {$IFDEF WEBASSEMBLY}
   Wasm.System.ComponentModel,
+  {$ENDIF}
   {$ENDIF}
   System_,
   System.Collections,
@@ -863,12 +867,12 @@ function TObjectModelPropertyWrapper.GetAttributes: TArray<TCustomAttribute>;
 begin
   Result := FContainedProperty.GetAttributes;
 end;
-{$ENDIF}
 
 function TObjectModelPropertyWrapper.IsIndexedProperty: Boolean;
 begin
   Result := FContainedProperty.IsIndexedProperty;
 end;
+{$ENDIF}
 
 function TObjectModelPropertyWrapper.GetType: &Type;
 begin

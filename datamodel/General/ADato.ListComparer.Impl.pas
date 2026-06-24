@@ -1,5 +1,7 @@
 ﻿{$IFNDEF WEBASSEMBLY}
+{$IFDEF DELPHI}
 {$I ..\..\dn4d\Source\Adato.inc}
+{$ENDIF}
 {$ENDIF}
 
 unit ADato.ListComparer.Impl;
@@ -8,8 +10,10 @@ interface
 
 uses
   {$IFNDEF WEBASSEMBLY}
+  {$IFDEF DELPHI}
   System.Classes,
   System.Generics.Defaults,
+  {$ENDIF}
   System.ComponentModel,
   {$ELSE}
   Wasm.System.ComponentModel,
@@ -76,7 +80,7 @@ type
     function  SortCompleted: Boolean;
     procedure ToggleDirection;
 
-    {$IFDEF WEBASSEMBLY}
+    {$IFDEF ECHOES}
     event OnComparingChanged: IOnDataChangeDelegate delegate _onDataChangedDelegate;
     {$ENDIF}
 
@@ -194,7 +198,7 @@ end;
 
 function TListComparer.get_OnComparingChanged: IOnDataChangeDelegate;
 begin
-  {$IFNDEF WEBASSEMBLY}
+  {$IFNDEF ECHOES}
   if _onDataChangedDelegate = nil then
     _onDataChangedDelegate := TOnDataChangeDelegate.Create;
   {$ENDIF}

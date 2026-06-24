@@ -1,5 +1,7 @@
 ﻿{$IFNDEF WEBASSEMBLY}
-{$I ..\..\dn4d\Source\ADato.inc}
+{$IFDEF DELPHI}
+//{$I ..\..\dn4d\Source\ADato.inc}
+{$ENDIF}
 {$ENDIF}
 
 unit ADato.ObjectModel.TrackInterfaces;

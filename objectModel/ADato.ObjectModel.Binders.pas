@@ -1,5 +1,7 @@
 ﻿{$IFNDEF WEBASSEMBLY}
+{$IFDEF DELPHI}
 {$I Adato.inc}
+{$ENDIF}
 {$ENDIF}
 
 unit ADato.ObjectModel.Binders;
@@ -8,6 +10,7 @@ interface
 
 uses
   {$IFNDEF WEBASSEMBLY}
+  {$IFDEF DELPHI}
   FMX.Edit, 
   FMX.StdCtrls, 
   FMX.ListBox, 
@@ -25,8 +28,10 @@ uses
   System.SysUtils,
   System.UITypes,
   {$ELSE}
+  ADato.CustomControls,
+  {$ENDIF}
+  {$ELSE}
   //ADato.CustomControls,
-  System.Text,
   Wasm.FMX.StdCtrls,
   Wasm.FMX.Controls,
   Wasm.FMX.Types,
@@ -44,6 +49,9 @@ uses
   Wasm.FMX.DateTimeCtrls,
   Wasm.System.SysUtils,
   Wasm.System.UITypes,
+  {$ENDIF}
+  {$IFDEF ECHOES}
+  System.Text,
   {$ENDIF}
   System_,
   ADato.PropertyAccessibility.Intf,
@@ -132,7 +140,7 @@ type
     _control: T;
     _freeNotification: IFreeNotification;
 
-    {$IFNDEF WEBASSEMBLY}
+    {$IFNDEF ECHOES}
     [unsafe] _updated_rect: IControl;
     {$ELSE}
     _updated_rect: IControl;
@@ -322,7 +330,7 @@ type
     procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject); override;
   end;
 
-  {$IFNDEF WEBASSEMBLY}
+  {$IFNDEF ECHOES}
   TComboColorBoxControlBinding = class(TControlBinding<TComboColorBox>)
   protected
     function  GetValue: CObject; override;
@@ -415,10 +423,12 @@ implementation
 
 uses
   {$IFNDEF WEBASSEMBLY}
+  {$IFDEF DELPHI}
   FMX.Text,
   System.Math,
   FMX.Ani,
   System.JSON,
+  {$ENDIF}
   {$ELSE}
   Wasm.FMX.Text,
   Wasm.System.Math,
@@ -1330,11 +1340,7 @@ end;
 
 procedure TControlBinding<T>.UpdateControlVisibility(IsVisible: Boolean);
 begin
-  {$IFDEF DEBUG}
-  _control.Opacity := IfThen(not IsVisible, 0.2, 1);
-  {$ELSE}
   _control.Opacity := IfThen(not IsVisible, 0, 1);
-  {$ENDIF}
 end;
 
 procedure TControlBinding<T>.HideAndClearUpdatedRect(const Index: Integer; const Rect: TRectangle);
@@ -1878,7 +1884,7 @@ end;
 
 { TComboColorBoxControlBinding }
 
-{$IFNDEF WEBASSEMBLY}
+{$IFNDEF ECHOES}
 constructor TComboColorBoxControlBinding.Create(AControl: TComboColorBox);
 begin
   inherited Create(AControl);
@@ -1975,7 +1981,7 @@ initialization
   TPropertyBinding.RegisterClassBinding(TNumberBox,
     function(const Control: TFMXObject): IPropertyBinding begin Result := TNumberBoxControlSmartLinkBinding.Create(TNumberBox(Control)) end);
 
-  {$IFNDEF WEBASSEMBLY}
+  {$IFNDEF ECHOES}
   TPropertyBinding.RegisterClassBinding(TComboColorBox,
     function(const Control: TFMXObject): IPropertyBinding begin Result := TComboColorBoxControlSmartLinkBinding.Create(TComboColorBox(Control)) end);
   {$ENDIF}

@@ -1,5 +1,5 @@
 ﻿{$IFNDEF WEBASSEMBLY}
-{$I ADato.inc}
+//{$I ADato.inc}
 {$ENDIF}
 
 unit ADato.ObjectModel.DataModel.impl;
@@ -7,10 +7,12 @@ unit ADato.ObjectModel.DataModel.impl;
 interface
 
 uses
-  {$IFNDEF WEBASSEMBLY}
+  {$IFNDEF DOTNET}
   System.SysUtils,
   {$ELSE}
+  {$IFDEF WEBASSEMBLY}
   Wasm.System.SysUtils,
+  {$ENDIF}
   ADato.TypeCustomization,
   {$ENDIF}
   System_,
@@ -91,7 +93,7 @@ type
     procedure set_MultiObjectContextSupport(const Value: Boolean);
     function  get_MultiSelect: IObjectModelMultiSelect;
 
-    {$IFNDEF WEBASSEMBLY}
+    {$IFNDEF DOTNET}
     function  get_OnContextCanChange: ListContextCanChangeEventHandler;
     function  get_OnContextChanging: ListContextChangingEventHandler;
     function  get_OnContextChanged: ListContextChangedEventHandler;
@@ -164,7 +166,7 @@ type
     function  GetTypeEx: &Type;
     {$ENDIF}
 
-    function  GetType: &Type; {$IFNDEF WEBASSEMBLY}override;{$ENDIF}
+    function  GetType: &Type; {$IFNDEF DOTNET}override;{$ENDIF}
     function  CreateObjectModelContext : IObjectModelContext;
   public
     constructor Create(const DataModel: IDataModel); virtual;
@@ -174,8 +176,8 @@ type
 
   TDataModelPropertyForObjectModel = class(CPropertyInfo)
   protected
-    {$IFNDEF WEBASSEMBLY}[unsafe]{$ENDIF} _datamodelColumn: IDataModelColumn;
-    {$IFNDEF WEBASSEMBLY}[unsafe]{$ENDIF} _datamodel: IDataModel;
+    {$IFNDEF DOTNET}[unsafe]{$ENDIF} _datamodelColumn: IDataModelColumn;
+    {$IFNDEF DOTNET}[unsafe]{$ENDIF} _datamodel: IDataModel;
 
     function  get_Name: CString; override;
     function  get_CanRead: Boolean; override;
@@ -328,7 +330,7 @@ begin
   _originalDataRows := CDictionary<CObject, TDataRowInfo>.Create;
   _previousIndex := -1;
 
-  {$IFNDEF WEBASSEMBLY}
+  {$IFNDEF DOTNET}
   _OnContextCanChange := ListContextCanChangeEventDelegate.Create;
   _OnContextChanging := ListContextChangingEventDelegate.Create;
   _OnContextChanged := ListContextChangedEventDelegate.Create;
@@ -337,7 +339,7 @@ end;
 
 function TDataModelObjectListModel.CreateInstance: CObject;
 begin
-  {$IFNDEF WEBASSEMBLY}
+  {$IFNDEF DOTNET}
   if Assigned(_CreatorFunc) then
     Result := _CreatorFunc();
   {$ELSE}
@@ -520,7 +522,7 @@ begin
   if (_ObjectModelContext = nil) and (get_Context <> nil) then
   begin
     _ObjectModelContext := CreateObjectModelContext;
-    {$IFNDEF WEBASSEMBLY}
+    {$IFNDEF DOTNET}
     _ObjectModelContext.OnContextChanged.Add(OnObjectContextChanged);
     _ObjectModelContext.OnPropertyChanged.Add(OnObjectPropertyChanged);
     {$ELSE}
@@ -532,7 +534,7 @@ begin
   Result := _ObjectModelContext;
 end;
 
-{$IFNDEF WEBASSEMBLY}
+{$IFNDEF DOTNET}
 function TDataModelObjectListModel.get_OnContextCanChange: ListContextCanChangeEventHandler;
 begin
   Result := _OnContextCanChange;
@@ -594,7 +596,7 @@ begin
 
         CacheOriginalData(item);
         UpdateChangedItem(obj, TObjectListChangeType.Changed);
-        {$IFNDEF WEBASSEMBLY}
+        {$IFNDEF DOTNET}
         AProperty.SetValue(item, AProperty.GetValue(Context, []), [], True);
         {$ELSE}
         AProperty.SetValue(item, AProperty.GetValue(Context, []), []);
@@ -777,7 +779,7 @@ begin
 
   if _dataModel <> nil then
   begin
-    {$IFNDEF WEBASSEMBLY}
+    {$IFNDEF DOTNET}
     _dataModel.DefaultCurrencyManager.CurrentRowChanged.Remove(OnRowChanged);
     _ObjectModelContext.OnContextChanged.Remove(OnObjectContextChanged);
     _ObjectModelContext.OnPropertyChanged.Remove(OnObjectPropertyChanged);
@@ -925,7 +927,7 @@ end;
 
 function TDataModelObjectModel.GetType: &Type;
 begin
-  {$IFNDEF WEBASSEMBLY}
+  {$IFNDEF DOTNET}
   if _dataModelType.IsUnknown then
   begin
     Assert(_dataModel <> nil);

@@ -1,5 +1,7 @@
 ﻿{$IFNDEF WEBASSEMBLY}
-{$I ..\..\dn4d\Source\Adato.inc}
+{$IFDEF DELPHI}
+//{$I ..\..\dn4d\Source\Adato.inc}
+{$ENDIF}
 {$ENDIF}
 
 unit ADato.ObjectModel.List.intf;
@@ -333,7 +335,7 @@ end;
 
 function TObjectModelMultiSelect.get_Delegate: ListContextChangedEventHandler;
 begin
-  {$IFNDEF WEBASSEMBLY}
+  {$IFNDEF ECHOES}
   if _eventHandler = nil then
     _eventHandler := ListContextChangedEventDelegate.Create;
   {$ENDIF}

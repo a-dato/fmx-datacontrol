@@ -1,4 +1,6 @@
-﻿{$I ..\Source\Adato.inc}
+﻿{$IFDEF DELPHI}
+//{$I ..\Source\Adato.inc}
+{$ENDIF}
 
 unit ADato.ComponentModel;
 
@@ -32,12 +34,12 @@ type
   private
     // QueryInterface provides a way to overide the interface
     // used for querying other interfaces
-    {$IFNDEF WEBASSEMBLY}
+    {$IFNDEF ECHOES}
     _QueryControllers: array of Pointer;
     {$ELSE}
     _QueryControllers: array of IInterface;
     {$ENDIF}
-    {$IFNDEF WEBASSEMBLY}[unsafe]{$ENDIF}_InterfaceComponentReference: IInterfaceComponentReference;
+    {$IFNDEF ECHOES}[unsafe]{$ENDIF}_InterfaceComponentReference: IInterfaceComponentReference;
 
   protected
     function  get_InterfaceComponentReference: IInterfaceComponentReference;

@@ -1,5 +1,7 @@
 ﻿{$IFNDEF WEBASSEMBLY}
-{$I ..\Source\Adato.inc}
+{$IFDEF DELPHI}
+//{$I ..\Source\Adato.inc}
+{$ENDIF}
 {$ENDIF}
 
 unit ADato.Extensions.impl;
@@ -59,6 +61,7 @@ type
     {$IFDEF DELPHI}
     class threadvar _Context: TGUID;
     {$ELSE}
+    [ThreadStatic]
     class var _Context: TGUID;
     {$ENDIF}
 
@@ -70,6 +73,9 @@ type
 
   public
     constructor Create(IsGlobalManager: Boolean); reintroduce;
+    {$IFDEF DOTNET}
+    class constructor Create;
+    {$ENDIF}
 
     procedure Clear;
 
@@ -114,6 +120,13 @@ begin
   {$ENDIF}
 end;
 
+{$IFDEF DOTNET}
+class constructor TExtensionManager.Create;
+begin
+  InitializeGlobalExtensionManager;
+end;
+{$ENDIF}
+
 procedure TExtensionManager.Clear;
 begin
   MonitorEnter(TObject(_ExtentionManagers));
@@ -144,9 +157,7 @@ end;
 class procedure TExtensionManager.SetContextThreadVariable(const Context: TGUID);
 begin
   _Context := Context;
-  {$IFNDEF WEBASSEMBLY}
   if Context.IsEmpty then Exit;
-  {$ENDIF}
 
   MonitorEnter(TObject(_ExtentionManagers));
   try
@@ -166,10 +177,8 @@ class procedure TExtensionManager.RemoveContext(const Context: TGUID);
 begin
   MonitorEnter(TObject(_ExtentionManagers));
   try
-    {$IFNDEF WEBASSEMBLY}
     if not Context.IsEmpty then
       _ExtentionManagers.Remove(Context);
-    {$ENDIF}
     _Context := TGuid.Empty;
   finally
     MonitorExit(TObject(_ExtentionManagers));
@@ -202,10 +211,8 @@ var
   cp: ICustomProperty;
   prop: _PropertyInfo;
 begin
-  {$IFDEF DELPHI}
   if _IsGlobalManager and (_Context <> TGUID.Empty) then
     Exit((_ExtentionManagers[_Context] as ICustomTypeDescriptor).GetCustomProperties(AType));
-  {$ENDIF}
 
   {$IFDEF LYNXSERVICE}
   if _IsGlobalManager then
@@ -238,10 +245,8 @@ function TExtensionManager.GetProperties(const AType: &Type): PropertyInfoArray;
 begin
   MonitorEnter(TObject(_ExtentionManagers));
   try
-    {$IFDEF DELPHI}
     if _IsGlobalManager and (_Context <> TGUID.Empty) then
       Exit((_ExtentionManagers[_Context] as ICustomTypeDescriptor).GetProperties(AType));
-    {$ENDIF}
 
     {$IFDEF LYNXSERVICE}
     if _IsGlobalManager then
@@ -396,7 +401,7 @@ begin
     MonitorExit(TObject(_ExtentionManagers));
   end;
 
-  {$IFDEF LYNXWEB}
+  {$IFDEF DOTNET}
   if _onTypePropertiesChanged = nil then
     Exit;
   {$ENDIF}

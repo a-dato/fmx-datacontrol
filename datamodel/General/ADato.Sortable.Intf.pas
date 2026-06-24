@@ -1,4 +1,6 @@
-﻿{$I ..\..\dn4d\Source\Adato.inc}
+﻿{$IFDEF DELPHI}
+{$I ..\..\dn4d\Source\Adato.inc}
+{$ENDIF}
 
 unit ADato.Sortable.Intf;
 
@@ -6,8 +8,10 @@ interface
 
 uses
   {$IFNDEF WEBASSEMBLY}
+  {$IFDEF DELPHI}
   System.Classes,
   System.SysUtils,
+  {$ENDIF}
   System.ComponentModel,
   {$ELSE}
   Wasm.System.ComponentModel,
@@ -20,7 +24,7 @@ uses
 type
   TOnChangeProc = procedure of object;
 
-  {$IFNDEF WEBASSEMBLY}
+  {$IFNDEF ECHOES}
   IOnDataChangeDelegate = interface(IDelegate)
     procedure Add(Value: TOnChangeProc);
     function  Contains(Value: TOnChangeProc) : Boolean;
@@ -70,7 +74,7 @@ type
     property  SortDescriptions: List<IListSortDescription> read get_SortDescriptions;
     property  FilterDescriptions: List<IListFilterDescription> read get_FilterDescriptions;
     property  FuncDataList: TGetDataList read get_FuncDataList write set_FuncDataList;
-    {$IFNDEF WEBASSEMBLY}
+    {$IFNDEF ECHOES}
     property  OnComparingChanged: IOnDataChangeDelegate read get_OnComparingChanged;
     {$ELSE}
     event OnComparingChanged: IOnDataChangeDelegate;
@@ -90,7 +94,7 @@ implementation
 
 { TOnDataChangeDelegate }
 
-{$IFNDEF WEBASSEMBLY}
+{$IFNDEF ECHOES}
 procedure TOnDataChangeDelegate.Add(Value: TOnChangeProc);
 begin
   inherited Add(TMethod(Value));

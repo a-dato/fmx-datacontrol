@@ -1,5 +1,5 @@
 ﻿{$IFNDEF WEBASSEMBLY}
-{$I ..\..\dn4d\Source\Adato.inc}
+//{$I ..\..\dn4d\Source\Adato.inc}
 {$ENDIF}
 
 unit ADato.ObjectModel.List.Tracking.intf;

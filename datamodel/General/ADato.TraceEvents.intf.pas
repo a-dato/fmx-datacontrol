@@ -1,5 +1,7 @@
 ﻿{$IFNDEF WEBASSEMBLY}
-{$I ..\Source\Adato.inc}
+{$IFDEF DELPHI}
+//{$I ..\Source\Adato.inc}
+{$ENDIF}
 {$ENDIF}
 
 unit ADato.TraceEvents.intf;
@@ -113,8 +115,10 @@ var
 implementation
 
 {$IFNDEF WEBASSEMBLY}
+{$IFDEF DELPHI}
 uses
   System.JSON;
+{$ENDIF}
 {$ENDIF}
 
 

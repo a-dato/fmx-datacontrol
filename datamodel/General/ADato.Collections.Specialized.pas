@@ -1,4 +1,6 @@
-﻿{$I ..\Source\Adato.inc}
+﻿{$IFDEF DELPHI}
+//{$I ..\Source\Adato.inc}
+{$ENDIF}
 
 unit ADato.Collections.Specialized;
 

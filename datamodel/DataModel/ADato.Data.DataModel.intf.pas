@@ -1,5 +1,7 @@
 ﻿{$IFNDEF WEBASSEMBLY}
+{$IFDEF DELPHI}
 {$I ..\..\dn4d\Source\Adato.inc}
+{$ENDIF}
 {$ENDIF}
 
 unit ADato.Data.DataModel.intf;
@@ -21,7 +23,7 @@ uses
 type
   IDataModelFactory = interface;
 
-  {$IFNDEF WEBASSEMBLY}
+  {$IFNDEF ECHOES}
   RowPositionFlag = (
     RowPosition_Header,
     RowPosition_Sibling,
@@ -1030,7 +1032,7 @@ end;
 
 { RowPosition }
 
-{$IFNDEF WEBASSEMBLY}
+{$IFNDEF ECHOES}
 class operator RowPosition.Equal(L, R: RowPosition) : Boolean;
 begin
   Result := L.Value = R.Value;

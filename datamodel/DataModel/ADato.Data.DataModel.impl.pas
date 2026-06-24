@@ -1,5 +1,7 @@
 ﻿{$IFNDEF WEBASSEMBLY}
+{$IFDEF DELPHI}
 {$I ..\..\dn4d\Source\Adato.inc}
+{$ENDIF}
 {$ENDIF}
 
 unit ADato.Data.DataModel.impl;
@@ -8,6 +10,7 @@ interface
 
 uses
   {$IFNDEF WEBASSEMBLY}
+  {$IFDEF DELPHI}
   Classes,
   SysUtils,
   //{$IFNDEF CONSOLE}
@@ -17,6 +20,7 @@ uses
   //{$ENDIF}
   Generics.Defaults,
   System.Collections.ListInterface.impl,
+  {$ENDIF}
   //System.Reflection,
   ADato.ComponentModel,
   //System.ComponentModel,
@@ -298,13 +302,13 @@ type
     IDataModelColumnCollection)
 
   protected
-    {$IFNDEF WEBASSEMBLY}[unsafe]{$ENDIF}_DataModel: IDataModel;
+    {$IFNDEF ECHOES}[unsafe]{$ENDIF}_DataModel: IDataModel;
     _sortedColumns: List<IDataModelColumn>;
 
     function  get_DataModel: IDataModel;
 
     function  FindByName(const Name: CString): IDataModelColumn;
-    procedure InsertItem(index: Integer; const item: IDataModelColumn); {$IFNDEF WEBASSEMBLY}override;{$ENDIF}
+    procedure InsertItem(index: Integer; const item: IDataModelColumn); {$IFNDEF ECHOES}override;{$ENDIF}
     //procedure OnCollectionChanged(e: NotifyCollectionChangedEventArgs); override;
 
   public
@@ -345,7 +349,7 @@ type
     IDataModelParser)
   private
     _column: IDataModelColumn;
-    {$IFNDEF WEBASSEMBLY}[unsafe]{$ENDIF}_dataModel: IDataModel;
+    {$IFNDEF ECHOES}[unsafe]{$ENDIF}_dataModel: IDataModel;
 
   protected
     function  get_DataModel: IDataModel;
@@ -4390,7 +4394,7 @@ begin
 
   if _dataModel <> nil then
   begin
-    {$IFNDEF WEBASSEMBLY}
+    {$IFNDEF ECHOES}
     DataModel.DataModelChanged.Remove(DataModelChanged);
     DataModel.ListChanged.Remove(DataModel_ListChanged);
     {$ELSE}
@@ -4403,7 +4407,7 @@ begin
 
   if _dataModel <> nil then
   begin
-    {$IFNDEF WEBASSEMBLY}
+    {$IFNDEF ECHOES}
     DataModel.DataModelChanged.Add(DataModelChanged);
     DataModel.ListChanged.Add(DataModel_ListChanged);
     {$ELSE}
@@ -4712,7 +4716,7 @@ constructor DataModelCurrencyManager.Create(ADataModelView: TDataModelView);
 begin
   _dataModelView := ADataModelView;
 
-  {$IFNDEF WEBASSEMBLY}
+  {$IFNDEF ECHOES}
   (_dataModelView as IDataModelView).ViewChanged.Add(DataModelViewChanged);
   {$ELSE}
   (_dataModelView as IDataModelView).ViewChanged += @DataModelViewChanged;

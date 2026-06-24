@@ -1,5 +1,7 @@
 ﻿{$IFNDEF WEBASSEMBLY}
-{$I ..\Source\Adato.inc}
+{$IFDEF DELPHI}
+//{$I ..\Source\Adato.inc}
+{$ENDIF}
 {$ENDIF}
 
 unit ADato.Parser.impl;
@@ -10,10 +12,14 @@ interface
 
 uses
   {$IFNDEF WEBASSEMBLY}
+  {$IFDEF DELPHI}
   SysUtils,
+  {$ENDIF}
   {$ELSE}
   Wasm.System.SysUtils,
-	System.Text,
+  {$ENDIF}
+  {$IFDEF ECHOES}
+  System.Text,
   {$ENDIF}
   System_,
   System.Collections,
@@ -2358,13 +2364,13 @@ function TParser.Calculate(
 
 begin
   if (not Assigned(Proc)) then
-    {$IFNDEF WEBASSEMBLY}
+    {$IFNDEF ECHOES}
   	CalcProc :=	DefCalcProc 
 	  {$ELSE}
 		CalcProc :=	@DefCalcProc 
 	  {$ENDIF}
 	else
-    {$IFNDEF WEBASSEMBLY}
+    {$IFNDEF ECHOES}
     CalcProc := Proc;
     {$ELSE}
     // Compiler doesnt understand proc is same type as CalcProc

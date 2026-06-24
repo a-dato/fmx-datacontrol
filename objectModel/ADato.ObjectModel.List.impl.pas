@@ -1,5 +1,7 @@
 ﻿{$IFNDEF WEBASSEMBLY}
+{$IFDEF DELPHI}
 {$I ADato.inc}
+{$ENDIF}
 {$ENDIF}
 
 unit ADato.ObjectModel.List.impl;

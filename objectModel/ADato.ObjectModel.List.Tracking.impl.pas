@@ -1,5 +1,7 @@
 ﻿{$IFNDEF WEBASSEMBLY}
+{$IFDEF DELPHI}
 {$I Adato.inc}
+{$ENDIF}
 {$ENDIF}
 
 unit ADato.ObjectModel.List.Tracking.impl;
@@ -174,7 +176,8 @@ begin
     var e: IEnumerable;
     if Data.TryAsType<IEnumerable>(e) then
     begin
-      for var item in e do
+      var item: CObject;
+      for item in e do
       begin
         _Context.Add(item);
         inc(Result);
@@ -229,7 +232,7 @@ end;
 
 destructor TObjectListModelWithChangeTracking<T>.Destroy;
 begin
-  {$IFNDEF WEBASSEMBLY}
+  {$IFNDEF ECHOES}
   if _ObjectModelContext <> nil then
     _ObjectModelContext.OnPropertyChanged.Remove(OnObjectPropertyChanged);
   {$ELSE}
@@ -250,7 +253,7 @@ begin
   end else
     Result := inherited;
 
-  {$IFNDEF WEBASSEMBLY}
+  {$IFNDEF ECHOES}
   Result.OnPropertyChanged.Add(OnObjectPropertyChanged);
   {$ELSE}
   Result.OnPropertyChanged += OnObjectPropertyChanged;
@@ -492,7 +495,7 @@ begin
           obj := item;
 
         UpdateChangedItem(obj, TObjectListChangeType.Changed);
-        {$IFNDEF WEBASSEMBLY}
+        {$IFNDEF ECHOES}
         AProperty.SetValue(item, AProperty.GetValue(Context, []), [], True);
         {$ELSE}
         AProperty.SetValue(item, AProperty.GetValue(Context, []), []);

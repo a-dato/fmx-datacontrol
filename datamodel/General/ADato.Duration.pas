@@ -1,5 +1,7 @@
 ﻿{$IFNDEF WEBASSEMBLY}
-{$I ..\Source\Adato.inc}
+{$IFDEF DELPHI}
+//{$I ..\Source\Adato.inc}
+{$ENDIF}
 {$ENDIF}
 
 unit ADato.Duration;
@@ -7,9 +9,9 @@ unit ADato.Duration;
 interface
 
 uses
-  {$IFDEF WEBASSEMBLY}
-  System.Text,
+  {$IFDEF ECHOES}
   System.Threading,
+  System.Text,
   {$ENDIF}
   System_;
 
@@ -245,8 +247,10 @@ implementation
 
 uses
   {$IFNDEF WEBASSEMBLY}
+  {$IFDEF DELPHI}
   SysUtils,
   System_.Threading
+  {$ENDIF}
   {$ELSE}
   Wasm.System.SysUtils,
 	{$ENDIF};
