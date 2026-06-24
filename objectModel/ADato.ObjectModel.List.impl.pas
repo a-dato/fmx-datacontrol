@@ -328,7 +328,6 @@ begin
   var viewState: IObjectModelContextViewState;
   if Interfaces.Supports<IObjectModelContextViewState>(_ObjectModelContext, viewState) then
     viewState.IsMultiSelectActive := isMultiSelectActive;
-
   var multiContextSupport: IMultiObjectContextSupport;
   if Interfaces.Supports<IMultiObjectContextSupport>(_ObjectModelContext, multiContextSupport) then
     for var storedContext in multiContextSupport.StoredContexts.Values do

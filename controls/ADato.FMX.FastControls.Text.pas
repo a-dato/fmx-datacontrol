@@ -58,6 +58,7 @@ type
     _autoSize: TAutoSize;
     _autoSizeNeeded: Boolean;
     _forbiddenAutoSizeOptions: TArray<TAutoSize>;
+    _internalUpdateCount: Integer;
 
     _recalcIndex: Integer;
 
@@ -307,22 +308,12 @@ type
     procedure UpdateControlEditability(IsEditable: Boolean); override;
   end;
 
-  TFastTextControlSmartLinkBinding = class(TFastTextControlBinding)
-  protected
-    procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject); override;
-  end;
-
   TFastCheckboxControlBinding = class(TControlBinding<TFastText>)
   protected
     function  GetValue: CObject; override;
     procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject); override;
 
     procedure UpdateControlEditability(IsEditable: Boolean); override;
-  end;
-
-  TFastCheckboxControlSmartLinkBinding = class(TFastCheckboxControlBinding)
-  protected
-    procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject); override;
   end;
 
 const
@@ -1325,12 +1316,17 @@ end;
 
 procedure TFastTextControlBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
 begin
-  if IsUpdating or not IsBoundProperty(AProperty) then Exit;
+  if IsUpdating then
+    Exit;
 
-  _value := Value;
-  if Value <> nil then
-    _Control.Text := CStringToString(Value.ToString) else
-    _Control.Text := '';
+  if IsBoundProperty(AProperty) then
+  begin
+    _value := Value;
+    if Value <> nil then
+      _Control.Text := CStringToString(Value.ToString) else
+      _Control.Text := '';
+  end else
+    ExecuteFromLink(AProperty, Obj);
 end;
 
 procedure TFastTextControlBinding.UpdateControlEditability(IsEditable: Boolean);
@@ -1338,18 +1334,6 @@ begin
   // textControls can't be edited, therefor always should be true so that they can be copied!!
   _control.Enabled := True;
 end;
-
-{ TFastTextControlSmartLinkBinding }
-
-procedure TFastTextControlSmartLinkBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
-begin
-  if _UpdateCount > 0 then Exit;
-
-  if not IsBoundProperty(AProperty) then
-    ExecuteFromLink(Obj) else
-    inherited;
-end;
-
 
 { TFastTextControlBinding }
 
@@ -1364,28 +1348,22 @@ end;
 
 procedure TFastCheckboxControlBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
 begin
-  if IsUpdating or not IsBoundProperty(AProperty) then Exit;
+  if IsUpdating then
+    Exit;
 
-  _value := Value;
-  if Value <> nil then
-    (_Control as IIsChecked).IsChecked := Value.AsType<Boolean> else
-    (_Control as IIsChecked).IsChecked := False;
+  if IsBoundProperty(AProperty) then
+  begin
+    _value := Value;
+    if Value <> nil then
+      (_Control as IIsChecked).IsChecked := Value.AsType<Boolean> else
+      (_Control as IIsChecked).IsChecked := False;
+  end else
+    ExecuteFromLink(AProperty, Obj);
 end;
 
 procedure TFastCheckboxControlBinding.UpdateControlEditability(IsEditable: Boolean);
 begin
   _control.Enabled := IsEditable;
-end;
-
-{ TFastTextControlSmartLinkBinding }
-
-procedure TFastCheckboxControlSmartLinkBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
-begin
-  if _UpdateCount > 0 then Exit;
-
-  if not IsBoundProperty(AProperty) then
-    ExecuteFromLink(Obj) else
-    inherited;
 end;
 
 { TFastControl }
@@ -1423,11 +1401,13 @@ begin
   if not OnlyWhenRealignNeeded then
     RequestRealign;
 
+  inc(_internalUpdateCount);
   BeginUpdate;
   try
     ControlLoadedCalculate;
   finally
     EndUpdate;
+    dec(_internalUpdateCount);
   end;
 end;
 
@@ -1577,16 +1557,16 @@ procedure TFastControl.EndUpdate;
 begin
   inherited;
 
-  if not IsUpdating then
+  if not IsUpdating and (_internalUpdateCount = 0) then
     RecalcNeeded;
 end;
 
 initialization
   TPropertyBinding.RegisterClassBinding(TFastText,
-    function(const Control: TFMXObject): IPropertyBinding begin Result := TFastTextControlSmartLinkBinding.Create(TFastText(Control)) end);
+    function(const Control: TFMXObject): IPropertyBinding begin Result := TFastTextControlBinding.Create(TFastText(Control)) end);
 
   TPropertyBinding.RegisterClassBinding(TFastCheckbox,
-    function(const Control: TFMXObject): IPropertyBinding begin Result := TFastCheckboxControlSmartLinkBinding.Create(TFastCheckbox(Control)) end);
+    function(const Control: TFMXObject): IPropertyBinding begin Result := TFastCheckboxControlBinding.Create(TFastCheckbox(Control)) end);
 
 
 end.

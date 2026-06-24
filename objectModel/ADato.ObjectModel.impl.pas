@@ -79,6 +79,7 @@ type
     _OnContextCanChange: ContextCanChangeEventHandler;
     _OnContextChanging: ContextChangingEventHandler;
     _OnContextChanged: ContextChangedEventHandler;
+    _OnViewStateChanged: ContextChangedEventHandler;
     _OnPropertyChanged : PropertyChangedEventHandler;
     _UpdateCount: Integer;
 //    _ContextChangingExecuted: Boolean;
@@ -90,6 +91,7 @@ type
     procedure set_Context(const Value: CObject); virtual;
     function  get_IsMultiSelectActive: Boolean; virtual;
     procedure set_IsMultiSelectActive(const Value: Boolean); virtual;
+    function  get_OnViewStateChanged: ContextChangedEventHandler;
     function  get_OnContextCanChange: ContextCanChangeEventHandler;
     function  get_OnContextChanging: ContextChangingEventHandler;
     function  get_OnContextChanged: ContextChangedEventHandler;
@@ -100,6 +102,7 @@ type
     function  ContextCanChange : Boolean;
     procedure DoContextChanging; virtual;
     procedure DoContextChanged; virtual;
+    procedure NotifyViewStateChanged; virtual;
 
     procedure Bind(const AProperty: _PropertyInfo; const ABinding: IPropertyBinding); overload; virtual;
     procedure Bind(const PropName: string; const ABinding: IPropertyBinding); overload; virtual;
@@ -131,6 +134,7 @@ type
     event OnContextCanChange: ContextCanChangeEventHandler delegate _OnContextCanChange;
     event OnContextChanging: ContextChangingEventHandler delegate _OnContextChanging;
     event OnContextChanged: ContextChangedEventHandler delegate _OnContextChanged;
+    event OnViewStateChanged: ContextChangedEventHandler delegate _OnViewStateChanged;
     event OnPropertyChanged: PropertyChangedEventHandler delegate _OnPropertyChanged;
 
     procedure InvokeOnPropertyChanged(const Sender: IObjectModelContext; const Context: CObject; const AProperty: _PropertyInfo);
@@ -286,6 +290,7 @@ begin
   _OnContextCanChange := ContextCanChangeEventDelegate.Create;
   _OnContextChanging := ContextChangingEventDelegate.Create;
   _OnContextChanged := ContextChangedEventDelegate.Create;
+  _OnViewStateChanged := ContextChangedEventDelegate.Create;
   _OnPropertyChanged := PropertyChangedEventDelegate.Create;
   {$ENDIF}
 end;
@@ -341,6 +346,17 @@ procedure TObjectModelContext.DoContextChanged;
 begin
   if _OnContextChanged <> nil then
 	  _OnContextChanged.Invoke(Self, _Context);
+end;
+
+procedure TObjectModelContext.NotifyViewStateChanged;
+begin
+  if _OnViewStateChanged <> nil then
+    _OnViewStateChanged.Invoke(Self, _Context);
+end;
+
+function TObjectModelContext.get_OnViewStateChanged: ContextChangedEventHandler;
+begin
+  Result := _OnViewStateChanged;
 end;
 
 function TObjectModelContext.get_OnContextCanChange: ContextCanChangeEventHandler;
@@ -402,6 +418,7 @@ begin
     Exit;
 
   _IsMultiSelectActive := Value;
+  NotifyViewStateChanged;
 
   if _UpdateCount = 0 then
 	UpdatePropertyBindingValues

@@ -119,10 +119,12 @@ type
   end;
 
   IObjectModelContextViewState = interface(IBaseInterface)
-    ['{B7B28715-8E2D-4A32-B4E4-5243A376D97D}']
+    ['{0622F558-5323-4F7C-9A18-02EF92A57687}']
+    function  get_OnViewStateChanged: ContextChangedEventHandler;
     function  get_IsMultiSelectActive: Boolean;
     procedure set_IsMultiSelectActive(const Value: Boolean);
 
+    property OnViewStateChanged: ContextChangedEventHandler read get_OnViewStateChanged;
     property IsMultiSelectActive: Boolean read get_IsMultiSelectActive write set_IsMultiSelectActive;
   end;
 

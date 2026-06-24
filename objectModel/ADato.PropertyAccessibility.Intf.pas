@@ -33,6 +33,11 @@ type
     procedure ClearEditablity(const PropName: CString);
   end;
 
+  IPropertyLinkChangeListener = interface(IBaseInterface)
+    ['{FBF24B61-E634-4375-A08A-94FAD9BE7D7C}']
+    procedure PropertyLinkChanged(const ChangedProperty, LinkedProperty: _PropertyInfo);
+  end;
+
 implementation
 
 { TEditableStateHelper }

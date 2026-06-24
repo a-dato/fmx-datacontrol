@@ -12,6 +12,11 @@ type
     procedure ExecuteKeyFromExternal(var Key: Word; var KeyChar: Char; Shift: TShiftState; const ActiveChild: TControl = nil);
   end;
 
+  ILayoutInvalidationContainer = interface
+    ['{6D2F3A52-7240-48C1-81EF-F511E4C0B49F}']
+    procedure RequestChildLayoutChanged(const Child: TControl);
+  end;
+
 implementation
 
 end.

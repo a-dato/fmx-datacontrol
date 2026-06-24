@@ -48,6 +48,7 @@ uses
   System_,
   ADato.PropertyAccessibility.Intf,
   ADato.ObjectModel.intf,
+  ADato.FMX.Controls.Intf,
   System.Collections,
   System.Collections.Generic
   {$IFDEF APP_PLATFORM}
@@ -148,14 +149,16 @@ type
     procedure ExecuteOriginalOnChangeEvent; override;
 
     procedure CheckControlEditability(const Context: CObject);
+    procedure NotifyParentLayoutChanged(const Control: TControl);
     procedure OnContextChanged(const Sender: IObjectModelContext; const Context: CObject);
+    procedure OnViewStateChanged(const Sender: IObjectModelContext; const Context: CObject);
     procedure OnContextPropertyChanged(const Sender: IObjectModelContext; const Context: CObject; const AProperty: _PropertyInfo);
 
     procedure OnFreeNotificationDestroy;
 
     procedure UpdateControlEditability(IsEditable: Boolean); virtual;
 
-    procedure ExecuteFromLink(const Obj: CObject);
+    procedure ExecuteFromLink(const ChangedProperty: _PropertyInfo; const Obj: CObject);
     procedure UpdatedByLink;
     procedure FreeAndNilRect;
     procedure HideAndClearUpdatedRect(const Index: Integer; const Rect: TRectangle);
@@ -435,8 +438,28 @@ begin
 
   // do not set Visibility, for code can already make controls (in)visible
   // it is better to interfere with the Opacity
+  var wasVisibleByOpacity := _control.Opacity > 0;
   _control.Opacity := IfThen(IsVisible, 1, 0);
   _control.HitTest := IsVisible;
+
+  if wasVisibleByOpacity <> (_control.Opacity > 0) then
+    NotifyParentLayoutChanged(_control);
+end;
+
+procedure TControlBinding<T>.NotifyParentLayoutChanged(const Control: TControl);
+begin
+  var parent := Control.ParentControl;
+  while parent <> nil do
+  begin
+    var layoutInvalidationContainer: ILayoutInvalidationContainer;
+    if Interfaces.Supports<ILayoutInvalidationContainer>(parent, layoutInvalidationContainer) then
+    begin
+      layoutInvalidationContainer.RequestChildLayoutChanged(Control);
+      Exit;
+    end;
+
+    parent := parent.ParentControl;
+  end;
 end;
 
 constructor TControlBinding<T>.Create(const AControl: T);
@@ -493,11 +516,15 @@ begin
   Result := (get_Control = other.AsType<IControlBinding>.Control);
 end;
 
-procedure TControlBinding<T>.ExecuteFromLink(const Obj: CObject);
+procedure TControlBinding<T>.ExecuteFromLink(const ChangedProperty: _PropertyInfo; const Obj: CObject);
 begin
   var &old := GetValue;
 
   SetValue(__propertyInfo, Obj, __propertyInfo.GetValue(obj, []));
+
+  var linkChangeListener: IPropertyLinkChangeListener;
+  if (Obj <> nil) and Obj.TryAsType<IPropertyLinkChangeListener>(linkChangeListener) then
+    linkChangeListener.PropertyLinkChanged(ChangedProperty, __PropertyInfo);
 
   if not CObject.Equals(&old, GetValue) then
     UpdatedByLink;
@@ -533,6 +560,13 @@ end;
 procedure TControlBinding<T>.OnContextChanged(const Sender: IObjectModelContext; const Context: CObject);
 begin
   CheckControlEditability(Context);
+  NotifyParentLayoutChanged(_control);
+end;
+
+procedure TControlBinding<T>.OnViewStateChanged(const Sender: IObjectModelContext; const Context: CObject);
+begin
+  CheckControlEditability(Context);
+  NotifyParentLayoutChanged(_control);
 end;
 
 procedure TControlBinding<T>.OnContextPropertyChanged(const Sender: IObjectModelContext; const Context: CObject; const AProperty: _PropertyInfo);
@@ -557,9 +591,15 @@ begin
     {$IFDEF DELPHI}
     _ObjectModelContext.OnContextChanged.Remove(OnContextChanged);
     _ObjectModelContext.OnPropertyChanged.Remove(OnContextPropertyChanged);
+    var viewState: IObjectModelContextViewState;
+    if Interfaces.Supports<IObjectModelContextViewState>(_ObjectModelContext, viewState) then
+      viewState.OnViewStateChanged.Remove(OnViewStateChanged);
     {$ELSE}
     _ObjectModelContext.OnContextChanged -= OnContextChanged;
     _ObjectModelContext.OnPropertyChanged -= OnContextPropertyChanged;
+    var viewState: IObjectModelContextViewState;
+    if Interfaces.Supports<IObjectModelContextViewState>(_ObjectModelContext, viewState) then
+      viewState.OnViewStateChanged -= OnViewStateChanged;
     {$ENDIF}
   end;
 
@@ -570,9 +610,15 @@ begin
     {$IFDEF DELPHI}
     _ObjectModelContext.OnContextChanged.Add(OnContextChanged);
     _ObjectModelContext.OnPropertyChanged.Add(OnContextPropertyChanged);
+    var viewState: IObjectModelContextViewState;
+    if Interfaces.Supports<IObjectModelContextViewState>(_ObjectModelContext, viewState) then
+      viewState.OnViewStateChanged.Add(OnViewStateChanged);
     {$ELSE}
     _ObjectModelContext.OnContextChanged += OnContextChanged;
     _ObjectModelContext.OnPropertyChanged += OnContextPropertyChanged;
+    var viewState: IObjectModelContextViewState;
+    if Interfaces.Supports<IObjectModelContextViewState>(_ObjectModelContext, viewState) then
+      viewState.OnViewStateChanged += OnViewStateChanged;
     {$ENDIF}
 
     OnContextChanged(_ObjectModelContext, _ObjectModelContext.Context);
@@ -718,7 +764,7 @@ begin
       EndUpdate;
     end;
   end else
-    ExecuteFromLink(Obj);
+    ExecuteFromLink(AProperty, Obj);
 end;
 
 function TEditControlBinding.TryConvertFromUserFriendlyText(out AResult: CObject): Boolean;
@@ -931,7 +977,7 @@ begin
       EndUpdate;
     end;
   end else
-    ExecuteFromLink(Obj);
+    ExecuteFromLink(AProperty, Obj);
 end;
 
 { TComboBoxControlBinding }
@@ -1056,7 +1102,7 @@ begin
       EndUpdate;
     end;
   end else
-    ExecuteFromLink(Obj);
+    ExecuteFromLink(AProperty, Obj);
 end;
 
 { TMemoControlBinding }
@@ -1102,7 +1148,7 @@ begin
       EndUpdate;
     end;
   end else
-    ExecuteFromLink(Obj);
+    ExecuteFromLink(AProperty, Obj);
 end;
 
 procedure TMemoControlBinding.UpdateControlEditability(IsEditable: Boolean);
@@ -1161,7 +1207,7 @@ begin
       EndUpdate;
     end;
   end else
-    ExecuteFromLink(Obj);
+    ExecuteFromLink(AProperty, Obj);
 end;
 
 { TFreeControlNotification }
@@ -1242,7 +1288,7 @@ begin
       EndUpdate;
     end;
   end else
-    ExecuteFromLink(Obj);
+    ExecuteFromLink(AProperty, Obj);
 end;
 
 { TTextControlBinding }
@@ -1271,7 +1317,7 @@ begin
       EndUpdate;
     end;
   end else
-    ExecuteFromLink(Obj);
+    ExecuteFromLink(AProperty, Obj);
 end;
 
 procedure TTextControlBinding.UpdateControlEditability(IsEditable: Boolean);
@@ -1351,7 +1397,7 @@ begin
       EndUpdate;
     end;
   end else
-    ExecuteFromLink(Obj);
+    ExecuteFromLink(AProperty, Obj);
 end;
 
 { TCheckBoxControlBinding }
@@ -1396,7 +1442,7 @@ begin
       EndUpdate;
     end;
   end else
-    ExecuteFromLink(Obj);
+    ExecuteFromLink(AProperty, Obj);
 end;
 
 
@@ -1464,7 +1510,7 @@ begin
       EndUpdate;
     end;
   end else
-    ExecuteFromLink(Obj);
+    ExecuteFromLink(AProperty, Obj);
 end;
 
 { TNumberBoxControlBinding }
@@ -1517,7 +1563,7 @@ begin
       EndUpdate;
     end;
   end else
-    ExecuteFromLink(Obj);
+    ExecuteFromLink(AProperty, Obj);
 end;
 
 { TProgressbarControlBinding }
@@ -1542,7 +1588,7 @@ begin
       EndUpdate;
     end;
   end else
-    ExecuteFromLink(Obj);
+    ExecuteFromLink(AProperty, Obj);
 end;
 
 {$IFNDEF WEBASSEMBLY}
@@ -1576,7 +1622,7 @@ begin
       EndUpdate;
     end;
   end else
-    ExecuteFromLink(Obj);
+    ExecuteFromLink(AProperty, Obj);
 end;
 {$ENDIF}
 
@@ -1610,7 +1656,7 @@ begin
       EndUpdate;
     end;
   end else
-    ExecuteFromLink(Obj);
+    ExecuteFromLink(AProperty, Obj);
 end;
 
 { TComboEditControlBinding }
@@ -1686,7 +1732,7 @@ begin
       EndUpdate;
     end;
   end else
-    ExecuteFromLink(Obj);
+    ExecuteFromLink(AProperty, Obj);
 end;
 
 procedure TComboEditControlBinding.UpdateControlEditability(IsEditable: Boolean);
@@ -1756,7 +1802,7 @@ begin
       EndUpdate;
     end;
   end else
-    ExecuteFromLink(Obj);
+    ExecuteFromLink(AProperty, Obj);
 end;
 {$ENDIF}
 
