@@ -167,24 +167,19 @@ begin
   if Assigned(_orgSelectionChangedEvent) then
     _orgSelectionChangedEvent(Sender, e);
 
-  // strange, why do I have this here?
-  // if NotifyModel is called, IsEditOrNew is automatically True, while nothing changed yet..
-//  TThread.ForceQueue(nil, procedure
-//  begin
-//    NotifyModel(nil);
-//  end);
-end;
+  if _propType =TTreePropertyType.DataList then
+    Exit; // nothing to do with selection..
 
-//procedure TDataControlBinding.OnCellItemClicked(const Sender: TObject; e: CellItemClickedEventArgs);
-//begin
-//  if Assigned(_orgCellItemClicked) then
-//    _orgCellItemClicked(Sender, e);
-//
-//  TThread.ForceQueue(nil, procedure
-//  begin
-//    NotifyModel(nil);
-//  end);
-//end;
+  // JvA 25-06-2026 => I turned the code below on again.. For example teammanagers in skill editor
+  // If this is not ok, please provide with example and check situation with changing teammanagers..
+  // note: i added check on _propType, perhaps that was te reason for turning NotifyModel(nil) off
+
+
+  TThread.ForceQueue(nil, procedure
+  begin
+    NotifyModel(nil);
+  end);
+end;
 
 procedure TDataControlBinding.OnEditRowEnd(const Sender: TObject; e: DCRowEditEventArgs);
 begin
