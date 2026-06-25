@@ -130,7 +130,6 @@
         <DCCReference Include="..\ADato.Models.VirtualListItemDelegate.pas"/>
         <DCCReference Include="..\ADato.MultiObjectModelContextSupport.impl.pas"/>
         <DCCReference Include="..\ADato.MultiObjectModelContextSupport.intf.pas"/>
-        <DCCReference Include="..\ADato.ObjectModel.Binders.pas"/>
         <DCCReference Include="..\ADato.Bitmap.impl.pas"/>
         <DCCReference Include="..\ADato.Bitmap.intf.pas"/>
         <BuildConfiguration Include="Base">
@@ -177,6 +176,12 @@
                     </Platform>
                 </DeployFile>
                 <DeployFile LocalName="C:\Users\Public\Documents\Embarcadero\Studio\23.0\Bpl\ADato.ObjectModel.bpl" Configuration="Debug" Class="ProjectOutput"/>
+                <DeployFile LocalName="C:\Users\Public\Documents\Embarcadero\Studio\37.0\Bpl\ADato.ObjectModel.bpl" Configuration="Debug" Class="ProjectOutput">
+                    <Platform Name="Win32">
+                        <RemoteName>ADato.ObjectModel.bpl</RemoteName>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployClass Name="AdditionalDebugSymbols">
                     <Platform Name="OSX32">
                         <Operation>1</Operation>
@@ -1046,7 +1051,6 @@
                 <Platform value="Android64">False</Platform>
                 <Platform value="iOSDevice64">False</Platform>
                 <Platform value="iOSSimARM64">False</Platform>
-                <Platform value="Linux64">False</Platform>
                 <Platform value="OSX64">False</Platform>
                 <Platform value="OSXARM64">False</Platform>
                 <Platform value="Win32">True</Platform>

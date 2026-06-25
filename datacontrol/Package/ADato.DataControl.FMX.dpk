@@ -60,6 +60,7 @@ contains
   FMX.ScrollControl.DataControl.Impl in '..\Tree\FMX.ScrollControl.DataControl.Impl.pas',
   FMX.ScrollControl.DataControl.Binders in '..\Tree\FMX.ScrollControl.DataControl.Binders.pas',
   FMX.ScrollControl.ControlClasses.Intf in '..\Scrollable\FMX.ScrollControl.ControlClasses.Intf.pas',
-  ADato.FMX.FastControls.Layout in '..\..\controls\ADato.FMX.FastControls.Layout.pas';
+  ADato.FMX.FastControls.Layout in '..\..\controls\ADato.FMX.FastControls.Layout.pas',
+  ADato.ObjectModel.Binders in '..\..\objectModel\ADato.ObjectModel.Binders.pas';
 
 end.

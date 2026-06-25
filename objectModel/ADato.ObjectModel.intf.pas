@@ -198,7 +198,6 @@ type
 
   IPropertyBinding = interface(IBaseInterface)
     ['{062F7D9E-B01F-423C-92AC-96C1CC925EEE}']
-
     function  get_ObjectModelContext: IObjectModelContext;
     procedure set_ObjectModelContext(const Value: IObjectModelContext);
     function  get_PropertyInfo: _PropertyInfo;

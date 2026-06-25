@@ -49,7 +49,6 @@ contains
   ADato.Models.VirtualListItemDelegate in '..\ADato.Models.VirtualListItemDelegate.pas',
   ADato.MultiObjectModelContextSupport.impl in '..\ADato.MultiObjectModelContextSupport.impl.pas',
   ADato.MultiObjectModelContextSupport.intf in '..\ADato.MultiObjectModelContextSupport.intf.pas',
-  ADato.ObjectModel.Binders in '..\ADato.ObjectModel.Binders.pas',
   ADato.Bitmap.impl in '..\ADato.Bitmap.impl.pas',
   ADato.Bitmap.intf in '..\ADato.Bitmap.intf.pas';
 
