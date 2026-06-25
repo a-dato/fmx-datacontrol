@@ -194,6 +194,8 @@
         <DCCReference Include="..\Tree\FMX.ScrollControl.DataControl.Binders.pas"/>
         <DCCReference Include="..\Scrollable\FMX.ScrollControl.ControlClasses.Intf.pas"/>
         <DCCReference Include="..\..\controls\ADato.FMX.FastControls.Layout.pas"/>
+        <DCCReference Include="..\..\objectModel\ADato.ObjectModel.Binders.pas"/>
+        <DCCReference Include="..\..\controls\ADato.FMX.Controls.Intf.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>
@@ -238,7 +240,7 @@
                     </Platform>
                 </DeployFile>
                 <DeployFile LocalName="C:\Users\Public\Documents\Embarcadero\Studio\23.0\Bpl\ADato.DataControl.FMX.bpl" Configuration="Debug" Class="ProjectOutput"/>
-                <DeployFile LocalName="C:\Users\Public\Documents\Embarcadero\Studio\23.0\Bpl\ADato.DataControl.FMX.bpl" Configuration="Debug" Class="ProjectOutput">
+                <DeployFile LocalName="C:\Users\Public\Documents\Embarcadero\Studio\37.0\Bpl\ADato.DataControl.FMX.bpl" Configuration="Debug" Class="ProjectOutput">
                     <Platform Name="Win32">
                         <RemoteName>ADato.DataControl.FMX.bpl</RemoteName>
                         <Overwrite>true</Overwrite>
