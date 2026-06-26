@@ -330,6 +330,8 @@ type
 
     property OnEnter;
     property OnExit;
+
+    property HitTest default True;
   end;
 
 implementation
@@ -577,7 +579,7 @@ begin
 
   var mouseOnTag := BoundsRect.Contains(ParentPoint);
 
-  if (_hover <> (mouseOnTag and Enabled)) and (_isAddTag or HasButtonEvent) then
+  if (_hover <> (mouseOnTag and Enabled and HitTest)) and (_isAddTag or HasButtonEvent) then
   begin
     _hover := not _hover;
     Result := True;
