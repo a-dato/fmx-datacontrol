@@ -416,8 +416,25 @@ begin
 //      w := w + 2; // total of margins to stroke
   end;
 
-  // we use negative margins for subTextHeight to m ake text and subtext closer to each other
-  var totalTextsHeight := textHeight + System.Math.Max(0, (subTextHeight - 3));
+  // we use negative margins for subTextHeight to make text and subtext closer to each other
+  var subTextMargin: Single := -3;
+  var totalTextsHeight := textHeight;
+  if HasSubText then
+  begin
+    var availableTextsHeight := Self.Height - Padding.Top - Padding.Bottom - 10 {some extra padding};
+    if SameValue(Padding.Top + Padding.Bottom, 0) then
+      availableTextsHeight := availableTextsHeight - 10 {some extra padding};
+
+    if HasImage and (_config.ImagePosition in [TImagePosition.Top, TImagePosition.Bottom]) then
+      availableTextsHeight := availableTextsHeight - _config.ImageSizeInt - _config.ImagePositionMargin;
+
+    var compactTextsHeight := textHeight + System.Math.Max(0, subTextHeight - 3);
+    var textHeightSurplus := availableTextsHeight - compactTextsHeight;
+    if textHeightSurplus > 0 then
+      subTextMargin := System.Math.Min(3, -3 + textHeightSurplus);
+
+    totalTextsHeight := textHeight + System.Math.Max(0, subTextHeight + subTextMargin);
+  end;
   var h := totalTextsHeight;
 
   var sideButtonSize := 12;
@@ -562,13 +579,13 @@ begin
     _textBounds := TRectF.Empty;
 
   if HasSubText then
-    _subTextBounds := RectF(_textBounds.Left, _textBounds.Bottom - 3, _textBounds.Right, _textBounds.Bottom - 3 + subTextHeight) else
+    _subTextBounds := RectF(_textBounds.Left, _textBounds.Bottom + subTextMargin, _textBounds.Right, _textBounds.Bottom + subTextMargin + subTextHeight) else
     _subTextBounds := TRectF.Empty;
 
   if _config.SwabTextSubText and HasText and HasSubText then
   begin
     _subTextBounds.Offset(0, _textBounds.Top - _subTextBounds.Top);
-    _textBounds.Offset(0, _subTextBounds.Bottom - 3);
+    _textBounds.Offset(0, _subTextBounds.Bottom + subTextMargin);
   end;
 end;
 
