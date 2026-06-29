@@ -846,10 +846,6 @@ type
     procedure set_PerformanceModeWhileScrolling(const Value: Boolean);
 
   protected
-    _selectionRect: TControl;
-
-    procedure UpdateSelectionRect(OwnerIsFocused: Boolean; IsCurrentFocused: Boolean);
-
     function  InPerformanceMode: Boolean;
     procedure TogglePerformanceMode(const Activate: Boolean);
 
@@ -1279,34 +1275,34 @@ procedure TScrollControlWithCells.UpdateHoverRect(MousePos: TPointF);
 begin
   inherited;
 
-  if (_hoverRect.Visible) and (_selectionType = TSelectionType.CellSelection) and not IsDragOver then
+  if (_hoveredRow <> nil) and (_selectionType = TSelectionType.CellSelection) and not IsDragOver then
   begin
     var clmn := GetSelectableFlatColumnByMouseX(MousePos.X);
 
-    _hoverRect.Visible := (clmn <> nil) and (GetScrollingType = TScrollingType.None);
-    if not _hoverRect.Visible then Exit;
+    if (clmn = nil) or (GetScrollingType <> TScrollingType.None) then
+    begin
+      _hoveredRow.UpdateHoverVisibility(False, False);
+      Exit;
+    end;
 
-    // y positions already set in "inherited"
     var hoverMargin := 1;
-    _hoverRect.Position.X := clmn.Left + hoverMargin;
+    var hoverX := clmn.Left + hoverMargin;
 
     var hoverWidth := clmn.Width;
     if not clmn.Column.Frozen and _horzScrollBar.Visible and (_horzScrollBar.Opacity > 0) then
     begin
-      var xPos := _hoverRect.Position.X - (_horzScrollBar.Value - _horzScrollBar.Min);
+      var xPos := hoverX - (_horzScrollBar.Value - _horzScrollBar.Min);
       if xPos < _horzScrollBar.Min then
       begin
         var diff := _horzScrollBar.Min - xPos;
         hoverWidth := hoverWidth - diff;
-        _hoverRect.Position.X := xPos + diff;
+        hoverX := xPos + diff;
       end else
-        _hoverRect.Position.X := xPos;
+        hoverX := xPos;
     end;
 
-    _hoverRect.Width := hoverWidth - (2*hoverMargin);
+    _hoveredRow.UpdateHoverBounds(hoverX, hoverWidth - (2*hoverMargin));
   end;
-//   else
-//    _hoverCellRect.Visible := False;
 end;
 
 procedure TScrollControlWithCells.UpdatePositionAndWidthCells;
@@ -2837,16 +2833,6 @@ begin
   _cellTopBottomPadding := ROW_CONTENT_MARGIN;
   _cellLeftRightPadding := ROW_CONTENT_MARGIN;
 
-//  _hoverCellRect := TRectangle.Create(_hoverRect);
-//  _hoverCellRect.Stored := False;
-//  _hoverCellRect.Align := TAlignLayout.Client;
-//  _hoverCellRect.HitTest := False;
-//  _hoverCellRect.Visible := False;
-//  _hoverCellRect.Stroke.Dash := TStrokeDash.Dot;
-//  _hoverCellRect.Stroke.Color := TAlphaColors.Grey;
-//  _hoverCellRect.Fill.Kind := TBrushKind.None;
-//  _hoverRect.AddObject(_hoverCellRect);
-
   _headerColumnResizeControl := THeaderColumnResizeControl.Create(Self);
 
   _columns := TDCTreeColumnList.Create(Self);
@@ -3414,6 +3400,11 @@ begin
   inherited;
 
   UpdatePositionAndWidthCells;
+
+  if (_selectionType = TSelectionType.CellSelection) and (_view <> nil) and (_view.ActiveViewRows <> nil) then
+    for var row in _view.ActiveViewRows do
+      VisualizeRowSelection(row);
+
   _frozenRectLine.Visible := (_horzScrollBar.Value > _horzScrollBar.Min) and _treeLayout.HasFrozenColumns;
 end;
 
@@ -6492,42 +6483,15 @@ begin
     _subInfoControl.Opacity := IfThen(not Activate, 1, 0);
 end;
 
-procedure TDCTreeCell.UpdateSelectionRect(OwnerIsFocused: Boolean; IsCurrentFocused: Boolean);
-begin
-  if _selectionRect = nil then
-  begin
-    var rect := TRectangle.Create(get_Control);
-    rect.Align := TAlignLayout.Contents;
-    rect.Sides := [];
-    rect.HitTest := False;
-
-    _selectionRect := rect;
-    get_Control.AddObject(_selectionRect);
-    _selectionRect.BringToFront;
-  end;
-
-  var clr: TAlphaColor;
-  _selectionRect.Opacity := IfThen(IsCurrentFocused, 0.3, 0.05);
-  if not IsCurrentFocused then
-    clr := DEFAULT_ROW_SELECTION_MULTISELECT_COLOR
-  else if OwnerIsFocused then
-    clr := DEFAULT_ROW_SELECTION_ACTIVE_COLOR
-  else
-    clr := DEFAULT_ROW_SELECTION_INACTIVE_COLOR;
-
-  (_selectionRect as TRectangle).Fill.Color := clr;
-end;
-
 procedure TDCTreeCell.UpdateSelectionVisibility(const RowIsSelected: Boolean; const SelectionInfo: IRowSelectionInfo; OwnerIsFocused: Boolean);
 begin
   if not RowIsSelected or (SelectionInfo.Tag <> get_LayoutColumn.Index) then
-  begin
-    FreeAndNil(_selectionRect);
     Exit;
-  end;
 
-  var isCurrentDataItem := SelectionInfo.IsFocused(get_Row.DataIndex);
-  UpdateSelectionRect(OwnerIsFocused, isCurrentDataItem);
+  if (get_Control = nil) or (get_Control.ParentControl = nil) then
+    Exit;
+
+  get_Row.UpdateSelectionBounds(get_Control.ParentControl.Position.X + get_Control.Position.X, get_Control.Width);
 end;
 
 { TDCTreeRow }
@@ -6610,14 +6574,6 @@ begin
 
   if (not rowWasSelected and not rowIsSelected) or (SelectionInfo.SelectionType <> TSelectionType.CellSelection) then
     Exit;
-
-  if rowIsSelected then
-  begin
-    if not SelectionInfo.IsSelected(_dataIndex) then
-      _selectionRect.Opacity := 0.0 // make cell selection more visible
-    else if not _rowsControl.Control.IsDragOver then
-      _selectionRect.Opacity := 0.1;
-  end;
 
   var cell: IDCTreeCell;
   for cell in _cells.Values do
