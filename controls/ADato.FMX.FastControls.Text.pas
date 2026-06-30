@@ -144,6 +144,9 @@ type
 
     _mouseIsDown: Boolean;
     _hover: Boolean;
+    _showTag: Boolean;
+    _tagColor: TAlphaColor;
+    _tagOpacity: Single;
 
     // for checkbox ctrl
     _internalLeftPadding: Single;
@@ -173,6 +176,7 @@ type
     procedure set_HorzTextAlign(const Value: TTextAlign);
     function  get_VertTextAlign: TTextAlign;
     procedure set_VertTextAlign(const Value: TTextAlign);
+
     procedure set_AutoSize(const Value: TAutoSize); override;
     function  get_MaxWidth: Integer;
     procedure set_MaxWidth(const Value: Integer);
@@ -180,6 +184,7 @@ type
     procedure set_CalcAsAutoHeight(const Value: Boolean);
     function  get_Trimming: TTextTrimming;
     function  get_WordWrap: Boolean;
+    procedure set_ShowTag(const Value: Boolean);
 
   protected
     procedure DoPaint; override;
@@ -192,6 +197,9 @@ type
 
     function  CalculateTextXPos: Single;
     function  CalculateTextYPos: Single;
+    function  CalculateTagVerticalMargin: Single;
+
+    procedure SetLeftRightPadding; virtual;
 
     procedure DoMouseLeave; override;
     procedure MouseMove(Shift: TShiftState; X, Y: Single); override;
@@ -225,6 +233,7 @@ type
     property MaxWidth: Integer read get_MaxWidth write set_MaxWidth default 0;
     property CalcAsAutoHeight: Boolean read get_calcAsAutoHeight write set_CalcAsAutoHeight default True;
     property UnderlineOnHover: Boolean read _underlineOnHover write _underlineOnHover default False;
+    property ShowTag: Boolean read _showTag write set_ShowTag default False;
 
     property HitTest {$IFNDEF WEBASSEMBLY}default False{$ENDIF};
 
@@ -265,9 +274,9 @@ type
     procedure set_CheckPosition(const Value: TCheckPosition);
 
     function  IsCheckedStored: Boolean;
+    procedure SetLeftRightPadding; override;
 
   protected
-    procedure Calculate; override;
     procedure DoPaint; override;
     procedure DoMouseLeave; override;
     function  GetCheckColor: TAlphaColor; virtual;
@@ -317,7 +326,8 @@ type
   end;
 
 const
-  SUBTEXT_NEGATIVE_MARGIN = 0;
+  TAG_VERT_MARGIN = 3.0;
+  TAG_HORZ_MARGIN = 6.0;
 
 var
   APPLICATION_FONT_FAMILY: String = 'Segoe UI';
@@ -394,6 +404,10 @@ begin
 
   _calcAsAutoHeight := True;
 
+  _showTag := False;
+  _tagColor := TAlphaColors.Grey;
+  _tagOpacity := 0.1;
+
   {$IFNDEF WEBASSEMBLY}
   CreateCopyPopupMenu;
   {$ENDIF}
@@ -439,23 +453,36 @@ end;
 
 function TFastText.CalculateTextXPos: Single;
 begin
-  Result := Padding.Left + _internalLeftPadding;
+//  Result := Padding.Left + _internalLeftPadding;
   case get_HorzTextAlign of
     TTextAlign.Center: Result := (Self.Width - _textBounds.Width) / 2;
-    TTextAlign.Leading: Result := Padding.Left + _internalLeftPadding;
-    TTextAlign.Trailing: Result := Self.Width - TextWidth - Padding.Right - _internalRightPadding;
+    TTextAlign.Leading: Result := Padding.Left + _internalLeftPadding + IfThen(_showTag, TAG_HORZ_MARGIN, 0);
+    TTextAlign.Trailing: Result := Self.Width - _textBounds.Width - Padding.Right - _internalRightPadding - IfThen(_showTag, TAG_HORZ_MARGIN, 0);
   end;
 end;
 
 function TFastText.CalculateTextYPos: Single;
 begin
   var totHeight := _textBounds.Height;
-  Result := Padding.Top;
+  var tagVerticalMargin := CalculateTagVerticalMargin;
+//  Result := Padding.Top;
   case get_VertTextAlign of
     TTextAlign.Center: Result := (Self.Height - totHeight - _internalBottomPadding) / 2;
-    TTextAlign.Leading: Result := Padding.Top;
-    TTextAlign.Trailing: Result := Self.Height - totHeight - Padding.Bottom - _internalBottomPadding;
+    TTextAlign.Leading: Result := Padding.Top + tagVerticalMargin;
+    TTextAlign.Trailing: Result := Self.Height - totHeight - Padding.Bottom - _internalBottomPadding - tagVerticalMargin;
   end;
+end;
+
+function TFastText.CalculateTagVerticalMargin: Single;
+begin
+  if not _showTag then
+    Exit(0);
+
+  if _calcAsAutoHeight then
+    Exit(TAG_VERT_MARGIN);
+
+  var availableTagHeight := Self.Height - _textBounds.Height - Padding.Top - Padding.Bottom - _internalBottomPadding;
+  Result := CMath.Max(0, CMath.Min(TAG_VERT_MARGIN, availableTagHeight / 2));
 end;
 
 procedure TFastText.DoPaint;
@@ -472,10 +499,23 @@ begin
     _layout.Opacity := AbsoluteOpacity;
     _layout.TopLeft := PointF(CalculateTextXPos, CalculateTextYPos);
 
-    var maxW := CMath.Min(TextWidthWithPadding - _internalLeftPadding - _internalRightPadding, Self.Width - _layout.TopLeft.X);
-    var maxH := CMath.Min(TextHeightWithPadding - _internalBottomPadding, Self.Height - _layout.TopLeft.Y);
+    var maxW := CMath.Min(_textBounds.Width + Padding.Left + Padding.Right, Self.Width - _layout.TopLeft.X);
+    var maxH := CMath.Min(_textBounds.Height + Self.Padding.Top + Self.Padding.Bottom, Self.Height - _layout.TopLeft.Y);
 
     _layout.MaxSize := PointF(maxW, maxH);
+
+    // first show tag..
+    if _showTag then
+    begin
+      var tagVerticalMargin := CalculateTagVerticalMargin;
+      var p1 := PointF(_layout.TopLeft.X - TAG_HORZ_MARGIN, _layout.TopLeft.Y - tagVerticalMargin);
+      var p2 := PointF(_layout.TopLeft.X + _layout.MaxSize.X + TAG_HORZ_MARGIN, _layout.TopLeft.Y + _textBounds.Height + tagVerticalMargin);
+
+      var rad := CMath.Min(10, (p2.Y - p1.Y) / 2);
+      var rect := TRectF.Create(p1.X, p1.Y, p2.X, p2.Y);
+      Canvas.Fill.Color := _tagColor;
+      Canvas.FillRect(rect, rad*0.75, rad*1.2, AllCorners, _tagOpacity, TCornerType.Round);
+    end;
 
   //  {$IFDEF DEBUG}
   //  Self.Canvas.Fill.Color := TAlphaColors.Mediumpurple;
@@ -491,11 +531,11 @@ begin
   if _hover and _underlineOnHover then
   begin
     var textBottom := CMath.Min(_layout.TopLeft.Y + _layout.MaxSize.Y, Self.Height);
-    var textWidth := CMath.Min(_textBounds.Width, Self.Width - _layout.TopLeft.X);
+    var atextWidth := CMath.Min(_textBounds.Width, Self.Width - _layout.TopLeft.X);
 
     Canvas.Stroke.Color := _layout.Color;
     Canvas.Stroke.Kind := TBrushKind.Solid;
-    Canvas.DrawLine(PointF(_layout.TopLeft.X, textBottom), PointF(_layout.TopLeft.X + textWidth, textBottom), AbsoluteOpacity * IfThen(_mouseIsDown, 0.3, 1));
+    Canvas.DrawLine(PointF(_layout.TopLeft.X, textBottom), PointF(_layout.TopLeft.X + atextWidth, textBottom), AbsoluteOpacity * IfThen(_mouseIsDown, 0.3, 1));
   end;
 end;
 
@@ -665,6 +705,8 @@ begin
   if not ShouldRecalculate then
     Exit;
 
+  SetLeftRightPadding;
+
   inherited;
 
   var maxInternalWidth := _maxWidth - Padding.Left - Padding.Right - _internalLeftPadding - _internalRightPadding;
@@ -700,6 +742,15 @@ begin
   if GlobalUseSkia and (TFontStyle.fsItalic in _layout.Font.Style) then
     _textBounds := RectF(_textBounds.Left, _textBounds.Top, _textBounds.Right + 3, _textBounds.Bottom);
   {$ENDIF}
+end;
+
+procedure TFastText.SetLeftRightPadding;
+begin
+  if not ShouldRecalculate then
+    Exit;
+
+  _internalLeftPadding := 0; //IfThen(_showTag, TAG_MARGIN, 0);
+  _internalRightPadding := 0; //IfThen(_showTag, TAG_MARGIN, 0);
 end;
 
 procedure TFastText.SetStyledSettings(const Value: TStyledSettings);
@@ -750,6 +801,15 @@ begin
     _calcAsAutoHeight := Value;
     RecalcNeeded;
   end;
+end;
+
+procedure TFastText.set_ShowTag(const Value: Boolean);
+begin
+  if _showTag = Value then
+    Exit;
+
+  _showTag := Value;
+  RecalcNeeded;
 end;
 
 procedure TFastText.set_HorzTextAlign(const Value: TTextAlign);
@@ -812,7 +872,7 @@ end;
 function TFastText.TextHeight: Single;
 begin
   ControlLoadedCalculate;
-  Result := _textBounds.Height;
+  Result := _textBounds.Height + IfThen(_showTag, 2*TAG_VERT_MARGIN, 0);
 end;
 
 function TFastText.TextHeightWithPadding: Single;
@@ -828,7 +888,7 @@ end;
 function TFastText.TextWidth: Single;
 begin
   ControlLoadedCalculate;
-  Result := _textBounds.Width;
+  Result := _textBounds.Width + IfThen(_showTag, 2*TAG_HORZ_MARGIN, 0);
 end;
 
 function TFastText.TextWidthWithPadding: Single;
@@ -914,8 +974,6 @@ begin
   _checkAnimationFromState := TCheckState.Unchecked;
   _checkAnimationToState := TCheckState.Unchecked;
   _checkAnimationProgress := 1;
-  _internalLeftPadding := _checkSize + {2 *} _checkTextMargin;
-  _internalRightPadding := 0;
 
   Self.set_VertTextAlign(TTextAlign.Center);
   Self.set_HorzTextAlign(TTextAlign.Leading);
@@ -1051,17 +1109,6 @@ end;
 function TFastCheckBox.get_EditControl: IDCEditControl;
 begin
   Result := _editControl;
-end;
-
-procedure TFastCheckBox.Calculate;
-begin
-  if ShouldRecalculate then
-  begin
-    _internalLeftPadding := IfThen(_checkPosition = TCheckPosition.Left, _checkSize + {2 *} _checkTextMargin, 0);
-    _internalRightPadding := IfThen(_checkPosition = TCheckPosition.Right, _checkSize + {2 *} _checkTextMargin, 0);
-  end;
-
-  inherited;
 end;
 
 procedure TFastCheckBox.DoMouseLeave;
@@ -1266,6 +1313,17 @@ begin
   if Value then
     set_CheckState(TCheckState.Checked) else
     set_CheckState(TCheckState.Unchecked);
+end;
+
+procedure TFastCheckbox.SetLeftRightPadding;
+begin
+  if ShouldRecalculate then
+  begin
+    inherited;
+
+    _internalLeftPadding := _internalLeftPadding + IfThen(_checkPosition = TCheckPosition.Left, _checkSize + {2 *} _checkTextMargin, 0);
+    _internalRightPadding := _internalRightPadding + IfThen(_checkPosition = TCheckPosition.Right, _checkSize + {2 *} _checkTextMargin, 0);
+  end;
 end;
 
 procedure TFastCheckbox.set_CheckState(const Value: TCheckState);
