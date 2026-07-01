@@ -343,14 +343,9 @@ type
   end;
 
   TDataControlClassFactory = class(TInterfacedObject, IDCControlClassFactory)
-  private
-    _isCustomFactory: Boolean;
   public
-    {$IFDEF WEBASSEMBLY}
     class constructor Create;
-    {$ENDIF}
-
-    constructor Create; reintroduce;
+    class destructor Destroy;
 
     function CreateHeaderRect(const Owner: TComponent): IBackgroundControl; virtual;
     function CreateRowRect(const Owner: TComponent): IBackgroundControl; virtual;
@@ -427,29 +422,31 @@ begin
   Result := rect;
 end;
 
-constructor TDataControlClassFactory.Create;
-begin
-  inherited;
-
-  _isCustomFactory := Self.ClassType <> TDataControlClassFactory;
-end;
-
-{$IFDEF WEBASSEMBLY}
 class constructor TDataControlClassFactory.Create;
 begin
+  DataControlClassFactory := TDataControlClassFactory.Create;
+
   DEFAULT_GREY_COLOR := TAlphaColor($FFF1F2F7);
   DEFAULT_WHITE_COLOR := TAlphaColors.Null;
 
-  DEFAULT_ROW_SELECTION_ACTIVE_COLOR := TAlphaColor($886A5ACD);
-  DEFAULT_ROW_SELECTION_INACTIVE_COLOR := TAlphaColor($88778899);
-  DEFAULT_ROW_SELECTION_MULTISELECT_COLOR := TAlphaColors.Green;
-  DEFAULT_ROW_HOVER_COLOR := TAlphaColor($335B8BCD);
+  DEFAULT_ROW_SELECTION_ACTIVE_COLOR := TAlphaColor($FFE2D6FF);
+  DEFAULT_ROW_SELECTION_INACTIVE_COLOR := TAlphaColor($FFECE9F5);
+  DEFAULT_ROW_SELECTION_MULTISELECT_COLOR := TAlphaColor($FFD8CCF0);
+  DEFAULT_ROW_HOVER_COLOR := TAlphaColor($FFE8F2FF); // TAlphaColor($FF5B8BCD);
+  DEFAULT_DRAG_COLOR := TAlphaColor($FFFF8C00);
+
+  DEFAULT_PARENTROW_COLOR := TAlphaColors.Darkslategrey;
+  DEFAULT_CHILDROW_COLOR := TAlphaColors.Lightgray;
 
   DEFAULT_HEADER_BACKGROUND := TAlphaColors.Null;
   DEFAULT_HEADER_STROKE := TAlphaColors.Grey;
   DEFAULT_CELL_STROKE := TAlphaColors.Lightgray;
 end;
-{$ENDIF}
+
+class destructor TDataControlClassFactory.Destroy;
+begin
+  DataControlClassFactory := nil;
+end;
 
 function TDataControlClassFactory.CreateBarText(const Owner: TComponent): IDCControl;
 begin
@@ -548,15 +545,11 @@ end;
 procedure TDataControlClassFactory.HandleRowChildRelation(const RowLayout: IRowLayout; IsOpenParent, IsOpenChild: Boolean; AWidth: Single);
 begin
   RowLayout.HandleParentChildVisualisation(IsOpenParent, IsOpenChild, AWidth);
-//  if IsOpenParent then
-//    RowRect.StrokeColor := DEFAULT_PARENTROW_COLOR
-//  else if IsOpenChild then
-//    RowRect.StrokeColor := DEFAULT_CHILDROW_COLOR
 end;
 
 function TDataControlClassFactory.IsCustomFactory: Boolean;
 begin
-  Result := _isCustomFactory;
+  Result := Self.ClassType <> TDataControlClassFactory;
 end;
 
 { TEditControl }
@@ -1622,9 +1615,9 @@ end;
 
 procedure TRowLayout.HandleParentChildVisualisation(IsParent, IsChild: Boolean; AWidth: Single);
 begin
-  {$IFNDEF DEBUG}
+//  {$IFNDEF DEBUG}
   Exit;
-  {$ENDIF}
+//  {$ENDIF}
 
   if IsParent or IsChild then
   begin
@@ -1701,36 +1694,5 @@ begin
   if (_control is TCustomMemo) and DoFormatItem(Value, s) then
     TCustomMemo(_control).Text := s;
 end;
-
-initialization
-  if DataControlClassFactory = nil then
-    DataControlClassFactory := TDataControlClassFactory.Create;
-
-  DEFAULT_GREY_COLOR := TAlphaColor($FFF1F2F7);
-  DEFAULT_WHITE_COLOR := TAlphaColors.Null;
-
-  DEFAULT_ROW_SELECTION_ACTIVE_COLOR := TAlphaColor($FF6A5ACD);
-  DEFAULT_ROW_SELECTION_INACTIVE_COLOR := TAlphaColor($FF778899);
-  DEFAULT_ROW_SELECTION_MULTISELECT_COLOR := TAlphaColors.Green;
-  {$IFDEF WEBASSEMBLY}
-  DEFAULT_ROW_HOVER_COLOR := TAlphaColors.Lightgray;
-  {$ELSE}
-  DEFAULT_ROW_HOVER_COLOR := TAlphaColor($FF5B8BCD);
-  {$ENDIF}
-  DEFAULT_DRAG_COLOR := TAlphaColor($FFFF8C00);
-
-  DEFAULT_PARENTROW_COLOR := TAlphaColors.Darkslategrey;
-  DEFAULT_CHILDROW_COLOR := TAlphaColors.Lightgray;
-
-  DEFAULT_HEADER_BACKGROUND := TAlphaColors.Null;
-  DEFAULT_HEADER_STROKE := TAlphaColors.Grey;
-  {$IFDEF WEBASSEMBLY}
-  DEFAULT_CELL_STROKE := TAlphaColors.White;
-  {$ELSE}
-  DEFAULT_CELL_STROKE := TAlphaColors.Lightgray;
-  {$ENDIF}
-
-finalization
-  DataControlClassFactory := nil;
 
 end.

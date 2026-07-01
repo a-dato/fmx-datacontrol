@@ -278,6 +278,8 @@ type
     procedure SetEnabled(const Value: Boolean); override;
     procedure SetVisible(const Value: Boolean); override;
 
+    procedure PrepareButtonColoration; virtual;
+
     procedure DoMouseLeave; override;
     procedure MouseMove(Shift: TShiftState; X, Y: Single); override;
     procedure MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Single); override;
@@ -917,7 +919,7 @@ begin
     case get_TagType of
       TTagType.RoundPost: Canvas.FillRect(_innerBounds, get_radius, get_Radius, AllCorners, GetPaintOpacity * IfThen(_isAddTag, 0.6, 1));
       TTagType.SignPost: Canvas.FillPolygon(_polygon, GetPaintOpacity * IfThen(_isAddTag, 0.6, 1));
-      TTagType.NoBounds: Canvas.FillRect(outerRect, 3, 3, AllCorners, GetPaintOpacity);
+      TTagType.NoBounds: Canvas.FillRect(outerRect, get_radius, get_radius, AllCorners, GetPaintOpacity);
     end;
   end;
 
@@ -981,9 +983,9 @@ begin
     Canvas.Stroke.Thickness := 1;
 
     case get_TagType of
-      TTagType.RoundPost: Canvas.DrawRect(_innerBounds, 3, 3, AllCorners, GetPaintOpacity, TCornerType.Round);
+      TTagType.RoundPost: Canvas.DrawRect(_innerBounds, get_radius, get_radius, AllCorners, GetPaintOpacity, TCornerType.Round);
       TTagType.SignPost: Canvas.DrawPolygon(_polygon, GetPaintOpacity);
-      TTagType.NoBounds: Canvas.DrawRect(RectF(outerRect.Left+1, outerRect.Top+1, outerRect.Right-1, outerRect.Bottom-1), 3, 3, AllCorners, GetPaintOpacity);
+      TTagType.NoBounds: Canvas.DrawRect(RectF(outerRect.Left+1, outerRect.Top+1, outerRect.Right-1, outerRect.Bottom-1), get_radius, get_radius, AllCorners, GetPaintOpacity);
     end;
   end;
 
@@ -1095,26 +1097,10 @@ begin
 
   _waitForRepaint := False;
 
-  if _buttonType = TButtonType.Emphasized then
-  begin
-    _innerFillColor := TAlphaColor($AA4E6CA3);
-    _innerStrokeColor := TAlphaColors.Null;
-  end
-  else if _buttonType = TButtonType.Positive then
-  begin
-    _innerFillColor := TAlphaColor($FF37539E);
-    _innerStrokeColor := TAlphaColors.Null;
-  end
-  else if _buttonType = TButtonType.Negative then
-  begin
-    _innerFillColor := TAlphaColor($FFFDFDFE);
-    _innerStrokeColor := TAlphaColor($FF37539E);
-  end
-  else
-  begin
-    _innerFillColor := TAlphaColors.Null;
-    _innerStrokeColor := TAlphaColors.Null;
+  PrepareButtonColoration;
 
+  if _buttonType = TButtonType.Circle then
+  begin
     if _buttonType = TButtonType.Circle then
     begin
       var rect: TRectF;
@@ -1126,9 +1112,9 @@ begin
       end;
 
       // circle
-      Canvas.Fill.Color := TAlphaColors.Orangered;
+      Canvas.Fill.Color := _innerFillColor;
       Canvas.FillRect(rect, rect.Width/2, rect.Height/2, AllCorners, 0.15);
-      Canvas.Stroke.Color := TAlphaColors.Orangered;
+      Canvas.Stroke.Color := _innerStrokeColor;
       Canvas.DrawRect(rect, rect.Width/2, rect.Height/2, AllCorners, 1);
     end;
   end;
@@ -1234,7 +1220,9 @@ end;
 
 function TFastButton.get_Radius: Single;
 begin
-  Result := IfThen(ButtonType <> TButtonType.None, 3, 0);
+  if Self.Height >= 22 then
+    Result := IfThen(ButtonType <> TButtonType.None, 8, 0) else
+    Result := IfThen(ButtonType <> TButtonType.None, 3, 0);
 end;
 
 function TFastButton.IsCheckedStored: Boolean;
@@ -1301,11 +1289,14 @@ end;
 
 procedure TFastButton.SetVisible(const Value: Boolean);
 begin
+  var wasVisible := GetVisible;
+
   inherited;
 
-  if Value then
-    StartUnderlineAnimation else
-    StopUnderlineAnimation;
+  if not Value then
+    StopUnderlineAnimation
+  else if {Value and} (wasVisible <> Value) then
+    StartUnderlineAnimation;
 end;
 
 procedure TFastButton.OnConfigRequestRecalc(const ADatoClickLayout: TADatoClickLayout; const ChangeType: TChangeType);
@@ -1322,6 +1313,35 @@ procedure TFastButton.PaddingChanged;
 begin
   inherited;
   RecalcNeeded;
+end;
+
+procedure TFastButton.PrepareButtonColoration;
+begin
+  if _buttonType = TButtonType.Emphasized then
+  begin
+    _innerFillColor := TAlphaColor($AA4E6CA3);
+    _innerStrokeColor := TAlphaColors.Null;
+  end
+  else if _buttonType = TButtonType.Positive then
+  begin
+    _innerFillColor := TAlphaColor($FF37539E);
+    _innerStrokeColor := TAlphaColors.Null;
+  end
+  else if _buttonType = TButtonType.Negative then
+  begin
+    _innerFillColor := TAlphaColor($FFFDFDFE);
+    _innerStrokeColor := TAlphaColor($FF37539E);
+  end
+  else if _buttonType = TButtonType.Circle then
+  begin
+    _innerFillColor := TAlphaColors.Orangered;
+    _innerStrokeColor := TAlphaColors.Maroon;
+  end
+  else
+  begin
+    _innerFillColor := TAlphaColors.Null;
+    _innerStrokeColor := TAlphaColors.Null;
+  end;
 end;
 
 procedure TFastButton.MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Single);

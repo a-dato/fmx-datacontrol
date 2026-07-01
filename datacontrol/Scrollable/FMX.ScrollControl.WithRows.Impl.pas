@@ -180,7 +180,6 @@ type
     _masterIgnoreIndex: Integer;
     _masterSynchronizerIndex: Integer;
 
-    _hoverRect: TRectangle;
     {$IFDEF WEBASSEMBLY}
     _hoveredRow: IDCRow;
     {$ELSE}
@@ -481,9 +480,12 @@ type
 
     procedure UpdateControlVisibility;
   protected
+    _hoverRect: TRectangle;
     _selectionRect: TRectangle;
     _selectionRectIsMultiSelect: Boolean;
 
+    procedure DeterminControlOrder;
+    procedure UpdateHoverRect(IsDragOver: Boolean);
     procedure UpdateSelectionRect(OwnerIsFocused: Boolean; IsCurrentFocused: Boolean);
 
   public
@@ -493,6 +495,9 @@ type
     {$ENDIF}
 
     function  ControlAsRowLayout: IRowLayout;
+    procedure UpdateHoverBounds(const X, Width: Single); virtual;
+    procedure UpdateHoverVisibility(IsHovered, IsDragOver: Boolean); virtual;
+    procedure UpdateSelectionBounds(const X, Width: Single); virtual;
     procedure UpdateSelectionVisibility(const SelectionInfo: IRowSelectionInfo; OwnerIsFocused: Boolean); virtual;
 
     procedure ClearRowForReassignment; virtual;
@@ -1777,17 +1782,6 @@ begin
   _options := [TreeOption_ShowHeaders, TreeOption_ShowHeaderGrid];
 
   _itemType := &Type.Unknown;
-
-  _hoverRect := TRectangle.Create(_content);
-  _hoverRect.Stored := False;
-  _hoverRect.Align := TAlignLayout.None;
-  _hoverRect.HitTest := False;
-  _hoverRect.Visible := False;
-  _hoverRect.Opacity := 0.3;
-  _hoverRect.Stroke.Kind := TBrushKind.None;
-  _hoverRect.Fill.Color := DEFAULT_ROW_HOVER_COLOR;
-  _content.AddObject(_hoverRect);
-
 end;
 
 function TScrollControlWithRows.ProvideRowForChanging(const FromSelectionInfo: IRowSelectionInfo): IDCRow;
@@ -2514,14 +2508,10 @@ procedure TScrollControlWithRows.HideHoverRect;
 begin
   if _hoveredRow <> nil then
   begin
+    _hoveredRow.UpdateHoverVisibility(False, False);
     DoHoverRow(nil, _hoveredRow);
     _hoveredRow := nil;
   end;
-
-  if _hoverRect = nil then
-    Exit;
-
-  _hoverRect.Visible := False;
 end;
 
 procedure TScrollControlWithRows.UpdateHoverRect(MousePos: TPointF);
@@ -2535,12 +2525,20 @@ begin
   var row := GetRowByLocalY(MousePos.Y);
   if _hoveredRow <> row then
   begin
+    if _hoveredRow <> nil then
+      _hoveredRow.UpdateHoverVisibility(False, False);
+
     DoHoverRow(row, _hoveredRow);
     _hoveredRow := row;
   end;
 
   if (TreeOption_HideHoverEffect in _options) then
+  begin
+    if row <> nil then
+      row.UpdateHoverVisibility(False, IsDragOver);
+
     Exit;
+  end;
 
   if (row = nil) or not _selectionInfo.CanFocus(row.DataIndex) or (row.Control = nil) then
   begin
@@ -2548,17 +2546,7 @@ begin
     Exit;
   end;
 
-  if IsDragOver then
-    _hoverRect.Fill.Color := DEFAULT_DRAG_COLOR else
-    _hoverRect.Fill.Color := DEFAULT_ROW_HOVER_COLOR;
-
-  _hoverRect.Visible := True;
-  _hoverRect.Position.Y := row.Control.Position.Y;
-
-  _hoverRect.Position.X := row.Control.Position.X;
-  _hoverRect.Height := row.Height;
-  _hoverRect.Width := row.Control.Width;
-  _hoverRect.BringToFront;
+  row.UpdateHoverVisibility(True, IsDragOver);
 end;
 
 procedure TScrollControlWithRows.UpdateScrollAndSelectionByKey(var Key: Word; Shift: TShiftState);
@@ -4010,8 +3998,8 @@ end;
 
 procedure TScrollControlWithRows.RealignFinished;
 begin
-  if (_hoverRect <> nil) and _hoverRect.Visible and (GetScrollingType <> TScrollingType.None) then
-    _hoverRect.Visible := False;
+  if (_hoveredRow <> nil) and (GetScrollingType <> TScrollingType.None) then
+    _hoveredRow.UpdateHoverVisibility(False, False);
 
   if _view <> nil then
   begin
@@ -4438,6 +4426,80 @@ begin
     _control.Visible := get_IsHeaderRow or (_virtualYPosition <> -1);
 end;
 
+procedure TDCRow.DeterminControlOrder;
+begin
+  // This is a fast routine:
+  // Put Selectionrect and HoverRect behind texts and cellcontrols, but must be above Background control
+
+  if (_hoverRect <> nil) then
+  begin
+    if (_control.Children.IndexOf(_hoverRect) > IfThen(_selectionRect = nil, 1, 2)) then
+      _hoverRect.SendToBack;
+
+    _hoverRect.Opacity := IfThen(_selectionRect <> nil, 0.4, 1);
+  end;
+
+  if (_selectionRect <> nil) and (_control.Children.IndexOf(_selectionRect) > 1) then
+    _selectionRect.SendToBack;
+
+  Self.ControlAsRowLayout.Background.AsControl.SendToBack;
+end;
+
+procedure TDCRow.UpdateHoverRect(IsDragOver: Boolean);
+begin
+  if _hoverRect = nil then
+  begin
+    var rect := TRectangle.Create(_control);
+    rect.Stored := False;
+    rect.Align := TAlignLayout.Contents;
+    rect.Sides := [];
+    rect.HitTest := False;
+    rect.Opacity := 1;
+    rect.Stroke.Kind := TBrushKind.None;
+
+    _hoverRect := rect;
+  end;
+
+  if _hoverRect.Parent <> _control then
+  begin
+    _hoverRect.Parent := nil;
+    _control.AddObject(_hoverRect);
+  end;
+
+  _hoverRect.Align := TAlignLayout.Contents;
+
+  DeterminControlOrder;
+
+  if IsDragOver then
+    _hoverRect.Fill.Color := DEFAULT_DRAG_COLOR else
+    _hoverRect.Fill.Color := DEFAULT_ROW_HOVER_COLOR;
+end;
+
+procedure TDCRow.UpdateHoverBounds(const X, Width: Single);
+begin
+  if _hoverRect = nil then
+    Exit;
+
+  _hoverRect.Align := TAlignLayout.None;
+  _hoverRect.Position.X := X;
+  _hoverRect.Position.Y := 0;
+  _hoverRect.Height := Height;
+  _hoverRect.Width := Width;
+
+  DeterminControlOrder;
+end;
+
+procedure TDCRow.UpdateHoverVisibility(IsHovered, IsDragOver: Boolean);
+begin
+  if (not IsHovered) or (_control = nil) then
+  begin
+    FreeAndNil(_hoverRect);
+    Exit;
+  end;
+
+  UpdateHoverRect(IsDragOver);
+end;
+
 procedure TDCRow.UpdateSelectionRect(OwnerIsFocused: Boolean; IsCurrentFocused: Boolean);
 begin
   if _selectionRect = nil then
@@ -4456,8 +4518,13 @@ begin
     _control.AddObject(_selectionRect);
   end;
 
-  _selectionRect.BringToFront;
-  _selectionRect.Opacity := IfThen(IsCurrentFocused or _rowsControl.Control.IsDragOver, 0.3, 0.05);
+  _selectionRect.Align := TAlignLayout.Contents;
+
+  // Selectionrect to back, but must be above Background control
+  DeterminControlOrder;
+
+//  _selectionRect.Opacity := IfThen(IsCurrentFocused or _rowsControl.Control.IsDragOver, 0.3, 0.05);
+//  _selectionRect.Opacity := IfThen(IsCurrentFocused or _rowsControl.Control.IsDragOver, 1, 0.3);
 
   if _rowsControl.Control.IsDragOver then
     _selectionRect.Fill.Color := DEFAULT_DRAG_COLOR
@@ -4469,6 +4536,20 @@ begin
     _selectionRect.Fill.Color := DEFAULT_ROW_SELECTION_INACTIVE_COLOR;
 
   _selectionRectIsMultiSelect := not IsCurrentFocused;
+end;
+
+procedure TDCRow.UpdateSelectionBounds(const X, Width: Single);
+begin
+  if _selectionRect = nil then
+    Exit;
+
+  _selectionRect.Align := TAlignLayout.None;
+  _selectionRect.Position.X := X;
+  _selectionRect.Position.Y := 0;
+  _selectionRect.Height := Height;
+  _selectionRect.Width := Width;
+
+  DeterminControlOrder;
 end;
 
 procedure TDCRow.UpdateSelectionVisibility(const SelectionInfo: IRowSelectionInfo; OwnerIsFocused: Boolean);
@@ -4500,6 +4581,8 @@ begin
   _virtualYPosition := -1;
   _enabled := True;
 
+  FreeAndNil(_hoverRect);
+
   if _control <> nil then
   begin
     var rowLayout := ControlAsRowLayout;
@@ -4528,10 +4611,15 @@ destructor TDCRow.Destroy;
 begin
   if (_control <> nil) and not (csDestroying in _control.ComponentState) then
   begin
+    FreeAndNil(_hoverRect);
     FreeAndNil(_selectionRect);
     FreeAndNil(_control);
   end else
+  begin
+    _hoverRect := nil;
+    _selectionRect := nil;
     _control := nil;
+  end;
 
   ClearRowForReassignment;
 
@@ -4687,12 +4775,14 @@ end;
 
 procedure TDCRow.set_Control(const Value: TControl);
 begin
+  var wasHovered := _hoverRect <> nil;
   var wasSelected := _selectionRect <> nil;
   var wasFocused := wasSelected and (_selectionRect.Fill.Color = TAlphaColors.Slateblue);
-  var wasCurrentSelected := wasSelected and SameValue(_selectionRect.Opacity, 0.3);
+  var wasCurrentSelected := wasSelected; // and SameValue(_selectionRect.Opacity, 1);
 
   if (_control <> nil) and (_control <> Value) then
   begin
+    FreeAndNil(_hoverRect);
     FreeAndNil(_selectionRect);
     _control.Free;
   end;
@@ -4701,6 +4791,9 @@ begin
 
   if wasSelected then
     UpdateSelectionRect(wasFocused, wasCurrentSelected);
+
+  if wasHovered and (_control <> nil) then
+    UpdateHoverRect(_rowsControl.Control.IsDragOver);
 
   UpdateControlVisibility;
 end;

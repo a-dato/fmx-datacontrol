@@ -787,11 +787,8 @@ begin
 
     end;
 
-    {$IFDEF DEBUG}
-    // TOOD: Discuss with Jan.
     if CellEditor.Editor is TCustomDateEdit then
       Exit; // Let date edit handle it.
-    {$ENDIF}
 
     var changeUpdatedSort: Boolean;
     if not EndEditCell({out} changeUpdatedSort) or changeUpdatedSort then
@@ -1798,7 +1795,27 @@ begin
     if not EndEditCell({out} changeUpdatedSort) or changeUpdatedSort then
       Exit(False);
 
-    if not DoEditRowEnd(GetActiveCell.Row as IDCTreeRow, {out} changeUpdatedSort) then
+    var row: IDCTreeRow := nil;
+    var cell := GetActiveCell;
+    if cell <> nil then
+      row := cell.Row as IDCTreeRow
+    else if _view <> nil then
+    begin
+      // Active cell can be nil while row edit is still active (For example row scrolled out of ActiveViewRows).
+      // Try to resolve from editing info in that case ActiveCell is nil.
+      var viewListIndex := _view.GetViewListIndex(_editingInfo.EditItem);
+      if viewListIndex = -1 then
+        viewListIndex := _view.GetViewListIndex(_editingInfo.EditItemDataIndex);
+
+      var selectionInfo := _selectionInfo.Clone;
+      selectionInfo.SetFocusedItem(_editingInfo.EditItemDataIndex, viewListIndex, _editingInfo.EditItem);
+      row := ProvideRowForChanging(selectionInfo) as IDCTreeRow;
+    end;
+
+    if row = nil then
+      Exit(False);
+
+    if not DoEditRowEnd(row, {out} changeUpdatedSort) then
       Exit(False);
   end;
 

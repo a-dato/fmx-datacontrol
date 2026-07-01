@@ -283,6 +283,9 @@ type
     function  IsScrollingIntoView: Boolean;
 
     function  ParentCount: Integer;
+    procedure UpdateHoverBounds(const X, Width: Single);
+    procedure UpdateHoverVisibility(IsHovered, IsDragOver: Boolean);
+    procedure UpdateSelectionBounds(const X, Width: Single);
     procedure UpdateSelectionVisibility(const SelectionInfo: IRowSelectionInfo; OwnerIsFocused: Boolean);
 
     property RowsControl: IRowsControl read get_RowsControl;
