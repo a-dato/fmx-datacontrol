@@ -161,7 +161,7 @@ type
   TCustomADatoTagRunTimeControl = class(TFastControl);
 
   TFastButtonConfig = class(TCollectionItem)
-  strict private
+  private
     _id: String;
     _text: String;
     _subText: String;
@@ -331,7 +331,9 @@ type
     property OnEnter;
     property OnExit;
 
+    {$IFNDEF WEBASSEMBLY}
     property HitTest default True;
+    {$ENDIF}
   end;
 
 implementation
@@ -1175,6 +1177,7 @@ begin
       Color4: color := TAlphaColor($FF7C3AED);
     end;
 
+    {$IFNDEF WEBASSEMBLY}
     var animationProgress := 1 - Power(1 - _underlineAnimationProgress, 3);
     var underline := GetUnderline(True {local points});
     if (animationProgress > 0) and (not underline.IsEmpty) then
@@ -1189,6 +1192,7 @@ begin
       Canvas.Stroke.Kind := TBrushKind.Solid;
       Canvas.DrawLine(startPoint, stopPoint, AbsoluteOpacity * (0.35 + (animationProgress * 0.65)));
     end;
+    {$ENDIF}
   end;
 end;
 
@@ -1247,10 +1251,12 @@ begin
 
   dirtyRect.Inflate(padding, padding);
 
+  {$IFNDEF WEBASSEMBLY}
   if ParentControl <> nil then
     ParentControl.InvalidateRect(dirtyRect)
   else
     Repaint;
+  {$ENDIF}
 end;
 
 procedure TFastButton.ApplyAutoSize;
@@ -1353,8 +1359,10 @@ begin
 
   _mouseIsDown := False;
 
+  {$IFNDEF WEBASSEMBLY}
   if not Assigned(Self.OnClick) and (Action <> nil) and Assigned(Action.OnExecute) then
     Action.Execute;
+  {$ENDIF}
 
   RepaintNeeded;
 end;

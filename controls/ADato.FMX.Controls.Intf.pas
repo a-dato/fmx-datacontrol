@@ -3,7 +3,14 @@ unit ADato.FMX.Controls.Intf;
 interface
 
 uses
-  System.Classes, FMX.Controls;
+  {$IFDEF WEBASSEMBLY}
+  Wasm.System.Classes,
+  Wasm.FMX.Controls
+  {$ELSE}
+  System.Classes,
+  FMX.Controls
+  {$ENDIF}
+  ;
 
 type
   IFocusableControlsContainer = interface
