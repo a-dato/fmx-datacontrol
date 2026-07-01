@@ -1805,7 +1805,7 @@ begin
     else if _view <> nil then
     begin
       // Active cell can be nil while row edit is still active (For example row scrolled out of ActiveViewRows).
-      // Try to resolve from editing info in that case.
+      // Try to resolve from editing info in that case ActiveCell is nil.
       var viewListIndex := _view.GetViewListIndex(_editingInfo.EditItem);
       if viewListIndex = -1 then
         viewListIndex := _view.GetViewListIndex(_editingInfo.EditItemDataIndex);
