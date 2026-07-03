@@ -448,6 +448,9 @@ end;
 
 procedure TControlBinding<T>.NotifyParentLayoutChanged(const Control: TControl);
 begin
+  if Control = nil then
+    Exit;
+
   var parent := Control.ParentControl;
   while parent <> nil do
   begin

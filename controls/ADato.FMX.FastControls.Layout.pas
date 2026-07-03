@@ -13,6 +13,8 @@ uses
   Wasm.System.Classes,
   Wasm.System.Types,
   Wasm.System.UITypes,
+  wasm.System.SysUtils,
+  Wasm.System.Math,
   Wasm.FMX.Types,
   Wasm.FMX.Controls,
   Wasm.FMX.Layouts,
@@ -125,6 +127,7 @@ uses
   {$IFNDEF WEBASSEMBLY}
   FMX.Forms, FMX.Text, System.Rtti, System.Math.Vectors, ADato.TraceEvents.intf;
   {$ELSE}
+  Wasm.System.Math.Vectors,
   Wasm.FMX.Forms;
   {$ENDIF}
 
@@ -139,7 +142,9 @@ begin
   FStrokeThickness := 1;
   FColorOpacity := 1;
 
+  {$IFNDEF WEBASSEMBLY}
   CanParentFocus := True;
+  {$ENDIF}
   HitTest := False;
 end;
 
@@ -147,9 +152,11 @@ procedure TBackgroundControl.Paint;
 begin
   if (FFillColor <> TAlphaColors.Null) and (ColorOpacity > 0) then
   begin
+    {$IFNDEF WEBASSEMBLY}
     var alpha := Round(EnsureRange(ColorOpacity, 0, 1) * $FF);
     Canvas.Fill.Color := (FFillColor and $00FFFFFF) or (TAlphaColor(alpha) shl 24);
     Canvas.FillRect(LocalRect, FXRadius, FYRadius, FCorners, AbsoluteOpacity, TCornerType.Round);
+    {$ENDIF}
   end;
 
   inherited;
@@ -191,9 +198,11 @@ begin
         Canvas.DrawLine(topRight, drawingRect.BottomRight, AbsoluteOpacity);
     end
     else begin
+      {$IFNDEF WEBASSEMBLY}
       if FSides <> AllSides then
         Canvas.DrawRectSides(GetShapeRect, FXRadius, FYRadius, FCorners,  AbsoluteOpacity, FSides, TCornerType.Round) else
         Canvas.DrawRect(GetShapeRect, XRadius, YRadius, FCorners, AbsoluteOpacity, TCornerType.Round);
+      {$ENDIF}
     end;
   end;
 end;
@@ -386,8 +395,10 @@ procedure TAdaptableBitmapLayout.LoadBitmap;
     if Control is TStyledControl then
     begin
       var stCtrl := TStyledControl(Control);
+      {$IFNDEF WEBASSEMBLY}
       if stCtrl.StyleState <> TStyleState.Applied then
         stCtrl.ApplyStyleLookup;
+      {$ENDIF}  
     end;
 
     if Control.ControlsCount = 0 then
@@ -415,12 +426,13 @@ begin
 
   _creatingBitmap := True;
   try
+    {$IFNDEF WEBASSEMBLY}
     var scale := Self.Scene.GetSceneScale;
     var logicalW: Integer := Ceil(Self.Width * scale);
     var logicalH: Integer := Ceil(Self.Height * scale);
 
     var reload := False; // reuse the existing bitmap when size and scale are unchanged
-
+    
     if reload or (_bitmap = nil) or (_bitmap.Width <> logicalW) or (_bitmap.Height <> logicalH) or (_bitmap.BitmapScale <> scale) then
       FreeAndNil(_bitmap);
 
@@ -441,6 +453,7 @@ begin
     finally
       _bitmap.Canvas.EndScene;
     end;
+    {$ENDIF}
   finally
     _creatingBitmap := False;
   end;
@@ -489,8 +502,10 @@ begin
 
   if _bitmap <> nil then
   begin
+    {$IFNDEF WEBASSEMBLY}
     var destRect := RectF(0, 0, Self.Width, Self.Height);
     Canvas.DrawBitmap(_bitmap, RectF(0, 0, _bitmap.Width, _bitmap.Height), destRect, 1.0, False);
+    {$ENDIF}
   end;
 end;
 

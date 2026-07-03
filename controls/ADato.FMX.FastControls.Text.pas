@@ -49,6 +49,7 @@ uses
 
 type
   TAutoSize = (None, AutoWidth, AutoHeight);
+  TAutoSizes = set of TAutoSize;
 
   TFastControl = class(TLayout)
   protected
@@ -59,7 +60,7 @@ type
     _recalcNeeded: Boolean;
     _autoSize: TAutoSize;
     _autoSizeNeeded: Boolean;
-    _forbiddenAutoSizeOptions: TArray<TAutoSize>;
+    _forbiddenAutoSizeOptions: TAutoSizes;
     _internalUpdateCount: Integer;
 
     _recalcIndex: Integer;
@@ -383,7 +384,7 @@ uses
   {$IFDEF SKIA}
   , FMX.Skia
   {$ENDIF}
-  , System.Generics.Collections;
+  ;
 
 { TDateTimeEditOnKeyDownOverride }
 
@@ -1756,7 +1757,7 @@ end;
 procedure TFastControl.set_AutoSize(const Value: TAutoSize);
 begin
   var val := Value;
-  if TArray.Contains<TAutoSize>(_forbiddenAutoSizeOptions, Value) then
+  if Value in _forbiddenAutoSizeOptions then
     val := TAutoSize.None;
 
   if _autoSize <> val then

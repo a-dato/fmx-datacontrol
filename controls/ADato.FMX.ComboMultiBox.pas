@@ -188,12 +188,16 @@ end;
 
 function TComboMultiBox.CreateClearButton: TControl;
 begin
+  {$IFNDEF WEBASSEMBLY}
   Result := TClearEditButton.Create(Self);
+  {$ENDIF}
 end;
 
 function TComboMultiBox.CreateDropDownButton: TControl;
 begin
+  {$IFNDEF WEBASSEMBLY}
   Result := TDropDownEditButton.Create(Self);
+  {$ENDIF}
 end;
 
 function TComboMultiBox.CreateText: TFastText;
@@ -203,27 +207,33 @@ end;
 
 function TComboMultiBox.DataControl: TDataControl;
 begin
+  {$IFNDEF WEBASSEMBLY}
   if _popupMenu <> nil then
     Result := _popupMenu.DataControl else
     Result := nil;
+  {$ENDIF}
 end;
 
 destructor TComboMultiBox.Destroy;
 begin
-//  FreeAndNil(_popup);
+  {$IFNDEF WEBASSEMBLY}
   FreeAndNil(_popupMenu);
   inherited;
+  {$ENDIF}
 end;
 
 procedure TComboMultiBox.MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Single);
 begin
   inherited;
+  {$IFNDEF WEBASSEMBLY}
   if (_popupMenu = nil) or not _popupMenu.IsOpen then
     DropDown;
+  {$ENDIF}
 end;
 
 procedure TComboMultiBox.DropDown;
 begin
+  {$IFNDEF WEBASSEMBLY}
   InitializePopupMenu;
   if not _popupMenu.IsOpen and Assigned(_beforeDropDown) then
     _beforeDropDown();
@@ -244,6 +254,7 @@ begin
   end
   else if Assigned(_popupClosed) then
     _popupClosed();
+  {$ENDIF}
 end;
 
 procedure TComboMultiBox.DropDownButtonClick(Sender: TObject);
@@ -269,6 +280,7 @@ end;
 
 procedure TComboMultiBox.UpdateDisplayText;
 begin
+  {$IFNDEF WEBASSEMBLY}
   var s: CString := nil;
 
   var selected := get_SelectedItems;
@@ -297,6 +309,7 @@ begin
   _txt.Text := CStringToString(s);
 
   _clearButton.Enabled := (selected <> nil) and (selected.Count > 0);
+  {$ENDIF}
 end;
 
 function TComboMultiBox.get_EditControl: IDCEditControl;
@@ -306,18 +319,22 @@ end;
 
 function TComboMultiBox.get_items: IList;
 begin
+  {$IFNDEF WEBASSEMBLY}
   if _popupMenu = nil then
     Exit(nil);
 
   Result := _popupMenu.DataControl.DataList;
+  {$ENDIF}
 end;
 
 function TComboMultiBox.get_SelectedItems: IList;
 begin
+  {$IFNDEF WEBASSEMBLY}
   if _popupMenu = nil then
     Exit(nil);
 
   Result := _popupMenu.DataControl.SelectedItems(False) as IList;
+  {$ENDIF}
 end;
 
 function TComboMultiBox.InClearClick: Boolean;
@@ -341,8 +358,10 @@ procedure TComboMultiBox.KeyDown(var Key: Word; var KeyChar: WideChar; Shift: TS
 begin
   if (Key = vkF2) then
   begin
+    {$IFNDEF WEBASSEMBLY}
     if (_popupMenu = nil) or not _popupMenu.IsOpen then
       DropDown;
+    {$ENDIF}
 
     Key := 0;
     Exit;
@@ -354,11 +373,14 @@ end;
 procedure TComboMultiBox.set_Items(Value: IList);
 begin
   InitializePopupMenu;
+  {$IFNDEF WEBASSEMBLY}
   _popupMenu.DataControl.DataList := Value;
+  {$ENDIF}
 end;
 
 procedure TComboMultiBox.set_SelectedItems(const Value: IList);
 begin
+  {$IFNDEF WEBASSEMBLY}
   if (Value = nil) or (Value.Count = 0) then
   begin
     if _popupMenu <> nil then
@@ -380,6 +402,7 @@ begin
 
   _popupMenu.DataControl.AssignSelection(Value);
   UpdateDisplayText;
+  {$ENDIF}
 end;
 
 { TMemoEditControlImpl }

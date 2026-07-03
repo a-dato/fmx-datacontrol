@@ -161,6 +161,7 @@ type
     class function &And    (const Value1, Value2: CObject): CObject;
     class function &Or    (const Value1, Value2: CObject): CObject;
     class function Abs     (const Value1: CObject): CObject;
+    class function IsNull  (const Value: CObject): Boolean;
     class function Subtract(const Value1, Value2: CObject): CObject;
     class function Multiply(const Value1, Value2: CObject): CObject;
     class function Divide  (const Value1, Value2: CObject): CObject;
@@ -1206,9 +1207,10 @@ begin
         FResultWasNA := True else
         Result := results;
     end
-    else if FuncName = 'CHILDS' then
+    else if (FuncName = 'CHILDS') or (FuncName = 'CHILDSNOTNULL') then
     // Returns the sum of expr1+expr2+expr3+...;
     begin
+      var skip_nulls := FuncName = 'CHILDSNOTNULL';
       cnt := ParamList.Count;
       results := nil;
 
@@ -1233,12 +1235,13 @@ begin
             begin
               FExpression := ParamList[0].ToString;
               r := Self.ResultValue;
-              if r = nil then continue;
+              if (r = nil) then continue;
               if r.IsBoolean then
               begin
                 if GenericMath.IsTrue(r) then
                   results.Add(o);
-              end else
+              end
+              else if not skip_nulls or not GenericMath.IsNull(r) then
                 results.Add(r);
             end
             else // cnt = 2
@@ -3484,7 +3487,43 @@ begin
   else
     raise ECalculate.Create(CString.Format('Unsuported type in formula: ''{0}''', Value1.GetType));
   end;
+end;
+
+class function GenericMath.IsNull(const Value: CObject): Boolean;
+begin
+  Result := False;
+
+  if Value = nil then
+    Exit;
+
+  case &Type.GetTypeCode(Value.GetType) of
+    TypeCode.Int32:     Result := Integer(Value) = 0;
+    TypeCode.UInt32:    Result := Cardinal(Value) = 0;
+    TypeCode.Int64:     Result := Int64(Value) = 0;
+    TypeCode.Double:    Result := Double(Value) = 0;
+//    TypeCode.Decimal:   Result := Extended(Value1) - Extended(Value2);
+    TypeCode.DateTime:  Result := CDateTime(Value).Equals(CDateTime.MinValue);
+    TypeCode.String:  Result := CString.IsNullOrEmpty(Value.ToString(True));
+    {$IFDEF DELPHI}
+    TypeCode.Record:
+    begin
+      if Value.GetType.IsOfType<CTimespan> then
+        Result := CTimeSpan(Value).Equals(CTimeSpan.Zero) else
+        raise ECalculate.Create(CString.Format('Unsuported type in formula: ''{0}''', Value.GetType));
+    end
+    {$ELSE}
+    TypeCode.Object:
+    begin
+      if Value1.GetType.IsOfType<CTimespan> then
+        Result := CTimeSpan(Value1).Subtract(CTimeSpan(Value2)) else
+        raise ECalculate.Create(CString.Format('Unsuported type in formula: ''{0}''', Value1.GetType));
+    end
+    {$ENDIF}
+  else
+    // raise ECalculate.Create(CString.Format('Unsuported type in formula: ''{0}''', Value.GetType));
   end;
+
+end;
 
 class function GenericMath.Max(const Value1, Value2: CObject): CObject;
 begin
@@ -4036,7 +4075,7 @@ begin
     'IF-EMPTY-LEN-AND-OR-CONTAINS-INDEXOF-CONCATENATE-CONCAT-REPL-LEFT-RIGHT-' +
     'SUBSTRING-TOSTR-COMPARE-COMPARESTR-COMPARETEXT-ROUND-ISVARNA-' +
     'ISFORMULANA-NOT-' +
-    'EVALUATE-SUM-MAX-MIN-AVG-COUNT-ALL-CHILDS-NOW-DATEADD');
+    'EVALUATE-SUM-MAX-MIN-AVG-COUNT-ALL-CHILDS-CHILDSNOTNULL-NOW-DATEADD');
 
   _rangeFunctions := StringToSortedList(
     'ALL-CHILDS-CHILDSNOTNULL-PARENT-PARENTNOTNULL-PARENTS-PARENTSNOTNULL-THIS-THISNOTNULL-ALL_CHILDREN_CLOSED');
