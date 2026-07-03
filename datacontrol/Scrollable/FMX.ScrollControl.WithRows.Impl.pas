@@ -423,8 +423,6 @@ type
     property ItemType: &Type read _itemType write _itemType;
 
   public
-    procedure Test;
-
     // designer properties & events
     property SelectionType: TSelectionType read get_SelectionType write set_SelectionType default RowSelection;
     property Options: TDCTreeOptions read get_options write set_Options;
@@ -1065,11 +1063,6 @@ begin
 
     Result := exceptionEventArgs.Handled;
   end;
-end;
-
-procedure TScrollControlWithRows.Test;
-begin
-  ;
 end;
 
 procedure TScrollControlWithRows.TriggerFilterOrSortChanged(FilterChanged, SortChanged: Boolean);
