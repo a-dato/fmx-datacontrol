@@ -245,7 +245,7 @@ begin
   _dataControl := TDataControl.Create(Self);
   _dataControl.Align := TAlignLayout.Client;
   _dataControl.Options := [TDCTreeOption.MultiSelect];
-  _dataControl.RowHeightFixed := 26;
+//  _dataControl.RowHeightFixed := 26;
   _dataControl.OnSelectionChanged := TreeCellSelected;
   _dataControl.CellFormatting := TreeCellFormatting;
 

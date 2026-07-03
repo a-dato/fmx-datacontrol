@@ -323,7 +323,7 @@ type
 
   TRowLayout = class(TAdaptableBitmapLayout, IRowLayout)
   protected
-    _rect: IBackgroundControl;
+    _rectIntf: IBackgroundControl;
     _parentChildRect: TRectangle;
 
     function  get_Sides: TSides;
@@ -1575,7 +1575,7 @@ end;
 
 function TRowLayout.Background: IBackgroundControl;
 begin
-  Result := _rect;
+  Result := _rectIntf;
 end;
 
 constructor TRowLayout.Create(AOwner: TComponent; Background: IBackgroundControl);
@@ -1584,19 +1584,18 @@ begin
 
   //Assert(TThread.CurrentThread.ThreadID = MainThreadID);
 
-  _rect := Background;
+  _rectIntf := Background;
 //  _rect.AsControl.ClipChildren := True;
-  _rect.AsControl.HitTest := False;
-  _rect.AsControl.Align := TAlignLayout.Contents;
-  Self.AddObject(_rect.AsControl);
+  _rectIntf.AsControl.HitTest := False;
+  _rectIntf.AsControl.Align := TAlignLayout.Contents;
+  Self.AddObject(_rectIntf.AsControl);
 
-  _rect.AsControl.SendToBack;
+  _rectIntf.AsControl.SendToBack;
 end;
 
 destructor TRowLayout.Destroy;
 begin
-  //Assert(TThread.CurrentThread.ThreadID = MainThreadID);
-
+  _rectIntf := nil;
   inherited;
 end;
 
@@ -1604,13 +1603,13 @@ procedure TRowLayout.DoResized;
 begin
   inherited;
 
-  _rect.AsControl.Width := Self.Width;
-  _rect.AsControl.Height := Self.Height;
+  _rectIntf.AsControl.Width := Self.Width;
+  _rectIntf.AsControl.Height := Self.Height;
 end;
 
 function TRowLayout.get_Sides: TSides;
 begin
-  Result := _rect.Sides;
+  Result := _rectIntf.Sides;
 end;
 
 procedure TRowLayout.HandleParentChildVisualisation(IsParent, IsChild: Boolean; AWidth: Single);
@@ -1623,10 +1622,10 @@ begin
   begin
     if _parentChildRect = nil then
     begin
-      _parentChildRect := TRectangle.Create(_rect.AsControl);
+      _parentChildRect := TRectangle.Create(_rectIntf.AsControl);
       _parentChildRect.Align := TAlignLayout.None;
       _parentChildRect.HitTest := False;
-      _rect.AsControl.AddObject(_parentChildRect);
+      _rectIntf.AsControl.AddObject(_parentChildRect);
     end;
 
     _parentChildRect.Height := Self.Height;
@@ -1665,7 +1664,7 @@ end;
 
 procedure TRowLayout.set_Sides(const Value: TSides);
 begin
-  _rect.Sides := Value;
+  _rectIntf.Sides := Value;
 end;
 
 procedure TRowLayout.set_UseBuffering(const Value: Boolean);
@@ -1675,8 +1674,8 @@ begin
 
   inherited;
 
-  if _rect <> nil then
-    _rect.AsControl.SendToBack;
+  if _rectIntf <> nil then
+    _rectIntf.AsControl.SendToBack;
 end;
 
 { TMemoEditControlImpl }

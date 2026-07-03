@@ -109,7 +109,7 @@ begin
   DataControl := TDataControl.Create(Self);
   DataControl.Align := TAlignLayout.Client;
   DataControl.Options := [TDCTreeOption.ShowVertGrid, TDCTreeOption.ShowHorzGrid, TDCTreeOption.AlternatingRowBackground, TDCTreeOption.MultiSelect, TDCTreeOption.KeepCurrentSelection];
-  DataControl.RowHeightFixed := 26;
+//  DataControl.RowHeightFixed := 26;
   DataControl.OnSelectionChanged := TreeSelectionChanged;
   DataControl.CellFormatting := TreeCellFormatting;
   filterlist.AddObject(DataControl);

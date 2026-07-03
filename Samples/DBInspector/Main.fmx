@@ -135,8 +135,8 @@ object frmInspector: TfrmInspector
           DragDropOnIndividualRows = False
           HeaderHeight = 24.000000000000000000
           AutoExtraColumnSizeMax = -1.000000000000000000
-          CellTopBottomPadding = 5.000000000000000000
-          CellLeftRightPadding = 5.000000000000000000
+          CellTopBottomPadding = 10.000000000000000000
+          CellLeftRightPadding = 10.000000000000000000
           VisualizeParentChilds = No
           CellChanged = DBTablesCellChanged
           OnCopyToClipBoard = DBTables_CopyToClipboard
@@ -237,8 +237,8 @@ object frmInspector: TfrmInspector
             DragDropOnIndividualRows = False
             HeaderHeight = 24.000000000000000000
             AutoExtraColumnSizeMax = -1.000000000000000000
-            CellTopBottomPadding = 5.000000000000000000
-            CellLeftRightPadding = 5.000000000000000000
+            CellTopBottomPadding = 10.000000000000000000
+            CellLeftRightPadding = 10.000000000000000000
             VisualizeParentChilds = No
             OnCopyToClipBoard = DBColumns_CopyToClipboard
             Columns_ = 
@@ -321,8 +321,8 @@ object frmInspector: TfrmInspector
             DragDropOnIndividualRows = False
             HeaderHeight = 24.000000000000000000
             AutoExtraColumnSizeMax = -1.000000000000000000
-            CellTopBottomPadding = 5.000000000000000000
-            CellLeftRightPadding = 5.000000000000000000
+            CellTopBottomPadding = 10.000000000000000000
+            CellLeftRightPadding = 10.000000000000000000
             VisualizeParentChilds = No
             CellChanged = DBIndexesCellChanged
             OnCopyToClipBoard = DBIndexesCopyToClipBoard
@@ -392,8 +392,8 @@ object frmInspector: TfrmInspector
             DragDropOnIndividualRows = False
             HeaderHeight = 24.000000000000000000
             AutoExtraColumnSizeMax = -1.000000000000000000
-            CellTopBottomPadding = 5.000000000000000000
-            CellLeftRightPadding = 5.000000000000000000
+            CellTopBottomPadding = 10.000000000000000000
+            CellLeftRightPadding = 10.000000000000000000
             VisualizeParentChilds = No
             OnCopyToClipBoard = DBIndexColumnsCopyToClipBoard
             Columns_ = 

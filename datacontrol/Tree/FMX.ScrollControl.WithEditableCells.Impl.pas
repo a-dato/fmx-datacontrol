@@ -73,7 +73,9 @@ type
     procedure OnNonPropertyCheckBoxChange(Sender: TObject);
 
     procedure UpdateColumnCheck(const DataIndex: Integer; const Column: IDCTreeColumn; IsChecked: Boolean); overload;
-    procedure DoCellCheckChangedByUser(const Cell: IDCTreeCell); overload;
+    procedure UpdateColumnCheck(const DataItem: CObject; const Column: IDCTreeColumn; IsChecked: Boolean); overload;
+
+    procedure DoCellCheckChangedByUser(const Cell: IDCTreeCell);
     procedure OnHeaderMouseUp(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Single); override;
 
     procedure OnViewChanged(Sender: TObject; e: EventArgs); override;
@@ -86,9 +88,7 @@ type
     function  CheckedItemsInColumn(const Column: IDCTreeColumn): List<CObject>;
 
     procedure ClearCheckboxCache(const Column: IDCTreeColumn = nil);
-
-    procedure UpdateColumnCheck(const DataItem: CObject; const Column: IDCTreeColumn; IsChecked: Boolean); overload;
-    procedure DoCellCheckChangedByUser(const DataItem: CObject; const Column: IDCTreeColumn; IsChecked: Boolean); overload;
+    procedure UpdateCellCheckValue(const DataItem: CObject; const Column: IDCTreeColumn; IsChecked: Boolean; UpdateCheckBox: Boolean = True);
 
   private
     procedure SetCellData(const Cell: IDCTreeCell; const Data: CObject);
@@ -869,8 +869,9 @@ end;
 
 procedure TScrollControlWithEditableCells.UpdateColumnCheck(const DataItem: CObject; const Column: IDCTreeColumn; IsChecked: Boolean);
 begin
+  GenerateView;
   if _view = nil then
-    GenerateView;
+    Exit;
 
   var ix := _view.OriginalData.IndexOf(DataItem);
   if ix <> -1 then
@@ -1863,8 +1864,21 @@ begin
   end;
 end;
 
-procedure TScrollControlWithEditableCells.DoCellCheckChangedByUser(const DataItem: CObject; const Column: IDCTreeColumn; IsChecked: Boolean);
+procedure TScrollControlWithEditableCells.UpdateCellCheckValue(const DataItem: CObject; const Column: IDCTreeColumn; IsChecked: Boolean; UpdateCheckBox: Boolean = True);
 begin
+  GenerateView;
+  if _view = nil then
+    Exit;
+
+  if not UpdateCheckBox then
+  begin
+    var ix := _view.GetDataIndex(DataItem);
+    if ix <> -1 then
+      UpdateColumnCheck(ix, Column, IsChecked);
+
+    Exit;
+  end;
+
   var ix := _view.GetViewListIndex(DataItem);
   if ix = -1 then Exit;
 

@@ -342,6 +342,8 @@ type
     function  FitRowsDownwards(StartIndex: Integer): Integer;
     function  GetActiveRow(CheckRealign: Boolean = False): IDCRow;
 
+    function  CalculatedHeight: Single;
+
     // drag & drop
     procedure BeginDrag;
 
@@ -421,6 +423,8 @@ type
     property ItemType: &Type read _itemType write _itemType;
 
   public
+    procedure Test;
+
     // designer properties & events
     property SelectionType: TSelectionType read get_SelectionType write set_SelectionType default RowSelection;
     property Options: TDCTreeOptions read get_options write set_Options;
@@ -1061,6 +1065,11 @@ begin
 
     Result := exceptionEventArgs.Handled;
   end;
+end;
+
+procedure TScrollControlWithRows.Test;
+begin
+  ;
 end;
 
 procedure TScrollControlWithRows.TriggerFilterOrSortChanged(FilterChanged, SortChanged: Boolean);
@@ -1880,9 +1889,6 @@ end;
 
 procedure TScrollControlWithRows.set_DataList(const Value: IList);
 begin
-//  if CObject.ReferenceEquals(_dataList, Value) then
-//    Exit;
-
   if _previousHardAssignedDataModelView <> nil then
   begin
     {$IFNDEF WEBASSEMBLY}
@@ -2255,8 +2261,6 @@ end;
 
 procedure TScrollControlWithRows.ModelListContextChanged(const Sender: IObjectListModel; const Context: IList);
 begin
-  set_DataList(_model.Context);
-
   {$IFNDEF WEBASSEMBLY}
   if not _model.ListHoldsObjectType and (Context <> nil) then
     _model.ObjectModelContext.OnContextChanged.Add(ModelContextChanged);
@@ -2264,6 +2268,8 @@ begin
   if not _model.ListHoldsObjectType and (Context <> nil) then
     _model.ObjectModelContext.OnContextChanged += @ModelContextChanged;
   {$ENDIF}
+
+  set_DataList(_model.Context);
 end;
 
 procedure TScrollControlWithRows.ModelListContextChanging(const Sender: IObjectListModel; const Context: IList);
@@ -3445,6 +3451,16 @@ begin
   Result := totalHeight / count;
 end;
 
+function TScrollControlWithRows.CalculatedHeight: Single;
+begin
+//  if _realignContentRequested then
+//   ForceImmeditiateRealignContent;
+
+  Result := _content.Position.Y; // in case header
+  if _view <> nil then
+    Result := Result + _view.TotalDataHeight;
+end;
+
 procedure TScrollControlWithRows.UpdateScrollBarValues(const NewValue: Single);
 begin
   CalculateScrollBarMax;
@@ -4019,13 +4035,16 @@ end;
 
 procedure TScrollControlWithRows.RefreshControl(const DataChanged: Boolean = False);
 begin
-  if DataChanged then
+  TThread.Queue(nil, procedure
   begin
-    _resetViewRec := TResetViewRec.CreateFrom(-1, False, True, _resetViewRec);
-    ResetView;
-  end;
+    if DataChanged then
+    begin
+      _resetViewRec := TResetViewRec.CreateFrom(-1, False, True, _resetViewRec);
+      ResetView;
+    end;
 
-  inherited;
+    inherited RefreshControl(DataChanged);
+  end);
 end;
 
 procedure TScrollControlWithRows.ResetView(const FromViewListIndex: Integer = -1; ClearOneRowOnly: Boolean = False);

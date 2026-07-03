@@ -113,6 +113,7 @@ type
     function  HasButtonEvent: Boolean; virtual;
     function  HasSideButton: Boolean; virtual;
     function  MouseIsDown: Boolean; virtual; abstract;
+    procedure PrepareCanvasForSubText; virtual;
 
     function  CreateConfig: TFastButtonConfig; virtual;
 
@@ -244,6 +245,7 @@ type
     _contentHorzAlign: TTextAlign;
     _imagesLink: TImageLink;
     _additionalText: CString;
+    _isTab: Boolean; // for tabs
 
     procedure set_ButtonType(const Value: TButtonType);
     procedure set_EmphasizePicture(const Value: Boolean);
@@ -307,6 +309,7 @@ type
     function  CalcWidth: Single;
 
     procedure DoExternalClick;
+    procedure IsTab(const IsTab: Boolean);
 
     property AdditionalText: CString write set_AdditionalText;
     property IsChecked: Boolean read GetIsChecked write SetIsChecked;
@@ -784,6 +787,7 @@ function TADatoClickLayout.GetUnderline(LocalUnderlinePoints: Boolean = False): 
 begin
   var bounds := BoundsRect;
   var localY := (bounds.Height / 2) + 10;
+
   if _innerBounds.Bottom + 2 > localY then
     localY := _innerBounds.Bottom + 2;
 
@@ -890,6 +894,13 @@ begin
   {$ENDIF}
 end;
 
+procedure TADatoClickLayout.PrepareCanvasForSubText;
+begin
+  Canvas.Fill.Color := TAlphaColors.Lightslategray;
+  Canvas.Font.Style := [];
+  Canvas.Font.Size := 10;
+end;
+
 function TADatoClickLayout.ConvertedBounds(const OrgBounds: TRectF; ConvertLeft, ConvertRight: Boolean; SpaceOver: Single = 0): TRectF;
 begin
   if _innerBounds.Width <= Self.Width then
@@ -955,9 +966,7 @@ begin
     begin
       var bounds := ConvertedBounds(_subTextBounds, False, True, CMath.Max(_textBounds.Width - _subTextBounds.Width, 0));
 
-      Canvas.Fill.Color := TAlphaColors.Lightslategray;
-      Canvas.Font.Style := [];
-      Canvas.Font.Size := 10;
+      PrepareCanvasForSubText;
       Canvas.FillText(bounds, SubText, False, GetPaintOpacity, [], horzAlign, TTextAlign.Leading);
     end;
   end;
@@ -1216,8 +1225,8 @@ end;
 
 function TFastButton.get_Radius: Single;
 begin
-  if Self.Height >= 22 then
-    Result := IfThen(ButtonType <> TButtonType.None, 8, 0) else
+//  if Self.Height >= 22 then
+//    Result := IfThen(ButtonType <> TButtonType.None, 8, 0) else
     Result := IfThen(ButtonType <> TButtonType.None, 3, 0);
 end;
 
@@ -1301,6 +1310,11 @@ begin
     ControlAdded: ;
     ControlRemoved: ;
   end;
+end;
+
+procedure TFastButton.IsTab(const IsTab: Boolean);
+begin
+  _isTab := IsTab;
 end;
 
 procedure TFastButton.PaddingChanged;
@@ -1532,6 +1546,9 @@ end;
 
 function TFastButton.GetSidePadding: Single;
 begin
+  if _isTab then
+    Exit(10);
+
   Result := System.Math.Min(10, System.Math.Max(5, (Self.Height - _innerBounds.Height)/2));
 end;
 

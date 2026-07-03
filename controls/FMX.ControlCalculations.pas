@@ -46,6 +46,9 @@ uses
   function  MouseInObject(AControl: TControl): Boolean;
   function  OwnerForm(AControl: TControl): TCustomForm;
 
+  function  ControlVertSpace(AControl: TControl; IgnoreHeightItself: Boolean = False): Single;
+  function  ControlHorzSpace(AControl: TControl; IgnoreWidthItself: Boolean = False): Single;
+
   function  ProvideAnimation(const Control: TControl; const PropertyName: CString; const NewValue: Single; const Duration: Single = 0.22): TFloatAnimation;
   function  ProvideAnimationDelay(const Control: TControl; const PropertyName: CString; const NewValue: Single; const Delay: Single = 0.2; const Duration: Single = 0.22): TFloatAnimation;
 
@@ -333,6 +336,26 @@ begin
   if owner <> nil then
     Result := owner as TCustomForm else
     Result := nil;
+end;
+
+function ControlVertSpace(AControl: TControl; IgnoreHeightItself: Boolean = False): Single;
+begin
+  if (AControl = nil) or not AControl.Visible or SameValue(AControl.Opacity, 0.0) then
+    Exit(0);
+
+  Result := AControl.Margins.Top + AControl.Margins.Bottom;
+  if not IgnoreHeightItself then
+    Result := Result + AControl.Height;
+end;
+
+function ControlHorzSpace(AControl: TControl; IgnoreWidthItself: Boolean = False): Single;
+begin
+  if (AControl = nil) or not AControl.Visible or SameValue(AControl.Opacity, 0.0) then
+    Exit(0);
+
+  Result := AControl.Margins.Left + AControl.Margins.Right;
+  if not IgnoreWidthItself then
+    Result := Result + AControl.Width;
 end;
 
 function ProvideAnimation(const Control: TControl; const PropertyName: CString; const NewValue: Single; const Duration: Single = 0.22): TFloatAnimation;

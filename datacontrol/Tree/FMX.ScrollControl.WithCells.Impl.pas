@@ -989,6 +989,7 @@ type
 
 const
   AUTO_SELECT_COLUMN_TAG = 'autoselect';
+  SUBCONTROL_TOP_MARGIN = 6.0;
 
 
 implementation
@@ -2830,7 +2831,7 @@ begin
   _scrollingHideColumnsFromIndex := 5;
   _autoMultiSelectColumnIndex := 0;
 
-  _cellTopBottomPadding := ROW_CONTENT_MARGIN;
+  _cellTopBottomPadding := 2*ROW_CONTENT_MARGIN;
   _cellLeftRightPadding := ROW_CONTENT_MARGIN;
 
   _headerColumnResizeControl := THeaderColumnResizeControl.Create(Self);
@@ -4217,6 +4218,9 @@ begin
       if not cell.Column.Visualisation.IgnoreHeightByRowCalculation then
       begin
         var h := CalculateCellControlHeight(Cell, False) + CalculateCellControlHeight(Cell, True);
+        if (Cell.SubInfoControl <> nil) and Cell.SubInfoControl.Visible then
+          h := h + SUBCONTROL_TOP_MARGIN;
+
         Result := CMath.Max(Result, h);
       end;
 
@@ -5559,6 +5563,9 @@ begin
         Cell.InfoControl.Padding.Top := 0;
         Cell.InfoControl.Height := txt.TextHeight;
       end;
+
+      if Cell.InfoControl.Position.Y + Cell.InfoControl.Height > Cell.Control.Height then
+        Cell.InfoControl.Position.Y := CMath.Max(0, Cell.Control.Height - Cell.InfoControl.Height - _treeControl.CellTopBottomPadding);
     end;
 
     Exit;
@@ -5577,11 +5584,11 @@ begin
 
   case vertAlign of
     TTextAlign.Leading: cell.InfoControl.Position.Y := _treeControl.CellTopBottomPadding;
-    TTextAlign.Center: cell.InfoControl.Position.Y := CMath.Max(0, (ctrlHeight - cell.InfoControl.Height - cell.SubInfoControl.Height) / 2);
+    TTextAlign.Center: cell.InfoControl.Position.Y := CMath.Max(0, (ctrlHeight - cell.InfoControl.Height - cell.SubInfoControl.Height - SUBCONTROL_TOP_MARGIN) / 2);
     TTextAlign.Trailing: cell.InfoControl.Position.Y := ctrlHeight - cell.InfoControl.Height - cell.SubInfoControl.Height - _treeControl.CellTopBottomPadding;
   end;
 
-  cell.SubInfoControl.Position.Y := cell.InfoControl.Position.Y + cell.InfoControl.Height;
+  cell.SubInfoControl.Position.Y := cell.InfoControl.Position.Y + cell.InfoControl.Height + SUBCONTROL_TOP_MARGIN;
 end;
 
 function TTreeLayoutColumn.CreateInfoControl(const Cell: IDCTreeCell; const ControlClassType: TInfoControlClass): IDCControl;

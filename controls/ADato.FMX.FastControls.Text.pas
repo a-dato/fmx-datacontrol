@@ -22,6 +22,7 @@ uses
   FMX.TextLayout,
   FMX.Text,
   System.Types,
+  System.ImageList,
   {$ELSE}
   Wasm.FMX.Controls,
   Wasm.FMX.StdCtrls,
@@ -40,6 +41,7 @@ uses
   Wasm.FMX.TextLayout,
   Wasm.FMX.Text,
   Wasm.System.Types,
+  Wasm.System.ImageList,
   {$ENDIF}
   System_,
   ADato.ObjectModel.Binders,
@@ -137,6 +139,11 @@ type
     _textBounds: TRectF;
     _onChange: TNotifyEvent;
     _maxWidth: Integer;
+    _imagesLink: TImageLink;
+    _imageName: String;
+    _imageIndex: Integer;
+    _imageSizeInt: Single;
+    _imageBounds: TRectF;
 
     {$IFNDEF WEBASSEMBLY}
     _copyPopupMenu: TPopupMenu;
@@ -180,6 +187,12 @@ type
     procedure set_AutoSize(const Value: TAutoSize); override;
     function  get_MaxWidth: Integer;
     procedure set_MaxWidth(const Value: Integer);
+    function  get_Images: TCustomImageList;
+    procedure set_Images(const Value: TCustomImageList);
+    function  get_ImageName: String;
+    procedure set_ImageName(const Value: String);
+    function  get_ImageSizeInt: Single;
+    procedure set_ImageSizeInt(const Value: Single);
     function  get_CalcAsAutoHeight: Boolean;
     procedure set_CalcAsAutoHeight(const Value: Boolean);
     function  get_Trimming: TTextTrimming;
@@ -198,6 +211,11 @@ type
     function  CalculateTextXPos: Single;
     function  CalculateTextYPos: Single;
     function  CalculateTagVerticalMargin: Single;
+    function  HasImage: Boolean;
+    function  ImageContentWidth: Single;
+    function  ImageTextMargin: Single;
+    procedure CalculateImageBounds;
+    procedure PaintBitmap;
 
     procedure SetLeftRightPadding; virtual;
 
@@ -216,6 +234,10 @@ type
     function TextHeight: Single; virtual;
     function TextWidthWithPadding: Single;
     function TextHeightWithPadding: Single;
+
+    property Images: TCustomImageList read get_Images write set_Images;
+    property ImageName: String read get_ImageName write set_ImageName;
+    property ImageSizeInt: Single read get_ImageSizeInt write set_ImageSizeInt;
 
     property DefaultTextSettings: TTextSettings read GetDefaultTextSettings;
     property TextSettings: TTextSettings read GetTextSettings write SetTextSettings;
@@ -328,9 +350,20 @@ type
 const
   TAG_VERT_MARGIN = 3.0;
   TAG_HORZ_MARGIN = 6.0;
+  IMAGE_TEXT_MARGIN = 10.0;
 
 var
+  {$IFDEF MSWINDOWS}
+  APPLICATION_FONT_FAMILY: String = 'Segoe UI Variable';
+  {$ELSEIF Defined(MACOS)}
+  APPLICATION_FONT_FAMILY: String = '.AppleSystemUIFont';
+  {$ELSEIF Defined(IOS)}
+  APPLICATION_FONT_FAMILY: String = '.SF UI Text';
+  {$ELSEIF Defined(ANDROID)}
+  APPLICATION_FONT_FAMILY: String = 'sans-serif';
+  {$ELSE}
   APPLICATION_FONT_FAMILY: String = 'Segoe UI';
+  {$ENDIF}
 
 implementation
 
@@ -391,22 +424,19 @@ begin
 
   _dcControl := TDCControlImpl.Create(Self);
 
-//  {$IFNDEF WEBASSEMBLY}
-//  _layout := TTextLayoutManager.DefaultTextLayout.Create;
-//  {$ELSE}
-//  _layout := TTextLayoutManager.DefaultTextLayout.Create(Self.Canvas);
-//  {$ENDIF}
-//  _layout.Font.Family := APPLICATION_FONT_FAMILY;
-
   _settings := TTextSettings.Create(Self);
   _settings.VertAlign := TTextAlign.Leading;
   _settings.HorzAlign := TTextAlign.Leading;
+
+  _imagesLink := TImageLink.Create;
+  _imageIndex := -1;
+  _imageSizeInt := 16;
 
   _calcAsAutoHeight := True;
 
   _showTag := False;
   _tagColor := TAlphaColors.Grey;
-  _tagOpacity := 0.1;
+  _tagOpacity := 0.15;
 
   {$IFNDEF WEBASSEMBLY}
   CreateCopyPopupMenu;
@@ -427,6 +457,7 @@ begin
 
   FreeAndNil(_layout);
   FreeAndNil(_settings);
+  FreeAndNil(_imagesLink);
 
   inherited;
 end;
@@ -455,22 +486,46 @@ function TFastText.CalculateTextXPos: Single;
 begin
 //  Result := Padding.Left + _internalLeftPadding;
   case get_HorzTextAlign of
-    TTextAlign.Center: Result := (Self.Width - _textBounds.Width) / 2;
-    TTextAlign.Leading: Result := Padding.Left + _internalLeftPadding + IfThen(_showTag, TAG_HORZ_MARGIN, 0);
+    TTextAlign.Center: Result := ((Self.Width - (_textBounds.Width + ImageContentWidth)) / 2) + ImageContentWidth;
+    TTextAlign.Leading: Result := Padding.Left + _internalLeftPadding + IfThen(_showTag, TAG_HORZ_MARGIN, 0) + ImageContentWidth;
     TTextAlign.Trailing: Result := Self.Width - _textBounds.Width - Padding.Right - _internalRightPadding - IfThen(_showTag, TAG_HORZ_MARGIN, 0);
   end;
 end;
 
 function TFastText.CalculateTextYPos: Single;
 begin
-  var totHeight := _textBounds.Height;
+  var totHeight := CMath.Max(_textBounds.Height, IfThen(HasImage, _imageSizeInt, 0));
   var tagVerticalMargin := CalculateTagVerticalMargin;
+  var contentY: Single;
 //  Result := Padding.Top;
   case get_VertTextAlign of
-    TTextAlign.Center: Result := (Self.Height - totHeight - _internalBottomPadding) / 2;
-    TTextAlign.Leading: Result := Padding.Top + tagVerticalMargin;
-    TTextAlign.Trailing: Result := Self.Height - totHeight - Padding.Bottom - _internalBottomPadding - tagVerticalMargin;
+    TTextAlign.Center: contentY := (Self.Height - totHeight - _internalBottomPadding) / 2;
+    TTextAlign.Leading: contentY := Padding.Top + tagVerticalMargin;
+    TTextAlign.Trailing: contentY := Self.Height - totHeight - Padding.Bottom - _internalBottomPadding - tagVerticalMargin;
   end;
+
+  Result := contentY + CMath.Max(0, (totHeight - _textBounds.Height) / 2);
+end;
+
+procedure TFastText.CalculateImageBounds;
+begin
+  if not HasImage then
+  begin
+    _imageBounds := TRectF.Empty;
+    Exit;
+  end;
+
+  var imageLeft := CalculateTextXPos - _imageSizeInt - ImageTextMargin;
+  var tagVerticalMargin := CalculateTagVerticalMargin;
+
+  var contentY: Single;
+  case get_VertTextAlign of
+    TTextAlign.Center: contentY := Padding.Top + (Self.Height - 2*CalculateTagVerticalMargin - Padding.Top - Padding.Bottom - _imageSizeInt - _internalBottomPadding) / 2;
+    TTextAlign.Leading: contentY := Padding.Top + tagVerticalMargin;
+    TTextAlign.Trailing: contentY := Self.Height - _imageSizeInt - Padding.Bottom - _internalBottomPadding - tagVerticalMargin;
+  end;
+
+  _imageBounds := RectF(imageLeft, contentY, imageLeft + _imageSizeInt, contentY + _imageSizeInt);
 end;
 
 function TFastText.CalculateTagVerticalMargin: Single;
@@ -481,7 +536,8 @@ begin
   if _calcAsAutoHeight then
     Exit(TAG_VERT_MARGIN);
 
-  var availableTagHeight := Self.Height - _textBounds.Height - Padding.Top - Padding.Bottom - _internalBottomPadding;
+  var contentHeight := CMath.Max(_textBounds.Height, IfThen(HasImage, _imageSizeInt, 0));
+  var availableTagHeight := Self.Height - contentHeight - Padding.Top - Padding.Bottom - _internalBottomPadding;
   Result := CMath.Max(0, CMath.Min(TAG_VERT_MARGIN, availableTagHeight / 2));
 end;
 
@@ -498,6 +554,7 @@ begin
   begin
     _layout.Opacity := AbsoluteOpacity;
     _layout.TopLeft := PointF(CalculateTextXPos, CalculateTextYPos);
+    CalculateImageBounds;
 
     var maxW := CMath.Min(_textBounds.Width + Padding.Left + Padding.Right, Self.Width - _layout.TopLeft.X);
     var maxH := CMath.Min(_textBounds.Height + Self.Padding.Top + Self.Padding.Bottom, Self.Height - _layout.TopLeft.Y);
@@ -508,22 +565,41 @@ begin
     if _showTag then
     begin
       var tagVerticalMargin := CalculateTagVerticalMargin;
-      var p1 := PointF(_layout.TopLeft.X - TAG_HORZ_MARGIN, _layout.TopLeft.Y - tagVerticalMargin);
-      var p2 := PointF(_layout.TopLeft.X + _layout.MaxSize.X + TAG_HORZ_MARGIN, _layout.TopLeft.Y + _textBounds.Height + tagVerticalMargin);
+      var contentLeft := _layout.TopLeft.X;
+      var contentRight := _layout.TopLeft.X + _layout.MaxSize.X;
+      if HasImage then
+      begin
+        contentLeft := _imageBounds.Left;
+        contentRight := CMath.Max(contentRight, _imageBounds.Right);
+      end;
+
+      var contentTop := _layout.TopLeft.Y;
+      var contentBottom := _layout.TopLeft.Y + _textBounds.Height;
+      if HasImage then
+      begin
+        contentTop := CMath.Min(contentTop, _imageBounds.Top);
+        contentBottom := CMath.Max(contentBottom, _imageBounds.Bottom);
+      end;
+
+      var p1 := PointF(contentLeft - TAG_HORZ_MARGIN, contentTop - tagVerticalMargin);
+      var p2 := PointF(contentRight + TAG_HORZ_MARGIN, contentBottom + tagVerticalMargin);
 
       var rad := CMath.Min(10, (p2.Y - p1.Y) / 2);
       var rect := TRectF.Create(p1.X, p1.Y, p2.X, p2.Y);
       Canvas.Fill.Color := _tagColor;
-      Canvas.FillRect(rect, rad*0.75, rad*1.2, AllCorners, _tagOpacity, TCornerType.Round);
+      Canvas.FillRect(rect, rad*0.75, rad*1.2, AllCorners, AbsoluteOpacity * _tagOpacity, TCornerType.Round);
     end;
 
-  //  {$IFDEF DEBUG}
-  //  Self.Canvas.Fill.Color := TAlphaColors.Mediumpurple;
-  //  Self.Canvas.FillRect(RectF(0, 0, Self.Width, Self.Height), 0.2);
-  //
-  //  Self.Canvas.Fill.Color := TAlphaColors.Darkred;
-  //  Self.Canvas.FillRect(RectF(_layout.TopLeft.X, _layout.TopLeft.Y, _layout.TopLeft.X + _layout.MaxSize.X, _layout.TopLeft.Y + _layout.MaxSize.Y), 0.05);
-  //  {$ENDIF}
+//    {$IFDEF DEBUG}
+//    Self.Canvas.Fill.Color := TAlphaColors.Mediumpurple;
+//    Self.Canvas.FillRect(RectF(0, 0, Self.Width, Self.Height), 0.2);
+//
+//    Self.Canvas.Fill.Color := TAlphaColors.Darkred;
+//    Self.Canvas.FillRect(RectF(_layout.TopLeft.X, _layout.TopLeft.Y, _layout.TopLeft.X + _layout.MaxSize.X, _layout.TopLeft.Y + _layout.MaxSize.Y), 0.05);
+//    {$ENDIF}
+
+    if HasImage then
+      PaintBitmap;
 
     _layout.RenderLayout(Canvas);
   end;
@@ -587,6 +663,21 @@ begin
   Result := _maxWidth;
 end;
 
+function TFastText.get_ImageName: String;
+begin
+  Result := _imageName;
+end;
+
+function TFastText.get_ImageSizeInt: Single;
+begin
+  Result := _imageSizeInt;
+end;
+
+function TFastText.get_Images: TCustomImageList;
+begin
+  Result := TCustomImageList(_imagesLink.Images);
+end;
+
 function TFastText.get_Style: TFontStyles;
 begin
   Result := _settings.Font.Style;
@@ -610,6 +701,21 @@ end;
 function TFastText.HasText: Boolean;
 begin
   Result := Length(_text) > 0;
+end;
+
+function TFastText.HasImage: Boolean;
+begin
+  Result := (Length(_imageName) > 0) and (get_Images <> nil);
+end;
+
+function TFastText.ImageTextMargin: Single;
+begin
+  Result := IfThen(HasImage and HasText, IMAGE_TEXT_MARGIN, 0);
+end;
+
+function TFastText.ImageContentWidth: Single;
+begin
+  Result := IfThen(HasImage, _imageSizeInt + ImageTextMargin, 0);
 end;
 
 procedure TFastText.DoMouseLeave;
@@ -709,8 +815,8 @@ begin
 
   inherited;
 
-  var maxInternalWidth := _maxWidth - Padding.Left - Padding.Right - _internalLeftPadding - _internalRightPadding;
-  var maxWidth := IfThen(_maxWidth > 0, maxInternalWidth, IfThen(get_WordWrap, Self.Width - _internalLeftPadding - _internalRightPadding, 9999));
+  var maxInternalWidth := _maxWidth - Padding.Left - Padding.Right - _internalLeftPadding - _internalRightPadding - ImageContentWidth;
+  var maxWidth := IfThen(_maxWidth > 0, CMath.Max(0, maxInternalWidth), IfThen(get_WordWrap, CMath.Max(0, Self.Width - _internalLeftPadding - _internalRightPadding - ImageContentWidth), 9999));
   var maxHeight := IfThen(get_WordWrap or _calcAsAutoHeight, 9999, Self.Height - Padding.Top - Padding.Bottom);
 
   // italic and Trailing horz align does not work together because of the extra space italic text needs.. This is not calculated correctly..
@@ -736,6 +842,7 @@ begin
   end;
 
   _textBounds := _layout.TextRect;
+  CalculateImageBounds;
 
   {$IFDEF SKIA}
   // bad code, but neccesssary.. SKIA does not calculate italic fonts right..
@@ -830,6 +937,35 @@ begin
   end;
 end;
 
+procedure TFastText.set_ImageName(const Value: String);
+begin
+  if _imageName <> Value then
+  begin
+    _imageName := Value;
+    _imageIndex := -1;
+    RecalcNeeded;
+  end;
+end;
+
+procedure TFastText.set_ImageSizeInt(const Value: Single);
+begin
+  if _imageSizeInt <> Value then
+  begin
+    _imageSizeInt := Value;
+    RecalcNeeded;
+  end;
+end;
+
+procedure TFastText.set_Images(const Value: TCustomImageList);
+begin
+  if _imagesLink.Images <> Value then
+  begin
+    _imagesLink.Images := Value;
+    _imageIndex := -1;
+    RecalcNeeded;
+  end;
+end;
+
 procedure TFastText.set_Style(const Value: TFontStyles);
 begin
   if _settings.Font.Style <> Value then
@@ -872,7 +1008,7 @@ end;
 function TFastText.TextHeight: Single;
 begin
   ControlLoadedCalculate;
-  Result := _textBounds.Height + IfThen(_showTag, 2*TAG_VERT_MARGIN, 0);
+  Result := CMath.Max(_textBounds.Height, IfThen(HasImage, _imageSizeInt, 0)) + IfThen(_showTag, 2*TAG_VERT_MARGIN, 0);
 end;
 
 function TFastText.TextHeightWithPadding: Single;
@@ -888,12 +1024,40 @@ end;
 function TFastText.TextWidth: Single;
 begin
   ControlLoadedCalculate;
-  Result := _textBounds.Width + IfThen(_showTag, 2*TAG_HORZ_MARGIN, 0);
+  Result := _textBounds.Width + ImageContentWidth + IfThen(_showTag, 2*TAG_HORZ_MARGIN, 0);
 end;
 
 function TFastText.TextWidthWithPadding: Single;
 begin
   Result := TextWidth + Padding.Left + Padding.Right + _internalLeftPadding + _internalRightPadding;
+end;
+
+procedure TFastText.PaintBitmap;
+begin
+  var screenScale: Single;
+  if Scene <> nil then
+    screenScale := Scene.GetSceneScale else
+    screenScale := 1;
+
+  var bitmapSize := TSize.Create(Round(_imageBounds.Width * screenScale), Round(_imageBounds.Height * screenScale));
+
+  if (_imageIndex = -1) and (Length(_imageName) > 0) then
+    _imageIndex := get_Images.Source.IndexOf(_imageName);
+
+  if _imageIndex = -1 then
+    Exit;
+
+  var bitmap := get_Images.Bitmap(bitmapSize, _imageIndex);
+  try
+    if bitmap <> nil then
+    begin
+      var bitmapRect := TRectF.Create(0, 0, bitmap.Width, bitmap.Height);
+      Canvas.DrawBitmap(bitmap, bitmapRect, _imageBounds.Round, AbsoluteOpacity, False);
+    end;
+  finally
+    // bitmap is cached, so do not free!!
+    // bitmap.Free;
+  end;
 end;
 
 procedure TFastText.CopyToClipboard;
@@ -1501,7 +1665,22 @@ begin
 end;
 
 procedure TFastControl.Calculate;
+
+  procedure CalculateFastControlChildren(const Parent: TControl);
+  begin
+    for var ctrl in Parent.Controls do
+      if ctrl.Visible and (ctrl.Opacity > 0) then
+      begin
+        CalculateFastControlChildren(ctrl);
+
+        if ctrl is TFastControl then
+          TFastControl(ctrl).Calculate;
+      end;
+  end;
+
 begin
+  CalculateFastControlChildren(Self);
+
   _recalcNeeded := False;
 end;
 
@@ -1512,7 +1691,22 @@ begin
 end;
 
 procedure TFastControl.ControlLoadedCalculate;
+
+  procedure CalculateFastControlChildren(const Parent: TControl);
+  begin
+    for var ctrl in Parent.Controls do
+      if ctrl.Visible and (ctrl.Opacity > 0) then
+      begin
+        CalculateFastControlChildren(ctrl);
+
+        if ctrl is TFastControl then
+          TFastControl(ctrl).ControlLoadedCalculate;
+      end;
+  end;
+
 begin
+  CalculateFastControlChildren(Self);
+
   // for runtime controls, the method "Loaded" is not called!
   // sometimes we want to force calculate..
   _controlIsLoaded := True;

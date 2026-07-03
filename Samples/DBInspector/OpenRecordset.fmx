@@ -148,8 +148,8 @@ object OpenRecordSetFrame: TOpenRecordSetFrame
           DragDropOnIndividualRows = False
           HeaderHeight = 24.000000000000000000
           AutoExtraColumnSizeMax = -1.000000000000000000
-          CellTopBottomPadding = 5.000000000000000000
-          CellLeftRightPadding = 5.000000000000000000
+          CellTopBottomPadding = 10.000000000000000000
+          CellLeftRightPadding = 10.000000000000000000
           VisualizeParentChilds = No
           CellSelected = DataGridCellSelected
           EditRowEnd = DataGridEditRowEnd
