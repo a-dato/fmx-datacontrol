@@ -243,8 +243,17 @@ begin
   if _popupMenu.IsOpen then
   begin
     _popupMenu.Width := Round(CMath.Max(Width, 175));
+
+    var rowHeight := _popupMenu.DataControl.RowHeightFixed;
+    if rowHeight <= 0 then
+      rowHeight := 26;
+
+    var itemCount := 0;
+    if _popupMenu.DataControl.DataList <> nil then
+      itemCount := _popupMenu.DataControl.DataList.Count;
+
     _popupMenu.Height := Round(
-      CMath.Min(_popupMenu.DataControl.DataList.Count, 6)*_popupMenu.DataControl.RowHeightFixed +
+      CMath.Min(itemCount, 6) * rowHeight +
       _popupMenu.lyFilter.Height +
       _popupMenu.lyButtons.Height +
       _popupMenu.filterlist.Padding.Top +
