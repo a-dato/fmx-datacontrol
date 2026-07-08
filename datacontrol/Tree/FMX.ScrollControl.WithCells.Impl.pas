@@ -4165,9 +4165,8 @@ begin
     if Cell.Column.Visualisation.IgnoreHeightByRowCalculation or (ctrl = nil) or not ctrl.Visible then
       Exit(0);
 
-    var bounds := RectF(0, 0, ctrl.Width, ctrl.Height);
-    if not bounds.IsEmpty then
-      Exit(bounds.Height);
+    if infoCtrlClass = TInfoControlClass.Custom then
+      Exit(0);
 
     if infoCtrlClass = TInfoControlClass.Text then
     begin
@@ -4176,8 +4175,14 @@ begin
         Exit(0);
 
       Result := txt.TextHeight;
-    end else
-      Result := ctrl.Height;
+      Exit;
+    end;
+
+    var bounds := RectF(0, 0, ctrl.Width, ctrl.Height);
+    if not bounds.IsEmpty then
+      Exit(bounds.Height);
+
+    Result := ctrl.Height;
   finally
     EventTracer.PauseTimer('TDataControl', Self.ClassName + '.CalculateCellControlHeight');
   end;
@@ -5419,8 +5424,6 @@ begin
   Assert(not _HideColumnInView);
 
   Cell.HideCellInView := False;
-  //doanimate
-//  FMX.Ani.TAnimator.AnimateFloatDelay(Cell.Control, 'Width', get_Width, 0.3, 0.5);
   Cell.Control.Width := get_Width;
   Cell.Control.Height := Cell.Row.Control.Height;
   Cell.Control.Position.Y := 0;
@@ -5539,7 +5542,7 @@ begin
       ctrl := Cell.SubInfoControl;
 
     var txtCtrl: ITextControl;
-    if not cell.IsHeaderCell and Interfaces.Supports<ITextControl>(cell.InfoControl, txtCtrl) then
+    if not cell.IsHeaderCell and Interfaces.Supports<ITextControl>(ctrl, txtCtrl) then
     begin
       (txtCtrl as ITextSettings).TextSettings.VertAlign := Cell.LayoutColumn.CalculatedVertAlign;
       ctrl.Height := ctrlHeight - (2*_treeControl.CellTopBottomPadding);
