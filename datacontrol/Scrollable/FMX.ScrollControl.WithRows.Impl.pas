@@ -1377,6 +1377,14 @@ begin
         InitRow(row);
     end;
   end;
+
+  // MultiSelect toggled: repaint visible rows so extra selections hide/show without clearing stored selection.
+  if ((TDCTreeOption.MultiSelect in OldFlags) <> (TDCTreeOption.MultiSelect in NewFlags)) and (_view <> nil) then
+  begin
+    var row: IDCRow;
+    for row in _view.ActiveViewRows do
+      VisualizeRowSelection(row);
+  end;
 end;
 
 function TScrollControlWithRows.SelectionCount(ReturnCurrentAtNoSelection: Boolean = True): Integer;
@@ -3537,11 +3545,18 @@ begin
   if (TDCTreeOption.MultiSelect in _options) then
   begin
     if (_selectionInfo.DataIndex = DataIndex) and not (ssCtrl in Shift) and not (ssShift in Shift) then
+    begin
+      if not (TDCTreeOption.KeepCurrentSelection in _Options) and _selectionInfo.HasSelectedItems then
+        _selectionInfo.ClearMultiSelections;
       Exit;
+    end;
 
     var lastSelectedIndex := _selectionInfo.ViewListIndex;
     if (ssShift in Shift) then
     begin
+      if lastSelectedIndex = -1 then
+        lastSelectedIndex := ViewListIndex;
+
 //      var bothAlreadySelected := _selectionInfo.IsSelected(_selectionInfo.DataIndex) and _selectionInfo.IsSelected(DataIndex);
 //      if bothAlreadySelected then
 //        _selectionInfo.RemoveFromSelection(_selectionInfo.DataIndex)
@@ -3549,7 +3564,8 @@ begin
         var vlIndex := lastSelectedIndex;
         while vlIndex <> ViewListIndex do
         begin
-          _selectionInfo.AddToSelection(_view.GetDataIndex(vlIndex), vlIndex, _view.GetViewList[vlIndex]);
+          if (vlIndex >= 0) and (vlIndex < _view.ViewCount) then
+            _selectionInfo.AddToSelection(_view.GetDataIndex(vlIndex), vlIndex, _view.GetViewList[vlIndex]);
 
           if lastSelectedIndex < ViewListIndex then
             inc(vlIndex) else
@@ -4184,7 +4200,17 @@ begin
 
     // keep current selected item
     if cln.DataIndex <> -1 then
-      _selectionInfo.AddToSelection(cln.DataIndex, cln.ViewListIndex, cln.DataItem);
+    begin
+      if not _selectionInfo.IsSelected(cln.DataIndex) then
+        _selectionInfo.AddToSelection(cln.DataIndex, cln.ViewListIndex, cln.DataItem);
+
+      _selectionInfo.SetFocusedItem(cln.DataIndex, cln.ViewListIndex, cln.DataItem);
+    end
+    else if (_view <> nil) and (_view.ViewCount > 0) then
+    begin
+      var list := _view.GetViewList;
+      _selectionInfo.SetFocusedItem(_view.GetDataIndex(0), 0, list[0]);
+    end;
   finally
     _selectionInfo.EndUpdate;
   end;
@@ -4567,7 +4593,8 @@ end;
 procedure TDCRow.UpdateSelectionVisibility(const SelectionInfo: IRowSelectionInfo; OwnerIsFocused: Boolean);
 begin                                  
   var isCurrentDataItem := SelectionInfo.IsFocused(get_DataIndex);
-  var isPartOfSelection := SelectionInfo.IsSelected(get_DataIndex);
+  // Use control IsSelected so MultiSelect-off shows only the focused row; internal multi-selection is kept.
+  var isPartOfSelection := _rowsControl.IsSelected(get_DataIndex, False) and not isCurrentDataItem;
   var isDragOver := (_selectionRect <> nil) and (_selectionRect.Fill.Color = DEFAULT_DRAG_COLOR);
   
   var selectionStaysTheSame := False; 
