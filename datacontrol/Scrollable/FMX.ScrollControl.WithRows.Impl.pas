@@ -3545,7 +3545,11 @@ begin
   if (TDCTreeOption.MultiSelect in _options) then
   begin
     if (_selectionInfo.DataIndex = DataIndex) and not (ssCtrl in Shift) and not (ssShift in Shift) then
+    begin
+      if not (TDCTreeOption.KeepCurrentSelection in _Options) and _selectionInfo.HasSelectedItems then
+        _selectionInfo.ClearMultiSelections;
       Exit;
+    end;
 
     var lastSelectedIndex := _selectionInfo.ViewListIndex;
     if (ssShift in Shift) then
