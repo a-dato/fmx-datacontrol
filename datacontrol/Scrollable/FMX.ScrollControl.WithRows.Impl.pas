@@ -1377,6 +1377,14 @@ begin
         InitRow(row);
     end;
   end;
+
+  // MultiSelect toggled: repaint visible rows so extra selections hide/show without clearing stored selection.
+  if ((TDCTreeOption.MultiSelect in OldFlags) <> (TDCTreeOption.MultiSelect in NewFlags)) and (_view <> nil) then
+  begin
+    var row: IDCRow;
+    for row in _view.ActiveViewRows do
+      VisualizeRowSelection(row);
+  end;
 end;
 
 function TScrollControlWithRows.SelectionCount(ReturnCurrentAtNoSelection: Boolean = True): Integer;
@@ -4581,7 +4589,8 @@ end;
 procedure TDCRow.UpdateSelectionVisibility(const SelectionInfo: IRowSelectionInfo; OwnerIsFocused: Boolean);
 begin                                  
   var isCurrentDataItem := SelectionInfo.IsFocused(get_DataIndex);
-  var isPartOfSelection := SelectionInfo.IsSelected(get_DataIndex);
+  // Use control IsSelected so MultiSelect-off shows only the focused row; internal multi-selection is kept.
+  var isPartOfSelection := _rowsControl.IsSelected(get_DataIndex, False) and not isCurrentDataItem;
   var isDragOver := (_selectionRect <> nil) and (_selectionRect.Fill.Color = DEFAULT_DRAG_COLOR);
   
   var selectionStaysTheSame := False; 
