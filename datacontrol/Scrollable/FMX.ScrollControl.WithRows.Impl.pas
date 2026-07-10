@@ -3542,6 +3542,9 @@ begin
     var lastSelectedIndex := _selectionInfo.ViewListIndex;
     if (ssShift in Shift) then
     begin
+      if lastSelectedIndex = -1 then
+        lastSelectedIndex := ViewListIndex;
+
 //      var bothAlreadySelected := _selectionInfo.IsSelected(_selectionInfo.DataIndex) and _selectionInfo.IsSelected(DataIndex);
 //      if bothAlreadySelected then
 //        _selectionInfo.RemoveFromSelection(_selectionInfo.DataIndex)
@@ -3549,7 +3552,8 @@ begin
         var vlIndex := lastSelectedIndex;
         while vlIndex <> ViewListIndex do
         begin
-          _selectionInfo.AddToSelection(_view.GetDataIndex(vlIndex), vlIndex, _view.GetViewList[vlIndex]);
+          if (vlIndex >= 0) and (vlIndex < _view.ViewCount) then
+            _selectionInfo.AddToSelection(_view.GetDataIndex(vlIndex), vlIndex, _view.GetViewList[vlIndex]);
 
           if lastSelectedIndex < ViewListIndex then
             inc(vlIndex) else
@@ -4184,7 +4188,17 @@ begin
 
     // keep current selected item
     if cln.DataIndex <> -1 then
-      _selectionInfo.AddToSelection(cln.DataIndex, cln.ViewListIndex, cln.DataItem);
+    begin
+      if not _selectionInfo.IsSelected(cln.DataIndex) then
+        _selectionInfo.AddToSelection(cln.DataIndex, cln.ViewListIndex, cln.DataItem);
+
+      _selectionInfo.SetFocusedItem(cln.DataIndex, cln.ViewListIndex, cln.DataItem);
+    end
+    else if (_view <> nil) and (_view.ViewCount > 0) then
+    begin
+      var list := _view.GetViewList;
+      _selectionInfo.SetFocusedItem(_view.GetDataIndex(0), 0, list[0]);
+    end;
   finally
     _selectionInfo.EndUpdate;
   end;
