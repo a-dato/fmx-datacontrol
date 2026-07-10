@@ -17,15 +17,34 @@ uses
   System_,
   System.Collections,
   System.ComponentModel,
-  System.Runtime.Serialization;
+  System.Runtime.Serialization
+  {$IFDEF APP_PLATFORM_MD}
+  , app.TypeMetadata
+  {$ENDIF}
+  ;
 
 type
   {$M+}
   UpdateFlag = (ApplyUpdate, IgnoreUpdate);
+  {$IFDEF APP_PLATFORM_MD}
+  [TBehaviorAttribute(
+    'UpdateableObjectWithUpdateFlag',
+    'Temporarily disables project data change events while a new project is populated in bulk.',
+    'Use only for mass import into newly created projects. Existing projects should use the normal event mechanism instead.')]
+  {$ENDIF}
   IUpdateableObjectWithUpdateFlag = interface
     ['{76AEEAE0-1A5F-4552-835C-3C3C41421485}']
 
+    {$IFDEF APP_PLATFORM_MD}
+    [TMethodMetadataAttribute('Begins a bulk update block and disables the event mechanism for project data changes.',
+                              'Call only when importing or creating many records in a new project. Existing projects should keep using normal events.')]
+    {$ENDIF}
     procedure BeginUpdate(Flag: UpdateFlag);
+
+    {$IFDEF APP_PLATFORM_MD}
+    [TMethodMetadataAttribute('Ends a bulk update block and allows project data change handling to resume.',
+                              'Call after BeginUpdate once the new-project mass import is complete. When project data was changed for the UI, follow this by calling NotifyProjectChanged on IProjectChangedEvent so event subscribers and the Gantt view refresh.')]
+    {$ENDIF}
     procedure EndUpdate(Flag: UpdateFlag);
   end;
 
