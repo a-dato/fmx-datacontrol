@@ -71,6 +71,8 @@ type
 
     function  ShouldRecalculate: Boolean;
     procedure ControlLoadedCalculate;
+    procedure DirectControlLoadedCalculate;
+    procedure InternalCalculate;
     procedure Calculate; virtual;
 
     procedure ImmidiateAutoSize; virtual;
@@ -384,7 +386,7 @@ uses
   {$IFDEF SKIA}
   , FMX.Skia
   {$ENDIF}
-  ;
+  , ADato.TraceEvents.intf;
 
 { TDateTimeEditOnKeyDownOverride }
 
@@ -650,7 +652,6 @@ end;
 
 function TFastText.GetTextSettings: TTextSettings;
 begin
-//  Calculate;
   Result := _settings;
 end;
 
@@ -917,6 +918,7 @@ begin
     Exit;
 
   _showTag := Value;
+
   RecalcNeeded;
 end;
 
@@ -1625,11 +1627,11 @@ begin
     RequestRealign;
 
   inc(_internalUpdateCount);
-  BeginUpdate;
+//  BeginUpdate;
   try
     ControlLoadedCalculate;
   finally
-    EndUpdate;
+//    EndUpdate;
     dec(_internalUpdateCount);
   end;
 end;
@@ -1655,7 +1657,10 @@ end;
 
 procedure TFastControl.PrepareForPaint;
 begin
-  Calculate;
+  if ShouldRecalculate and _autoSizeNeeded and DoAutoSize then
+    ImmidiateAutoSize else
+    InternalCalculate;
+
   inherited;
 end;
 
@@ -1665,7 +1670,7 @@ begin
   RecalcNeeded;
 end;
 
-procedure TFastControl.Calculate;
+procedure TFastControl.InternalCalculate;
 
   procedure CalculateFastControlChildren(const Parent: TControl);
   begin
@@ -1675,13 +1680,17 @@ procedure TFastControl.Calculate;
         CalculateFastControlChildren(ctrl);
 
         if ctrl is TFastControl then
-          TFastControl(ctrl).Calculate;
+          TFastControl(ctrl).InternalCalculate;
       end;
   end;
 
 begin
   CalculateFastControlChildren(Self);
+  Calculate;
+end;
 
+procedure TFastControl.Calculate;
+begin
   _recalcNeeded := False;
 end;
 
@@ -1689,6 +1698,14 @@ function TFastControl.ShouldRecalculate: Boolean;
 begin
   Result := _recalcNeeded and _controlIsLoaded and (_recalcIndex = 0)
     { and not IsUpdating}; // check kanbanboard if it should be on, for textwidth calcs are done in applystylelookup
+end;
+
+procedure TFastControl.DirectControlLoadedCalculate;
+begin
+  // for runtime controls, the method "Loaded" is not called!
+  // sometimes we want to force calculate..
+  _controlIsLoaded := True;
+  InternalCalculate;
 end;
 
 procedure TFastControl.ControlLoadedCalculate;
@@ -1701,17 +1718,13 @@ procedure TFastControl.ControlLoadedCalculate;
         CalculateFastControlChildren(ctrl);
 
         if ctrl is TFastControl then
-          TFastControl(ctrl).ControlLoadedCalculate;
+          TFastControl(ctrl).DirectControlLoadedCalculate;
       end;
   end;
 
 begin
   CalculateFastControlChildren(Self);
-
-  // for runtime controls, the method "Loaded" is not called!
-  // sometimes we want to force calculate..
-  _controlIsLoaded := True;
-  Calculate;
+  DirectControlLoadedCalculate;
 end;
 
 procedure TFastControl.RecalcNeeded;
@@ -1773,7 +1786,7 @@ begin
   begin
     _autoSizeNeeded := False;
 
-    Calculate;
+    InternalCalculate;
     ApplyAutoSize;
     RepaintNeeded;
   end;
@@ -1785,7 +1798,9 @@ procedure TFastControl.CalculateSafeAutoSize;
   begin
     TThread.ForceQueue(nil, procedure
     begin
-      if (Alive <> nil) then
+      // PrepareForPaint normally handles the pending autosize. This queued
+      // call is only a fallback for controls that do not enter that path.
+      if (Alive <> nil) and _autoSizeNeeded then
         ImmidiateAutoSize;
     end);
   end;
@@ -1810,8 +1825,12 @@ procedure TFastControl.EndUpdate;
 begin
   inherited;
 
-  if not IsUpdating and (_internalUpdateCount = 0) then
-    RecalcNeeded;
+  if not IsUpdating and (_internalUpdateCount = 0) and ShouldRecalculate then
+  begin
+    CalculateSafeAutoSize;
+    RepaintNeeded;
+  end;
+//    RecalcNeeded;
 end;
 
 initialization

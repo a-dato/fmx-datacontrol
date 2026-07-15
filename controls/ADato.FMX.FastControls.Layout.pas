@@ -340,7 +340,7 @@ constructor TAdaptableBitmapLayout.Create(AOwner: TComponent);
 begin
   inherited;
 
-  _useBuffering := False;
+  _useBuffering := True;
   _resetBufferRequired := True;
   _stylesPreparedForBuffer := False;
   _originalBackgroundColorIsNull := True;
@@ -562,11 +562,11 @@ begin
   if get_UseBuffering = Value then
     Exit;
 
-  {$IFDEF DEBUG}
-  _useBuffering := False;
-  {$ELSE}
+//  {$IFDEF DEBUG}
+//  _useBuffering := False;
+//  {$ELSE}
   _useBuffering := Value;
-  {$ENDIF}
+//  {$ENDIF}
 
   ResetBuffer;
 end;

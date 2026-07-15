@@ -39,9 +39,9 @@ type
     IEditState,
     IEditableModel,
     INotifyListItemChanged,
-    IOnItemChangedSupport
+    IOnItemChangedSupport,
+    IUpdatableObject
     {$IFDEF APP_PLATFORM}
-    , IUpdatableObject
     , IAddRange
     {$ENDIF}
     )
@@ -203,6 +203,9 @@ end;
 procedure TObjectListModelWithChangeTracking<T>.BeginUpdate;
 begin
   inc(_UpdateCount);
+
+  // in case of Add New Item, the contextchanged must be executed
+//  (_ObjectModelContext as IUpdatableObject).BeginUpdate;
 
   var update: IUpdatableObject;
   if interfaces.Supports<IUpdatableObject>(_Context, update) then
@@ -476,6 +479,8 @@ end;
 procedure TObjectListModelWithChangeTracking<T>.EndUpdate;
 begin
   dec(_UpdateCount);
+
+//  (_ObjectModelContext as IUpdatableObject).EndUpdate;
 
   var update: IUpdatableObject;
   if interfaces.Supports<IUpdatableObject>(_Context, update) then

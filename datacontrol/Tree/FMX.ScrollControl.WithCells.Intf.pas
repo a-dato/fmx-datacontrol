@@ -343,6 +343,7 @@ type
     function  Control: TControl;
     function  Content: TControl;
     function  FullColumnList: IList<IDCTreeColumn>;
+    function  FrozenColumnWidth: Single;
     function  GetItemType: &Type;
     function  GetActiveCell(CheckRealign: Boolean = False): IDCTreeCell;
 

@@ -305,8 +305,8 @@ begin
   for timerPair in FTimers do
   begin
     {$IFDEF DEBUG}
-//    if timerpair.Value.ElapsedMilliseconds < 100 then
-//      Continue;
+    if timerpair.Value.ElapsedMilliseconds < 20 then
+      Continue;
     {$ENDIF}
 
     l.Add(timerPair);
@@ -314,8 +314,11 @@ begin
 
   l.Sort(function(const X,Y: KeyValuePair<string, TStopWatch>): Integer
     begin
+      {$IFDEF DEBUG}
+      Result := -CInt64(X.Value.ElapsedMilliseconds).CompareTo(Y.Value.ElapsedMilliseconds);
+      {$ELSE}
       Result := CString.Compare(X.Key, Y.Key);
-//      Result := -CInt64(X.Value.ElapsedMilliseconds).CompareTo(Y.Value.ElapsedMilliseconds);
+      {$ENDIF}
     end);
 
   for timerPair in l do
