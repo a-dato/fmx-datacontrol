@@ -80,6 +80,7 @@ type
     procedure OnExpandCollapseHierarchy(Sender: TObject);
     procedure ProcessColumnVisibilityRules;
     procedure CheckNoScrollingColumnContainsData;
+    procedure MoveColumnOpacityAnimationProcess(Sender: TObject);
 
     procedure CreateDefaultColumns;
     procedure ShowHeaderPopupMenu(const LayoutColumn: IDCTreeLayoutColumn);
@@ -283,6 +284,7 @@ type
     function  Control: TControl;
     function  Content: TControl;
     function  FullColumnList: IList<IDCTreeColumn>;
+    function  FrozenColumnWidth: Single;
 
   protected
     procedure PositionTree;
@@ -990,6 +992,7 @@ type
 const
   AUTO_SELECT_COLUMN_TAG = 'autoselect';
   SUBCONTROL_TOP_MARGIN = 6.0;
+  SELECT_ALL_COLUMNS_INDEX = -2;
 
 
 implementation
@@ -1901,21 +1904,30 @@ begin
         if SameValue(startX, targetX) then
           Continue;
 
-        TAnimator.StopPropertyAnimation(cell.Control, 'Position.X');
+        var positionAnimation := ProvideAnimation(cell.Control, 'Position.X', targetX, MOVE_ANIMATION_DURATION);
         cell.Control.Position.X := startX;
-        TAnimator.AnimateFloat(cell.Control, 'Position.X', targetX, MOVE_ANIMATION_DURATION, TAnimationType.Out, TInterpolationType.Cubic);
+        positionAnimation.Interpolation := TInterpolationType.Cubic;
+        positionAnimation.OnProcess := MoveColumnOpacityAnimationProcess;
+        positionAnimation.Start;
       end;
 
       if (MovingColumn <> nil) and cell.LayoutColumn.Column.Equals(MovingColumn) then
       begin
-        TAnimator.StopPropertyAnimation(cell.Control, 'Opacity');
-        cell.Control.Opacity := MoveClmnOpacity;
-
         var aniDelay := IfThen(MoveClmnOpacity = 0, 0, MOVE_ANIMATION_DURATION);
-        TAnimator.AnimateFloatDelay(cell.Control, 'Opacity', 1, 0.3, aniDelay, TAnimationType.Out, TInterpolationType.Cubic);
+        var opacityAnimation := ProvideAnimationDelay(cell.Control, 'Opacity', 1, aniDelay, 0.3);
+        cell.Control.Opacity := MoveClmnOpacity;
+        opacityAnimation.Interpolation := TInterpolationType.Cubic;
+        opacityAnimation.Start;
       end;
     end;
   end;
+end;
+
+procedure TScrollControlWithCells.MoveColumnOpacityAnimationProcess(Sender: TObject);
+begin
+  var activeRow := GetActiveRow;
+  if activeRow <> nil then
+    VisualizeRowSelection(activeRow);
 end;
 
 procedure TScrollControlWithCells.OnHeaderMouseUp(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Single);
@@ -2602,13 +2614,7 @@ begin
     inherited;
 
     if _selectionType = TSelectionType.CellSelection then
-//    begin
-//      var flatClmn: IDCTreeLayoutColumn;
-//      for flatClmn in _treeLayout.FlatColumns do
-//        if (flatClmn.Width > 0) and flatClmn.Column.Selectable and not _selectionInfo.Tag.Contains(flatClmn.Index) then
-          _selectionInfo.Tag := -2;  // select all columns..
-//    end;
-
+      _selectionInfo.Tag := SELECT_ALL_COLUMNS_INDEX;
   finally
     _selectionInfo.EndUpdate;
   end;
@@ -2807,6 +2813,14 @@ begin
   list.Insert(_autoMultiSelectColumnIndex, _autoMultiSelectColumn);
 
   Result :=  list;
+end;
+
+function TScrollControlWithCells.FrozenColumnWidth: Single;
+begin
+  InitLayout;
+  if _treeLayout <> nil then
+    Result := _treeLayout.FrozenColumnWidth else
+    Result := 0;
 end;
 
 constructor TScrollControlWithCells.Create(AOwner: TComponent);
@@ -3479,7 +3493,8 @@ begin
   if _treeLayout = nil then
     Exit;
 
-  if (SelectionInfo.Tag = -1) or ((Row <> nil) and not Row.Cells.ContainsKey(SelectionInfo.Tag)) then
+  // if tag = -2, then select all columns
+  if (SelectionInfo.Tag = -1) or ((SelectionInfo.Tag <> SELECT_ALL_COLUMNS_INDEX) and (Row <> nil) and not Row.Cells.ContainsKey(SelectionInfo.Tag)) then
   begin
     SelectionInfo.BeginUpdate;
     try
@@ -3862,7 +3877,11 @@ begin
       if (cellValue <> nil) then
         cell.LayoutColumn.UpdateColumnContainsData(TColumnContainsData.Yes, cell.Data);
     except
+      {$IFDEF DEBUG}
       LoadDefaultDataIntoControl(Cell, IsSubProp);
+      {$ELSE}
+      raise;
+      {$ENDIF}
     end;
   finally
     EventTracer.PauseTimer('TDataControl', Self.ClassName + '.LoadDefaultDataIntoControl');
@@ -6495,13 +6514,20 @@ end;
 
 procedure TDCTreeCell.UpdateSelectionVisibility(const RowIsSelected: Boolean; const SelectionInfo: IRowSelectionInfo; OwnerIsFocused: Boolean);
 begin
-  if not RowIsSelected or (SelectionInfo.Tag <> get_LayoutColumn.Index) then
+  if not RowIsSelected or ((SelectionInfo.Tag <> get_LayoutColumn.Index) and (SelectionInfo.Tag <> SELECT_ALL_COLUMNS_INDEX)) then
     Exit;
 
   if (get_Control = nil) or (get_Control.ParentControl = nil) then
     Exit;
 
-  get_Row.UpdateSelectionBounds(get_Control.ParentControl.Position.X + get_Control.Position.X, get_Control.Width);
+  var xPos := get_Control.ParentControl.Position.X + get_Control.Position.X;
+  var bestXPos := CMath.Max(xPos, Self.Column.TreeControl.FrozenColumnWidth);
+
+  var w := get_Control.Width;
+  if bestXPos > xPos then
+    w := CMath.Max(4, w - (bestXPos - xPos));
+
+  get_Row.UpdateSelectionBounds(bestXPos, w);
 end;
 
 { TDCTreeRow }
@@ -6585,9 +6611,13 @@ begin
   if (not rowWasSelected and not rowIsSelected) or (SelectionInfo.SelectionType <> TSelectionType.CellSelection) then
     Exit;
 
-  var cell: IDCTreeCell;
-  for cell in _cells.Values do
-    cell.UpdateSelectionVisibility(rowIsSelected, SelectionInfo, OwnerIsFocused);
+  if SelectionInfo.Tag = SELECT_ALL_COLUMNS_INDEX then
+    Self.UpdateSelectionBounds(0, _control.Width)
+  else begin
+    var cell: IDCTreeCell;
+    for cell in _cells.Values do
+      cell.UpdateSelectionVisibility(rowIsSelected, SelectionInfo, OwnerIsFocused);
+  end;
 end;
 
 //function TDCTreeRow.get_InnerRowControl: TControl;

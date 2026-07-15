@@ -24,7 +24,7 @@ uses
   ADato.ObjectModel.List.Tracking.intf,
   ADato.MultiObjectModelContextSupport.impl,
   ADato.MultiObjectModelContextSupport.intf,
-  ADato.EditableObjectModelContext.impl;
+  ADato.EditableObjectModelContext.impl, System.ComponentModel;
 
 type
   TDataRowInfo = record
@@ -42,6 +42,7 @@ type
     IEditableModel,
     INotifyListItemChanged,
     IObjectListModelChangeTracking,
+    IUpdatableObject,
     IOnItemChangedSupport)
   protected
     _dataModel: IDataModel;
@@ -64,6 +65,10 @@ type
 
     // IOnItemChangedSupport
     _OnItemChanged: IList<IListItemChanged>;
+
+    // IUpdatableObject
+    procedure BeginUpdate;
+    procedure EndUpdate;
 
     // DATAMODLE
     procedure OnRowChanged(const Sender: IBaseInterface; Args: RowChangedEventArgs);
@@ -316,6 +321,15 @@ begin
   (get_ObjectModelContext as IEditableListObject).BeginEdit(Index);
 end;
 
+procedure TDataModelObjectListModel.BeginUpdate;
+begin
+  if _ObjectModelContext <> nil then
+  begin
+    inc(_updateCount);
+    (_ObjectModelContext as IUpdatableObject).BeginUpdate;
+  end;
+end;
+
 procedure TDataModelObjectListModel.CancelEdit;
 begin
   (get_ObjectModelContext as IEditableListObject).CancelEdit;
@@ -347,6 +361,15 @@ end;
 procedure TDataModelObjectListModel.EndEdit;
 begin
   (get_ObjectModelContext as IEditableListObject).EndEdit;
+end;
+
+procedure TDataModelObjectListModel.EndUpdate;
+begin
+  if _updateCount > 0 then
+  begin
+    dec(_updateCount);
+    (_ObjectModelContext as IUpdatableObject).EndUpdate;
+  end;
 end;
 
 procedure TDataModelObjectListModel.Remove;
