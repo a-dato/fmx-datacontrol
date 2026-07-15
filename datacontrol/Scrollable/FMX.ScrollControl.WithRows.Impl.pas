@@ -4342,6 +4342,9 @@ begin
     Result := get_Model.ObjectModel.GetType
   else if not _itemType.IsUnknown then
     Result := _itemType
+  // _view.OriginalData.InnerType won't work as manyh List hold CObjects which can be anything
+  //  else if (_view <> nil) and (_view.OriginalData <> nil) then
+  //    Result := _view.OriginalData.InnerType
   else if (_view <> nil) and (_view.OriginalData.Count > 0) then
     Result := ConvertToDataItem(_view.OriginalData[0]).GetType
   else

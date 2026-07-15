@@ -1080,10 +1080,10 @@ begin
     if Interfaces.Supports<IAddingNewSupport>(_dataList, addIntf) then
       addIntf.AddingNew(nil, NewItem);
 
-    if not ViewIsDataModelView and (NewItem = nil) then
+    if not ViewIsDataModelView and (newItem = nil) then
     begin
       if ListHoldsOrdinalType then
-        NewItem := ''
+        newItem := CObject.Default(GetItemType)
 
       else if (_view.OriginalData.Count > 0) then
       begin

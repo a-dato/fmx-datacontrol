@@ -4317,7 +4317,7 @@ begin
   begin
     typeData := GetItemType;
 
-    if not typeData.IsString {maybe we have to add more?} and not typeData.IsUnknown {and not typeData.Equals(_ColumnPropertiesTypeData)} then
+    if not typeData.IsString and not typeData.IsDateTime and not typeData.IsUnknown {and not typeData.Equals(_ColumnPropertiesTypeData)} then
     begin
       BeginUpdate;
       try
