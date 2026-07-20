@@ -1136,7 +1136,7 @@ begin
   _checkPosition := TCheckPosition.Left;
   _checkState := TCheckState.Unchecked;
   _checkSize := 12;
-  _checkTextMargin := 6;
+  _checkTextMargin := 10;
   _checkAnimationDurationMs := 140;
   _checkAnimationFromState := TCheckState.Unchecked;
   _checkAnimationToState := TCheckState.Unchecked;
@@ -1299,12 +1299,6 @@ begin
   if checkSize <= 0 then
     Exit;
 
-  var startYPos := Padding.Top + (availableHeight - checkSize) / 2;
-  var startXPos := IfThen(_checkPosition = TCheckPosition.Left, Padding.Left {+ _checkTextMargin}, Width - Padding.Right {- _checkTextMargin} - checkSize);
-  var rect := RectF(startXPos, startYPos, startXPos + checkSize, startYPos + checkSize);
-  var innerRect := RectF(startXPos + 2, startYPos + 2, startXPos + checkSize - 2, startYPos + checkSize - 2);
-  var radius := IfThen(IsRadioButton, checkSize / 2, 1);
-
   var accentColor := GetCheckColor;
   var uncheckedProgress := GetStateVisualProgress(TCheckState.Unchecked);
   var checkedProgress := GetStateVisualProgress(TCheckState.Checked);
@@ -1323,6 +1317,13 @@ begin
   Canvas.Stroke.Kind := TBrushKind.Solid;
   Canvas.Fill.Kind := TBrushKind.Solid;
   Canvas.Stroke.Thickness := 1 + (0.5 * CMath.Max(CMath.Max(checkedProgress, grayedProgress), highlightProgress));
+
+  var startYPos := Padding.Top + (availableHeight - checkSize) / 2;
+  var startXPos := IfThen(_checkPosition = TCheckPosition.Left, CMath.Max(Padding.Left, Canvas.Stroke.Thickness/2), Width - CMath.Max(Padding.Right, Canvas.Stroke.Thickness/2) - checkSize);
+
+  var rect := RectF(startXPos, startYPos, startXPos + checkSize, startYPos + checkSize);
+  var innerRect := RectF(startXPos + 2, startYPos + 2, startXPos + checkSize - 2, startYPos + checkSize - 2);
+  var radius := IfThen(IsRadioButton, checkSize / 2, 1);
 
   PaintUncheckedVisual(rect, radius, drawOpacity, uncheckedProgress, highlightProgress, accentColor);
   PaintCheckedVisual(rect, innerRect, radius, drawOpacity, checkedProgress, accentColor, checkMarkColor);
@@ -1488,6 +1489,7 @@ begin
   begin
     inherited;
 
+    // 2 is for extra stroke..
     _internalLeftPadding := _internalLeftPadding + IfThen(_checkPosition = TCheckPosition.Left, _checkSize + {2 *} _checkTextMargin, 0);
     _internalRightPadding := _internalRightPadding + IfThen(_checkPosition = TCheckPosition.Right, _checkSize + {2 *} _checkTextMargin, 0);
   end;

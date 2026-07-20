@@ -4093,14 +4093,14 @@ begin
   if not Cell.IsHeaderCell and (LayoutColumn.Column.InfoControlClass <> TInfoControlClass.Text) and (LayoutColumn.Column.SubInfoControlClass <> TInfoControlClass.Text) then
   begin
     Result := 0;
-    if Cell.InfoControl <> nil then
+    if (Cell.InfoControl <> nil) and Cell.InfoControl.Visible then
     begin
       if Cell.Column.InfoControlClass <> TInfoControlClass.Custom then
         Result := Cell.InfoControl.Width + (2*_cellLeftRightPadding) else
         Result := Cell.InfoControl.Width + Cell.InfoControl.Margins.Left + Cell.InfoControl.Margins.Right;
     end;
 
-    if Cell.SubInfoControl <> nil then
+    if (Cell.SubInfoControl <> nil) and Cell.SubInfoControl.Visible then
     begin
       if Cell.Column.SubInfoControlClass <> TInfoControlClass.Custom then
         Result := CMath.Max(Result, Cell.SubInfoControl.Width + (2*_cellLeftRightPadding)) else
@@ -4109,7 +4109,7 @@ begin
 
     if Result = 0 then
     begin
-      if Cell.Control <> nil then
+      if (Cell.Control <> nil) and Cell.Control.Visible then
         Result := Cell.Control.Width else
         Result := 35;
     end;
