@@ -1694,4 +1694,7 @@ begin
     TCustomMemo(_control).Text := s;
 end;
 
+initialization
+  DataControlClassFactory := TDataControlClassFactory.Create;
+
 end.

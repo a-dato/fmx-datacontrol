@@ -48,6 +48,8 @@ type
     constructor Create(AControl: TDataControl; TreeBindingPropType: TTreePropertyType = TTreePropertyType.CheckedItems); reintroduce; overload;
     constructor Create(AControl: TDataControl; const OnDatalistRequired: TProc); reintroduce; overload;
     destructor Destroy; override;
+
+    property PropType: TTreePropertyType read _propType write _propType;
   end;
 
   TComboMultiBoxBinding = class(TControlBinding<TComboMultiBox>)
@@ -71,7 +73,7 @@ uses
   {$ELSE}
   Wasm.Fmx.Types,
   {$ENDIF}
-  ADato.Data.DataModel.intf, 
+  ADato.Data.DataModel.intf,
   System.Collections.Generic,
   FMX.ScrollControl.WithRows.Intf;
 

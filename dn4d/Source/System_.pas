@@ -642,6 +642,8 @@ type
     function IsTimeSpan: Boolean;
     function IsUndefined: Boolean;
 
+    class function Default(const AType: &Type) : CObject; static;
+
     class function From<T>(const Value: T): CObject; static;
     // class function From<T>(const Format: CString; const Value: T): CObject; overload; static;
     class function FromType(const AType: &Type; const Value: CString) : CObject; overload; static;
@@ -9349,16 +9351,16 @@ begin
 
   case &Type.GetTypeCode(FValue.TypeInfo) of
     TypeCode.Array: Result := FValue.IsEmpty;
-    TypeCode.Boolean: Result := FValue.AsBoolean = Default(Boolean);
-    TypeCode.Char: Result := FValue.AsType<Char> = Default(Char);
+    TypeCode.Boolean: Result := FValue.AsBoolean = System.Default(Boolean);
+    TypeCode.Char: Result := FValue.AsType<Char> = System.Default(Char);
     TypeCode.String: Result := CString(FValue.GetReferenceToRawData^) = nil;
-    TypeCode.Int32: Result := FValue.AsInteger = Default(Integer);
-    TypeCode.Int64: Result := FValue.AsInt64 = Default(Int64);
+    TypeCode.Int32: Result := FValue.AsInteger = System.Default(Integer);
+    TypeCode.Int64: Result := FValue.AsInt64 = System.Default(Int64);
     TypeCode.Interface: Result := FValue.IsEmpty;
     TypeCode.DateTime: Result := CDateTime(FValue.GetReferenceToRawData^).Ticks = 0;
     //TTypes.System_TimeSpan: Result := CTimeSpan(FValue.GetReferenceToRawData^).Ticks = 0;
 //    System_Type: Result := _intf = nil;
-    TypeCode.Double: Result := FValue.AsType<Double> = Default(Double);
+    TypeCode.Double: Result := FValue.AsType<Double> = System.Default(Double);
     //TTypes.System_Single: Result := FValue.AsType<Single> = Default(Single);
     //TypeCode.Extended: Result := FValue.AsExtended = Default(Double);
     TypeCode.Object: Result := FValue.IsEmpty;
@@ -9420,6 +9422,14 @@ end;
 //begin
 //  CDateTime(DateTime) := CDateTime.Create(X);
 //end;
+
+class function CObject.Default(const AType: &Type) : CObject;
+begin
+  var v: TValue;
+  if AType.GetTypeInfo <> nil then
+    TValue.Make(nil, AType.GetTypeInfo, v);
+  Result.FValue := v;
+end;
 
 class function CObject.From<T>(const Value: T): CObject;
 var
