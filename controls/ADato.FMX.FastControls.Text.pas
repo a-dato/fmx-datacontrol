@@ -218,6 +218,7 @@ type
     function  ImageContentWidth: Single;
     function  ImageTextMargin: Single;
     procedure CalculateImageBounds;
+    function  GetBitmap(const Images: TCustomImageList; const BitmapSize: TSize; const BitmapIndex: Integer): TBitmap; virtual;
     procedure PaintBitmap;
 
     procedure SetLeftRightPadding; virtual;
@@ -626,6 +627,11 @@ end;
 function TFastText.GetDefaultSize: TSizeF;
 begin
   Result := TSizeF.Create(50, 16);
+end;
+
+function TFastText.GetBitmap(const Images: TCustomImageList; const BitmapSize: TSize; const BitmapIndex: Integer): TBitmap;
+begin
+  Result := Images.Bitmap(BitmapSize, BitmapIndex);
 end;
 
 function TFastText.GetDefaultTextSettings: TTextSettings;
@@ -1050,7 +1056,7 @@ begin
   if _imageIndex = -1 then
     Exit;
 
-  var bitmap := get_Images.Bitmap(bitmapSize, _imageIndex);
+  var bitmap := GetBitmap(get_Images, bitmapSize, _imageIndex);
   try
     if bitmap <> nil then
     begin
@@ -1058,8 +1064,7 @@ begin
       Canvas.DrawBitmap(bitmap, bitmapRect, _imageBounds.Round, AbsoluteOpacity, False);
     end;
   finally
-    // bitmap is cached, so do not free!!
-    // bitmap.Free;
+    bitmap.Free;
   end;
 end;
 

@@ -925,7 +925,7 @@ begin
   if _innerFillColor <> TAlphaColors.Null then
   begin
     Canvas.Fill.Color := _innerFillColor;
-    Canvas.Stroke.Kind := TBrushKind.Solid;
+    Canvas.Fill.Kind := TBrushKind.Solid;
 
     case get_TagType of
       TTagType.RoundPost: Canvas.FillRect(_innerBounds, get_radius, get_Radius, AllCorners, GetPaintOpacity * IfThen(_isAddTag, 0.6, 1));
@@ -990,6 +990,7 @@ begin
   begin
     Canvas.Stroke.Color := _innerStrokeColor;
     Canvas.Stroke.Thickness := 1;
+    Canvas.Stroke.Kind := TBrushKind.Solid;
 
     case get_TagType of
       TTagType.RoundPost: Canvas.DrawRect(_innerBounds, get_radius, get_radius, AllCorners, GetPaintOpacity, TCornerType.Round);

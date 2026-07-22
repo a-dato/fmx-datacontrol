@@ -377,7 +377,7 @@ type
   end;
 
 const
-  ROW_CONTENT_MARGIN = 5;
+  ROW_CONTENT_MARGIN = 10;
 
 implementation
 
