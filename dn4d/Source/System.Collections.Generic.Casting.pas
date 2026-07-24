@@ -863,8 +863,8 @@ const
   Cast_Vtable_Enum: array[0..4] of Pointer =
   (
     @NopQueryInterface,
-    @NopAddref,
-    @NopRelease,
+    @MemAddref, // @NopAddref,    // in Dictionaries with Booleans or records we need Mem release to really free all memory
+    @MemRelease, // @NopRelease,
     @CastFrom_Enum,
     @CastTo_Enum
   );

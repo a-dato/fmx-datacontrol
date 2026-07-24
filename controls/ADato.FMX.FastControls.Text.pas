@@ -127,11 +127,6 @@ type
     procedure GoToTextBegin;
     procedure Replace(const AStartPos: Integer; const ALength: Integer; const AStr: String);
 
-    {$IFNDEF WEBASSEMBLY}
-    procedure CopyMenuItemClick(Sender: TObject);
-    procedure CreateCopyPopupMenu;
-    {$ENDIF}
-
   protected
     _text: String;
     _layout: TTextLayout;
@@ -165,6 +160,11 @@ type
 
     // TInverseLabel
     _ignoreDefaultPaint: Boolean;
+
+    {$IFNDEF WEBASSEMBLY}
+    procedure CopyMenuItemClick(Sender: TObject);
+    procedure CreateCopyPopupMenu;
+    {$ENDIF}
 
     // ICaption
     function  GetText: String;
@@ -441,10 +441,6 @@ begin
   _showTag := False;
   _tagColor := TAlphaColors.Grey;
   _tagOpacity := 0.15;
-
-  {$IFNDEF WEBASSEMBLY}
-  CreateCopyPopupMenu;
-  {$ENDIF}
 end;
 
 function TFastText.get_DCControl: IDCControl;
@@ -474,6 +470,9 @@ end;
 
 procedure TFastText.CreateCopyPopupMenu;
 begin
+  if _copyPopupMenu <> nil then
+    Exit;
+
   _copyPopupMenu := TPopupMenu.Create(Self);
   _copyPopupMenu.Stored := False;
 
