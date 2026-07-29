@@ -19,10 +19,6 @@ object frmComboMultiBoxPopup: TfrmComboMultiBoxPopup
   object filterlist: TRectangle
     Align = Client
     Fill.Color = claWhite
-    Padding.Left = 5.000000000000000000
-    Padding.Top = 5.000000000000000000
-    Padding.Right = 5.000000000000000000
-    Padding.Bottom = 5.000000000000000000
     Size.Width = 206.000000000000000000
     Size.Height = 344.000000000000000000
     Size.PlatformDefault = False
@@ -32,18 +28,20 @@ object frmComboMultiBoxPopup: TfrmComboMultiBoxPopup
     object lyFilter: TLayout
       Align = Top
       Padding.Top = 3.000000000000000000
-      Position.X = 5.000000000000000000
+      Margins.Top = 5.000000000000000000
       Position.Y = 5.000000000000000000
-      Size.Width = 196.000000000000000000
-      Size.Height = 29.000000000000000000
+      Size.Width = 206.000000000000000000
+      Size.Height = 40.000000000000000000
       Size.PlatformDefault = False
       TabOrder = 0
       object cbSelectAll: TCheckBox
         Align = Left
         Hint = 'Select all'
+        Margins.Left = 5.000000000000000000
+        Position.X = 5.000000000000000000
         Position.Y = 3.000000000000000000
         Size.Width = 16.000000000000000000
-        Size.Height = 22.000000000000000000
+        Size.Height = 30.000000000000000000
         Size.PlatformDefault = False
         TabOrder = 0
         OnClick = cbSelectAllClick
@@ -53,9 +51,9 @@ object frmComboMultiBoxPopup: TfrmComboMultiBoxPopup
         Align = Client
         TabOrder = 1
         Margins.Left = 3.000000000000000000
-        Margins.Right = 3.000000000000000000
+        Margins.Right = 8.000000000000000000
         Size.Width = 174.000000000000000000
-        Size.Height = 22.000000000000000000
+        Size.Height = 30.000000000000000000
         Size.PlatformDefault = False
         TextPrompt = 'Search...'
         OnChangeTracking = edSearchChangeTracking
@@ -63,12 +61,10 @@ object frmComboMultiBoxPopup: TfrmComboMultiBoxPopup
       object Line1: TLine
         Align = Bottom
         LineType = Bottom
-        Margins.Left = 3.000000000000000000
         Margins.Top = 3.000000000000000000
-        Margins.Right = 3.000000000000000000
-        Position.X = 3.000000000000000000
-        Position.Y = 28.000000000000000000
-        Size.Width = 190.000000000000000000
+        Margins.Bottom = 3.000000000000000000
+        Position.Y = 36.000000000000000000
+        Size.Width = 206.000000000000000000
         Size.Height = 1.000000000000000000
         Size.PlatformDefault = False
         Stroke.Color = xFF8A8A8A
@@ -76,17 +72,19 @@ object frmComboMultiBoxPopup: TfrmComboMultiBoxPopup
     end
     object lyButtons: TLayout
       Align = Bottom
-      Position.X = 5.000000000000000000
-      Position.Y = 312.000000000000000000
-      Size.Width = 196.000000000000000000
-      Size.Height = 27.000000000000000000
+      Margins.Bottom = 5.000000000000000000
+      Position.Y = 302.000000000000000000
+      Size.Width = 206.000000000000000000
+      Size.Height = 37.000000000000000000
       Size.PlatformDefault = False
       TabOrder = 1
       object btnApplyFilters: TButton
         Align = Right
-        Position.X = 152.000000000000000000
-        Size.Width = 44.000000000000000000
-        Size.Height = 27.000000000000000000
+        Margins.Right = 3.000000000000000000
+        Position.X = 143.000000000000000000
+        Position.Y = 7.000000000000000000
+        Size.Width = 60.000000000000000000
+        Size.Height = 30.000000000000000000
         Size.PlatformDefault = False
         TabOrder = 1
         Text = 'Ok'
@@ -94,14 +92,26 @@ object frmComboMultiBoxPopup: TfrmComboMultiBoxPopup
       end
       object btnCancel: TButton
         Align = Right
-        Margins.Right = 3.000000000000000000
-        Position.X = 105.000000000000000000
-        Size.Width = 44.000000000000000000
-        Size.Height = 27.000000000000000000
+        Margins.Right = 6.000000000000000000
+        Position.X = 77.000000000000000000
+        Position.Y = 7.000000000000000000
+        Size.Width = 60.000000000000000000
+        Size.Height = 30.000000000000000000
         Size.PlatformDefault = False
         TabOrder = 0
         Text = 'Cancel'
         OnClick = btnCancelClick
+      end
+      object Line2: TLine
+        Align = Top
+        LineType = Bottom
+        Margins.Top = 3.000000000000000000
+        Margins.Bottom = 3.000000000000000000
+        Position.Y = 3.000000000000000000
+        Size.Width = 206.000000000000000000
+        Size.Height = 1.000000000000000000
+        Size.PlatformDefault = False
+        Stroke.Color = xFF8A8A8A
       end
     end
   end

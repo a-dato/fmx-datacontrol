@@ -1620,11 +1620,13 @@ end;
 
 procedure TFastControl.RepaintNeeded;
 begin
-  if not FInPaintTo and not _waitingForRepaint then
-  begin
-    _waitingForRepaint := True;
-    Repaint;
-  end;
+  if not FInPaintTo then
+    Repaint
+//    and not _waitingForRepaint then
+//  begin
+//    _waitingForRepaint := True;
+//    Repaint;
+//  end;
 end;
 
 procedure TFastControl.ForceRealign(OnlyWhenRealignNeeded: Boolean = False);
