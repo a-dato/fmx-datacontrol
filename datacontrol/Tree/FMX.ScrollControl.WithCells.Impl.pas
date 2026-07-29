@@ -7158,9 +7158,13 @@ end;
 
 procedure THeaderColumnResizeControl.StartResizing(const HeaderCell: IHeaderCell);
 begin
+  // Previous resize may still be active if MouseUp was lost, or MouseLeave's
+  // ForceQueue has not run yet.
+  if _columnResizeControl <> nil then
+    StopResizing;
+
   _headerCell := HeaderCell;
 
-  Assert(_columnResizeControl = nil);
   var ly := TLayout.Create(_treeControl.Control);
   ly.HitTest := True;
   ly.Align := TAlignLayout.None;
@@ -7208,14 +7212,20 @@ end;
 
 procedure THeaderColumnResizeControl.DoSplitterMouseLeave(Sender: TObject);
 begin
+  // Only stop if the overlay from this leave is still the active one.
+  var overlayAtLeave := _columnResizeFullHeaderControl;
   TThread.ForceQueue(nil, procedure
   begin
-    StopResizing;
+    if _columnResizeFullHeaderControl = overlayAtLeave then
+      StopResizing;
   end);
 end;
 
 procedure THeaderColumnResizeControl.DoSplitterMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Single);
 begin
+  if _columnResizeControl = nil then
+    Exit;
+
   var NewSize := X - _columnResizeControl.Position.X;
   if NewSize < _headerCell.Column.WidthMin then
     NewSize := _headerCell.Column.WidthMin;
@@ -7230,6 +7240,9 @@ end;
 
 procedure THeaderColumnResizeControl.DoSplitterMouseUp(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Single);
 begin
+  if _columnResizeControl = nil then
+    Exit;
+
   _headerCell.Column.CustomWidth := _columnResizeControl.Size.Width;
   _treeControl.ColumnWidthChanged(_headerCell.Column);
   StopResizing;
