@@ -254,8 +254,8 @@ begin
 
     _popupMenu.Height := Round(
       CMath.Min(itemCount, 6) * rowHeight +
-      _popupMenu.lyFilter.Height +
-      _popupMenu.lyButtons.Height +
+      _popupMenu.lyFilter.Margins.Top + _popupMenu.lyFilter.Height +
+      _popupMenu.lyButtons.Margins.Bottom + _popupMenu.lyButtons.Height +
       _popupMenu.filterlist.Padding.Top +
       _popupMenu.filterlist.Padding.Bottom);
 

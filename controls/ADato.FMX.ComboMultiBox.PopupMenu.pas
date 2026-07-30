@@ -49,6 +49,7 @@ type
     lyButtons: TLayout;
     btnApplyFilters: TButton;
     btnCancel: TButton;
+    Line2: TLine;
     procedure btnApplyFiltersClick(Sender: TObject);
     procedure btnCancelClick(Sender: TObject);
     procedure cbSelectAllClick(Sender: TObject);
@@ -108,8 +109,9 @@ begin
 
   DataControl := TDataControl.Create(Self);
   DataControl.Align := TAlignLayout.Client;
-  DataControl.Options := [TDCTreeOption.ShowVertGrid, TDCTreeOption.ShowHorzGrid, TDCTreeOption.AlternatingRowBackground, TDCTreeOption.MultiSelect, TDCTreeOption.KeepCurrentSelection];
-  DataControl.RowHeightFixed := 26;
+  DataControl.Options := [{TDCTreeOption.ShowVertGrid,} TDCTreeOption.ShowHorzGrid, {TDCTreeOption.AlternatingRowBackground,} TDCTreeOption.MultiSelect, TDCTreeOption.KeepCurrentSelection];
+  DataControl.RowHeightFixed := 30;
+  DataControl.CellTopBottomPadding := 6;
   DataControl.OnSelectionChanged := TreeSelectionChanged;
   DataControl.CellFormatting := TreeCellFormatting;
   filterlist.AddObject(DataControl);

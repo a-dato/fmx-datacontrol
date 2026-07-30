@@ -507,6 +507,7 @@ begin
   end;
 
   EventTracer.StartTimer('TScrollControl', 'AA_DoRealignContent');
+  EventTracer.StartTimer(Self.Name, 'DoRealignContent');
 
   RealignContentStart;      // timeless 1/40
   try
@@ -526,6 +527,7 @@ begin
   end;
 
   EventTracer.PauseTimer('TScrollControl', 'AA_DoRealignContent');
+  EventTracer.PauseTimer(Self.Name, 'DoRealignContent');
 
   _scrollStopWatch_scrollbar := TStopwatch.StartNew;
 end;

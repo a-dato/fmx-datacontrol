@@ -2845,7 +2845,7 @@ begin
   _scrollingHideColumnsFromIndex := 5;
   _autoMultiSelectColumnIndex := 0;
 
-  _cellTopBottomPadding := 2*ROW_CONTENT_MARGIN;
+  _cellTopBottomPadding := ROW_CONTENT_MARGIN;
   _cellLeftRightPadding := ROW_CONTENT_MARGIN;
 
   _headerColumnResizeControl := THeaderColumnResizeControl.Create(Self);
@@ -5507,19 +5507,23 @@ begin
   end;
 
   var heightSet := True;
-  var availableCtrlWidth := get_Width - spaceUsed - (2*_treeControl.CellLeftRightPadding);
+  var lr := _treeControl.CellLeftRightPadding;
+  if (Cell.Column.WidthType = TDCColumnWidthType.Pixel) and (get_Width - (2*lr) < 16) then
+    lr := 0;
+
+  var availableCtrlWidth := get_Width - spaceUsed - (2*lr);
 
   if validSub then
   begin
     if not Cell.IsHeaderCell and (Cell.Column.SubInfoControlClass = TInfoControlClass.CheckBox) then
     begin
       Cell.SubInfoControl.Width := 16;
-      Cell.SubInfoControl.Position.X := spaceUsed + _treeControl.CellLeftRightPadding + ((availableCtrlWidth - Cell.SubInfoControl.Width) / 2);
+      Cell.SubInfoControl.Position.X := spaceUsed + lr + ((availableCtrlWidth - Cell.SubInfoControl.Width) / 2);
     end
     else if Cell.IsHeaderCell or (Cell.Column.SubInfoControlClass <> TInfoControlClass.Custom) or (Cell.Column.WidthType <> TDCColumnWidthType.AlignToContent) {or (Cell.Column.CustomWidth > 0) jva feels not logical} then
     begin
       Cell.SubInfoControl.Width := availableCtrlWidth;
-      Cell.SubInfoControl.Position.X := spaceUsed + _treeControl.CellLeftRightPadding + Cell.SubInfoControl.Margins.Left;
+      Cell.SubInfoControl.Position.X := spaceUsed + lr + Cell.SubInfoControl.Margins.Left;
     end else
       Cell.SubInfoControl.Position.X := spaceUsed + Cell.SubInfoControl.Margins.Left;
 
@@ -5531,12 +5535,12 @@ begin
     if not Cell.IsHeaderCell and (Cell.Column.InfoControlClass = TInfoControlClass.CheckBox) then
     begin
       Cell.InfoControl.Width := 16;
-      Cell.InfoControl.Position.X := spaceUsed + _treeControl.CellLeftRightPadding + ((availableCtrlWidth - Cell.InfoControl.Width) / 2);
+      Cell.InfoControl.Position.X := spaceUsed + lr + ((availableCtrlWidth - Cell.InfoControl.Width) / 2);
     end
     else if Cell.IsHeaderCell or (Cell.Column.InfoControlClass <> TInfoControlClass.Custom) or (Cell.Column.WidthType <> TDCColumnWidthType.AlignToContent) {or (Cell.Column.CustomWidth > 0) jva feels not logical} then
     begin
-      Cell.InfoControl.Width := get_Width - spaceUsed - (2*_treeControl.CellLeftRightPadding);
-      Cell.InfoControl.Position.X := spaceUsed + _treeControl.CellLeftRightPadding + Cell.InfoControl.Margins.Left;
+      Cell.InfoControl.Width := get_Width - spaceUsed - (2*lr);
+      Cell.InfoControl.Position.X := spaceUsed + lr + Cell.InfoControl.Margins.Left;
     end else
       Cell.InfoControl.Position.X := spaceUsed + Cell.InfoControl.Margins.Left;
 
@@ -7318,6 +7322,9 @@ end;
 
 destructor TDCHeaderRow.Destroy;
 begin
+  // Release the cell interfaces while their child controls are still alive.
+  get_Cells.Clear;
+
   _contentControl.Free;
   _contentControl := nil;
   _control := nil; // already freed by parent above

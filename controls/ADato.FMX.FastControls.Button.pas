@@ -247,6 +247,8 @@ type
     _additionalText: CString;
     _isTab: Boolean; // for tabs
 
+    _orgButtonType: TButtonType;
+
     procedure set_ButtonType(const Value: TButtonType);
     procedure set_EmphasizePicture(const Value: Boolean);
     procedure set_ShowUnderline(const Value: Boolean);
@@ -1292,8 +1294,14 @@ begin
   if GetIsChecked <> Value then
   begin
     if Value then
-      ButtonType := TButtonType.Emphasized else
-      ButtonType := TButtonType.None;
+    begin
+      if _buttonType <> TButtonType.Emphasized then
+      begin
+        _buttonType := TButtonType.Emphasized;
+        RepaintNeeded;
+      end;
+    end else
+      ButtonType := _orgButtonType;
   end;
 end;
 
@@ -1429,6 +1437,7 @@ begin
   if _ButtonType <> Value then
   begin
     _ButtonType := Value;
+    _orgButtonType := Value;
     RepaintNeeded;
   end;
 end;
