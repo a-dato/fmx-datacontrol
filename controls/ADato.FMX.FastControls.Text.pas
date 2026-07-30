@@ -556,6 +556,11 @@ begin
 
   if not _ignoreDefaultPaint then
   begin
+    // Printing uses a different canvas (SKIA). Layout must match that canvas type
+    EnsureLayoutForCanvas(Canvas);
+    if _recalcNeeded then
+      Calculate;
+
     _layout.Opacity := AbsoluteOpacity;
     _layout.TopLeft := PointF(CalculateTextXPos, CalculateTextYPos);
     CalculateImageBounds;
