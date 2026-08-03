@@ -207,7 +207,7 @@ type
     function  GetDefaultSize: TSizeF; override;
 
     procedure Calculate; override;
-    procedure EnsureLayoutForCanvas(const ACanvas: TCanvas);
+    function  EnsureLayoutForCanvas(const ACanvas: TCanvas): Boolean;
     procedure InvalidateBoundsChange(const OldBounds, NewBounds: TRectF);
     procedure ApplyAutoSize; override;
 
@@ -404,13 +404,19 @@ end;
 
 { TFastText }
 
-procedure TFastText.EnsureLayoutForCanvas(const ACanvas: TCanvas);
+function TFastText.EnsureLayoutForCanvas(const ACanvas: TCanvas): Boolean;
 begin
+  // fast path: layout already bound to this exact canvas
+  if (_layout <> nil) and (_layout.LayoutCanvas = ACanvas) then
+    Exit(False);
+
   var layoutClass := TTextLayoutManager.DefaultTextLayout;
   if ACanvas <> nil then
     layoutClass := TTextLayoutManager.TextLayoutByCanvas(ACanvas.ClassType);
 
-  if (_layout = nil) or (_layout.ClassType <> layoutClass) then
+  // recreate only when the canvas type requires a different layout class (e.g. PDF printing)
+  Result := (_layout = nil) or (_layout.ClassType <> layoutClass);
+  if Result then
   begin
     FreeAndNil(_layout);
     _layout := layoutClass.Create(ACanvas);
@@ -555,6 +561,11 @@ begin
 
   if not _ignoreDefaultPaint then
   begin
+    // Printing uses a different canvas (SKIA). Layout must match that canvas type.
+    // Only when the layout got recreated the Calculate is needed.
+    if EnsureLayoutForCanvas(Canvas) then
+      Calculate;
+
     _layout.Opacity := AbsoluteOpacity;
     _layout.TopLeft := PointF(CalculateTextXPos, CalculateTextYPos);
     CalculateImageBounds;
