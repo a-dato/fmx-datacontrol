@@ -80,6 +80,7 @@ type
     property OnCompareRows;
     property OnCompareColumnCells;
     property OnColumnsChanged;
+    property OnSortChanged;
     property OnTreePositioned;
     property OnColumnChangingByUser;
     property OnColumnChangedByUser;

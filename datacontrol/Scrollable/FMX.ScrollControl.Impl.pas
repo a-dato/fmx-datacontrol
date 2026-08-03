@@ -865,19 +865,38 @@ begin
     _mouseWheelDistanceTotal := 0;
   end;
 
-  // how bigger this number, the more&longer the scrollcontrol keeps scrolling after mousewheel already stopped after a mousewheel boost
-  var maxLeftToScroll := 200;
-  var posIntToGo := IfThen(_mouseWheelDistanceToGo > 0, _mouseWheelDistanceToGo, -_mouseWheelDistanceToGo);
-  var posWheelDelta := Round(IfThen(WheelDelta > 0, WheelDelta, -WheelDelta) * 1.0);
-  var delta := CMath.Min(posWheelDelta, maxLeftToScroll - posIntToGo);
-
-  if delta > 0 then
+  var distance := WheelDelta;
+  if IsFastScrolling then
   begin
-    if not goUp then
-      delta := -delta;
+    distance := Round(DefaultMoveDistance(WheelDelta > 0, 3));
+    if (WheelDelta < 0) then
+      distance := -distance;
 
-    _mouseWheelDistanceToGo := _mouseWheelDistanceToGo + delta;
-    _mouseWheelDistanceTotal := _mouseWheelDistanceTotal + delta;
+    _mouseWheelDistanceTotal := distance;
+    _mouseWheelDistanceToGo := distance;
+
+    if CanRealignScrollCheck then
+    begin
+      ScrollManualInstant(_mouseWheelDistanceToGo);
+      Exit;
+    end;
+  end else
+  begin
+    // how bigger this number, the more&longer the scrollcontrol keeps scrolling after mousewheel already stopped after a mousewheel boost
+    var maxLeftToScroll := 200;
+    var posIntToGo := IfThen(_mouseWheelDistanceToGo > 0, _mouseWheelDistanceToGo, -_mouseWheelDistanceToGo);
+
+    var posWheelDelta := Round(IfThen(distance > 0, distance, -distance) * 1.0);
+    var delta := CMath.Min(posWheelDelta, maxLeftToScroll - posIntToGo);
+
+    if delta > 0 then
+    begin
+      if not goUp then
+        delta := -delta;
+
+      _mouseWheelDistanceToGo := _mouseWheelDistanceToGo + delta;
+      _mouseWheelDistanceTotal := _mouseWheelDistanceTotal + delta;
+    end;
   end;
 
   // must go after _mouseWheelDistanceToGo :=, because otherwise _PaintTIme can be set to -1 and the scrolling will be killed...
@@ -940,7 +959,9 @@ begin
     if not IsScrolling then
       _scrollingType := TScrollingType.Other;
 
-    ScrollManualInstant(scrollPart);
+    if IsFastScrolling then
+      ScrollManualInstant(_mouseWheelDistanceToGo) else
+      ScrollManualInstant(scrollPart);
 
     if SameValue(_vertScrollbar.Value, oldVal, 0.5) then
       InternalOnScrollingEnded;

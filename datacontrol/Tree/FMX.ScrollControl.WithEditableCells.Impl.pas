@@ -1104,70 +1104,75 @@ begin
   var newDataItem: CObject := nil;
   var newViewListIndex := Self.Current;
 
-  if ViewIsDataModelView then
-  begin
-    var location: IDataRow := nil;
-    if (newViewListIndex >= 0) and (newViewListIndex < GetDataModelView.Rows.Count) and (GetDataModelView.Rows.Count > 0) then
-      location := GetDataModelView.Rows[newViewListIndex].Row;
-
-    // make sure ViewChanged is not called at this point by using inc(_updateCount);
-    var dataRow: IDataRow;
-    inc(_updateCount);
-    try
-      dataRow := GetDataModelView.DataModel.AddNew(location, Position);
-
-      if dataRow <> nil then
-      begin
-        // dataModel can have it's own "OnAddNewRow" where the Data can be created
-        if NewItem <> nil then
-        begin
-          dataRow.Data := NewItem;
-          GetDataModelView.DataModel.AddKey(dataRow);
-        end;
-
-        _view.RecalcSortedRows;
-
-        var drv := GetDataModelView.FindRow(dataRow);
-        if drv <> nil then
-        begin
-          ResetView(drv.ViewIndex);
-          _selectionInfo.SetFocusedItem(drv.Row.get_Index, drv.ViewIndex, drv);
-          _editingInfo.StartRowEdit(drv.Row.get_Index, drv, True);
-
-          newDataItem := drv;
-          GetDataModelView.Refresh;
-          ResetView;
-        end;
-      end;
-    finally
-      dec(_updateCount);
-    end;
-  end
-  else
-  begin
-    if NewItem = nil then
-      Exit(False);
-
-    if _dataList.IndexOf(NewItem) = -1 then
+  _selectionInfo.BeginUpdate;
+  try
+    if ViewIsDataModelView then
     begin
-      if (newViewListIndex = -1) or (Position = InsertPosition.After) then
-        inc(newViewListIndex);
+      var location: IDataRow := nil;
+      if (newViewListIndex >= 0) and (newViewListIndex < GetDataModelView.Rows.Count) and (GetDataModelView.Rows.Count > 0) then
+        location := GetDataModelView.Rows[newViewListIndex].Row;
 
+      // make sure ViewChanged is not called at this point by using inc(_updateCount);
+      var dataRow: IDataRow;
       inc(_updateCount);
       try
-        _view.InsertViewItem(newViewListIndex, NewItem);
+        dataRow := GetDataModelView.DataModel.AddNew(location, Position);
+
+        if dataRow <> nil then
+        begin
+          // dataModel can have it's own "OnAddNewRow" where the Data can be created
+          if NewItem <> nil then
+          begin
+            dataRow.Data := NewItem;
+            GetDataModelView.DataModel.AddKey(dataRow);
+          end;
+
+          _view.RecalcSortedRows;
+
+          var drv := GetDataModelView.FindRow(dataRow);
+          if drv <> nil then
+          begin
+            ResetView(drv.ViewIndex);
+            _selectionInfo.SetFocusedItem(drv.Row.get_Index, drv.ViewIndex, drv);
+            _editingInfo.StartRowEdit(drv.Row.get_Index, drv, True);
+
+            newDataItem := drv;
+            GetDataModelView.Refresh;
+            ResetView;
+          end;
+        end;
       finally
         dec(_updateCount);
       end;
+    end
+    else
+    begin
+      if NewItem = nil then
+        Exit(False);
+
+      if _dataList.IndexOf(NewItem) = -1 then
+      begin
+        if (newViewListIndex = -1) or (Position = InsertPosition.After) then
+          inc(newViewListIndex);
+
+        inc(_updateCount);
+        try
+          _view.InsertViewItem(newViewListIndex, NewItem);
+        finally
+          dec(_updateCount);
+        end;
+      end;
+
+      ResetView;
+
+      newDataItem := newItem;
+      var newDataIndex := _view.OriginalData.IndexOf(NewItem);
+
+      _selectionInfo.SetFocusedItem(newDataIndex, newViewListIndex, NewItem);
+      _editingInfo.StartRowEdit(newDataIndex, NewItem, True);
     end;
-
-    ResetView;
-
-    newDataItem := newItem;
-    var newDataIndex := _view.OriginalData.IndexOf(NewItem);
-
-    _selectionInfo.SetFocusedItem(newDataIndex, newViewListIndex, NewItem);
-    _editingInfo.StartRowEdit(newDataIndex, NewItem, True);
+  finally
+    _selectionInfo.EndUpdate;
   end;
 
   Result := _editingInfo.IsNew;

@@ -4431,8 +4431,9 @@ begin
   if existingSorts <> nil then
   begin
     var sortDescription: IListSortDescription;
+    var treeSort: ITreeSortDescription;
     for sortDescription in existingSorts do
-      if (not ClearOtherSort or (TreeSortsOnly and not Interfaces.Supports<ITreeSortDescription>(sortDescription) {external sort})) and not sorts.Contains(sortDescription) then
+      if (not ClearOtherSort or (TreeSortsOnly and not Interfaces.Supports<ITreeSortDescription>(treeSort) {external sort})) and not sorts.Contains(sortDescription) then
         sorts.Add(sortDescription);
 
     // clear here already, to free existing sorts

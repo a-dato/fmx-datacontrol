@@ -140,6 +140,7 @@ type
     _onCompareColumnCells: TOnCompareColumnCells;
 
     _onColumnsChanged: ColumnChangedByUserEvent;
+    _onSortChanged: TNotifyEvent;
     _onColumnChangingByUser: ColumnChangingByUserEvent;
     _onColumnChangedByUser: ColumnChangedByUserEvent;
     _onTreePositioned: TreePositionedEvent;
@@ -161,6 +162,7 @@ type
     function  DoOnCompareColumnCells(const Column: IDCTreeColumn; const Left, Right: CObject): Integer;
 
     procedure DoColumnsChanged(const Column: IDCTreeColumn);
+    procedure DoSortChanged;
     function  DoColumnChangingByUser(const LayoutColumn: IDCTreeLayoutColumn; const NewWidth: Single; const NewPosition: Integer): Boolean;
     procedure DoColumnChangedByUser(const LayoutColumn: IDCTreeLayoutColumn);
     procedure DoTreePositioned(const TotalColumnWidth: Single);
@@ -356,6 +358,7 @@ type
     property OnCompareRows: TOnCompareRows read _onCompareRows write _onCompareRows;
     property OnCompareColumnCells: TOnCompareColumnCells read _onCompareColumnCells write _onCompareColumnCells;
     property OnColumnsChanged: ColumnChangedByUserEvent read _onColumnsChanged write _onColumnsChanged;
+    property OnSortChanged: TNotifyEvent read _onSortChanged write _onSortChanged;
     property OnTreePositioned: TreePositionedEvent read _onTreePositioned write _onTreePositioned;
     property OnColumnChangingByUser: ColumnChangingByUserEvent read _onColumnChangingByUser write _onColumnChangingByUser;
     property OnColumnChangedByUser: ColumnChangedByUserEvent read _onColumnChangedByUser write _onColumnChangedByUser;
@@ -2044,6 +2047,7 @@ begin
 
   AddSortDescription(FlatColumn.ActiveSort, ClearOtherSort);
   UpdateHeaderRowControls;
+  DoSortChanged;
 
   ExecuteAfterRealignOnly(False);
 end;
@@ -2375,7 +2379,10 @@ begin
   end;
 
   if Result then
+  begin
     GetInitializedWaitForRefreshInfo.SortDescriptions := sorts;
+    DoSortChanged;
+  end;
 end;
 
 procedure TScrollControlWithCells.ClearTreeFilters;
@@ -3280,6 +3287,12 @@ begin
       args.Free;
     end;
   end;
+end;
+
+procedure TScrollControlWithCells.DoSortChanged;
+begin
+  if Assigned(_onSortChanged) then
+    _onSortChanged(Self);
 end;
 
 function TScrollControlWithCells.DoColumnChangingByUser(const LayoutColumn: IDCTreeLayoutColumn; const NewWidth: Single; const NewPosition: Integer): Boolean;

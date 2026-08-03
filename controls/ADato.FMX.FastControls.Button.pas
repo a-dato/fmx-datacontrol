@@ -357,6 +357,36 @@ uses
   {$ENDIF},
   FMX.ScrollControl.ControlClasses;
 
+const
+  BUTTON_HOVER_COLOR = TAlphaColor($FFE8ECF7);
+  MINIMUM_TEXT_CONTRAST_RATIO = 4.5;
+
+function LinearizeColorComponent(const Value: Byte): Double;
+begin
+  var component := Value / 255;
+  if component <= 0.04045 then
+    Result := component / 12.92
+  else
+    Result := Power((component + 0.055) / 1.055, 2.4);
+end;
+
+function RelativeLuminance(const Color: TAlphaColor): Double;
+begin
+  var red := LinearizeColorComponent((Color shr 16) and $FF);
+  var green := LinearizeColorComponent((Color shr 8) and $FF);
+  var blue := LinearizeColorComponent(Color and $FF);
+  Result := 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+end;
+
+function HasSufficientContrast(const Foreground, Background: TAlphaColor): Boolean;
+begin
+  var foregroundLuminance := RelativeLuminance(Foreground);
+  var backgroundLuminance := RelativeLuminance(Background);
+  var lighter := Max(foregroundLuminance, backgroundLuminance);
+  var darker := Min(foregroundLuminance, backgroundLuminance);
+  Result := (lighter + 0.05) / (darker + 0.05) >= MINIMUM_TEXT_CONTRAST_RATIO;
+end;
+
 { TADatoClickLayout }
 
 function TADatoClickLayout.HasButtonEvent: Boolean;
@@ -938,7 +968,7 @@ begin
 
   if (_hover or _hoverSide) and (HitTest or _parentHitTest) then
   begin
-    Canvas.Fill.Color := TAlphaColor($FFC3CBE6);
+    Canvas.Fill.Color := BUTTON_HOVER_COLOR;
 
     if _hoverSide then
       Canvas.FillRect(_sideBounds, get_Radius, get_Radius, AllCorners, GetPaintOpacity * IfThen(MouseIsDown, 0.6, 1))
@@ -962,7 +992,12 @@ begin
     begin
       var bounds := ConvertedBounds(_textBounds, False, True, CMath.Max(_subTextBounds.Width - _textBounds.Width, 0));
 
-      Canvas.Fill.Color := _config.FontColor;
+      var fontColor := _config.FontColor;
+      var isHoverVisible := (_hover or _hoverSide) and (HitTest or _parentHitTest);
+      if isHoverVisible and not HasSufficientContrast(fontColor, BUTTON_HOVER_COLOR) then
+        fontColor := TAlphaColors.Slategray;
+
+      Canvas.Fill.Color := fontColor;
       Canvas.FillText(bounds, Text, False, GetPaintOpacity, [], horzAlign, TTextAlign.Leading);
     end;
 
