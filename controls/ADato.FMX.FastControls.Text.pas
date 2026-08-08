@@ -432,6 +432,10 @@ constructor TFastText.Create(AOwner: TComponent);
 begin
   inherited;
 
+  // TFastControl forbids AutoHeight by default (for layouts/buttons).
+  // Labels need AutoHeight so WordWrap can grow the control height.
+  _forbiddenAutoSizeOptions := [];
+
   _dcControl := TDCControlImpl.Create(Self);
 
   _settings := TTextSettings.Create(Self);
