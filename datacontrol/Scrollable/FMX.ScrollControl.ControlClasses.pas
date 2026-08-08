@@ -1097,7 +1097,7 @@ begin
       maxHeight := System.Math.Max(maxHeight, layout.Height);
     end;
 
-    ce.ItemWidth := CMath.Max(ce.width, maxWidth + 10);
+    ce.ItemWidth := CMath.Max(ce.width, maxWidth + 20);
     ce.ItemHeight := maxHeight + 3;
     ce.DropDownCount := CMath.Max(CMath.Min(8, ce.Items.Count), 2);
   finally
