@@ -599,6 +599,26 @@ begin
     end;
   end;
 
+  if (_ObjectModelContext <> nil) and (_ObjectModelContext.Context <> nil) then
+  begin
+    var ix := get_Context.IndexOf(_ObjectModelContext.Context);
+    if (ix >= 0) and not CObject.ReferenceEquals(_ObjectModelContext.Context, get_Context[ix]) then
+    begin
+      var update: IUpdatableObject;
+      if interfaces.Supports<IUpdatableObject>(_ObjectModelContext, update) then
+      begin
+        update.BeginUpdate;
+        try
+          _ObjectModelContext.Context := get_Context[ix];
+        finally
+          update.EndUpdate;
+        end;
+      end
+      else
+        _ObjectModelContext.Context := get_Context[ix];
+    end;
+  end;
+
   get_ChangedItems.Clear;
 end;
 
