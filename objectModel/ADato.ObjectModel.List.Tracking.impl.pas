@@ -599,6 +599,8 @@ begin
     end;
   end;
 
+  // After endedit omc can still hold the edit-clone while the list already has the
+  // restored original. Re-point OMC before bindings refresh.
   if (_ObjectModelContext <> nil) and (_ObjectModelContext.Context <> nil) then
   begin
     var ix := get_Context.IndexOf(_ObjectModelContext.Context);
