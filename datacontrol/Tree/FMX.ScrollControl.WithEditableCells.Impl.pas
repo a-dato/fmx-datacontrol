@@ -677,6 +677,13 @@ begin
     if not CString.IsNullOrEmpty(cell.Column.PropertyName) and not StartEditCell(cell, True, ' ') then
       Exit;
 
+    if not CString.IsNullOrEmpty(cell.Column.PropertyName) then
+    begin
+      var changeUpdatedSort: Boolean;
+      if not EndEditCell({out} changeUpdatedSort) then
+        Exit;
+    end;
+
     DoCellCheckChangedByUser(cell);
 
 //    if _cellEditor <> nil then
@@ -1531,6 +1538,10 @@ begin
       end;
 
       SetCellData(cell, val);
+
+      if (_model <> nil) and not CString.IsNullOrEmpty(cell.Column.PropertyName) and
+         CObject.Equals(_model.ObjectModelContext.Context, _editingInfo.EditItem) then
+        _model.ObjectModelContext.UpdatePropertyBindingValues(cell.Column.PropertyName);
 
       var isDataItemChange := CString.Equals(cell.Column.PropertyName, COLUMN_SHOW_DEFAULT_OBJECT_TEXT);
 
