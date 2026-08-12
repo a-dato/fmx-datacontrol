@@ -314,7 +314,7 @@ type
     procedure PaintCheckedVisual(const Rect, InnerRect: TRectF; const Radius, DrawOpacity, Progress: Single; const AccentColor, CheckMarkColor: TAlphaColor); virtual;
     procedure PaintGrayedVisual(const Rect, InnerRect: TRectF; const Radius, DrawOpacity, Progress: Single; const AccentColor: TAlphaColor); virtual;
     procedure PaintUncheckedVisual(const Rect: TRectF; const Radius, DrawOpacity, Progress, HighlightProgress: Single; const AccentColor: TAlphaColor); virtual;
-    procedure SetCheckStateCore(const Value: TCheckState; const TriggerEvents: Boolean = True); virtual;
+    procedure SetCheckStateCore(const Value: TCheckState; const TriggerEvents: Boolean = True; const Immediate: Boolean = False); virtual;
     procedure set_CheckState(const Value: TCheckState); virtual;
     procedure SetIsChecked(const Value: Boolean); virtual;
     procedure ToggleCheckState; virtual;
@@ -1497,9 +1497,10 @@ end;
 
 procedure TFastCheckbox.SetIsChecked(const Value: Boolean);
 begin
+  // User toggles go through ToggleCheckState and keep the check animation.
   if Value then
-    set_CheckState(TCheckState.Checked) else
-    set_CheckState(TCheckState.Unchecked);
+    SetCheckStateCore(TCheckState.Checked, True, True) else
+    SetCheckStateCore(TCheckState.Unchecked, True, True);
 end;
 
 procedure TFastCheckbox.SetLeftRightPadding;
@@ -1516,16 +1517,16 @@ end;
 
 procedure TFastCheckbox.set_CheckState(const Value: TCheckState);
 begin
-  SetCheckStateCore(Value);
+  SetCheckStateCore(Value, True, True);
 end;
 
-procedure TFastCheckbox.SetCheckStateCore(const Value: TCheckState; const TriggerEvents: Boolean);
+procedure TFastCheckbox.SetCheckStateCore(const Value: TCheckState; const TriggerEvents: Boolean; const Immediate: Boolean);
 begin
   if _checkState <> Value then
   begin
     var previousState := _checkState;
     _checkState := Value;
-    ConfigureCheckAnimation(previousState, Self.IsUpdating or not Visible or (csLoading in ComponentState));
+    ConfigureCheckAnimation(previousState, Immediate or Self.IsUpdating or not Visible or (csLoading in ComponentState));
 
     if TriggerEvents and Assigned(_onCheckChange) and not Self.IsUpdating then
       _onCheckChange(Self);
@@ -1540,8 +1541,8 @@ end;
 procedure TFastCheckbox.ToggleCheckState;
 begin
   if _checkState <> TCheckState.Checked then
-    Self.CheckState := TCheckState.Checked else
-    Self.CheckState := TCheckState.Unchecked;
+    SetCheckStateCore(TCheckState.Checked) else
+    SetCheckStateCore(TCheckState.Unchecked);
 end;
 
 function TFastCheckbox.IsCheckedStored: Boolean;
