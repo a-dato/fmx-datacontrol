@@ -887,7 +887,7 @@ begin
     var posIntToGo := IfThen(_mouseWheelDistanceToGo > 0, _mouseWheelDistanceToGo, -_mouseWheelDistanceToGo);
 
     var posWheelDelta := Round(IfThen(distance > 0, distance, -distance) * 1.0);
-    var delta := CMath.Min(posWheelDelta, maxLeftToScroll - posIntToGo);
+    var delta := CMath.Min(Trunc(_content.Height), CMath.Min(posWheelDelta, maxLeftToScroll - posIntToGo));
 
     if delta > 0 then
     begin

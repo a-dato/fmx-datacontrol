@@ -763,6 +763,14 @@ begin
       Exit; // let memo handle
 
     SafeForcedEndEdit;
+
+    if not _editingInfo.CellIsEditing and _editingInfo.RowIsEditing then
+    begin
+      var changeUpdatedSort: Boolean;
+      if not DoEditRowEnd(GetActiveRow as IDCTreeRow, {out} changeUpdatedSort) or changeUpdatedSort then
+        Exit;
+    end;
+
     Self.SetFocus;
 
     Key := 0;

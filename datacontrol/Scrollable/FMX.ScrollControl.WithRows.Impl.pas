@@ -676,6 +676,10 @@ begin
 //      row.Control.Width := _content.Width;
 //  end;
 
+  // make sure that if Height changes, that the selected row stays in the view
+  if HeightChanged and (_selectionInfo.ViewListIndex <> -1) then
+    _referenceRowViewListIndex := _selectionInfo.ViewListIndex;
+
   inherited;
 end;
 
@@ -1125,7 +1129,7 @@ begin
   else if (Key = vkDown) then
   begin
     Result := GetSelectableViewIndex(_selectionInfo.ViewListIndex+1, True);
-    if (Result = -1) and (_view.ViewCount > 0) then
+    if (Result = -1) and (_view.ViewCount > 0) and (_selectionInfo.ViewListIndex <> _view.ViewCount - 1) then
       Result := GetSelectableViewIndex(0, False);  // just give first row it a try, for filter can be set..
 
     Exit;
@@ -3913,8 +3917,13 @@ begin
           startY := _vertScrollBar.Max - _vertScrollBar.ViewportSize;
       end;
     end
-    else if existed and (Result.VirtualYPosition < _vertScrollBar.Value {row moved up and is partly invisible}) then
-      startY := Result.VirtualYPosition;
+    else if existed then
+    begin
+      if (Result.VirtualYPosition < _vertScrollBar.Value {row moved up and is partly invisible}) then
+        startY := Result.VirtualYPosition
+      else if Result.VirtualYPosition + Result.Height > _vertScrollBar.Value + _vertScrollBar.ViewportSize {treecontrol itself became smaller} then
+        startY := Result.VirtualYPosition + Result.Height - _vertScrollBar.ViewportSize;
+    end;
   end else
   begin
     AlignBottomToTop := ((_vertScrollBar.Value > 0) and (_vertScrollBar.Value + _vertScrollBar.ViewportSize = _vertScrollBar.Max));
