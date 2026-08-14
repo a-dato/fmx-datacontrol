@@ -300,17 +300,6 @@ begin
     _dataModel.EndUpdate;
   end;
 
-
-//  _dataModel.BeginUpdate;
-//  try
-//    var dr := _dataModel.AddNew(insertLocation, Position);
-//    dr.Data := Context.Context;
-//    _dataModel.Keys.Add(dr.Data, dr);
-//    _dataModel.DefaultView.Refresh;
-//  finally
-//    _dataModel.EndUpdate;
-//  end;
-
   (get_ObjectModelContext as IEditableListObject).AddNew(newInstance, index, Position);
 
   Result := True;
@@ -568,7 +557,7 @@ end;
 
 function TDataModelObjectListModel.get_IsNew: Boolean;
 begin
-  Result := RowEditState.IsNew in ModelEditFlags;
+  Result := (RowEditState.IsNew in ModelEditFlags) and (get_ObjectModelContext as IEditState).IsNew {_isAdding can be true, and therefor get_isNew = False!)};
 end;
 
 function TDataModelObjectListModel.MultiSelectIsActive: Boolean;

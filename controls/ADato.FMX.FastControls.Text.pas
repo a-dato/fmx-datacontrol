@@ -201,6 +201,7 @@ type
     function  get_Trimming: TTextTrimming;
     function  get_WordWrap: Boolean;
     procedure set_ShowTag(const Value: Boolean);
+    procedure set_TagOpacity(const Value: Single);
 
   protected
     procedure DoPaint; override;
@@ -260,6 +261,7 @@ type
     property CalcAsAutoHeight: Boolean read get_calcAsAutoHeight write set_CalcAsAutoHeight default True;
     property UnderlineOnHover: Boolean read _underlineOnHover write _underlineOnHover default False;
     property ShowTag: Boolean read _showTag write set_ShowTag default False;
+    property TagOpacity: Single read _tagOpacity write set_TagOpacity;
 
     property HitTest {$IFNDEF WEBASSEMBLY}default False{$ENDIF};
 
@@ -938,6 +940,16 @@ begin
     Exit;
 
   _showTag := Value;
+
+  RecalcNeeded;
+end;
+
+procedure TFastText.set_TagOpacity(const Value: Single);
+begin
+  if _tagOpacity = Value then
+    Exit;
+
+  _tagOpacity := Value;
 
   RecalcNeeded;
 end;
