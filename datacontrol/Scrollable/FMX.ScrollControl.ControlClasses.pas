@@ -987,10 +987,36 @@ begin
       vkNext:   idx := System.Math.Min(idx + (_control as TComboEdit).DropdownCount, get_ItemCount - 1);
       vkHome:
         if ssCtrl in Shift then
-          idx := 0;
+          idx := 0
+        else
+        begin
+          var p := (_control as TComboEdit).CaretPosition;
+          if ssShift in Shift then
+          begin
+            (_control as TComboEdit).SelStart := 0;
+            (_control as TComboEdit).SelLength := p;
+          end else
+            (_control as TComboEdit).SelLength := 0;
+
+          (_control as TComboEdit).CaretPosition := 0;
+        end;
       vkEnd:
         if ssCtrl in Shift then
-          idx := get_ItemCount - 1;
+          idx := get_ItemCount - 1
+        else
+        begin
+          var text := get_Text;
+          var p := (_control as TComboEdit).CaretPosition;
+
+          if ssShift in Shift then
+          begin
+            (_control as TComboEdit).SelStart := p;
+            (_control as TComboEdit).SelLength := Length(text) - p;
+          end else
+            (_control as TComboEdit).SelLength := 0;
+
+          (_control as TComboEdit).CaretPosition := Length(text);
+        end;
     end;
 
     if (idx >= 0) and (i <> idx) then
@@ -1210,16 +1236,33 @@ begin
   begin
     var ce := _control as TComboEdit;
 
+    // var text := get_Text.Substring(0, ce.SelStart);
     var text := get_Text;
+
+    var selectAll := (ce.SelLength = 0) and (ce.SelStart = 0);
+
+    if ce.SelLength > 0 then
+      text := text.Substring(0, ce.SelStart);
+
     var pos: Integer;
     var items := ComboItems;
     var match_index := FindBestMatch(items, text, {var} pos);
     if match_index <> -1 then
     begin
       ce.Text := items[match_index];
-      ce.SelStart := pos + Length(text);
-      ce.SelLength := Length(items[match_index]) - ce.SelStart;
-      ce.CaretPosition := ce.SelStart;
+
+      if selectAll then
+      begin
+        ce.SelStart := 0;
+        ce.SelLength := Length(text);
+        ce.CaretPosition := Length(text);
+      end
+      else
+      begin
+        ce.SelStart := pos + Length(text);
+        ce.SelLength := Length(items[match_index]) - ce.SelStart;
+        ce.CaretPosition := ce.SelStart;
+      end;
     end;
   end;
 end;
