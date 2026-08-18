@@ -202,7 +202,7 @@ type
 
     function  FindBestMatch(const Text: String) : Integer;
     procedure RefreshItems;
-    procedure DropDown;
+    function  DropDown: Boolean;
 
     property AutoFilter: Boolean read get_AutoFilter write set_AutoFilter;
     property AutoSort: Boolean read get_AutoSort write set_AutoSort;
