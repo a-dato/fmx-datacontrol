@@ -233,11 +233,12 @@ type
 
     function  ActivePickList: IList;
     function  IsFiltered: Boolean;
-    procedure DropDown; virtual;
+    function  CloseDropDown: Boolean; virtual;
+    function  DropDown: Boolean; virtual;
     function  DoFilterItem(const Item: CObject; const ItemText, Filter: String) : Boolean; virtual;
     procedure RefreshItems;
     procedure DoBeforePopup;
-    procedure UpdateSelection;
+    procedure UpdateSelection(SelectAll: Boolean);
   end;
 
   TTextEditControl = class(TEdit, IDCEditControl)
@@ -971,6 +972,12 @@ begin
     Key := 0;
   end
 
+  else if (Key = vkEscape) then
+  begin
+    if CloseDropDown then
+      Key := 0;
+  end
+
   else if (Key in [vkUp, vkDown, vkPrior, vkNext, vkHome, vkEnd]) then
   begin
     var v := get_Value;
@@ -1230,7 +1237,7 @@ begin
   ComboUpdateItems(items, currentValue);
 end;
 
-procedure TComboEditControlImpl.UpdateSelection;
+procedure TComboEditControlImpl.UpdateSelection(SelectAll: Boolean);
 begin
   if (_control is TComboEdit) then
   begin
@@ -1239,9 +1246,9 @@ begin
     // var text := get_Text.Substring(0, ce.SelStart);
     var text := get_Text;
 
-    var selectAll := (ce.SelLength = 0) and (ce.SelStart = 0);
+    // var selectAll := DoSelectAll or ((ce.SelLength = 0) and (ce.SelStart = 0));
 
-    if ce.SelLength > 0 then
+    if ce.SelStart > 0 then
       text := text.Substring(0, ce.SelStart);
 
     var pos: Integer;
@@ -1280,20 +1287,32 @@ begin
     Result := _PickList;
 end;
 
-procedure TComboEditControlImpl.DropDown;
+function TComboEditControlImpl.CloseDropDown : Boolean;
 begin
-//  if not TComboEdit(_control).DroppedDown then
-//    TComboEdit(_control).DropDown;
+  if TComboEdit(_control).DroppedDown then
+  begin
+    Result := True;
+    TComboEdit(_control).CloseDropDown;
+  end else
+    Result := False;
+end;
 
+function TComboEditControlImpl.DropDown : Boolean;
+begin
   RefreshItems;
 
   if not TComboEdit(_control).DroppedDown then
   begin
+    Result := True;
     TComboEdit(_control).DropDown;
     TComboEdit(_control).Caret.Show; // Drop down hides caret -> show it again
+    UpdateSelection(False);
+  end
+  else
+  begin
+    Result := False;
+    UpdateSelection(False);
   end;
-
-  UpdateSelection;
 end;
 
 function TComboEditControlImpl.get_AutoFilter: Boolean;
@@ -1434,6 +1453,7 @@ begin
     try
       ce.Text := CStringToString(Value);
       RefreshItems;
+      UpdateSelection(False {Select all});
     finally
       ce.EndUpdate;
     end;
