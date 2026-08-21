@@ -396,11 +396,15 @@ end;
 
 procedure TObjectModelMultiSelect.RemoveFromMultiSelection(const Item: CObject);
 begin
-  Assert(_isActive);
+  if not _isActive or (get_Context = nil) then
+    Exit;
 
   var doRemove := get_Context.Contains(Item);
   if doRemove then
     get_Context.Remove(Item);
+
+  if _isActive and (_context.Count = 0) then
+    _isActive := False;
 
   _changed := _changed or doRemove;
 

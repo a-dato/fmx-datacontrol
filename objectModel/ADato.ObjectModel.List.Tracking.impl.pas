@@ -505,6 +505,9 @@ procedure TObjectListModelWithChangeTracking<T>.NotifyRemoved(const Item: CObjec
 begin
   UpdateChangedItem(Item, TObjectListChangeType.Removed);
 
+  if MultiSelectIsActive then
+    _multiSelect.RemoveFromMultiSelection(Item);
+
   if _OnItemChanged <> nil then
   begin
     var &notify: IListItemChanged;

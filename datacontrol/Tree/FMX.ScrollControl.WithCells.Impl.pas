@@ -3668,7 +3668,7 @@ begin
     Exit;
   end;
 
-  if (_selectionInfo.Tag <> flatColumn.Index) then
+  if (_selectionType = TSelectionType.CellSelection) and (_selectionInfo.Tag <> flatColumn.Index) then
   begin
     _selectionInfo.LastSelectionEventTrigger := TSelectionEventTrigger.Key;
 
