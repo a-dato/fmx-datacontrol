@@ -677,8 +677,16 @@ begin
 //  end;
 
   // make sure that if Height changes, that the selected row stays in the view
-  if HeightChanged and (_selectionInfo.ViewListIndex <> -1) then
-    _referenceRowViewListIndex := _selectionInfo.ViewListIndex;
+  // also, height can change after a filter is applied. This can result in a dataitem that does not longer exist!
+  var viewIndex := _selectionInfo.ViewListIndex;
+  if HeightChanged and (viewIndex <> -1) then
+  begin
+    if (_view = nil) then
+      GenerateView;
+
+    if (_view <> nil) and (_view.ViewCount > 0) and (viewIndex <= _view.ViewCount - 1) then
+      _referenceRowViewListIndex := _selectionInfo.ViewListIndex;
+  end;
 
   inherited;
 end;
@@ -695,9 +703,13 @@ begin
     begin
       Result := (topRow.VirtualYPosition + topRow.height) - _vertScrollBar.Value;
 
+      var rc := RowCount;
+      if (RowCount = 1) and (Result < (topRow.height/2)) then
+        rc := 2;
+
       var ix: Integer;
-      if RowCount > 1 then
-        for ix := 2 to CMath.Min(count, RowCount) do
+      if rc > 1 then
+        for ix := 2 to CMath.Min(count, rc) do
           Result := Result + _view.ActiveViewRows[ix - 1].Height;
     end else begin
       Result := _vertScrollBar.Value - topRow.VirtualYPosition;
@@ -2407,99 +2419,88 @@ end;
 
 procedure TScrollControlWithRows.InitRow(const Row: IDCRow);
 begin
-  EventTracer.StartTimer('TDataControl', Self.ClassName + '.InitRow');
-  try
-    var rowInfo := _view.RowLoadedInfo(Row.ViewListIndex);
-    var isFastScrollbarScrolling := IsFastScrolling(True);
-    var rowNeedsReload := IsPrinting or Row.IsScrollingIntoView or not rowInfo.InnerCellsAreApplied or (rowInfo.ControlNeedsResizeSoft and (GetScrollingType <> TScrollingType.WithScrollBar));
+  var rowInfo := _view.RowLoadedInfo(Row.ViewListIndex);
+  var isFastScrollbarScrolling := IsFastScrolling(True);
+  var rowNeedsReload := IsPrinting or Row.IsScrollingIntoView or not rowInfo.InnerCellsAreApplied or (rowInfo.ControlNeedsResizeSoft and (GetScrollingType <> TScrollingType.WithScrollBar));
 
-    var oldRowHeight: Single := -1;
+  var oldRowHeight: Single := -1;
 
-    if rowInfo.ReloadAfterScroll and not isFastScrollbarScrolling {(_scrollingType = TScrollingType.None)} then
+  if rowInfo.ReloadAfterScroll and not isFastScrollbarScrolling {(_scrollingType = TScrollingType.None)} then
+  begin
+    oldRowHeight := _view.GetRowHeight(Row.ViewListIndex);
+
+    // row height will be reset
+    rowInfo := _view.NotifyRowControlsNeedReload(Row, False {reset force realign this row});
+    rowNeedsReload := True;
+  end
+  else if rowNeedsReload then
+    oldRowHeight := _view.GetRowHeight(Row.ViewListIndex);
+
+  if rowNeedsReload then
+  begin
+    var checkEdges: Boolean := False;
+    var ly: TRowLayout := nil;
+    if Row.Control = nil then
     begin
-      oldRowHeight := _view.GetRowHeight(Row.ViewListIndex);
+      ly := TRowLayout.Create(_content, CreateRowBackground);
+      ly.OriginalBackgroundColorIsNull := False; // !! saves a lot of time, because clearing bitmap is not needed..
+//      ly.ClipChildren := True; // costs a lot of time , while we can also do this on lower level..
+      ly.HitTest := False;
+      ly.Align := TAlignLayout.None;
 
-      // row height will be reset
-      rowInfo := _view.NotifyRowControlsNeedReload(Row, False {reset force realign this row});
-      rowNeedsReload := True;
-    end
-    else if rowNeedsReload then
-      oldRowHeight := _view.GetRowHeight(Row.ViewListIndex);
+      Row.Control := ly;
 
-    if rowNeedsReload then
-    begin
-      var checkEdges: Boolean := False;
-      var ly: TRowLayout := nil;
-      if Row.Control = nil then
-      begin
-        ly := TRowLayout.Create(_content, CreateRowBackground);
-        ly.OriginalBackgroundColorIsNull := False; // !! saves a lot of time, because clearing bitmap is not needed..
-  //      ly.ClipChildren := True; // costs a lot of time , while we can also do this on lower level..
-        ly.HitTest := False;
-        ly.Align := TAlignLayout.None;
+      _content.AddObject(Row.Control);
 
-        Row.Control := ly;
-
-        _content.AddObject(Row.Control);
-
-        checkEdges := (TreeOption_ShowHorzGrid in _options);
-        ly.Sides := [];
-      end;
-
-      DataControlClassFactory.HandleRowBackground(Row.ControlAsRowLayout.Background, (TreeOption_AlternatingRowBackground in _options), not Row.IsOddRow, RowBackgroundOpacity(Row));
-
-      Row.Control.Position.X := 0;
-
-      if not rowInfo.ControlNeedsResizeSoft then
-        Row.Control.Height := oldRowHeight else
-        Row.Control.Height := get_rowHeightDefault;
-
-      EventTracer.StartTimer('TDataControl', Self.ClassName + '.InnerInitRow');
-      try
-        InnerInitRow(Row, rowInfo.ControlNeedsResizeSoft);
-      finally
-        EventTracer.PauseTimer('TDataControl', Self.ClassName + '.InnerInitRow');
-      end;
-
-      if checkEdges then
-      begin
-        if (Row.ViewListIndex = 0) and not (TreeOption_ShowHeaders in _options) and (TreeOption_ShowVertGrid in _options) then
-          ly.Sides := [TSide.Bottom, TSide.Top];
-          ly.Sides := [TSide.Bottom];
-      end;
-
-      DoRowLoaded(Row);
+      checkEdges := (TreeOption_ShowHorzGrid in _options);
+      ly.Sides := [];
     end;
 
-    PerformanceRoutineLoadedRow(Row);
-    Row.Control.Width := CalculateRowControlWidth(False);
-    Row.UseBuffering := IsScrolling;
+    DataControlClassFactory.HandleRowBackground(Row.ControlAsRowLayout.Background, (TreeOption_AlternatingRowBackground in _options), not Row.IsOddRow, RowBackgroundOpacity(Row));
 
-    CreateAndSynchronizeSynchronizerRow(Row);
+    Row.Control.Position.X := 0;
 
-    if rowNeedsReload then
+    if not rowInfo.ControlNeedsResizeSoft then
+      Row.Control.Height := oldRowHeight else
+      Row.Control.Height := get_rowHeightDefault;
+
+    InnerInitRow(Row, rowInfo.ControlNeedsResizeSoft);
+    if checkEdges then
     begin
-      var rowHeightChanged := not SameValue(oldRowHeight, Row.Control.Height);
-      if rowHeightChanged and (GetScrollingType = TScrollingType.WithScrollBar) then
-      begin
-        // We do not!!!! accept a row height change while user is scrolling with scrollbar
-        // because this will give flickering. AFter scroll release the row is reloaded automatically
-        // rowHeightChanged := False;
-        row.Control.Height := oldRowHeight;
-      end;
+      if (Row.ViewListIndex = 0) and not (TreeOption_ShowHeaders in _options) and (TreeOption_ShowVertGrid in _options) then
+        ly.Sides := [TSide.Bottom, TSide.Top];
+        ly.Sides := [TSide.Bottom];
     end;
 
-    rowInfo := _view.RowLoadedInfo(Row.ViewListIndex) {reload the rowInfo, for it can be changed};
-
-    var softRowHeightNeedsResizeAfterScrolling := rowInfo.ControlNeedsResizeSoft and (GetScrollingType = TScrollingType.WithScrollBar);
-    _view.RowLoaded(Row, softRowHeightNeedsResizeAfterScrolling);
-
-    // if user tells in CellLoading / CellLoaded that a cell control should be loaded after scrolling is done (for performance)
-    if rowInfo.ReloadAfterScroll then
-      RestartWaitForRealignTimer(True {only realign when scrolling stopped});
-  finally
-    EventTracer.PauseTimer('TDataControl', Self.ClassName + '.InitRow');
+    DoRowLoaded(Row);
   end;
+
+  PerformanceRoutineLoadedRow(Row);
+  Row.Control.Width := CalculateRowControlWidth(False);
+  Row.UseBuffering := IsScrolling;
+
+  CreateAndSynchronizeSynchronizerRow(Row);
+
+  if rowNeedsReload then
+  begin
+    var rowHeightChanged := not SameValue(oldRowHeight, Row.Control.Height);
+    if rowHeightChanged and (GetScrollingType = TScrollingType.WithScrollBar) then
+    begin
+      // We do not!!!! accept a row height change while user is scrolling with scrollbar
+      // because this will give flickering. AFter scroll release the row is reloaded automatically
+      // rowHeightChanged := False;
+      row.Control.Height := oldRowHeight;
+    end;
+  end;
+
+  rowInfo := _view.RowLoadedInfo(Row.ViewListIndex) {reload the rowInfo, for it can be changed};
+
+  var softRowHeightNeedsResizeAfterScrolling := rowInfo.ControlNeedsResizeSoft and (GetScrollingType = TScrollingType.WithScrollBar);
+  _view.RowLoaded(Row, softRowHeightNeedsResizeAfterScrolling);
+
+  // if user tells in CellLoading / CellLoaded that a cell control should be loaded after scrolling is done (for performance)
+  if rowInfo.ReloadAfterScroll then
+    RestartWaitForRealignTimer(True {only realign when scrolling stopped});
 end;
 
 procedure TScrollControlWithRows.UpdateAndIgnoreVertScrollbar(const NewValue: Single);
@@ -4579,14 +4580,14 @@ begin
 
   if _rowsControl.Control.IsDragOver then
     _selectionRect.Fill.Color := DEFAULT_DRAG_COLOR
-  else if not IsCurrentFocused then
+  else if not IsCurrentFocused or (_rowsControl.SelectionCount > 1) then
     _selectionRect.Fill.Color := DEFAULT_ROW_SELECTION_MULTISELECT_COLOR
   else if OwnerIsFocused then
     _selectionRect.Fill.Color := DEFAULT_ROW_SELECTION_ACTIVE_COLOR
   else
     _selectionRect.Fill.Color := DEFAULT_ROW_SELECTION_INACTIVE_COLOR;
 
-  _selectionRectIsMultiSelect := not IsCurrentFocused;
+  _selectionRectIsMultiSelect := not IsCurrentFocused or (_rowsControl.SelectionCount > 1);
 end;
 
 procedure TDCRow.UpdateSelectionBounds(const X, Width: Single);

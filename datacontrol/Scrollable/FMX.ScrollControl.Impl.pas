@@ -506,28 +506,14 @@ begin
     Exit;
   end;
 
-  EventTracer.StartTimer('TScrollControl', 'AA_DoRealignContent');
-  EventTracer.StartTimer(Self.Name, 'DoRealignContent');
-
   RealignContentStart;      // timeless 1/40
   try
     BeforeRealignContent;   // timeless 1/40
-
-    EventTracer.StartTimer('TScrollControl', 'AA_RealignContent');
     RealignContent;         // costs 15/40
-    EventTracer.PauseTimer('TScrollControl', 'AA_RealignContent');
-
-    EventTracer.StartTimer('TScrollControl', 'AA_AfterRealignContent');
     AfterRealignContent;    // costs 5/40
-    EventTracer.PauseTimer('TScrollControl', 'AA_AfterRealignContent');
   finally
-    EventTracer.StartTimer('TScrollControl', 'AA_RealignFinished');
     RealignFinished;        // immens 20/40
-    EventTracer.PauseTimer('TScrollControl', 'AA_RealignFinished');
   end;
-
-  EventTracer.PauseTimer('TScrollControl', 'AA_DoRealignContent');
-  EventTracer.PauseTimer(Self.Name, 'DoRealignContent');
 
   _scrollStopWatch_scrollbar := TStopwatch.StartNew;
 end;
@@ -886,7 +872,8 @@ begin
     var maxLeftToScroll := 200;
     var posIntToGo := IfThen(_mouseWheelDistanceToGo > 0, _mouseWheelDistanceToGo, -_mouseWheelDistanceToGo);
 
-    var posWheelDelta := Round(IfThen(distance > 0, distance, -distance) * 1.0);
+    var posWheelDelta := Trunc(DefaultMoveDistance(distance < 0, 2));
+//    var posWheelDelta := Round(IfThen(distance > 0, distance, -distance) * 1.0);
     var delta := CMath.Min(Trunc(_content.Height), CMath.Min(posWheelDelta, maxLeftToScroll - posIntToGo));
 
     if delta > 0 then
@@ -1049,29 +1036,46 @@ procedure TScrollControl.PaintChildren;
 begin
   var stopwatch := TStopwatch.StartNew;
 
-  EventTracer.StartTimer('TScrollControl', 'AA-PaintChildren');
   inherited;
-  EventTracer.PauseTimer('TScrollControl', 'AA-PaintChildren');
 
   stopwatch.Stop;
   _paintTime := stopwatch.ElapsedMilliseconds;
 end;
 
+procedure SafeForceQueue([weak] IsAlive: IBaseInterface; Captured: Exception);
+begin
+  TThread.ForceQueue(nil, procedure
+  begin
+    if IsAlive = nil then
+    begin
+      Captured.Free;
+      Exit;
+    end;
+
+    raise Captured;
+  end);
+end;
+
 procedure TScrollControl.Painting;
 begin
-  BeforePainting;
+  try
+    BeforePainting;
+  except
+    SafeForceQueue(_safeObj, Exception(AcquireExceptionObject));
+  end;
 
-  EventTracer.StartTimer('TScrollControl', 'AA_Painting');
   inherited;
-  EventTracer.PauseTimer('TScrollControl', 'AA_Painting');
 end;
 
 procedure TScrollControl.PrepareForPaint;
 begin
-  BeforePainting;
-  EventTracer.StartTimer('TScrollControl', 'AA_PrepareForPaint');
+  try
+    BeforePainting;
+  except
+    SafeForceQueue(_safeObj, Exception(AcquireExceptionObject));
+  end;
+
   inherited;
-  EventTracer.PauseTimer('TScrollControl', 'AA_PrepareForPaint');
 end;
 
 procedure TScrollControl.RealignContent;

@@ -378,7 +378,7 @@ uses
   ADato.Collections.Specialized,
   System.Reflection, 
   FMX.ScrollControl.ControlClasses,
-  ADato.TraceEvents.intf;
+  ADato.TraceEvents.intf, FMX.Clipboard;
 
 { TScrollControlWithEditableCells }
 
@@ -1464,14 +1464,14 @@ begin
     Result := True;
   end else
   begin
-    var clipboard: IFMXClipboardService;
+    var clipboard: IFMXExtendedClipboardService;
     {$IFNDEF WEBASSEMBLY}
-    if TPlatformServices.Current.SupportsPlatformService(IFMXClipboardService, ClipBoard) then
-      Result := EditActiveCell(True, ClipBoard.GetClipboard.AsString) else
+    if TPlatformServices.Current.SupportsPlatformService(IFMXExtendedClipboardService, ClipBoard) and ClipBoard.HasText then
+      Result := EditActiveCell(True, ClipBoard.GetText) else
       Result := False;
     {$ELSE}
-    if TPlatformServices.Current.SupportsPlatformService<IFMXClipboardService>(ClipBoard) then
-      Result := EditActiveCell(True, ClipBoard.GetClipboard.ToString) else
+    if TPlatformServices.Current.SupportsPlatformService<IFMXExtendedClipboardService>(ClipBoard) then
+      Result := EditActiveCell(True, ClipBoard.GetText) else
       Result := False;
     {$ENDIF}
   end;
