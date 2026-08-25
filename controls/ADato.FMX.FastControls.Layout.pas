@@ -72,9 +72,17 @@ type
     property OriginalBackgroundColorIsNull: Boolean read _originalBackgroundColorIsNull write _originalBackgroundColorIsNull default True;
   end;
 
+  TBackgroundScene = (NoScene, Slash, BackSlash, Dots);
   TBackgroundControl = class(TControl, IBackgroundControl)
   private
     FStrokeThickness: Single;
+    FBackgroundScene: TBackgroundScene;
+    FBackgroundSceneBitmap: TBitmap;
+    FBackgroundSceneColor: TAlphaColor;
+
+    procedure SetBackgroundScene(const Value: TBackgroundScene);
+    function GetBackgroundSceneColor: TAlphaColor;
+    function GetBackgroundSceneBitmap(const Color: TAlphaColor): TBitmap;
   protected
     FYRadius: Single;
     FXRadius: Single;
@@ -108,9 +116,11 @@ type
 
   public
     constructor Create(AOwner: TComponent); override;
+    destructor Destroy; override;
     procedure Paint; override;
     procedure DoPaint; override;
 
+    property BackgroundScene: TBackgroundScene read FBackgroundScene write SetBackgroundScene default TBackgroundScene.NoScene;
     property Corners: TCorners read GetCorners write SetCorners;
     property Sides: TSides read GetSides write SetSides;
     property XRadius: Single read GetXRadius write SetXRadius;
@@ -148,16 +158,93 @@ begin
   HitTest := False;
 end;
 
+destructor TBackgroundControl.Destroy;
+begin
+  FreeAndNil(FBackgroundSceneBitmap);
+  inherited;
+end;
+
+function TBackgroundControl.GetBackgroundSceneColor: TAlphaColor;
+const
+  BackgroundSceneOpacity: Single = 0.2;
+begin
+  Result := FStrokeColor;
+  if Result = TAlphaColors.Null then
+    Result := FFillColor;
+  if Result = TAlphaColors.Null then
+    Result := TAlphaColors.Lightgray;
+
+  var alpha := Round($FF * BackgroundSceneOpacity);
+  Result := (Result and $00FFFFFF) or (TAlphaColor(alpha) shl 24);
+end;
+
+function TBackgroundControl.GetBackgroundSceneBitmap(const Color: TAlphaColor): TBitmap;
+begin
+  if (FBackgroundSceneBitmap = nil) or (FBackgroundSceneColor <> Color) then
+  begin
+    if FBackgroundSceneBitmap = nil then
+      FBackgroundSceneBitmap := TBitmap.Create(10, 10);
+
+    FBackgroundSceneColor := Color;
+    FBackgroundSceneBitmap.Canvas.BeginScene;
+    try
+      FBackgroundSceneBitmap.Clear(TAlphaColors.Null);
+
+      case FBackgroundScene of
+        TBackgroundScene.Slash:
+        begin
+          FBackgroundSceneBitmap.Canvas.Stroke.Kind := TBrushKind.Solid;
+          FBackgroundSceneBitmap.Canvas.Stroke.Color := Color;
+          FBackgroundSceneBitmap.Canvas.Stroke.Thickness := 1;
+          FBackgroundSceneBitmap.Canvas.DrawLine(PointF(0, 10), PointF(10, 0), 1);
+        end;
+
+        TBackgroundScene.BackSlash:
+        begin
+          FBackgroundSceneBitmap.Canvas.Stroke.Kind := TBrushKind.Solid;
+          FBackgroundSceneBitmap.Canvas.Stroke.Color := Color;
+          FBackgroundSceneBitmap.Canvas.Stroke.Thickness := 1;
+          FBackgroundSceneBitmap.Canvas.DrawLine(PointF(0, 0), PointF(10, 10), 1);
+        end;
+
+        TBackgroundScene.Dots:
+        begin
+          FBackgroundSceneBitmap.Canvas.Fill.Kind := TBrushKind.Solid;
+          FBackgroundSceneBitmap.Canvas.Fill.Color := Color;
+          FBackgroundSceneBitmap.Canvas.FillEllipse(RectF(3, 3, 7, 7), 1);
+        end;
+      end;
+    finally
+      FBackgroundSceneBitmap.Canvas.EndScene;
+    end;
+  end;
+
+  Result := FBackgroundSceneBitmap;
+end;
+
 procedure TBackgroundControl.Paint;
 begin
+  {$IFNDEF WEBASSEMBLY}
   if (FFillColor <> TAlphaColors.Null) and (ColorOpacity > 0) then
   begin
-    {$IFNDEF WEBASSEMBLY}
     var alpha := Round(EnsureRange(ColorOpacity, 0, 1) * $FF);
-    Canvas.Fill.Color := (FFillColor and $00FFFFFF) or (TAlphaColor(alpha) shl 24);
+    var color := (FFillColor and $00FFFFFF) or (TAlphaColor(alpha) shl 24);
+    Canvas.Fill.Color := color;
     Canvas.FillRect(LocalRect, FXRadius, FYRadius, FCorners, AbsoluteOpacity, TCornerType.Round);
-    {$ENDIF}
   end;
+
+  if FBackgroundScene <> TBackgroundScene.NoScene then
+  begin
+    Canvas.Fill.Kind := TBrushKind.Bitmap;
+    try
+      Canvas.Fill.Bitmap.WrapMode := TWrapMode.Tile;
+      Canvas.Fill.Bitmap.Bitmap := GetBackgroundSceneBitmap(GetBackgroundSceneColor);
+      Canvas.FillRect(LocalRect, FXRadius, FYRadius, FCorners, AbsoluteOpacity, TCornerType.Round);
+    finally
+      Canvas.Fill.Kind := TBrushKind.Solid;
+    end;
+  end;
+  {$ENDIF}
 
   inherited;
 end;
@@ -264,6 +351,16 @@ begin
   if FColorOpacity <> Value then
   begin
     FColorOpacity := Value;
+    DoInternalChanged;
+  end;
+end;
+
+procedure TBackgroundControl.SetBackgroundScene(const Value: TBackgroundScene);
+begin
+  if FBackgroundScene <> Value then
+  begin
+    FBackgroundScene := Value;
+    FreeAndNil(FBackgroundSceneBitmap);
     DoInternalChanged;
   end;
 end;

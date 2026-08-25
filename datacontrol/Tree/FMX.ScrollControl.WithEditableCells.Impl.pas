@@ -378,7 +378,7 @@ uses
   ADato.Collections.Specialized,
   System.Reflection, 
   FMX.ScrollControl.ControlClasses,
-  ADato.TraceEvents.intf;
+  ADato.TraceEvents.intf, FMX.Clipboard;
 
 { TScrollControlWithEditableCells }
 
@@ -1464,14 +1464,14 @@ begin
     Result := True;
   end else
   begin
-    var clipboard: IFMXClipboardService;
+    var clipboard: IFMXExtendedClipboardService;
     {$IFNDEF WEBASSEMBLY}
-    if TPlatformServices.Current.SupportsPlatformService(IFMXClipboardService, ClipBoard) then
-      Result := EditActiveCell(True, ClipBoard.GetClipboard.AsString) else
+    if TPlatformServices.Current.SupportsPlatformService(IFMXExtendedClipboardService, ClipBoard) and ClipBoard.HasText then
+      Result := EditActiveCell(True, ClipBoard.GetText) else
       Result := False;
     {$ELSE}
-    if TPlatformServices.Current.SupportsPlatformService<IFMXClipboardService>(ClipBoard) then
-      Result := EditActiveCell(True, ClipBoard.GetClipboard.ToString) else
+    if TPlatformServices.Current.SupportsPlatformService<IFMXExtendedClipboardService>(ClipBoard) then
+      Result := EditActiveCell(True, ClipBoard.GetText) else
       Result := False;
     {$ENDIF}
   end;
@@ -1888,7 +1888,26 @@ begin
       var goToNewRow := (NewCell = nil) or (OldCell = nil) or (OldCell.Row.DataIndex <> NewCell.Row.DataIndex);
       if goToNewRow then
       begin
-        if not DoEditRowEnd(OldCell.Row as IDCTreeRow, {out} changeUpdatedSort) or changeUpdatedSort then
+        var row: IDCTreeRow := nil;
+        if OldCell <> nil then
+          row := OldCell.Row as IDCTreeRow
+        else if _view <> nil then
+        begin
+          // OldCell can be nil while row edit is still active (e.g. selection cleared by DataList rebind).
+          // Resolve the editing row from editing info in that case.
+          var viewListIndex := _view.GetViewListIndex(_editingInfo.EditItem);
+          if viewListIndex = -1 then
+            viewListIndex := _view.GetViewListIndex(_editingInfo.EditItemDataIndex);
+
+          var selectionInfo := _selectionInfo.Clone;
+          selectionInfo.SetFocusedItem(_editingInfo.EditItemDataIndex, viewListIndex, _editingInfo.EditItem);
+          row := ProvideRowForChanging(selectionInfo) as IDCTreeRow;
+        end;
+
+        if row = nil then
+          Exit(False);
+
+        if not DoEditRowEnd(row, {out} changeUpdatedSort) or changeUpdatedSort then
           Exit(False);
       end;
     end;

@@ -985,14 +985,7 @@ end;
 
 function TObjectModelPropertyWrapper.GetValue(const obj: CObject; const index: array of CObject): CObject;
 begin
-  try
-    Result := GetObjectProperty(obj).GetValue(obj, index);
-  except
-    var prop := GetObjectProperty(obj);
-    if prop <> nil then
-      Result := prop.GetValue(obj, index) else
-      Result := nil;
-  end;
+  Result := GetObjectProperty(obj).GetValue(obj, index);
 end;
 
 function TObjectModelPropertyWrapper.get_Bindings: List<IPropertyBinding>;

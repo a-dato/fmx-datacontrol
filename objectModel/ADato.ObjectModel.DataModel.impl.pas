@@ -535,6 +535,9 @@ procedure TDataModelObjectListModel.NotifyRemoved(const Item: CObject; const Ind
 begin
   UpdateChangedItem(Item, TObjectListChangeType.Removed);
 
+  if MultiSelectIsActive then
+    _multiSelect.RemoveFromMultiSelection(Item);
+
   var n: IListItemChanged;
   for n in get_OnItemChanged do
     n.Removed(Item, Index);
@@ -675,11 +678,14 @@ procedure TDataModelObjectListModel.OnObjectPropertyChanged(const Sender: IObjec
 begin
   if HasMultiSelection then
   begin
+    if Self.get_IsNew then
+      raise Exception.Create('Cannot be new and Multiselection activate');
+
     var item: CObject;
     for item in _multiSelect.Context do
       if not CObject.Equals(item, Context) then
       begin
-        if Self.get_IsEditOrNew then
+        if Self.get_IsEdit then
           Self.EndEdit;
 
         var cln: ICloneable;

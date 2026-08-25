@@ -505,6 +505,9 @@ procedure TObjectListModelWithChangeTracking<T>.NotifyRemoved(const Item: CObjec
 begin
   UpdateChangedItem(Item, TObjectListChangeType.Removed);
 
+  if MultiSelectIsActive then
+    _multiSelect.RemoveFromMultiSelection(Item);
+
   if _OnItemChanged <> nil then
   begin
     var &notify: IListItemChanged;
@@ -531,11 +534,25 @@ begin
           obj := item;
 
         UpdateChangedItem(obj, TObjectListChangeType.Changed);
-        {$IFNDEF WEBASSEMBLY}
-        AProperty.SetValue(item, AProperty.GetValue(Context, []), [], True);
-        {$ELSE}
-        AProperty.SetValue(item, AProperty.GetValue(Context, []), []);
-        {$ENDIF}
+
+        var es: IEditState;
+        var edObj: IEditableObject;
+        if not Interfaces.Supports<IEditableObject>(obj, edObj) then
+          edObj := nil;
+
+        var wasEditOrNew := interfaces.Supports<IEditState>(obj, es) and es.IsEditOrNew;
+        if (edObj <> nil) and not wasEditOrNew then
+          edObj.BeginEdit;
+        try
+          {$IFNDEF WEBASSEMBLY}
+          AProperty.SetValue(item, AProperty.GetValue(Context, []), [], True);
+          {$ELSE}
+          AProperty.SetValue(item, AProperty.GetValue(Context, []), []);
+          {$ENDIF}
+        finally
+          if (edObj <> nil) and not wasEditOrNew then
+            edObj.EndEdit;
+        end;
       end;    
   end;
 
