@@ -19,7 +19,7 @@ uses
   Wasm.System.Types,
   Wasm.System.UITypes
   {$ENDIF}
-  ;
+  , FMX.Graphics;
 
 type
   // Interface that handles communication between a cell editor inside the tree control
@@ -214,6 +214,7 @@ type
     property Text: CString read get_Text write set_Text;
   end;
 
+  TBackgroundScene = (NoScene, Slash, BackSlash, Dots);
   IBackgroundControl = interface
     ['{C0F12B2D-7C93-478F-809F-BC8A66166F84}']
     function  GetXRadius: Single;
@@ -231,8 +232,14 @@ type
     function  GetColorOpacity: Single;
     procedure SetColorOpacity(const Value: Single);
 
+    function  GetBackgroundScene: TBackgroundScene;
+    procedure SetBackgroundScene(const Value: TBackgroundScene);
+    function  GetBackgroundSceneColor: TAlphaColor;
+    function  GetBackgroundSceneBitmap(const Color: TAlphaColor): TBitmap;
+
     function AsControl: TControl;
 
+    property BackgroundScene: TBackgroundScene read GetBackgroundScene write SetBackgroundScene;
     property Corners: TCorners read GetCorners write SetCorners;
     property Sides: TSides read GetSides write SetSides;
     property XRadius: Single read GetXRadius write SetXRadius;

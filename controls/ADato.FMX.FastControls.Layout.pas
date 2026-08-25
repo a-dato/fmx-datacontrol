@@ -72,7 +72,6 @@ type
     property OriginalBackgroundColorIsNull: Boolean read _originalBackgroundColorIsNull write _originalBackgroundColorIsNull default True;
   end;
 
-  TBackgroundScene = (NoScene, Slash, BackSlash, Dots);
   TBackgroundControl = class(TControl, IBackgroundControl)
   private
     FStrokeThickness: Single;
@@ -80,6 +79,7 @@ type
     FBackgroundSceneBitmap: TBitmap;
     FBackgroundSceneColor: TAlphaColor;
 
+    function GetBackgroundScene: TBackgroundScene;
     procedure SetBackgroundScene(const Value: TBackgroundScene);
     function GetBackgroundSceneColor: TAlphaColor;
     function GetBackgroundSceneBitmap(const Color: TAlphaColor): TBitmap;
@@ -120,7 +120,7 @@ type
     procedure Paint; override;
     procedure DoPaint; override;
 
-    property BackgroundScene: TBackgroundScene read FBackgroundScene write SetBackgroundScene default TBackgroundScene.NoScene;
+    property BackgroundScene: TBackgroundScene read GetBackgroundScene write SetBackgroundScene default TBackgroundScene.NoScene;
     property Corners: TCorners read GetCorners write SetCorners;
     property Sides: TSides read GetSides write SetSides;
     property XRadius: Single read GetXRadius write SetXRadius;
@@ -176,6 +176,11 @@ begin
 
   var alpha := Round($FF * BackgroundSceneOpacity);
   Result := (Result and $00FFFFFF) or (TAlphaColor(alpha) shl 24);
+end;
+
+function TBackgroundControl.GetBackgroundScene: TBackgroundScene;
+begin
+  Result := FBackgroundScene;
 end;
 
 function TBackgroundControl.GetBackgroundSceneBitmap(const Color: TAlphaColor): TBitmap;
