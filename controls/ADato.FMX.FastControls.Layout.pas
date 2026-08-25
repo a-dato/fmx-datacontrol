@@ -165,17 +165,21 @@ begin
 end;
 
 function TBackgroundControl.GetBackgroundSceneColor: TAlphaColor;
-const
-  BackgroundSceneOpacity: Single = 0.2;
 begin
-  Result := FStrokeColor;
-  if Result = TAlphaColors.Null then
-    Result := FFillColor;
-  if Result = TAlphaColors.Null then
+  if FFillColor <> TAlphaColors.Null then
+  begin
+    var darken := 0.95;
+    var rec := TAlphaColorRec(FFillColor);
+    rec.R := Round(rec.R * darken);
+    rec.G := Round(rec.G * darken);
+    rec.B := Round(rec.B * darken);
+    rec.A := $AA;
+    Result := rec.Color;
+  end
+  else if FStrokeColor <> TAlphaColors.Null then
+    Result := FStrokeColor
+  else
     Result := TAlphaColors.Lightgray;
-
-  var alpha := Round($FF * BackgroundSceneOpacity);
-  Result := (Result and $00FFFFFF) or (TAlphaColor(alpha) shl 24);
 end;
 
 function TBackgroundControl.GetBackgroundScene: TBackgroundScene;
