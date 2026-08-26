@@ -200,7 +200,6 @@ type
     procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject); override;
 
     function  WaitForNotifyModel: Boolean; override;
-    procedure UpdateControlEditability(IsEditable: Boolean); override;
   public
     constructor Create(AControl: TEdit); reintroduce;
 
@@ -261,7 +260,6 @@ type
     function  GetValue: CObject; override;
     procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject); override;
 
-    procedure UpdateControlEditability(IsEditable: Boolean); override;
     procedure NotifyModel(Sender: TObject); override;
 
   public
@@ -275,7 +273,6 @@ type
     procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject); override;
 
     function  WaitForNotifyModel: Boolean; override;
-    procedure UpdateControlEditability(IsEditable: Boolean); override;
 
   public
     constructor Create(AControl: TMemo);
@@ -782,14 +779,6 @@ begin
   end;
 end;
 
-procedure TEditControlBinding.UpdateControlEditability(IsEditable: Boolean);
-begin
-  // make it possible to copy code..
-  _control.Enabled := True;
-  TEdit(_control).ReadOnly := not IsEditable;
-end;
-
-
 function TEditControlBinding.WaitForNotifyModel: Boolean;
 begin
   // if has selection, there will first be a Delete change action executed, before SetText is called.
@@ -1152,13 +1141,6 @@ begin
     end;
   end else
     ExecuteFromLink(AProperty, Obj);
-end;
-
-procedure TMemoControlBinding.UpdateControlEditability(IsEditable: Boolean);
-begin
-  // make it possible to copy code..
-  _control.Enabled := True;
-  TMemo(_control).ReadOnly := not IsEditable;
 end;
 
 function TMemoControlBinding.WaitForNotifyModel: Boolean;
@@ -1736,13 +1718,6 @@ begin
     end;
   end else
     ExecuteFromLink(AProperty, Obj);
-end;
-
-procedure TComboEditControlBinding.UpdateControlEditability(IsEditable: Boolean);
-begin
-  // make it possible to copy code..
-  _control.Enabled := True;
-  TComboEdit(_control).ReadOnly := not IsEditable;
 end;
 
 procedure TComboEditControlBinding.NotifyModel(Sender: TObject);
