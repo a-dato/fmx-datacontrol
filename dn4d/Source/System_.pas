@@ -737,6 +737,23 @@ type
     class operator Implicit(AValue: CBoolean) : Boolean;
   end;
 
+  CQuantumBoolean = record
+  var
+    _assigned: Boolean;
+    _value: Boolean;
+
+    function Equals(other: Boolean): Boolean;
+    function ToString: CString;
+    function IsTrue: Boolean;
+    function IsFalse: Boolean;
+    function IsAssigned: Boolean;
+
+    class operator Equal(L, R: CQuantumBoolean) : Boolean;
+    class operator NotEqual(L, R: CQuantumBoolean) : Boolean;
+    class operator Implicit(AValue: Boolean): CQuantumBoolean;
+    class operator Implicit(AValue: CQuantumBoolean): Boolean;
+  end;
+
   CharUnicodeInfo = class
     private class function IsWhiteSpace(const c: CChar): boolean; static;
   end;
@@ -15480,6 +15497,59 @@ begin
   &Type.GlobalContext.Free;
   DBNull.Value.Free;
   Finalize(CObject._Undefined);
+end;
+
+{ CQuantumBoolean }
+
+class operator CQuantumBoolean.Equal(L, R: CQuantumBoolean): Boolean;
+begin
+  Result := (not L.IsAssigned and not R.IsAssigned) or (L.IsAssigned and R.IsAssigned and (L.IsTrue = R.IsTrue));
+end;
+
+function CQuantumBoolean.Equals(other: Boolean): Boolean;
+begin
+  if other then
+    Result := IsTrue else
+    Result := IsFalse;
+end;
+
+class operator CQuantumBoolean.Implicit(AValue: Boolean): CQuantumBoolean;
+begin
+  Result._assigned := True;
+  Result._value := AValue;
+end;
+
+class operator CQuantumBoolean.Implicit(AValue: CQuantumBoolean): Boolean;
+begin
+  Result := AValue._assigned and AValue._value;
+end;
+
+function CQuantumBoolean.IsAssigned: Boolean;
+begin
+  Result := _assigned;
+end;
+
+function CQuantumBoolean.IsFalse: Boolean;
+begin
+  Result := _assigned and not _value;
+end;
+
+function CQuantumBoolean.IsTrue: Boolean;
+begin
+  Result := _assigned and _value;
+end;
+
+class operator CQuantumBoolean.NotEqual(L, R: CQuantumBoolean): Boolean;
+begin
+  Result := (L.IsAssigned <> R.IsAssigned) or (L.IsAssigned and R.IsAssigned and (L.IsTrue <> R.IsTrue));
+end;
+
+function CQuantumBoolean.ToString: CString;
+begin
+  if not _assigned then
+    Result := 'Unassigned'
+  else
+    Result := CBoolean(_value).ToString;
 end;
 
 end.

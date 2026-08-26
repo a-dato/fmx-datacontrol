@@ -909,6 +909,12 @@ end;
 
 procedure TScrollControlWithEditableCells.UserClicked(Button: TMouseButton; Shift: TShiftState; const X, Y: Single);
 begin
+  if Button = TMouseButton.mbRight then
+  begin
+    inherited;
+    Exit;
+  end;
+
   var clickedRow := GetRowByLocalY(Y);
   if clickedRow = nil then
   begin
@@ -957,6 +963,9 @@ begin
   end;
 
   inherited;
+
+  if Button = TMouseButton.mbRight then
+    Exit;
 
   if Shift * [ssShift, ssCtrl] = [] then
   begin

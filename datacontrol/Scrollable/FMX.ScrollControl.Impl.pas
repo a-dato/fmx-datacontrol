@@ -667,7 +667,12 @@ end;
 procedure TScrollControl.MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Single);
 begin
   if Button <> TMouseButton.mbLeft then
+  begin
+    if Button = TMouseButton.mbRight then
+      HandleRightClick(Shift, X, Y);
+
     Exit;
+  end;
 
   _clickEnable := True;
 
@@ -740,27 +745,16 @@ end;
 
 procedure TScrollControl.HandleRightClick(Shift: TShiftState; X, Y: Single);
 begin
-  // popupmenu is already handled automatically
-//  if (PopupMenu = nil) or _rightClickPopupIsOpen then
-//    Exit;
-//
-//  _rightClickPopupIsOpen := True;
-//  try
-//    ShowContextMenu(LocalToScreen(PointF(X, Y)));
-//  finally
-//    _rightClickPopupIsOpen := False;
-//  end;
+// not working, popupmenu is called without calling mousedown / mouseup.
+  // PopupMenu is already shown by FMX. Treat a right-click as a click
+  // so descendants can update the current row before the menu is used.
+//  UserClicked(TMouseButton.mbRight, Shift, X, Y - _content.Position.Y);
 end;
 
 procedure TScrollControl.MouseUp(Button: TMouseButton; Shift: TShiftState; X, Y: Single);
 begin
   if not _clickEnable then
-  begin
-    if Button = TMouseButton.mbRight then
-      HandleRightClick(Shift, X, Y);
-
     Exit;
-  end;
 
   try
     inherited;

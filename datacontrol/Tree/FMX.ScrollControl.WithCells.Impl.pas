@@ -1596,10 +1596,19 @@ end;
 
 procedure TScrollControlWithCells.UserClicked(Button: TMouseButton; Shift: TShiftState; const X, Y: Single);
 begin
+  if Button = TMouseButton.mbRight then
+  begin
+    inherited;
+    Exit;
+  end;
+
   var currentRow := GetActiveRow;
 
   var clickedRow := GetRowByLocalY(Y);
   if clickedRow = nil then Exit;
+
+  if TryHandleRightClickRowSelection(Button, clickedRow) then
+    Exit;
 
   _selectionInfo.LastSelectionEventTrigger := TSelectionEventTrigger.Click;
 

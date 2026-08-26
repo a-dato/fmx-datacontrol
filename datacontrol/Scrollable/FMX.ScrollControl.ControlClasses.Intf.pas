@@ -214,7 +214,7 @@ type
     property Text: CString read get_Text write set_Text;
   end;
 
-  TBackgroundScene = (NoScene, Slash, BackSlash, Dots);
+  TBackgroundScene = (NoScene, Slash, BackSlash, Dots, HBars, VBars, ArrowRight);
   IBackgroundControl = interface
     ['{C0F12B2D-7C93-478F-809F-BC8A66166F84}']
     function  GetXRadius: Single;
