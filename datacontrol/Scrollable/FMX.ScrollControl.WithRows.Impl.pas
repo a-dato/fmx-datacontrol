@@ -186,7 +186,7 @@ type
     [weak] _hoveredRow: IDCRow;
     {$ENDIF}
     _resetViewRec: TResetViewRec;
-    _canDragDrop: Boolean;
+    _canDragRows: Boolean;
     _dragObject: CObject;
 
     _tryFindNewSelectionInDataModel: Boolean;
@@ -221,10 +221,11 @@ type
 
   protected
     // drag & drop
-    _dragDropOnIndividualRows: Boolean;
     _onDragEnterRows: TDragEnterRowsEvent;
     _onDragOverRows: TDragOverRowsEvent;
     _onDragDropRows: TDragDropRowsEvent;
+    _dragDropOnIndividualRows: Boolean;
+    _updateDataItemOnDrop: Boolean;
 
     procedure set_DragDropOnIndividualRows(const Value: Boolean);
     function  SelectedRowsForDragEvent(const Point: TPointF): List<TRowDataItemInfo>;
@@ -239,10 +240,11 @@ type
     procedure DrawDragHighlight; override;
 
   public
-    property  DragDropOnIndividualRows: Boolean read _dragDropOnIndividualRows write set_DragDropOnIndividualRows;
     property  OnDragEnterRows: TDragEnterRowsEvent read _onDragEnterRows write _onDragEnterRows;
     property  OnDragOverRows: TDragOverRowsEvent read _onDragOverRows write _onDragOverRows;
     property  OnDragDropRows: TDragDropRowsEvent read _onDragDropRows write _onDragDropRows;
+    property  DragDropOnIndividualRows: Boolean read _dragDropOnIndividualRows write set_DragDropOnIndividualRows;
+    property  UpdateDataItemOnDrop: Boolean read _updateDataItemOnDrop write _updateDataItemOnDrop default True;
 
   protected
     procedure RealignFromSelectionChange;
@@ -291,6 +293,7 @@ type
     function  GetPropValue(const PropertyName: CString; const DataItem: CObject; const DataModel: IDataModel = nil): CObject;
 
     procedure UserClicked(Button: TMouseButton; Shift: TShiftState; const X, Y: Single); override;
+    function  TryHandleRightClickRowSelection(Button: TMouseButton; const Row: IDCRow): Boolean;
     function  DefaultMoveDistance(ScrollDown: Boolean; RowCount: Integer): Single; override;
     function  CalculateAverageRowHeight: Single;
     procedure DoContentResized(WidthChanged, HeightChanged: Boolean); override;
@@ -426,7 +429,7 @@ type
     // designer properties & events
     property SelectionType: TSelectionType read get_SelectionType write set_SelectionType default RowSelection;
     property Options: TDCTreeOptions read get_options write set_Options;
-    property CanDragDrop: Boolean read _canDragDrop write _canDragDrop default False;
+    property CanDragRows: Boolean read _canDragRows write _canDragRows default False;
 
     property RowHeightFixed: Single read get_rowHeightFixed write set_RowHeightFixed;
     property RowHeightDefault: Single read get_rowHeightDefault write set_RowHeightDefault;
@@ -898,7 +901,7 @@ begin
 
   var dragDropStarted := False;
   try
-    if _canDragDrop and MouseIsDown then
+    if _canDragRows and MouseIsDown then
     begin
       var moved := (X > _mousePositionOnMouseDown.X + 5) or (X < _mousePositionOnMouseDown.X - 5) or (Y < _mousePositionOnMouseDown.Y + 5) or (Y < _mousePositionOnMouseDown.Y - 5);
       if not moved then
@@ -1804,6 +1807,7 @@ begin
   _rowHeightDefault := 30;
   _manualContentHeight := -1;
   _referenceRowViewListIndex := -1;
+  _updateDataItemOnDrop := True;
 
   _options := [TreeOption_ShowHeaders, TreeOption_ShowHeaderGrid];
 
@@ -1957,7 +1961,7 @@ begin
   if Value then
   begin
     EnableDragHighlight := True;
-    CanDragDrop := True;
+    CanDragRows := True;
   end;
 end;
 
@@ -3532,9 +3536,25 @@ begin
   var clickedRow := GetRowByLocalY(Y);
   if clickedRow = nil then Exit;
 
+  if TryHandleRightClickRowSelection(Button, clickedRow) then
+    Exit;
+
   _selectionInfo.LastSelectionEventTrigger := TSelectionEventTrigger.Click;
 
   InternalDoSelectRow(clickedRow.DataIndex, clickedRow.ViewListIndex, clickedRow.DataItem, Shift);
+end;
+
+function TScrollControlWithRows.TryHandleRightClickRowSelection(Button: TMouseButton; const Row: IDCRow): Boolean;
+begin
+  Result := Button = TMouseButton.mbRight;
+  if not Result or (Row = nil) then
+    Exit;
+
+  if MultiSelectEnabled or IsSelected(Row.DataIndex) then
+    Exit;
+
+  _selectionInfo.LastSelectionEventTrigger := TSelectionEventTrigger.Click;
+  InternalDoSelectRow(Row.DataIndex, Row.ViewListIndex, Row.DataItem, []);
 end;
 
 procedure TScrollControlWithRows.InternalDoSelectRow(const DataIndex, ViewListIndex: Integer; const DataItem: CObject; Shift: TShiftState);
@@ -3728,7 +3748,7 @@ end;
 
 procedure TScrollControlWithRows.DragDrop(const Data: TDragObject; const Point: TPointF);
 begin
-  if _dragDropOnIndividualRows and not _selectionInfo.HasSelectedItems {multiSelect not on} then
+  if _dragDropOnIndividualRows and _updateDataItemOnDrop and not _selectionInfo.HasSelectedItems {multiSelect not on} then
   begin
     var row := GetRowByLocalY(Point.Y - _content.Position.Y);
     if (row <> nil) and not _selectionInfo.IsFocused(row.DataIndex) then

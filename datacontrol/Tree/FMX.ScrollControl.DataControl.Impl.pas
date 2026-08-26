@@ -37,7 +37,7 @@ type
     // TScrollControlWithRows
     property SelectionType;
     property Options;
-    property CanDragDrop;
+    property CanDragRows;
     property RowHeightFixed;
     property RowHeightDefault;
     property RowHeightMax;

@@ -176,10 +176,10 @@ begin
     rec.A := $AA;
     Result := rec.Color;
   end
-  else if FStrokeColor <> TAlphaColors.Null then
-    Result := FStrokeColor
+//  else if FStrokeColor <> TAlphaColors.Null then
+//    Result := FStrokeColor
   else
-    Result := TAlphaColors.Lightgray;
+    Result := TAlphaColor($44D3D3D3); // TAlphaColors.Lightgray;
 end;
 
 function TBackgroundControl.GetBackgroundScene: TBackgroundScene;
@@ -191,8 +191,9 @@ function TBackgroundControl.GetBackgroundSceneBitmap(const Color: TAlphaColor): 
 begin
   if (FBackgroundSceneBitmap = nil) or (FBackgroundSceneColor <> Color) then
   begin
+    var size := 16;
     if FBackgroundSceneBitmap = nil then
-      FBackgroundSceneBitmap := TBitmap.Create(10, 10);
+      FBackgroundSceneBitmap := TBitmap.Create(size, size);
 
     FBackgroundSceneColor := Color;
     FBackgroundSceneBitmap.Canvas.BeginScene;
@@ -205,7 +206,7 @@ begin
           FBackgroundSceneBitmap.Canvas.Stroke.Kind := TBrushKind.Solid;
           FBackgroundSceneBitmap.Canvas.Stroke.Color := Color;
           FBackgroundSceneBitmap.Canvas.Stroke.Thickness := 1;
-          FBackgroundSceneBitmap.Canvas.DrawLine(PointF(0, 10), PointF(10, 0), 1);
+          FBackgroundSceneBitmap.Canvas.DrawLine(PointF(0, size), PointF(size, 0), 1);
         end;
 
         TBackgroundScene.BackSlash:
@@ -213,14 +214,49 @@ begin
           FBackgroundSceneBitmap.Canvas.Stroke.Kind := TBrushKind.Solid;
           FBackgroundSceneBitmap.Canvas.Stroke.Color := Color;
           FBackgroundSceneBitmap.Canvas.Stroke.Thickness := 1;
-          FBackgroundSceneBitmap.Canvas.DrawLine(PointF(0, 0), PointF(10, 10), 1);
+          FBackgroundSceneBitmap.Canvas.DrawLine(PointF(0, 0), PointF(size, size), 1);
         end;
 
         TBackgroundScene.Dots:
         begin
+          var point := Round(size / 2) - 2;
+
           FBackgroundSceneBitmap.Canvas.Fill.Kind := TBrushKind.Solid;
           FBackgroundSceneBitmap.Canvas.Fill.Color := Color;
-          FBackgroundSceneBitmap.Canvas.FillEllipse(RectF(3, 3, 7, 7), 1);
+          FBackgroundSceneBitmap.Canvas.FillEllipse(RectF(point, point, size - point, size - point), 1);
+        end;
+
+        TBackgroundScene.HBars:
+        begin
+          var point := Round(size / 2);
+
+          FBackgroundSceneBitmap.Canvas.Stroke.Kind := TBrushKind.Solid;
+          FBackgroundSceneBitmap.Canvas.Stroke.Color := Color;
+          FBackgroundSceneBitmap.Canvas.Stroke.Thickness := 1;
+          FBackgroundSceneBitmap.Canvas.DrawLine(PointF(0, point), PointF(point, point), 1);  // kind of slahhh
+        end;
+
+        TBackgroundScene.VBars:
+        begin
+          var point := Round(size / 2);
+
+          FBackgroundSceneBitmap.Canvas.Stroke.Kind := TBrushKind.Solid;
+          FBackgroundSceneBitmap.Canvas.Stroke.Color := Color;
+          FBackgroundSceneBitmap.Canvas.Stroke.Thickness := 1;
+          FBackgroundSceneBitmap.Canvas.DrawLine(PointF(point, 0), PointF(point, size), 1);
+        end;
+
+        TBackgroundScene.ArrowRight:
+        begin
+          var mid := size / 2;
+          var left := size * 0.25;
+          var right := size * 0.75;
+
+          FBackgroundSceneBitmap.Canvas.Stroke.Kind := TBrushKind.Solid;
+          FBackgroundSceneBitmap.Canvas.Stroke.Color := Color;
+          FBackgroundSceneBitmap.Canvas.Stroke.Thickness := 1;
+          FBackgroundSceneBitmap.Canvas.DrawLine(PointF(left, 3), PointF(right, mid), 1);
+          FBackgroundSceneBitmap.Canvas.DrawLine(PointF(right, mid), PointF(left, size - 3), 1);
         end;
       end;
     finally
