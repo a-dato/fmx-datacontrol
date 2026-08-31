@@ -2473,8 +2473,8 @@ begin
   else if (startIndex >= Count) then
     ThrowHelper.ThrowArgumentOutOfRangeException(ExceptionArgument.startIndex, ExceptionResource.ArgumentOutOfRange_Index);
 
-//  if ((count < 0) or (((startIndex - count) + 1) < 0)) then
-//    ThrowHelper.ThrowArgumentOutOfRangeException(ExceptionArgument.count, ExceptionResource.ArgumentOutOfRange_Count);
+  if ((count < 0) or (((startIndex - count) + 1) < 0)) then
+    ThrowHelper.ThrowArgumentOutOfRangeException(ExceptionArgument.count, ExceptionResource.ArgumentOutOfRange_Count);
 
   num := (startIndex - count);
   i := startIndex;
