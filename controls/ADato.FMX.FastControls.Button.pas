@@ -13,6 +13,8 @@ uses
   FMX.ImgList,
   FMX.ActnList,
   FMX.Types,
+  FMX.Controls,
+  FMX.Menus,
   FMX.Layouts,
   FMX.TabControl,
   FMX.Graphics,
@@ -27,6 +29,7 @@ uses
   Wasm.FMX.ImgList,
   Wasm.FMX.ActnList,
   Wasm.FMX.Types,
+  Wasm.FMX.Controls,
   Wasm.FMX.Layouts,
   Wasm.FMX.TabControl,
   Wasm.FMX.Graphics,
@@ -112,8 +115,13 @@ type
     function  HasImage: Boolean;
     function  HasButtonEvent: Boolean; virtual;
     function  HasSideButton: Boolean; virtual;
+    function  GetSideButtonSize: Single; virtual;
+    function  GetSideButtonMargin: Single; virtual;
+    function  GetSideHoverCorners: TCorners; virtual;
+    procedure PaintSideButton; virtual;
     function  MouseIsDown: Boolean; virtual; abstract;
     procedure PrepareCanvasForSubText; virtual;
+    function  OpticalTextYOffset(const FontSize: Single): Single;
 
     function  CreateConfig: TFastButtonConfig; virtual;
 
@@ -249,6 +257,13 @@ type
 
     _orgButtonType: TButtonType;
 
+    {$IFNDEF WEBASSEMBLY}
+    _sidePopup: TPopup;
+    _sidePopupMenu: TPopupMenu;
+    {$ENDIF}
+    _onSideClick: TNotifyEvent;
+    _sideClickPending: Boolean;
+
     procedure set_ButtonType(const Value: TButtonType);
     procedure set_EmphasizePicture(const Value: Boolean);
     procedure set_ShowUnderline(const Value: Boolean);
@@ -265,6 +280,11 @@ type
     procedure set_ContentHorzAlign(const Value: TTextAlign);
     procedure set_Images(const Value: TCustomImageList);
     procedure set_AdditionalText(const Value: CString);
+    {$IFNDEF WEBASSEMBLY}
+    procedure set_SidePopup(const Value: TPopup);
+    procedure set_SidePopupMenu(const Value: TPopupMenu);
+    {$ENDIF}
+    procedure set_OnSideClick(const Value: TNotifyEvent);
 
     procedure UnderlineAnimationTimer(Sender: TObject);
     procedure StartUnderlineAnimation;
@@ -274,7 +294,15 @@ type
     function  get_Images: TCustomImageList; override;
     function  get_Radius: Single; override;
     function  MouseIsDown: Boolean; override;
+    function  HasSideButton: Boolean; override;
+    function  GetSideButtonSize: Single; override;
+    function  GetSideButtonMargin: Single; override;
+    function  GetSideHoverCorners: TCorners; override;
+    procedure PaintSideButton; override;
+    procedure DoSideClick; virtual;
     procedure Click; override;
+    procedure MouseClick(Button: TMouseButton; Shift: TShiftState; X, Y: Single); override;
+    procedure Notification(AComponent: TComponent; Operation: TOperation); override;
 
     procedure Calculate; override;
     procedure DoPaint; override;
@@ -335,6 +363,12 @@ type
     property SwabTextSubText;
     property ImageName;
 
+    {$IFNDEF WEBASSEMBLY}
+    property SidePopup: TPopup read _sidePopup write set_SidePopup;
+    property SidePopupMenu: TPopupMenu read _sidePopupMenu write set_SidePopupMenu;
+    {$ENDIF}
+    property OnSideClick: TNotifyEvent read _onSideClick write set_OnSideClick;
+
     property OnEnter;
     property OnExit;
 
@@ -349,12 +383,10 @@ uses
   {$IFNDEF WEBASSEMBLY}
   System.Math,
   System.Actions,
-  FMX.Controls
   {$ELSE}
   Wasm.System.Math,
   Wasm.System.Actions,
-  Wasm.FMX.Controls
-  {$ENDIF},
+  {$ENDIF}
   FMX.ScrollControl.ControlClasses;
 
 const
@@ -402,6 +434,21 @@ end;
 function TADatoClickLayout.HasSideButton: Boolean;
 begin
   Result := False;
+end;
+
+function TADatoClickLayout.GetSideButtonSize: Single;
+begin
+  Result := 12;
+end;
+
+function TADatoClickLayout.GetSideButtonMargin: Single;
+begin
+  Result := 9;
+end;
+
+function TADatoClickLayout.GetSideHoverCorners: TCorners;
+begin
+  Result := AllCorners;
 end;
 
 function TADatoClickLayout.HasSubText: Boolean;
@@ -476,11 +523,11 @@ begin
   end;
   var h := totalTextsHeight;
 
-  var sideButtonSize := 12;
-  var sideButtonMargin := 0;
+  var sideButtonSize := GetSideButtonSize;
+  var sideButtonMargin := 0.0;
   if HasSideButton then
   begin
-    sideButtonMargin := 9;
+    sideButtonMargin := GetSideButtonMargin;
     w := w + sideButtonSize + sideButtonMargin {margin};
   end;
 
@@ -597,18 +644,21 @@ begin
   begin
     if not HasImage then
     begin
-      var topOffSet := IfThen(HasSubText, (h - totalTextsHeight) / 2, (h - textHeight)/2);
-      _textBounds := RectF(offSet, topOffSet, offSet + wLeft, topOffSet + textHeight)
+      var topOffSet := IfThen(HasSubText, (h - totalTextsHeight) / 2, 0);
+      var textH := IfThen(HasSubText, textHeight, h);
+      _textBounds := RectF(offSet, topOffSet, offSet + wLeft, topOffSet + textH)
     end
     else if _config.ImagePosition = TImagePosition.Left then
     begin
-      var topOffSet := IfThen(HasSubText, (h - totalTextsHeight) / 2, (h - textHeight)/2);
-      _textBounds := RectF(_imageBounds.Right + _config.ImagePositionMargin, topOffSet, _imageBounds.Right + _config.ImagePositionMargin + wLeft, topOffSet + textHeight)
+      var topOffSet := IfThen(HasSubText, (h - totalTextsHeight) / 2, 0);
+      var textH := IfThen(HasSubText, textHeight, h);
+      _textBounds := RectF(_imageBounds.Right + _config.ImagePositionMargin, topOffSet, _imageBounds.Right + _config.ImagePositionMargin + wLeft, topOffSet + textH)
     end
     else if _config.ImagePosition = TImagePosition.Right then
     begin
-      var topOffSet := IfThen(HasSubText, (h - totalTextsHeight) / 2, (h - textHeight)/2);
-      _textBounds := RectF(offSet, topOffSet, _imageBounds.Left - _config.ImagePositionMargin, topOffSet + textHeight)
+      var topOffSet := IfThen(HasSubText, (h - totalTextsHeight) / 2, 0);
+      var textH := IfThen(HasSubText, textHeight, h);
+      _textBounds := RectF(offSet, topOffSet, _imageBounds.Left - _config.ImagePositionMargin, topOffSet + textH)
     end
     else if _config.ImagePosition = TImagePosition.Top then
       _textBounds := RectF(offSet, _imageBounds.Bottom + _config.ImagePositionMargin, offSet + wLeft, _imageBounds.Bottom + _config.ImagePositionMargin + textHeight)
@@ -822,8 +872,8 @@ begin
   var bounds := BoundsRect;
   var localY := (bounds.Height / 2) + 10;
 
-  if _innerBounds.Bottom + 2 > localY then
-    localY := _innerBounds.Bottom + 2;
+  if _innerBounds.Bottom - 2 > localY then
+    localY := _innerBounds.Bottom - 2;
 
   var y := localY + bounds.Top;
 
@@ -928,6 +978,24 @@ begin
   {$ENDIF}
 end;
 
+procedure TADatoClickLayout.PaintSideButton;
+begin
+  var bounds := ConvertedBounds(_sideBounds, True, True);
+
+  var marg := 3;
+  Canvas.Stroke.Kind := TBrushKind.Solid;
+  Canvas.Stroke.Color := TAlphaColors.Black;
+  Canvas.DrawLine(PointF(bounds.Left+marg, bounds.Top+marg), PointF(bounds.Right-marg, bounds.Bottom-marg), GetPaintOpacity);
+  Canvas.DrawLine(PointF(bounds.Left+marg, bounds.Bottom-marg), PointF(bounds.Right-marg, bounds.Top+marg), GetPaintOpacity);
+end;
+
+function TADatoClickLayout.OpticalTextYOffset(const FontSize: Single): Single;
+begin
+  // FMX FillText leaves extra internal leading above the glyphs and almost
+  // none below, so optically centered text sits too low next to icons.
+  Result := FontSize * 0.08;
+end;
+
 procedure TADatoClickLayout.PrepareCanvasForSubText;
 begin
   Canvas.Fill.Color := TAlphaColors.Lightslategray;
@@ -971,7 +1039,9 @@ begin
     Canvas.Fill.Color := BUTTON_HOVER_COLOR;
 
     if _hoverSide then
-      Canvas.FillRect(_sideBounds, get_Radius, get_Radius, AllCorners, GetPaintOpacity * IfThen(MouseIsDown, 0.6, 1))
+      Canvas.FillRect(_sideBounds, get_Radius, get_Radius, GetSideHoverCorners, GetPaintOpacity * IfThen(MouseIsDown, 0.6, 1))
+    else if HasSideButton then
+      Canvas.FillRect(outerRect, get_Radius, get_Radius, AllCorners, GetPaintOpacity * IfThen(MouseIsDown, 0.6, 1))
     else if get_TagType = TTagType.SignPost then
       Canvas.FillPolygon(_polygon, GetPaintOpacity * IfThen(MouseIsDown, 0.6, 1))
     else if get_TagType = TTagType.RoundPost then
@@ -998,7 +1068,13 @@ begin
         fontColor := TAlphaColors.Slategray;
 
       Canvas.Fill.Color := fontColor;
-      Canvas.FillText(bounds, Text, False, GetPaintOpacity, [], horzAlign, TTextAlign.Leading);
+      bounds.Offset(0, -OpticalTextYOffset(_config.FontSize));
+      Canvas.FillText(bounds, Text, False, GetPaintOpacity, [], horzAlign, TTextAlign.Center);
+
+//      {$IFDEF DEBUG}
+//      Self.Canvas.Fill.Color := TAlphaColors.Mediumpurple;
+//      Self.Canvas.FillRect(bounds, 0.2);
+//      {$ENDIF}
     end;
 
     if HasSubText then
@@ -1006,6 +1082,7 @@ begin
       var bounds := ConvertedBounds(_subTextBounds, False, True, CMath.Max(_textBounds.Width - _subTextBounds.Width, 0));
 
       PrepareCanvasForSubText;
+      bounds.Offset(0, -OpticalTextYOffset(Canvas.Font.Size));
       Canvas.FillText(bounds, SubText, False, GetPaintOpacity, [], horzAlign, TTextAlign.Leading);
     end;
   end;
@@ -1014,14 +1091,7 @@ begin
     PaintBitmap;
 
   if HasSideButton then
-  begin
-    var bounds := ConvertedBounds(_sideBounds, True, True);
-
-    var marg := 3;
-    Canvas.Stroke.Color := TAlphaColors.Black;
-    Canvas.DrawLine(PointF(bounds.Left+marg, bounds.Top+marg), PointF(bounds.Right-marg, bounds.Bottom-marg), GetPaintOpacity);
-    Canvas.DrawLine(PointF(bounds.Left+marg, bounds.Bottom-marg), PointF(bounds.Right-marg, bounds.Top+marg), GetPaintOpacity);
-  end;
+    PaintSideButton;
 
   if _innerStrokeColor <> TAlphaColors.Null then
   begin
@@ -1086,13 +1156,32 @@ begin
 
     var heightAvailable := Height - Padding.Top - Padding.Bottom;
     SetTopPadding(System.Math.Max(0, (heightAvailable - InnerBounds.Height)/2));
+
+    if HasSideButton then
+    begin
+      var sideWidth := _sideBounds.Width;
+      if sideWidth <= 0 then
+        sideWidth := GetSideButtonSize;
+
+      if _buttonType = TButtonType.None then
+        _sideBounds := RectF(Width - sideWidth, 0, Width, Height)
+      else
+      begin
+        sideWidth := System.Math.Max(sideWidth + GetSideButtonMargin, 22);
+        _sideBounds := RectF(Width - sideWidth, 0, Width, Height);
+      end;
+    end;
   end;
 end;
 
 function TFastButton.CalcWidth: Single;
 begin
   ControlLoadedCalculate;
-  Result := _innerBounds.Width + (2*GetSidePadding);
+  Result := _innerBounds.Width + GetSidePadding;
+  if HasSideButton and (_buttonType = TButtonType.None) then
+    Result := Result - Padding.Right
+  else
+    Result := Result + GetSidePadding;
 end;
 
 constructor TFastButton.Create(AOwner: TComponent);
@@ -1174,8 +1263,16 @@ begin
 
   if _hover and (get_TagType = TTagType.NoBounds) then
   begin
+    var hoverRect := RectF(0, 0, Width, Height);
+    var hoverCorners := AllCorners;
+    if HasSideButton and _hoverSide then
+    begin
+      hoverRect := _sideBounds;
+      hoverCorners := GetSideHoverCorners;
+    end;
+
     Canvas.Fill.Color := DEFAULT_ROW_HOVER_COLOR;
-    Canvas.FillRect(RectF(0, 0, Width, Height), get_Radius, get_Radius, AllCorners, AbsoluteOpacity * IfThen(MouseIsDown, 0.8, 1));
+    Canvas.FillRect(hoverRect, get_Radius, get_Radius, hoverCorners, AbsoluteOpacity * IfThen(MouseIsDown, 0.8, 1));
   end;
 
   inherited;
@@ -1404,7 +1501,11 @@ end;
 
 procedure TFastButton.MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Single);
 begin
+  if ShouldRecalculate then
+    Calculate;
+
   _mouseIsDown := True;
+  _sideClickPending := HasSideButton and _sideBounds.Contains(PointF(X, Y));
   inherited;
 
   RepaintNeeded;
@@ -1417,6 +1518,24 @@ end;
 
 procedure TFastButton.Click;
 begin
+  if _sideClickPending then
+    Exit;
+
+  inherited;
+end;
+
+procedure TFastButton.MouseClick(Button: TMouseButton; Shift: TShiftState; X, Y: Single);
+begin
+  if ShouldRecalculate then
+    Calculate;
+
+  if HasSideButton and _sideBounds.Contains(PointF(X, Y)) then
+  begin
+    if AbsoluteEnabled and (Button = TMouseButton.mbLeft) then
+      DoSideClick;
+    Exit;
+  end;
+
   inherited;
 end;
 
@@ -1424,9 +1543,11 @@ procedure TFastButton.MouseMove(Shift: TShiftState; X, Y: Single);
 begin
   inherited;
 
-  if not _hover and Self.Enabled then
+  var onSide := HasSideButton and _sideBounds.Contains(PointF(X, Y));
+  if not _hover or (_hoverSide <> onSide) then
   begin
     _hover := True;
+    _hoverSide := onSide;
     RepaintNeeded;
   end;
 end;
@@ -1438,10 +1559,11 @@ begin
   _mouseIsDown := False;
 
   {$IFNDEF WEBASSEMBLY}
-  if not Assigned(Self.OnClick) and (Action <> nil) and Assigned(Action.OnExecute) then
+  if not _sideClickPending and not Assigned(Self.OnClick) and (Action <> nil) and Assigned(Action.OnExecute) then
     Action.Execute;
   {$ENDIF}
 
+  _sideClickPending := False;
   RepaintNeeded;
 end;
 
@@ -1464,7 +1586,162 @@ begin
   inherited;
   _mouseIsDown := False;
   _hover := False;
+  _hoverSide := False;
+  _sideClickPending := False;
   RepaintNeeded;
+end;
+
+function TFastButton.HasSideButton: Boolean;
+begin
+  Result := Assigned(_onSideClick)
+    {$IFNDEF WEBASSEMBLY}
+    or (_sidePopup <> nil)
+    or (_sidePopupMenu <> nil)
+    {$ENDIF};
+end;
+
+function TFastButton.GetSideButtonSize: Single;
+begin
+  if _buttonType = TButtonType.None then
+    Result := 10
+  else
+    Result := 16;
+end;
+
+function TFastButton.GetSideButtonMargin: Single;
+begin
+  if _buttonType = TButtonType.None then
+    Result := 1
+  else
+    Result := 4;
+end;
+
+function TFastButton.GetSideHoverCorners: TCorners;
+begin
+  Result := [TCorner.TopRight, TCorner.BottomRight];
+end;
+
+procedure TFastButton.PaintSideButton;
+begin
+  var bounds := _sideBounds;
+  if bounds.IsEmpty then
+    Exit;
+
+  var opacity := GetPaintOpacity;
+  var strokeColor := _config.FontColor;
+  if strokeColor = TAlphaColors.Null then
+    strokeColor := TAlphaColors.Grey;
+
+  Canvas.Stroke.Kind := TBrushKind.Solid;
+  Canvas.Stroke.Color := strokeColor;
+
+  if (_buttonType <> TButtonType.None) and (_hoverSide or not _hover) then
+  begin
+    var yStart := CMath.Max(0, (bounds.Height / 2) - 5);
+    Canvas.Stroke.Thickness := 1;
+    Canvas.DrawLine(PointF(bounds.Left, bounds.Top + yStart), PointF(bounds.Left, bounds.Bottom - yStart), opacity * 0.45);
+  end;
+
+  var cx := bounds.CenterPoint.X;
+  var cy := bounds.CenterPoint.Y + 0.5;
+  var chevronW := 3;
+  var chevronH := 1.5;
+  Canvas.Stroke.Thickness := 1;
+  Canvas.DrawLine(PointF(cx - chevronW, cy - chevronH), PointF(cx, cy + chevronH), opacity);
+  Canvas.DrawLine(PointF(cx + chevronW, cy - chevronH), PointF(cx, cy + chevronH), opacity);
+end;
+
+procedure TFastButton.DoSideClick;
+begin
+  {$IFNDEF WEBASSEMBLY}
+  var wasOpen := (_sidePopup <> nil) and _sidePopup.IsOpen;
+  {$ENDIF}
+
+  if Assigned(_onSideClick) then
+    _onSideClick(Self);
+
+  {$IFNDEF WEBASSEMBLY}
+  if _sidePopup <> nil then
+  begin
+    // OnSideClick may already have opened or closed the popup
+    if _sidePopup.IsOpen = wasOpen then
+    begin
+      _sidePopup.PlacementTarget := Self;
+      _sidePopup.IsOpen := not wasOpen;
+    end;
+    Exit;
+  end;
+
+  if _sidePopupMenu <> nil then
+  begin
+    var point := LocalToScreen(PointF(0, Height));
+    _sidePopupMenu.Popup(point.X, point.Y);
+  end;
+  {$ENDIF}
+end;
+
+{$IFNDEF WEBASSEMBLY}
+procedure TFastButton.set_SidePopup(const Value: TPopup);
+begin
+  if _sidePopup = Value then
+    Exit;
+
+  if _sidePopup <> nil then
+    _sidePopup.RemoveFreeNotification(Self);
+
+  _sidePopup := Value;
+
+  if _sidePopup <> nil then
+    _sidePopup.FreeNotification(Self);
+
+  RecalcNeeded;
+end;
+
+procedure TFastButton.set_SidePopupMenu(const Value: TPopupMenu);
+begin
+  if _sidePopupMenu = Value then
+    Exit;
+
+  if _sidePopupMenu <> nil then
+    _sidePopupMenu.RemoveFreeNotification(Self);
+
+  _sidePopupMenu := Value;
+
+  if _sidePopupMenu <> nil then
+    _sidePopupMenu.FreeNotification(Self);
+
+  RecalcNeeded;
+end;
+{$ENDIF}
+
+procedure TFastButton.set_OnSideClick(const Value: TNotifyEvent);
+begin
+  if TMethod(_onSideClick) = TMethod(Value) then
+    Exit;
+
+  _onSideClick := Value;
+  RecalcNeeded;
+end;
+
+procedure TFastButton.Notification(AComponent: TComponent; Operation: TOperation);
+begin
+  inherited;
+
+  {$IFNDEF WEBASSEMBLY}
+  if Operation = opRemove then
+  begin
+    if AComponent = _sidePopup then
+    begin
+      _sidePopup := nil;
+      RecalcNeeded;
+    end
+    else if AComponent = _sidePopupMenu then
+    begin
+      _sidePopupMenu := nil;
+      RecalcNeeded;
+    end;
+  end;
+  {$ENDIF}
 end;
 
 procedure TFastButton.set_ButtonType(const Value: TButtonType);
@@ -1473,7 +1750,10 @@ begin
   begin
     _ButtonType := Value;
     _orgButtonType := Value;
-    RepaintNeeded;
+    if HasSideButton then
+      RecalcNeeded
+    else
+      RepaintNeeded;
   end;
 end;
 
