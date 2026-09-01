@@ -213,6 +213,7 @@ type
     procedure ApplyAutoSize; override;
 
     function  CalculateTextXPos: Single;
+    function  CalculateContentYPos: Single;
     function  CalculateTextYPos: Single;
     function  CalculateTagVerticalMargin: Single;
     function  HasImage: Boolean;
@@ -356,7 +357,7 @@ type
 const
   TAG_VERT_MARGIN = 3.0;
   TAG_HORZ_MARGIN = 6.0;
-  IMAGE_TEXT_MARGIN = 10.0;
+  IMAGE_TEXT_MARGIN = 5.0;
 
 var
   {$IFDEF MSWINDOWS}
@@ -507,19 +508,23 @@ begin
   end;
 end;
 
-function TFastText.CalculateTextYPos: Single;
+function TFastText.CalculateContentYPos: Single;
 begin
   var totHeight := CMath.Max(_textBounds.Height, IfThen(HasImage, _imageSizeInt, 0));
   var tagVerticalMargin := CalculateTagVerticalMargin;
-  var contentY: Single;
-//  Result := Padding.Top;
   case get_VertTextAlign of
-    TTextAlign.Center: contentY := (Self.Height - totHeight - _internalBottomPadding) / 2;
-    TTextAlign.Leading: contentY := Padding.Top + tagVerticalMargin;
-    TTextAlign.Trailing: contentY := Self.Height - totHeight - Padding.Bottom - _internalBottomPadding - tagVerticalMargin;
+    TTextAlign.Center: Result := (Self.Height - totHeight - _internalBottomPadding) / 2;
+    TTextAlign.Leading: Result := Padding.Top + tagVerticalMargin;
+    TTextAlign.Trailing: Result := Self.Height - totHeight - Padding.Bottom - _internalBottomPadding - tagVerticalMargin;
+  else
+    Result := Padding.Top + tagVerticalMargin;
   end;
+end;
 
-  Result := contentY + CMath.Max(0, (totHeight - _textBounds.Height) / 2);
+function TFastText.CalculateTextYPos: Single;
+begin
+  var totHeight := CMath.Max(_textBounds.Height, IfThen(HasImage, _imageSizeInt, 0));
+  Result := CalculateContentYPos + CMath.Max(0, (totHeight - _textBounds.Height) / 2);
 end;
 
 procedure TFastText.CalculateImageBounds;
@@ -531,16 +536,10 @@ begin
   end;
 
   var imageLeft := CalculateTextXPos - _imageSizeInt - ImageTextMargin;
-  var tagVerticalMargin := CalculateTagVerticalMargin;
+  var totHeight := CMath.Max(_textBounds.Height, _imageSizeInt);
+  var imageY := CalculateContentYPos + CMath.Max(0, (totHeight - _imageSizeInt) / 2);
 
-  var contentY: Single;
-  case get_VertTextAlign of
-    TTextAlign.Center: contentY := Padding.Top + (Self.Height - 2*CalculateTagVerticalMargin - Padding.Top - Padding.Bottom - _imageSizeInt - _internalBottomPadding) / 2;
-    TTextAlign.Leading: contentY := Padding.Top + tagVerticalMargin;
-    TTextAlign.Trailing: contentY := Self.Height - _imageSizeInt - Padding.Bottom - _internalBottomPadding - tagVerticalMargin;
-  end;
-
-  _imageBounds := RectF(imageLeft, contentY, imageLeft + _imageSizeInt, contentY + _imageSizeInt);
+  _imageBounds := RectF(imageLeft, imageY, imageLeft + _imageSizeInt, imageY + _imageSizeInt);
 end;
 
 function TFastText.CalculateTagVerticalMargin: Single;
