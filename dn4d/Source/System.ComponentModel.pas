@@ -11,7 +11,11 @@ uses
   // Dialogs,
   System_,
   System.Collections,
-  System.Runtime.Serialization;
+  System.Runtime.Serialization
+  {$IFDEF APP_PLATFORM_MD}
+  , app.TypeMetadata
+  {$ENDIF}
+  ;
 
 type
   {$M+}
@@ -27,10 +31,28 @@ type
     procedure EndNew(itemIndex: Integer);
   end;
 
+  {$IFDEF APP_PLATFORM_MD}
+  [TBehaviorAttribute(
+    'EditableObject',
+    'Puts an object into edit mode so property assignments are accepted, then commits or rolls them back.',
+    'Required when changing properties of an existing task in a loaded project; assignments outside BeginEdit/EndEdit are rejected with an "Edit mode not set" error. Newly created objects can be configured directly before they are added to their owning collection.')]
+  {$ENDIF}
   IEditableObject = interface(IBaseInterface)
     ['{A8187702-0663-4648-8D3D-6EA1ED05EAEB}']
+    {$IFDEF APP_PLATFORM_MD}
+    [TMethodMetadataAttribute('Puts the object into edit mode so its properties can be assigned.',
+                              'Call BeginEdit before assigning properties of an existing task, then commit with EndEdit.')]
+    {$ENDIF}
     procedure BeginEdit;
+    {$IFDEF APP_PLATFORM_MD}
+    [TMethodMetadataAttribute('Discards the property changes made since BeginEdit and leaves edit mode.',
+                              'Call instead of EndEdit when an assignment fails and the changes must be rolled back.')]
+    {$ENDIF}
     procedure CancelEdit;
+    {$IFDEF APP_PLATFORM_MD}
+    [TMethodMetadataAttribute('Commits the property changes made since BeginEdit and leaves edit mode.',
+                              'Pair every BeginEdit with EndEdit, calling CancelEdit on failure instead.')]
+    {$ENDIF}
     procedure EndEdit;
   end;
 
