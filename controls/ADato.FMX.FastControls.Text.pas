@@ -575,7 +575,8 @@ begin
     _layout.TopLeft := PointF(CalculateTextXPos, CalculateTextYPos);
     CalculateImageBounds;
 
-    var maxW := CMath.Min(_textBounds.Width + Padding.Left + Padding.Right, Self.Width - _layout.TopLeft.X);
+    // Keep room for the tag's right margin, otherwise a trimmed text pushes the tag outside the control bounds
+    var maxW := CMath.Min(_textBounds.Width + Padding.Left + Padding.Right, Self.Width - _layout.TopLeft.X - IfThen(_showTag, TAG_HORZ_MARGIN, 0));
     var maxH := CMath.Min(_textBounds.Height + Self.Padding.Top + Self.Padding.Bottom, Self.Height - _layout.TopLeft.Y);
 
     _layout.MaxSize := PointF(maxW, maxH);
