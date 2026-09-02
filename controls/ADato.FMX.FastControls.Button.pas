@@ -116,7 +116,7 @@ type
     function  HasButtonEvent: Boolean; virtual;
     function  HasSideButton: Boolean; virtual;
     function  GetSideButtonSize: Single; virtual;
-    function  GetSideButtonMargin: Single; virtual;
+    function  GetSideButtonMargin: Single;
     function  GetSideHoverCorners: TCorners; virtual;
     procedure PaintSideButton; virtual;
     function  MouseIsDown: Boolean; virtual; abstract;
@@ -296,7 +296,6 @@ type
     function  MouseIsDown: Boolean; override;
     function  HasSideButton: Boolean; override;
     function  GetSideButtonSize: Single; override;
-    function  GetSideButtonMargin: Single; override;
     function  GetSideHoverCorners: TCorners; override;
     procedure PaintSideButton; override;
     procedure DoSideClick; virtual;
@@ -443,7 +442,7 @@ end;
 
 function TADatoClickLayout.GetSideButtonMargin: Single;
 begin
-  Result := 9;
+  Result := 4;
 end;
 
 function TADatoClickLayout.GetSideHoverCorners: TCorners;
@@ -525,10 +524,12 @@ begin
 
   var sideButtonSize := GetSideButtonSize;
   var sideButtonMargin := 0.0;
+  var sideReserve := 0.0;
   if HasSideButton then
   begin
     sideButtonMargin := GetSideButtonMargin;
-    w := w + sideButtonSize + sideButtonMargin {margin};
+    sideReserve := sideButtonSize + sideButtonMargin;
+    w := w + sideReserve;
   end;
 
   var offset: Single := 0;
@@ -614,19 +615,20 @@ begin
       end;
       TImagePosition.Right: begin
         var topBottomPadding := System.Math.Max(0, (h - imgSize) / 2);
-        _imageBounds := RectF(_innerBounds.Right - imgSize - Padding.Right, topBottomPadding, _innerBounds.Right - Padding.Right, h-topBottomPadding);
+        var imgRight := _innerBounds.Right - Padding.Right - sideReserve;
+        _imageBounds := RectF(imgRight - imgSize, topBottomPadding, imgRight, h-topBottomPadding);
         wLeft := wLeft - _imageBounds.Width - _config.ImagePositionMargin;
       end;
       TImagePosition.Top: begin
-        var xStart := leftOffset + (w-imgSize)/2;
+        var xStart := leftOffset + (wLeft-imgSize)/2;
         _imageBounds := RectF(xStart, Padding.Top, xStart + imgSize, Padding.Top + imgSize);
       end;
       TImagePosition.Bottom: begin
-        var xStart := leftOffset + (w-imgSize)/2;
+        var xStart := leftOffset + (wLeft-imgSize)/2;
         _imageBounds := RectF(xStart, _innerBounds.Bottom - imgSize - Padding.Bottom, xStart + imgSize, _innerBounds.Bottom - Padding.Bottom);
       end;
       TImagePosition.Center: begin
-        var xStart := leftOffset + (w-imgSize)/2;
+        var xStart := leftOffset + (wLeft-imgSize)/2;
         var yStart := System.Math.Max(0, (h-imgSize) / 2);
         _imageBounds := RectF(xStart, yStart, xStart + imgSize, yStart + imgSize);
       end;
@@ -870,10 +872,10 @@ end;
 function TADatoClickLayout.GetUnderline(LocalUnderlinePoints: Boolean = False): TADatoLineF;
 begin
   var bounds := BoundsRect;
-  var localY := (bounds.Height / 2) + 10;
+  var localY: Single := (bounds.Height / 2) + 10;
 
-  if _innerBounds.Bottom - 2 > localY then
-    localY := _innerBounds.Bottom - 2;
+  // Prefer the underline just below the inner bounds, if it fits inside the button
+  localY := Min(Max(localY, _innerBounds.Bottom + 2), bounds.Height - bounds.Top - 3);
 
   var y := localY + bounds.Top;
 
@@ -1063,7 +1065,7 @@ begin
       var bounds := ConvertedBounds(_textBounds, False, True, CMath.Max(_subTextBounds.Width - _textBounds.Width, 0));
 
       var fontColor := _config.FontColor;
-      var isHoverVisible := (_hover or _hoverSide) and (HitTest or _parentHitTest);
+     var isHoverVisible := (_hover or _hoverSide) and (HitTest or _parentHitTest);
       if isHoverVisible and not HasSufficientContrast(fontColor, BUTTON_HOVER_COLOR) then
         fontColor := TAlphaColors.Slategray;
 
@@ -1143,15 +1145,34 @@ begin
   begin
     inherited;
 
-    var innerPadding := GetSidePadding;
-    var horzAlign := get_ContentHorzAlign;
-    if ((Width - InnerBounds.Width) / 2) < innerPadding then
-      horzAlign := TTextAlign.Center;
+    // Framed buttons get a "split button" look: the side part is pinned to the
+    // right edge (with a separator) and the content is centered in what's left.
+    // Plain buttons put the side button flush against the right edge with the
+    // content directly next to it, so the gap between content and chevron does
+    // not grow with the button width.
+    var pinnedSideWidth := 0.0;
+    var contentWidth := InnerBounds.Width;
+    if HasSideButton and (_buttonType <> TButtonType.None) then
+    begin
+      pinnedSideWidth := System.Math.Max(GetSideButtonSize + GetSideButtonMargin, 22);
+      contentWidth := contentWidth - GetSideButtonSize - GetSideButtonMargin;
+    end;
 
-    case horzAlign of
-      TTextAlign.Center: SetLeftPadding((Width - InnerBounds.Width) / 2);
-      TTextAlign.Leading: SetLeftPadding(innerPadding);
-      TTextAlign.Trailing: SetLeftPadding(Width - InnerBounds.Width - innerPadding);
+    if HasSideButton and (pinnedSideWidth = 0) then
+      SetLeftPadding(System.Math.Max(0, Width - InnerBounds.Width))
+    else
+    begin
+      var availableWidth := Width - pinnedSideWidth;
+      var innerPadding := GetSidePadding;
+      var horzAlign := get_ContentHorzAlign;
+      if ((availableWidth - contentWidth) / 2) < innerPadding then
+        horzAlign := TTextAlign.Center;
+
+      case horzAlign of
+        TTextAlign.Center: SetLeftPadding(System.Math.Max(0, (availableWidth - contentWidth) / 2));
+        TTextAlign.Leading: SetLeftPadding(innerPadding);
+        TTextAlign.Trailing: SetLeftPadding(System.Math.Max(0, availableWidth - contentWidth - innerPadding));
+      end;
     end;
 
     var heightAvailable := Height - Padding.Top - Padding.Bottom;
@@ -1159,17 +1180,9 @@ begin
 
     if HasSideButton then
     begin
-      var sideWidth := _sideBounds.Width;
-      if sideWidth <= 0 then
-        sideWidth := GetSideButtonSize;
-
-      if _buttonType = TButtonType.None then
-        _sideBounds := RectF(Width - sideWidth, 0, Width, Height)
-      else
-      begin
-        sideWidth := System.Math.Max(sideWidth + GetSideButtonMargin, 22);
-        _sideBounds := RectF(Width - sideWidth, 0, Width, Height);
-      end;
+      if pinnedSideWidth > 0 then
+        _sideBounds := RectF(Width - pinnedSideWidth, 0, Width, Height) else
+        _sideBounds := RectF(_sideBounds.Left, 0, _sideBounds.Right, Height);
     end;
   end;
 end;
@@ -1603,17 +1616,8 @@ end;
 function TFastButton.GetSideButtonSize: Single;
 begin
   if _buttonType = TButtonType.None then
-    Result := 10
-  else
+    Result := 16 else
     Result := 16;
-end;
-
-function TFastButton.GetSideButtonMargin: Single;
-begin
-  if _buttonType = TButtonType.None then
-    Result := 1
-  else
-    Result := 4;
 end;
 
 function TFastButton.GetSideHoverCorners: TCorners;
@@ -1644,8 +1648,8 @@ begin
 
   var cx := bounds.CenterPoint.X;
   var cy := bounds.CenterPoint.Y + 0.5;
-  var chevronW := 3;
-  var chevronH := 1.5;
+  var chevronW := 2.5;
+  var chevronH := 1.25;
   Canvas.Stroke.Thickness := 1;
   Canvas.DrawLine(PointF(cx - chevronW, cy - chevronH), PointF(cx, cy + chevronH), opacity);
   Canvas.DrawLine(PointF(cx + chevronW, cy - chevronH), PointF(cx, cy + chevronH), opacity);

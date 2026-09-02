@@ -1008,6 +1008,7 @@ uses
   System.ClassHelpers,
   FMX.Ani,
   FMX.ScrollControl.WithCells.PopupMenu,
+  FMX.ScrollControl.WithCells.PopupImages,
   System.Rtti,
   System.TypInfo,
   {$ELSE}
@@ -4212,11 +4213,8 @@ end;
 procedure TScrollControlWithCells.GetSortAndFilterImages(out ImageList: TCustomImageList; out FilterIndex, SortAscIndex, SortDescIndex: Integer);
 begin
   {$IFNDEF WEBASSEMBLY}
-  if _frmHeaderPopupMenu = nil then
-    _frmHeaderPopupMenu := TfrmFMXPopupMenuDataControl.Create(Self);
-
-  var popUpFrm := (_frmHeaderPopupMenu as TfrmFMXPopupMenuDataControl);
-  ImageList := popUpFrm.ImageListPopup;
+  // Shared image list; the popup form itself is only created when the header menu is actually opened
+  ImageList := TdmDataControlPopupImages.Instance.ImageListPopup;
   FilterIndex := 4;
   SortAscIndex := 0;
   SortDescIndex := 1;
