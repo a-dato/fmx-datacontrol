@@ -67,6 +67,7 @@ type
     lbiClearFilter: TListBoxItem;
     lbiClearSortAndFilter: TListBoxItem;
     lbiHideColumn: TListBoxItem;
+    ImageListPopup: TImageList;
     lbiDelimiter: TListBoxItem;
     lbiAddColumnAfter: TListBoxItem;
     lbiDelimiter2: TListBoxItem;
@@ -155,8 +156,7 @@ implementation
 
 uses
   FMX.ScrollControl.SortAndFilter,
-  FMX.ScrollControl.WithRows.Intf,
-  FMX.ScrollControl.WithCells.PopupImages;
+  FMX.ScrollControl.WithRows.Intf;
 
 {$R *.fmx}
 
@@ -211,9 +211,6 @@ begin
   _PopupResult := TPopupResult.ptCancel;
 
   Timer1.Enabled := True;
-
-  if PopupListBox.Images = nil then
-    PopupListBox.Images := TdmDataControlPopupImages.Instance.ImageListPopup;
 
   PopupListBox.StylesData['background.Visible'] := False;
   btnApplyFilters.Enabled := False;
