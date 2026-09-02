@@ -2423,12 +2423,16 @@ type
   ICustomProperty = interface(IBaseInterface)
     ['{19DBB23D-F780-460A-86FE-2934DCF56CF5}']
     function  get_DisplayName: CString;
+    function  get_Format: CString;
+    procedure set_Format(const Value: CString);
     function  get_ReadOnly: Boolean;
     function  get_Tag: CObject;
+    procedure set_Tag(const Value: CObject);
 
     property DisplayName: CString read get_DisplayName;
+    property Format: CString read get_Format write set_Format;
     property ReadOnly: Boolean read get_ReadOnly;
-    property Tag: CObject read get_tag;
+    property Tag: CObject read get_tag write set_Tag;
   end;
 
   CustomProperty = class(CPropertyInfo, ICustomProperty)
@@ -2440,6 +2444,7 @@ type
 
     _name: CObject;
     _displayName: CString;
+    _format: CString;
     _tag: CObject;
     _trigger: CString;
 
@@ -2447,8 +2452,11 @@ type
     function  get_CanWrite: Boolean; override;
     function  get_Name: CString; override;
     function  get_DisplayName: CString;
+    function  get_Format: CString;
+    procedure set_Format(const Value: CString);
     function  get_ReadOnly: Boolean;
     function  get_Tag: CObject;
+    procedure set_Tag(const Value: CObject);
 
     function  GetValue(const obj: CObject; const index: array of CObject): CObject; override;
     procedure SetValue(const obj: CObject; const value: CObject; const index: array of CObject; ExecuteTriggers: Boolean); override;
@@ -2465,6 +2473,7 @@ type
 
     property Name: CString read get_Name;
     property DisplayName: CString read get_DisplayName;
+    property Format: CString read get_Format write set_Format;
     property IsUserDefined: Boolean read  _IsUserDefined write _IsUserDefined;
     property Tag: CObject read  get_Tag write _tag;
     property Required: Boolean read _required write _required;
@@ -3524,6 +3533,16 @@ begin
   Result := _displayName;
 end;
 
+function CustomProperty.get_Format: CString;
+begin
+  Result := _format;
+end;
+
+procedure CustomProperty.set_Format(const Value: CString);
+begin
+  _format := Value;
+end;
+
 function CustomProperty.get_ReadOnly: Boolean;
 begin
   Result := _readOnly;
@@ -3532,6 +3551,11 @@ end;
 function CustomProperty.get_Tag: CObject;
 begin
   Result := _Tag;
+end;
+
+procedure CustomProperty.set_Tag(const Value: CObject);
+begin
+  _Tag := Value;
 end;
 
 function CustomProperty.get_Name: CString;
@@ -10908,6 +10932,13 @@ begin
 end;
 
 function CDouble.ToString(const formatString: CString; const provider: IFormatProvider): CString;
+
+  function Decimals(const D: Integer) : Integer;
+  begin
+    if (formatString.Length <= 1) or not CInteger.TryParse(formatString.Substring(1), Result) then
+      Result := D;
+  end;
+
 begin
   if CString.IsNullOrEmpty(formatString) and (provider = nil) then
     Exit(FloatToStr(_value));
@@ -10919,13 +10950,10 @@ begin
     Exit(Format('%d', [Round(_value)]));
   if (c = 'f') or (c = 'F') then
   begin
-    var decimals: Integer := 2;
-    if (formatString.Length > 1) then
-      CInteger.TryParse(formatString.Substring(1), decimals);
-    Exit(FloatToStrF(_value, ffFixed, 8, decimals));
+    Exit(FloatToStrF(_value, ffFixed, 8, Decimals(2)));
   end;
   if (c = 'p') or (c = 'P') then
-    Exit(Format('%d%%', [Round(_value * 100)]));
+    Exit(FloatToStrF(_value * 100, ffFixed, 8, Decimals(0)) + '%');
 
   var fs: TFormatSettings := FormatSettings;
 
