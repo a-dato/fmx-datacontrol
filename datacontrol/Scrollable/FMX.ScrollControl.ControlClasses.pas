@@ -961,6 +961,11 @@ begin
   if ssAlt in Shift then
     Exit;
 
+  if Assigned(_BeforePopup) and
+     ((Key in [vkUp, vkDown, vkPrior, vkNext]) or
+      ((Key in [vkHome, vkEnd]) and (ssCtrl in Shift))) then
+    RefreshItems;
+
   if (get_ItemCount = 0) then
     Exit;
 
