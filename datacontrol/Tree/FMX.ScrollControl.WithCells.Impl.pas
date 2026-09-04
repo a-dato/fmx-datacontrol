@@ -593,6 +593,7 @@ type
     function  get_WidthType: TDCColumnWidthType;
 
     function  get_Format: CString;
+    procedure set_Format(const Value: CString);
     function  get_FormatProvider: IFormatProvider;
     procedure set_FormatProvider(const Value: IFormatProvider);
     function  get_UserDefinedWidth: Single;
@@ -4650,6 +4651,8 @@ begin
       co.AddPair('Checkbox', TJSONTrue.Create) else
       co.AddPair('Checkbox', TJSONFalse.Create);
     co.AddPair('Index', TJSONNumber.Create(Self.IndexOf(column)));
+    co.AddPair('Format', CStringToString(column.Format));
+    co.AddPair('HorzAlign', Integer(column.Visualisation.HorzAlign));
 
     if (column.Tag <> nil) then
     begin
@@ -4691,6 +4694,8 @@ var
   checkbox: Boolean;
   col: TJSONObject;
   column: IDCTreeColumn;
+  horzAlign: TDCTextAlign;
+  format: string;
   tag_string: string;
   index: Integer;
   jv: TJSONValue;
@@ -4709,7 +4714,8 @@ var
     column.Caption := caption;
     column.PropertyName := StringToCString(propertyname);
     column.Tag := StringToCString(tag_string);
-
+    column.Format := StringToCString(format);
+    column.Visualisation.HorzAlign := horzAlign;
     column.InfoControlClass := TInfoControlClass(infoCtrlClass);
 
     column.SubControlSettings.SubPropertyName := subPropertyname;
@@ -4747,10 +4753,12 @@ begin
       col := jv as TJSONObject;
 
       if not col.TryGetValue<string>('Caption', caption) or CString.IsNullOrEmpty(caption) then continue;
-      if not col.TryGetValue<string>('Tag', tag_string) then tag_string := '';
 
-      if not col.TryGetValue<string>('Property', propertyName) then propertyName := '';
-      if not col.TryGetValue<Integer>('InfoControlClass', infoCtrlClass) then infoCtrlClass := Integer(TInfoControlClass.Text);
+      tag_string := col.GetValue<string>('Tag', '');
+      format := col.GetValue<string>('Format', '');
+      horzAlign := TDCTextAlign(col.GetValue<Integer>('HorzAlign', Integer(TDCTextAlign.Default)));
+      propertyName := col.GetValue<string>('Property', '');
+      infoCtrlClass := col.GetValue<Integer>('InfoControlClass', Integer(TInfoControlClass.Text));
 
       if not col.TryGetValue<string>('SubPropertyname', subPropertyname) then subPropertyname := '';
       if not col.TryGetValue<Integer>('SubinfoControlClass', subinfoCtrlClass) then subinfoCtrlClass := Integer(TInfoControlClass.Custom);
@@ -4864,6 +4872,11 @@ end;
 function TDCTreeColumn.get_Format: CString;
 begin
   Result := _visualisation.Format;
+end;
+
+procedure TDCTreeColumn.set_Format(const Value: CString);
+begin
+  _visualisation.Format := Value;
 end;
 
 function TDCTreeColumn.get_FormatProvider: IFormatProvider;
