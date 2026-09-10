@@ -390,9 +390,6 @@ begin
 end;
 
 procedure TObjectListModelWithChangeTracking<T>.NotifyEndEdit(const Context: IObjectModelContext; const OriginalObject: CObject; Index: Integer; Position: InsertPosition);
-var
-  item: CObject;
-  savableItem: CObject;
 begin
   var e: IEditState;
   if not Interfaces.Supports<IEditState>(Context, e) or not e.IsEditOrNew then
@@ -400,9 +397,17 @@ begin
 
   _EditContext := nil;
 
-  item := Context.Context;
+  var item := Context.Context;
 
-  if e.IsEdit then
+  var handleItemAsNew := False;
+  var changeType: TObjectListChangeType;
+  if e.IsEdit and (_ChangedItems.TryGetValue(item, changeType) and (changeType = TObjectListChangeType.Added)) then
+  begin
+    _ChangedItems.Remove(item);
+    handleItemAsNew := True;
+  end;
+
+  if e.IsEdit and not handleItemAsNew then
   begin
     if (_Context <> nil) then
     begin
@@ -427,10 +432,9 @@ begin
         n.EndEdit(item);
     end;
   end
-  else if e.IsNew then
+  else //if e.IsNew or handleItemAsNew then
   begin
-    savableItem := item;
-    UpdateChangedItem(savableItem, TObjectListChangeType.Added);
+    UpdateChangedItem(item, TObjectListChangeType.Added);
 
     if _OnItemChanged <> nil then
     begin

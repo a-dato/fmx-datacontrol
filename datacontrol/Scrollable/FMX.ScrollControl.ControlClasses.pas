@@ -195,11 +195,14 @@ type
     _ItemsShowing: IList;
     _BeforePopup: TComboBeforePopup;
     _AutoSort: Boolean;
+    _CanAddCustomItem: Boolean;
 
     function  get_AutoFilter: Boolean;
     procedure set_AutoFilter(const Value: Boolean);
     function  get_AutoSort: Boolean;
     procedure set_AutoSort(const Value: Boolean);
+    function  get_CanAddCustomItem: Boolean;
+    procedure set_CanAddCustomItem(const Value: Boolean);
     function  get_ItemIndex: Integer; virtual;
     procedure set_ItemIndex(const Value: Integer); virtual;
     function  get_ItemCount: Integer; virtual;
@@ -1325,6 +1328,11 @@ begin
   Result := _AutoSort;
 end;
 
+function TComboEditControlImpl.get_CanAddCustomItem: Boolean;
+begin
+  Result := _CanAddCustomItem;
+end;
+
 function TComboEditControlImpl.get_BeforePopup: TComboBeforePopup;
 begin
   Result := _BeforePopup;
@@ -1337,7 +1345,13 @@ end;
 
 function TComboEditControlImpl.get_ItemIndex: Integer;
 begin
-  Result := (_control as TComboEdit).ItemIndex;
+  var cb := (_control as TComboEdit);
+  var itemText := StringToCString(cb.Text);
+
+  if CString.IsNullOrEmpty(itemText) then
+    Exit(-1);
+
+  Result := cb.Items.IndexOf(itemText);
 end;
 
 procedure TComboEditControlImpl.set_AutoFilter(const Value: Boolean);
@@ -1348,6 +1362,11 @@ end;
 procedure TComboEditControlImpl.set_AutoSort(const Value: Boolean);
 begin
   _AutoSort := Value;
+end;
+
+procedure TComboEditControlImpl.set_CanAddCustomItem(const Value: Boolean);
+begin
+  _CanAddCustomItem := Value;
 end;
 
 procedure TComboEditControlImpl.set_BeforePopup(const Value: TComboBeforePopup);
@@ -1381,9 +1400,20 @@ end;
 function TComboEditControlImpl.get_Value: CObject;
 begin
   var items := ActivePickList;
+
   if (items <> nil) and (get_ItemIndex >= 0) and (get_ItemIndex < items.Count) then
-    Result := items[get_ItemIndex] else
+    Result := items[get_ItemIndex]
+  else
+  begin
+    if _CanAddCustomItem then
+    begin
+      var itemText := StringToCString((_control as TComboEdit).Text);
+      if not CString.IsNullOrEmpty(itemText) then
+        Exit(itemText); // new value
+    end;
+
     Result := _DefaultValue;
+  end;
 end;
 
 function TComboEditControlImpl.IsFiltered: Boolean;

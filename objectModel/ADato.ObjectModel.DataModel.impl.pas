@@ -508,26 +508,34 @@ begin
   if not Interfaces.Supports<IEditState>(Context, e) or not e.IsEditOrNew then
     Exit;
 
-  if e.IsEdit then
-  begin
-    _dataModel.EndEdit(_dataModel.FindByKey(Context.Context));
+  var item := Context.Context;
 
+  var handleItemAsNew := False;
+  var changeType: TObjectListChangeType;
+  if e.IsEdit and (_ChangedItems.TryGetValue(item, changeType) and (changeType = TObjectListChangeType.Added)) then
+  begin
+    _ChangedItems.Remove(item);
+    handleItemAsNew := True;
+  end;
+
+  _dataModel.EndEdit(_dataModel.FindByKey(item));
+
+  if e.IsEdit and not handleItemAsNew then
+  begin
     // Do not override initial change (object might have been added)
     UpdateChangedItem(OriginalObject, TObjectListChangeType.Changed);
 
     var n: IListItemChanged;
     for n in get_OnItemChanged do
-      n.EndEdit(Context.Context);
+      n.EndEdit(item);
   end
-  else if e.IsNew then
+  else //if e.IsNew or handleItemAsNew then
   begin
-    _dataModel.EndEdit(_dataModel.FindByKey(Context.Context));
-
-    UpdateChangedItem(Context.Context, TObjectListChangeType.Added);
+    UpdateChangedItem(item, TObjectListChangeType.Added);
 
     var n: IListItemChanged;
     for n in get_OnItemChanged do
-      n.Added(Context.Context, Index);
+      n.Added(item, Index);
   end;
 end;
 

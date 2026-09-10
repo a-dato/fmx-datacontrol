@@ -187,6 +187,8 @@ type
     procedure set_AutoFilter(const Value: Boolean);
     function  get_AutoSort: Boolean;
     procedure set_AutoSort(const Value: Boolean);
+    function  get_CanAddCustomItem: Boolean;
+    procedure set_CanAddCustomItem(const Value: Boolean);
     function  get_ItemIndex: Integer;
     procedure set_ItemIndex(const Value: Integer);
     function  get_FilterItem: TFilterItem;
@@ -206,6 +208,7 @@ type
 
     property AutoFilter: Boolean read get_AutoFilter write set_AutoFilter;
     property AutoSort: Boolean read get_AutoSort write set_AutoSort;
+    property CanAddCustomItem: Boolean read get_CanAddCustomItem write set_CanAddCustomItem;
     property ItemIndex: Integer read get_ItemIndex write set_ItemIndex;
     property BeforePopup: TComboBeforePopup read get_BeforePopup write set_BeforePopup;
     property FilterItem: TFilterItem read get_FilterItem write set_FilterItem;
