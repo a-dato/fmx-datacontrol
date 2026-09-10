@@ -10004,6 +10004,8 @@ begin
       co.AddPair('CssSortDescending', column.CssSortDescending.CssClass);
     if not CString.IsNullOrEmpty(column.CssFilter.CssClass) then
       co.AddPair('CssFilter', column.CssFilter.CssClass);
+    if not CString.IsNullOrEmpty(column.Format) then
+      co.AddPair('Format', column.Format);
     if (column.Tag <> nil) then
     begin
       if column.Tag.IsInterface and Interfaces.Supports(column.Tag, _PropertyInfo, p) then
@@ -10036,6 +10038,7 @@ var
   ssorttype: string;
   asortType: SortType;
   tag_string: string;
+  format: string;
   index: Integer;
   jv: TJSONValue;
   n: Integer;
@@ -10064,6 +10067,7 @@ var
     column.CssSortAscending.CssClass := StringToCString(cssSortAscending);
     column.CssSortDescending.CssClass := StringToCString(cssSortDescending);
     column.CssFilter.CssClass := StringToCString(cssFilter);
+    column.Format := StringToCString(format);
     column.Tag := StringToCString(tag_string);
 
     Insert(Index, column);
@@ -10095,6 +10099,7 @@ begin
       if not col.TryGetValue<string>('CssSortAscending', cssSortAscending) then cssSortAscending := '';
       if not col.TryGetValue<string>('CssSortDescending', cssSortDescending) then cssSortDescending := '';
       if not col.TryGetValue<string>('CssFilter', cssFilter) then cssFilter := '';
+      if not col.TryGetValue<string>('Format', format) then format := '';
       if not col.TryGetValue<string>('Tag', tag_string) then tag_string := '';
 
       if tag_string <> '' then

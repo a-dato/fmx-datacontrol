@@ -175,6 +175,7 @@ type
     function  get_ReadOnly: Boolean;
     function  get_Selectable: Boolean;
     function  get_Format: CString;
+    procedure set_Format(const Value: CString);
 
     function  get_ShowHierarchy: Boolean;
     function  get_Indent: Single;
@@ -256,7 +257,7 @@ type
     property Selectable: Boolean read get_Selectable;
     property ShowHierarchy: Boolean read get_ShowHierarchy;
     property Indent: Single read get_Indent;
-    property Format: CString read get_Format;
+    property Format: CString read get_Format write set_Format;
 
     property Caption: CString read get_Caption write set_Caption;
     property PropertyName: CString read get_PropertyName write set_PropertyName;
