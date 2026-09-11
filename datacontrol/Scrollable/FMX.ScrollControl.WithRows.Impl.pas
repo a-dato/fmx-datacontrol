@@ -3434,10 +3434,6 @@ begin
     if IsMasterSynchronizer then
       UpdateSelectionInfo(_rowHeightSynchronizer, viewIndex);
 
-//    // row changed of datamodelview?
-//    if _view.GetActiveRowIfExists(viewIndex) = nil then
-//      _referenceRowViewListIndex := viewIndex;
-
     if _waitForRepaintInfo.ScrollItemIntoView then
       _referenceRowViewListIndex := viewIndex;
   end;
@@ -3860,7 +3856,10 @@ begin
         RealignContentStart;
       end;
 
-      _referenceRowViewListIndex := _selectionInfo.ViewListIndex;
+      // in case of deletion..
+      if (_view <> nil) and (_view.ViewCount > 0) then
+        _referenceRowViewListIndex := CMath.Min(_selectionInfo.ViewListIndex, _view.ViewCount - 1);
+
       RealignContent;
 
       if not isInRealignProcess then
