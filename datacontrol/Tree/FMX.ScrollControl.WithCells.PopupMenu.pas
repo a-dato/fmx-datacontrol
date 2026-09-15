@@ -60,7 +60,7 @@ uses
   FMX.ScrollControl.DataControl.Impl, FMX.TabControl, FMX.DateTimeCtrls;
 
 type
-  TfrmFMXPopupMenuDataControl = class(TForm)
+  TfrmFMXPopupMenuDataControl = class(TForm, IHeaderPopupMenu)
     PopupListBox: TListBox;
     lbiSortSmallToLarge: TListBoxItem;
     lbiSortLargeToSmall: TListBoxItem;
@@ -107,7 +107,7 @@ type
     procedure lbiSortSmallToLargeMouseLeave(Sender: TObject);
     procedure Timer1Timer(Sender: TObject);
   public type
-    TPopupResult = (ptCancel, ptSortAscending, ptSortDescending, ptAddColumnAfter, ptHideColumn, ptClearFilter, ptClearSortAndFilter, ptClearAll, ptFilter, ptFilterDateRange);
+    TPopupResult = TDCHeaderPopupResult;
 
   private
   {$IFNDEF WEBASSEMBLY}
@@ -131,6 +131,10 @@ type
     procedure set_Start(const Value: CDateTime);
     function  get_Stop: CDateTime;
     procedure set_Stop(const Value: CDateTime);
+    function  get_PopupResult: TDCHeaderPopupResult;
+    function  get_ImageList: TCustomImageList;
+
+    procedure IHeaderPopupMenu.set_AllowClearColumnFilter = SetAllowClearColumnFilter;
 
     procedure TreeCellSelected(const Sender: TObject; e: DCSelectionEvent);
     procedure TreeCellFormatting(const Sender: TObject; e: DCCellFormattingEventArgs);
@@ -332,6 +336,16 @@ end;
 function TfrmFMXPopupMenuDataControl.get_Stop: CDateTime;
 begin
   Result := dtpTo.DateTime;
+end;
+
+function TfrmFMXPopupMenuDataControl.get_PopupResult: TDCHeaderPopupResult;
+begin
+  Result := _PopupResult;
+end;
+
+function TfrmFMXPopupMenuDataControl.get_ImageList: TCustomImageList;
+begin
+  Result := ImageListPopup;
 end;
 
 function TfrmFMXPopupMenuDataControl.SelectedItems(out NullValueSelected: Boolean) : List<CObject>;

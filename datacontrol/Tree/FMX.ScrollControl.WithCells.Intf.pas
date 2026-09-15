@@ -23,6 +23,7 @@ uses
   Wasm.FMX.Controls,
   Wasm.FMX.StdCtrls,
   Wasm.FMX.Graphics,
+  Wasm.FMX.ImgList,
   Wasm.FMX.Layouts,
   Wasm.FMX.Types,
   {$ENDIF}
@@ -30,6 +31,7 @@ uses
   System.Collections.Generic,
   System.Collections,
   System.Collections.Specialized,
+  System.Generics.Defaults,
   FMX.ScrollControl.WithRows.Intf,
   FMX.ScrollControl.ControlClasses.Intf,
   ADato.ComponentModel;
@@ -599,6 +601,31 @@ type
     ['{AD0BE67C-EA60-4F50-BA88-43B666F89A5E}']
     function  DoOnCompareRows(const Left, Right: CObject): Integer;
     function  DoOnCompareColumnCells(const Column: IDCTreeColumn; const Left, Right: CObject): Integer;
+  end;
+
+  TDCHeaderPopupResult = (ptCancel, ptSortAscending, ptSortDescending, ptAddColumnAfter, ptHideColumn, ptClearFilter, ptClearSortAndFilter, ptClearAll, ptFilter, ptFilterDateRange);
+
+  IHeaderPopupMenu = interface
+    ['{C3E6A1F0-7B2D-4A91-9E4C-2F8D6B1A0C55}']
+    procedure ShowPopupMenu(const ScreenPos: TPointF; ShowItemFilters, ShowItemSortOptions, ShowItemAddColumAfter, ShowItemHideColumn: Boolean);
+    function  SelectedItems(out NullValueSelected: Boolean): List<CObject>;
+    procedure LoadFilterItems(const Data: Dictionary<CObject, CString>; const Comparer: IComparer<CObject>; const Selected: List<CObject>; ShowNullValue: Boolean; SelectNullValue: Boolean; UseTextCompare: Boolean);
+    procedure LoadDateRange(const Start: CDateTime; const Stop: CDateTime; ShowTimeValue: Boolean);
+    function  get_PopupResult: TDCHeaderPopupResult;
+    function  get_LayoutColumn: IDCTreeLayoutColumn;
+    procedure set_LayoutColumn(const Value: IDCTreeLayoutColumn);
+    function  get_Start: CDateTime;
+    procedure set_Start(const Value: CDateTime);
+    function  get_Stop: CDateTime;
+    procedure set_Stop(const Value: CDateTime);
+    procedure set_AllowClearColumnFilter(Value: Boolean);
+    function  get_ImageList: TCustomImageList;
+    property PopupResult: TDCHeaderPopupResult read get_PopupResult;
+    property LayoutColumn: IDCTreeLayoutColumn read get_LayoutColumn write set_LayoutColumn;
+    property Start: CDateTime read get_Start write set_Start;
+    property Stop: CDateTime read get_Stop write set_Stop;
+    property AllowClearColumnFilter: Boolean write set_AllowClearColumnFilter;
+    property ImageList: TCustomImageList read get_ImageList;
   end;
 
 const

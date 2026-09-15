@@ -21,6 +21,7 @@ uses
   FMX.Layouts,
   FMX.TextLayout,
   FMX.Text,
+  FMX.Forms,
   {$ELSE}
   Wasm.FMX.Controls,
   Wasm.FMX.StdCtrls,
@@ -374,6 +375,7 @@ type
 
     procedure HandleRowBackground(const RowRect: IBackgroundControl; AlternateAvailable: Boolean; Alternate: Boolean; ColorOpacity: Single); virtual;
     procedure HandleRowChildRelation(const RowLayout: IRowLayout; IsOpenParent, IsOpenChild: Boolean; AWidth: Single); virtual;
+    function  CreateHeaderPopupMenu(const Owner: TComponent): TForm; virtual;
   end;
 
 var
@@ -409,7 +411,11 @@ uses
   Wasm.System.Math
   {$ENDIF}
   , ADato.FMX.FastControls.Text
-  , ADato.TraceEvents.intf;
+  , ADato.TraceEvents.intf
+  {$IFNDEF WEBASSEMBLY}
+  , FMX.ScrollControl.WithCells.PopupMenu
+  {$ENDIF}
+  ;
 
 
 { TDataControlClassFactory }
@@ -549,6 +555,15 @@ end;
 procedure TDataControlClassFactory.HandleRowChildRelation(const RowLayout: IRowLayout; IsOpenParent, IsOpenChild: Boolean; AWidth: Single);
 begin
   RowLayout.HandleParentChildVisualisation(IsOpenParent, IsOpenChild, AWidth);
+end;
+
+function TDataControlClassFactory.CreateHeaderPopupMenu(const Owner: TComponent): TForm;
+begin
+  {$IFNDEF WEBASSEMBLY}
+  Result := TfrmFMXPopupMenuDataControl.Create(Owner);
+  {$ELSE}
+  Result := nil;
+  {$ENDIF}
 end;
 
 function TDataControlClassFactory.IsCustomFactory: Boolean;
