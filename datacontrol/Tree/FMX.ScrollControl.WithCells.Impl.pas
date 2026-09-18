@@ -1007,7 +1007,6 @@ uses
   FMX.Graphics,
   System.ClassHelpers,
   FMX.Ani,
-  FMX.ScrollControl.WithCells.PopupMenu,
   System.Rtti,
   System.TypInfo,
   {$ELSE}
@@ -2212,10 +2211,10 @@ begin
 
   // Popup form will be created once, then reused for any column
   if _frmHeaderPopupMenu = nil then
-    _frmHeaderPopupMenu := TfrmFMXPopupMenuDataControl.Create(Self);
+    _frmHeaderPopupMenu := DataControlClassFactory.CreateHeaderPopupMenu(Self);
 
   _frmHeaderPopupMenu.OnClose := HeaderPopupMenu_Closed;
-  var popupMenu := _frmHeaderPopupMenu as TfrmFMXPopupMenuDataControl;
+  var popupMenu := _frmHeaderPopupMenu as IHeaderPopupMenu;
   popupMenu.LayoutColumn := LayoutColumn;
 
   var leftPos: Single;
@@ -2294,42 +2293,42 @@ end;
 procedure TScrollControlWithCells.HeaderPopupMenu_Closed(Sender: TObject; var Action: TCloseAction);
 begin
   {$IFNDEF WEBASSEMBLY}
-  var popupForm := _frmHeaderPopupMenu as TfrmFMXPopupMenuDataControl;
+  var popupForm := _frmHeaderPopupMenu as IHeaderPopupMenu;
   var flatColumn := _treeLayout.LayoutColumns[popupForm.LayoutColumn.Index];
 
   if Assigned(_popupMenuClosed) then
-    _popupMenuClosed(popupForm);
+    _popupMenuClosed(_frmHeaderPopupMenu);
 
-  if popupForm.PopupResult = TfrmFMXPopupMenuDataControl.TPopupResult.ptCancel then
+  if popupForm.PopupResult = TDCHeaderPopupResult.ptCancel then
     Exit;
 
   if not DoCellCanChange(GetActiveCell, nil) then
     Exit;
 
   case popupForm.PopupResult of
-    TfrmFMXPopupMenuDataControl.TPopupResult.ptCancel: Exit;
+    TDCHeaderPopupResult.ptCancel: Exit;
 
-    TfrmFMXPopupMenuDataControl.TPopupResult.ptSortAscending:
+    TDCHeaderPopupResult.ptSortAscending:
     begin
       UpdateColumnSort(flatColumn.Column, ListSortDirection.Ascending, True);
     end;
 
-    TfrmFMXPopupMenuDataControl.TPopupResult.ptSortDescending:
+    TDCHeaderPopupResult.ptSortDescending:
     begin
       UpdateColumnSort(flatColumn.Column, ListSortDirection.Descending, True);
     end;
 
-    TfrmFMXPopupMenuDataControl.TPopupResult.ptFilter:
+    TDCHeaderPopupResult.ptFilter:
     begin
       var nullValueSelected: Boolean;
       var filterValues := popupForm.SelectedItems({out} nullValueSelected);
       UpdateColumnFilter(flatColumn.Column, nil, filterValues, nullValueSelected);
     end;
 
-    TfrmFMXPopupMenuDataControl.TPopupResult.ptFilterDateRange:
+    TDCHeaderPopupResult.ptFilterDateRange:
       UpdateColumnFilter(flatColumn.Column, popupForm.Start, popupForm.Stop.AddDays(1));
 
-    TfrmFMXPopupMenuDataControl.TPopupResult.ptHideColumn:
+    TDCHeaderPopupResult.ptHideColumn:
     begin
       // check if is last flat
       if _selectionInfo.Tag = _treeLayout.FlatColumns.Count - 1 then
@@ -2348,12 +2347,12 @@ begin
       FastColumnAlignAfterColumnChange;
     end;
 
-    TfrmFMXPopupMenuDataControl.TPopupResult.ptClearFilter:
+    TDCHeaderPopupResult.ptClearFilter:
     begin
       UpdateColumnFilter(flatColumn.Column, nil, nil, False);
     end;
 
-    TfrmFMXPopupMenuDataControl.TPopupResult.ptClearSortAndFilter:
+    TDCHeaderPopupResult.ptClearSortAndFilter:
     begin
       ClearTreeSorts;
       ClearTreeFilters;
@@ -4218,10 +4217,10 @@ procedure TScrollControlWithCells.GetSortAndFilterImages(out ImageList: TCustomI
 begin
   {$IFNDEF WEBASSEMBLY}
   if _frmHeaderPopupMenu = nil then
-    _frmHeaderPopupMenu := TfrmFMXPopupMenuDataControl.Create(Self);
+    _frmHeaderPopupMenu := DataControlClassFactory.CreateHeaderPopupMenu(Self);
 
-  var popUpFrm := (_frmHeaderPopupMenu as TfrmFMXPopupMenuDataControl);
-  ImageList := popUpFrm.ImageListPopup;
+  var popUpFrm := (_frmHeaderPopupMenu as IHeaderPopupMenu);
+  ImageList := popUpFrm.ImageList;
   FilterIndex := 4;
   SortAscIndex := 0;
   SortDescIndex := 1;

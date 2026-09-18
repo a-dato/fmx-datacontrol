@@ -11,7 +11,8 @@ uses
   System.UITypes,
   FMX.Types,
   FMX.Controls,
-  FMX.Objects
+  FMX.Objects,
+  FMX.Forms
   {$ELSE}
   Wasm.FMX.Controls,
   Wasm.FMX.Types,
@@ -292,6 +293,7 @@ type
 
     procedure HandleRowBackground(const RowRect: IBackgroundControl; AlternateAvailable: Boolean; Alternate: Boolean; ColorOpacity: Single);
     procedure HandleRowChildRelation(const RowLayout: IRowLayout; IsOpenParent, IsOpenChild: Boolean; AWidth: Single);
+    function  CreateHeaderPopupMenu(const Owner: TComponent): TForm;
   end;
 
 implementation
