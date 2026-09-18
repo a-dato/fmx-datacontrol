@@ -207,7 +207,15 @@ end;
 
 function CComparableList<T>.IndexOf(const Value: CObject): Integer;
 begin
+  {$IFDEF DEBUG}
+  try
+    Result := _data.IndexOf(Value.AsType<T>);
+  except
+    Result := _data.IndexOf(Value.AsType<T>);
+  end;
+  {$ELSE}
   Result := _data.IndexOf(Value.AsType<T>);
+  {$ENDIF}
 
   if (Result <> -1) and (_comparer <> nil) and (_comparer.SortedRows <> nil) then
     Result := _comparer.SortedRows.IndexOf(Result);

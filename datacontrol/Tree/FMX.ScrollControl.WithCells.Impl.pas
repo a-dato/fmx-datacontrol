@@ -3429,7 +3429,12 @@ begin
 
   var flatColumnIx := FromSelectionInfo.Tag;
 
-  if (flatColumnIx <> -1) then
+  // FIX_KV (HotFix)
+  // 15 Sept 2026 11:50
+  // Lynx-x - {System.Collections.Generic}CList<FMX.ScrollControl.WithCells.Intf.IDCTreeLayoutColumn>.get_Item - (2340) - marcel.falk@helmut-fischer.com (133035)
+  // From error report => flatColumnIx equals -2
+  if (flatColumnIx >= 0) then
+  // if (flatColumnIx <> -1) then
   begin
     var cell: IDCTreeCell := DoCreateNewCell(treeRow, _treeLayout.LayoutColumns[flatColumnIx]);
     treeRow.Cells.Add(flatColumnIx, cell);
