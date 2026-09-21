@@ -2282,6 +2282,10 @@ end;
 
 procedure TScrollControlWithRows.ModelListContextChanged(const Sender: IObjectListModel; const Context: IList);
 begin
+  // FIX_KV
+  // Check should be enabled, but Async calls update the context from different threads
+  Assert(TThread.Current.ThreadID = MainThreadID);
+
   {$IFNDEF WEBASSEMBLY}
   if not _model.ListHoldsObjectType and (Context <> nil) then
     _model.ObjectModelContext.OnContextChanged.Add(ModelContextChanged);

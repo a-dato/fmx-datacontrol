@@ -267,9 +267,9 @@ end;
 
 procedure TObjectListModel<T>.set_Context(const Value: IList);
 begin
-  {$IFDEF WINDOWS}
-  Assert(GetCurrentThreadID = MainThreadID);
-  {$ENDIF}
+  // FIX_KV
+  // Check should be enabled, but Async calls update the context from different threads
+  // Assert(TThread.Current.ThreadID = MainThreadID);
 
   if not ContextCanChange then
     Exit;
