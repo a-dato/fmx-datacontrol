@@ -22,6 +22,7 @@ const
   EXTERNAL_SOURCE = 'EXTERNAL_SOURCE';
   GANTTDM = 'GANTTDM';
   CHAINS = 'CHAINS';
+  LYNXAPP_SCRIPT = 'LYNXAPPS';
 
 type
   TLevel = (Normal, Verbose, ExtraVerbose);
