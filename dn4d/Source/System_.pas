@@ -1,4 +1,4 @@
-﻿{$I Adato.inc}
+{$I Adato.inc}
 
 unit System_;
 {$WARN DUPLICATE_CTOR_DTOR OFF}        //[dcc64 Warning] System_.pas(14320): W1029 Duplicate constructor 'IntPtr.CreateUnmanagedPointer' with identical parameters will be inacessible from C++
@@ -1725,6 +1725,7 @@ type
     ['{C17D64DB-975D-4AB2-96C2-71E35E9F692D}']
 
     function AsType(const Value: &Type) : CObject;
+    function TryAsType(const Value: &Type) : CObject;
 
     function getRefCount: Integer;
     function GetHashCode: Integer;
@@ -1867,6 +1868,7 @@ type
   )
   protected
     function AsType(const Value: &Type) : CObject; virtual;
+    function TryAsType(const Value: &Type) : CObject; virtual;
     function QueryInterface(const IID: TGUID; out Obj): HResult; stdcall;
     function _AddRef: Integer; stdcall;
     function _Release: Integer; stdcall;
@@ -4892,16 +4894,22 @@ end;
 
 function TBaseInterfacedObject.AsType(const Value: &Type) : CObject;
 begin
+  Result := TryAsType(Value);
+  if Result = nil then
+    raise InvalidCastException.Create('cast to: ''' +  Value.Name + ''' failed');
+end;
+
+function TBaseInterfacedObject.TryAsType(const Value: &Type) : CObject;
+begin
+  Result := nil;
+
   var ii: IInterface;
   if Value.IsInterfaceType and (QueryInterface(Value.Guid, ii) = S_OK) then
   begin
     var v: TValue;
     TValue.Make(@ii, Value.GetTypeInfo, v);
     Result.FValue := v;
-    Exit;
   end;
-
-  raise InvalidCastException.Create('cast to: ''' +  Value.Name + ''' failed');
 end;
 
 function TBaseInterfacedObject.QueryInterface(const IID: TGUID; out Obj): HResult;

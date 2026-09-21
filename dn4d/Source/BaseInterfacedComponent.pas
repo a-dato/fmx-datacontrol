@@ -1,4 +1,4 @@
-﻿unit BaseInterfacedComponent;
+unit BaseInterfacedComponent;
 
 interface
 
@@ -12,7 +12,7 @@ type
     IBaseInterface)
   protected
     function AsType(const Value: &Type) : CObject;
-
+    function TryAsType(const Value: &Type) : CObject;
 
     // Dummy implementation for IBaseInterface methods
     function  getRefCount: Integer;
@@ -34,7 +34,12 @@ uses System.Runtime.Serialization;
 { TBaseInterfacedComponent }
 function TBaseInterfacedComponent.AsType(const Value: &Type) : CObject;
 begin
+  Result := nil;
+end;
 
+function TBaseInterfacedComponent.TryAsType(const Value: &Type) : CObject;
+begin
+  Result := nil;
 end;
 
 function TBaseInterfacedComponent.getRefCount: Integer;

@@ -1,4 +1,4 @@
-﻿{$I ..\..\dn4d\Source\Adato.inc}
+{$I ..\..\dn4d\Source\Adato.inc}
 
 unit ADato.Controls.CssControl;
 
@@ -90,6 +90,7 @@ type
     procedure WMNCPaint(var Message: TWMNCPaint); message WM_NCPAINT;
 
     function AsType(const AType: &Type) : CObject;
+    function TryAsType(const AType: &Type) : CObject;
 
     {$IFDEF DELPHI}
     // IBaseInterface methods
@@ -369,7 +370,12 @@ end;
 
 function TCssControl.AsType(const AType: &Type) : CObject;
 begin
+  Result := nil;
+end;
 
+function TCssControl.TryAsType(const AType: &Type) : CObject;
+begin
+  Result := nil;
 end;
 
 function TCssControl.getRefCount: Integer;
