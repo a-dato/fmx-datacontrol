@@ -15,6 +15,9 @@ type
     function  ProvideObjectModelContext(const DataItem: CObject; const ItemIsInControl: Boolean = False): IObjectModelContext;
     function  FindObjectModelContext(const DataItem: CObject): IObjectModelContext;
     procedure RemoveObjectModelContext(const DataItem: CObject);
+    {$IFDEF APP_PLATFORM_MD}
+    procedure RehashObjectModelContexts;
+    {$ENDIF}
 
     property  StoredContexts: Dictionary<CObject, IObjectModelContext> read get_StoredContexts;
   end;

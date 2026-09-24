@@ -39,6 +39,9 @@ type
     function  ProvideObjectModelContext(const DataItem: CObject; const ItemIsInControl: Boolean = False): IObjectModelContext;
     function  FindObjectModelContext(const DataItem: CObject): IObjectModelContext;
     procedure RemoveObjectModelContext(const DataItem: CObject);
+    {$IFDEF APP_PLATFORM_MD}
+    procedure RehashObjectModelContexts;
+    {$ENDIF}
 
     property StoredContexts: Dictionary<CObject, IObjectModelContext> read get_StoredContexts;
   end;
@@ -203,6 +206,25 @@ begin
 
   _Contexts.Remove(item);
 end;
+
+{$IFDEF APP_PLATFORM_MD}
+procedure TMultiEditableObjectModelContext.RehashObjectModelContexts;
+begin
+  // Keys hash by their data item; re-add all entries when the hash of a key changed (for example a new ID)
+  var keys: List<CObject> := CList<CObject>.Create(_contexts.Count);
+  var contexts: List<IObjectModelContext> := CList<IObjectModelContext>.Create(_contexts.Count);
+  var pair: KeyValuePair<CObject, IObjectModelContext>;
+  for pair in _contexts do
+  begin
+    keys.Add(pair.Key);
+    contexts.Add(pair.Value);
+  end;
+
+  _contexts.Clear;
+  for var i := 0 to keys.Count - 1 do
+    _contexts.Add(keys[i], contexts[i]);
+end;
+{$ENDIF}
 
 { TStorageObjectModelContext }
 
