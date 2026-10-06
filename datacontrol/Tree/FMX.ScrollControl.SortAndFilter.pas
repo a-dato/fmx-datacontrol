@@ -16,13 +16,17 @@ uses
   FMX.ScrollControl.WithCells.Impl;
 
 type
-  TTreeSortDescription = class(CListSortDescription, ITreeSortDescription)
+  TTreeSortDescription = class(CListSortDescription, ITreeSortDescription, IListSortDescriptionWithProperty)
   private
     _flatColumn: IDCTreeLayoutColumn;
+    _boundPropertyName: CString;
 
     _filterRow: IDCTreeRow;
     _filterCell: IDCTreeCell;
     _onGetSortCellData: TOnGetSortCellData;
+
+    function  get_PropertyDescriptor: CString;
+    procedure set_PropertyDescriptor(const Value: CString);
 
   public
     constructor Create(const Column: IDCTreeLayoutColumn; OnGetSortCellData: TOnGetSortCellData); reintroduce;
@@ -32,6 +36,8 @@ type
     procedure SortCompleted; override;
 
     function  GetSortableValue(const AObject: CObject): CObject; override;
+
+    property PropertyDescriptor: CString read get_PropertyDescriptor write set_PropertyDescriptor;
   end;
 
   TTreeMultiSelectSortDescription = class(CListSortDescription, ITreeSortDescription)
@@ -146,6 +152,16 @@ function TTreeSortDescription.GetSortableValue(const AObject: CObject): CObject;
 begin
   _filterRow.DataItem := AObject;
   Result := _onGetSortCellData(_filterCell);
+end;
+
+function TTreeSortDescription.get_PropertyDescriptor: CString;
+begin
+  Result := _boundPropertyName;
+end;
+
+procedure TTreeSortDescription.set_PropertyDescriptor(const Value: CString);
+begin
+  _boundPropertyName := Value;
 end;
 
 procedure TTreeSortDescription.SortBegin;

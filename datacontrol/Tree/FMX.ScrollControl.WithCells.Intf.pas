@@ -161,6 +161,15 @@ type
   IDCTreeLayoutColumn = interface;
   IColumnsControl = interface;
 
+  IDCColumnFilterProperty = interface(IBaseInterface)
+    ['{A7C3E1B4-5D28-4F6A-9B10-2E8C4D7A6F31}']
+    function  get_PropertyName: CString;
+    function  get_Caption: CString;
+
+    property PropertyName: CString read get_PropertyName;
+    property Caption: CString read get_Caption;
+  end;
+
   IDCTreeColumn = interface(IBaseInterface)
     ['{A4E5EB04-6EFA-4637-B9BE-BC1175B37FDC}']
     function  get_TreeControl: IColumnsControl;
@@ -201,6 +210,7 @@ type
 
     function  get_PropertyName: CString;
     procedure set_PropertyName(const Value: CString);
+    function  get_FilterProperties: IList<IDCColumnFilterProperty>;
     function  get_InfoControlClass: TInfoControlClass;
     procedure set_InfoControlClass(const Value: TInfoControlClass);
 
@@ -230,6 +240,7 @@ type
 
     function  ProvideCellData(const Cell: IDCTreeCell; const PropName: CString; IsSubProp: Boolean = False): CObject;
     function  GetFormattedValue(const Cell: IDCTreeCell; const CellValue: CObject): CString;
+    procedure AddFilterProperty(const PropertyName, Caption: CString);
 
     function  HasPropertyAttached: Boolean;
 
@@ -263,6 +274,7 @@ type
 
     property Caption: CString read get_Caption write set_Caption;
     property PropertyName: CString read get_PropertyName write set_PropertyName;
+    property FilterProperties: IList<IDCColumnFilterProperty> read get_FilterProperties;
     property Tag: CObject read get_Tag write set_Tag;
     property InfoControlClass: TInfoControlClass read get_InfoControlClass write set_InfoControlClass;
 
@@ -408,6 +420,11 @@ type
     property ContainsData: TColumnContainsData read get_ContainsData;
     property CalculatedHorzAlign: TTextAlign read get_CalculatedHorzAlign;
     property CalculatedVertAlign: TTextAlign read get_CalculatedVertAlign;
+
+    function  PropertyFilter(const PropertyName: CString): ITreeFilterDescription;
+    procedure SetPropertyFilter(const PropertyName: CString; const Value: ITreeFilterDescription);
+    function  HasActiveFilter: Boolean;
+    function  ActivePropertyNames: List<CString>;
 
     property ActiveFilter: ITreeFilterDescription read get_ActiveFilter write set_ActiveFilter;
     property ActiveSort: IListSortDescription read get_ActiveSort write set_ActiveSort;
@@ -603,7 +620,41 @@ type
     function  DoOnCompareColumnCells(const Column: IDCTreeColumn; const Left, Right: CObject): Integer;
   end;
 
-  TDCHeaderPopupResult = (ptCancel, ptSortAscending, ptSortDescending, ptAddColumnAfter, ptHideColumn, ptClearFilter, ptClearSortAndFilter, ptClearAll, ptFilter, ptFilterDateRange);
+  TDCHeaderPopupResult = (ptCancel, ptSortAscending, ptSortDescending, ptAddColumnAfter, ptHideColumn, ptClearFilter, ptClearSortAndFilter, ptClearAll, ptFilter, ptFilterDateRange, ptClearSort);
+
+  IDCHeaderFilterPage = interface(IBaseInterface)
+    ['{B8D4F2C5-6E39-4A7B-8C21-3F9D5E8B7A42}']
+    function  get_PropertyName: CString;
+    function  get_Caption: CString;
+    function  get_IsDateRange: Boolean;
+    function  get_Data: Dictionary<CObject, CString>;
+    function  get_Comparer: IComparer<CObject>;
+    function  get_Selected: List<CObject>;
+    procedure set_Selected(const Value: List<CObject>);
+    function  get_ShowNullValue: Boolean;
+    function  get_SelectNullValue: Boolean;
+    procedure set_SelectNullValue(const Value: Boolean);
+    function  get_UseTextCompare: Boolean;
+    function  get_Start: CDateTime;
+    procedure set_Start(const Value: CDateTime);
+    function  get_Stop: CDateTime;
+    procedure set_Stop(const Value: CDateTime);
+    function  get_Modified: Boolean;
+    procedure set_Modified(const Value: Boolean);
+
+    property PropertyName: CString read get_PropertyName;
+    property Caption: CString read get_Caption;
+    property IsDateRange: Boolean read get_IsDateRange;
+    property Data: Dictionary<CObject, CString> read get_Data;
+    property Comparer: IComparer<CObject> read get_Comparer;
+    property Selected: List<CObject> read get_Selected write set_Selected;
+    property ShowNullValue: Boolean read get_ShowNullValue;
+    property SelectNullValue: Boolean read get_SelectNullValue write set_SelectNullValue;
+    property UseTextCompare: Boolean read get_UseTextCompare;
+    property Start: CDateTime read get_Start write set_Start;
+    property Stop: CDateTime read get_Stop write set_Stop;
+    property Modified: Boolean read get_Modified write set_Modified;
+  end;
 
   IHeaderPopupMenu = interface
     ['{C3E6A1F0-7B2D-4A91-9E4C-2F8D6B1A0C55}']
@@ -611,6 +662,9 @@ type
     function  SelectedItems(out NullValueSelected: Boolean): List<CObject>;
     procedure LoadFilterItems(const Data: Dictionary<CObject, CString>; const Comparer: IComparer<CObject>; const Selected: List<CObject>; ShowNullValue: Boolean; SelectNullValue: Boolean; UseTextCompare: Boolean);
     procedure LoadDateRange(const Start: CDateTime; const Stop: CDateTime; ShowTimeValue: Boolean);
+    procedure LoadFilterPages(const Pages: IList<IDCHeaderFilterPage>);
+    function  get_FilterPages: IList<IDCHeaderFilterPage>;
+    function  get_ActiveFilterPropertyName: CString;
     function  get_PopupResult: TDCHeaderPopupResult;
     function  get_LayoutColumn: IDCTreeLayoutColumn;
     procedure set_LayoutColumn(const Value: IDCTreeLayoutColumn);
@@ -621,6 +675,8 @@ type
     procedure set_AllowClearColumnFilter(Value: Boolean);
     function  get_ImageList: TCustomImageList;
     property PopupResult: TDCHeaderPopupResult read get_PopupResult;
+    property FilterPages: IList<IDCHeaderFilterPage> read get_FilterPages;
+    property ActiveFilterPropertyName: CString read get_ActiveFilterPropertyName;
     property LayoutColumn: IDCTreeLayoutColumn read get_LayoutColumn write set_LayoutColumn;
     property Start: CDateTime read get_Start write set_Start;
     property Stop: CDateTime read get_Stop write set_Stop;

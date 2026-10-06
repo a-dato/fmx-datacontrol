@@ -85,7 +85,16 @@ type
     procedure CreateDefaultColumns;
     procedure ShowHeaderPopupMenu(const LayoutColumn: IDCTreeLayoutColumn);
     procedure HeaderPopupMenu_Closed(Sender: TObject; var Action: TCloseAction);
-    function  GetColumnValues(const LayoutColumn: IDCTreeLayoutColumn; out NullValueExists: Boolean): Dictionary<CObject, CString>;
+    function  GetColumnValues(const LayoutColumn: IDCTreeLayoutColumn; out NullValueExists: Boolean; const PropertyName: CString): Dictionary<CObject, CString>;
+    function  CellDataForProperty(const PropertyName: CString): TOnGetSortCellData;
+    function  ResolveFilterLayoutColumn(const HostColumn: IDCTreeLayoutColumn; const PropertyName: CString): IDCTreeLayoutColumn;
+    function  CreateTreeFilter(const FlatColumn: IDCTreeLayoutColumn; const BoundPropertyName: CString): ITreeFilterDescription;
+    function  EnsureColumnFilter(const FlatColumn: IDCTreeLayoutColumn; const BoundPropertyName: CString): ITreeFilterDescription;
+    procedure ReleaseColumnFilter(const FlatColumn: IDCTreeLayoutColumn; const BoundPropertyName: CString);
+    procedure ClearColumnFilters(const Column: IDCTreeColumn);
+    procedure ClearColumnPropertySort(const FlatColumn: IDCTreeLayoutColumn);
+    procedure ApplyHeaderFilterPages(const FlatColumn: IDCTreeLayoutColumn; const Pages: IList<IDCHeaderFilterPage>);
+    function  CreateHeaderFilterPage(const LayoutColumn: IDCTreeLayoutColumn; const PropertyName, Caption: CString): IDCHeaderFilterPage;
 
     procedure GetSortAndFilterImages(out ImageList: TCustomImageList; out FilterIndex, SortAscIndex, SortDescIndex: Integer);
 
@@ -312,9 +321,9 @@ type
     procedure AnimateMoveColumn(const OldCellLefts: Dictionary<IDCTreeColumn, Single>; const MovingColumn: IDCTreeColumn = nil; MoveClmnOpacity: Single = 0.3);
     function  GetFlatColumnsLeft: Dictionary<IDCTreeColumn, Single>;
 
-    procedure UpdateColumnSort(const Column: IDCTreeColumn; SortDirection: ListSortDirection; ClearOtherSort: Boolean);
-    procedure UpdateColumnFilter(const Column: IDCTreeColumn; const FilterText: CString; const FilterValues: List<CObject>; const NullValueSelected: Boolean); overload;
-    procedure UpdateColumnFilter(const Column: IDCTreeColumn; const Start: CDateTime; const Stop: CDateTime); overload;
+    procedure UpdateColumnSort(const Column: IDCTreeColumn; SortDirection: ListSortDirection; ClearOtherSort: Boolean; const BoundPropertyName: CString);
+    procedure UpdateColumnFilter(const Column: IDCTreeColumn; const FilterText: CString; const FilterValues: List<CObject>; const NullValueSelected: Boolean; const BoundPropertyName: CString); overload;
+    procedure UpdateColumnFilter(const Column: IDCTreeColumn; const Start: CDateTime; const Stop: CDateTime; const BoundPropertyName: CString); overload;
 
     procedure UpdateSelectedColumn(const Column: Integer);
 
@@ -532,6 +541,7 @@ type
 
     _caption: CString;
     _propertyName: CString;
+    _filterProperties: IList<IDCColumnFilterProperty>;
     _tag: CObject;
 
     _infoControlClass: TInfoControlClass;
@@ -568,6 +578,7 @@ type
     procedure set_Caption(const Value: CString);
     function  get_PropertyName: CString;
     procedure set_PropertyName(const Value: CString);
+    function  get_FilterProperties: IList<IDCColumnFilterProperty>;
     function  get_Tag: CObject;
     procedure set_Tag(const Value: CObject);
 
@@ -621,6 +632,9 @@ type
 
     function  ProvideCellData(const Cell: IDCTreeCell; const PropName: CString; IsSubProp: Boolean = False): CObject;
     function  GetFormattedValue(const Cell: IDCTreeCell; const CellValue: CObject): CString; virtual;
+    procedure AddFilterProperty(const PropertyName, Caption: CString);
+
+    property FilterProperties: IList<IDCColumnFilterProperty> read get_FilterProperties;
 
     // width settings
     property WidthType: TDCColumnWidthType read get_WidthType;
@@ -696,6 +710,12 @@ type
     property TreeControl: IColumnsControl read get_TreeControl;
   end;
 
+  TColumnPropertyFilterRef = class
+  public
+    PropertyName: CString;
+    {$IFNDEF WEBASSEMBLY}[weak]{$ENDIF} Filter: ITreeFilterDescription;
+  end;
+
   TTreeLayoutColumn = class(TBaseInterfacedObject, IDCTreeLayoutColumn)
   protected
     _column: IDCTreeColumn;
@@ -712,6 +732,7 @@ type
 
     {$IFNDEF WEBASSEMBLY}[weak]{$ENDIF} _activeFilter: ITreeFilterDescription;
     {$IFNDEF WEBASSEMBLY}[weak]{$ENDIF} _activeSort: IListSortDescription;
+    _propertyFilters: List<TColumnPropertyFilterRef>;
 
     function  get_Column: IDCTreeColumn;
     function  get_Index: Integer;
@@ -746,6 +767,11 @@ type
     procedure UpdateColumnContainsData(const ContainsData: TColumnContainsData; const CellDataExample: CObject);
 
     function  IndentPerLevel: Single;
+
+    function  PropertyFilter(const PropertyName: CString): ITreeFilterDescription;
+    procedure SetPropertyFilter(const PropertyName: CString; const Value: ITreeFilterDescription);
+    function  HasActiveFilter: Boolean;
+    function  ActivePropertyNames: List<CString>;
   end;
 
   TExpandButton = class(TLayout)
@@ -1025,6 +1051,182 @@ uses
   {$ENDIF}
   , FMX.ScrollControl.ControlClasses
   , ADato.TraceEvents.intf;
+
+type
+  TDCColumnFilterProperty = class(TBaseInterfacedObject, IDCColumnFilterProperty)
+  private
+    _propertyName: CString;
+    _caption: CString;
+
+    function get_PropertyName: CString;
+    function get_Caption: CString;
+  public
+    constructor Create(const PropertyName, Caption: CString);
+  end;
+
+  TDCHeaderFilterPage = class(TBaseInterfacedObject, IDCHeaderFilterPage)
+  private
+    _propertyName: CString;
+    _caption: CString;
+    _isDateRange: Boolean;
+    _data: Dictionary<CObject, CString>;
+    _comparer: IComparer<CObject>;
+    _selected: List<CObject>;
+    _showNullValue: Boolean;
+    _selectNullValue: Boolean;
+    _useTextCompare: Boolean;
+    _start: CDateTime;
+    _stop: CDateTime;
+    _modified: Boolean;
+
+    function get_PropertyName: CString;
+    function get_Caption: CString;
+    function get_IsDateRange: Boolean;
+    function get_Data: Dictionary<CObject, CString>;
+    function get_Comparer: IComparer<CObject>;
+    function get_Selected: List<CObject>;
+    procedure set_Selected(const Value: List<CObject>);
+    function get_ShowNullValue: Boolean;
+    function get_SelectNullValue: Boolean;
+    procedure set_SelectNullValue(const Value: Boolean);
+    function get_UseTextCompare: Boolean;
+    function get_Start: CDateTime;
+    procedure set_Start(const Value: CDateTime);
+    function get_Stop: CDateTime;
+    procedure set_Stop(const Value: CDateTime);
+    function get_Modified: Boolean;
+    procedure set_Modified(const Value: Boolean);
+  public
+    constructor Create(const PropertyName, Caption: CString);
+    procedure SetContent(const IsDateRange: Boolean; const Data: Dictionary<CObject, CString>; const Comparer: IComparer<CObject>; const Selected: List<CObject>; const ShowNullValue, SelectNullValue, UseTextCompare: Boolean; const Start, Stop: CDateTime);
+  end;
+
+{ TDCColumnFilterProperty }
+
+constructor TDCColumnFilterProperty.Create(const PropertyName, Caption: CString);
+begin
+  inherited Create;
+  _propertyName := PropertyName;
+  _caption := Caption;
+end;
+
+function TDCColumnFilterProperty.get_Caption: CString;
+begin
+  Result := _caption;
+end;
+
+function TDCColumnFilterProperty.get_PropertyName: CString;
+begin
+  Result := _propertyName;
+end;
+
+{ TDCHeaderFilterPage }
+
+constructor TDCHeaderFilterPage.Create(const PropertyName, Caption: CString);
+begin
+  inherited Create;
+  _propertyName := PropertyName;
+  _caption := Caption;
+end;
+
+procedure TDCHeaderFilterPage.SetContent(const IsDateRange: Boolean; const Data: Dictionary<CObject, CString>; const Comparer: IComparer<CObject>; const Selected: List<CObject>; const ShowNullValue, SelectNullValue, UseTextCompare: Boolean; const Start, Stop: CDateTime);
+begin
+  _isDateRange := IsDateRange;
+  _data := Data;
+  _comparer := Comparer;
+  _selected := Selected;
+  _showNullValue := ShowNullValue;
+  _selectNullValue := SelectNullValue;
+  _useTextCompare := UseTextCompare;
+  _start := Start;
+  _stop := Stop;
+  _modified := False;
+end;
+
+function TDCHeaderFilterPage.get_Caption: CString;
+begin
+  Result := _caption;
+end;
+
+function TDCHeaderFilterPage.get_Comparer: IComparer<CObject>;
+begin
+  Result := _comparer;
+end;
+
+function TDCHeaderFilterPage.get_Data: Dictionary<CObject, CString>;
+begin
+  Result := _data;
+end;
+
+function TDCHeaderFilterPage.get_IsDateRange: Boolean;
+begin
+  Result := _isDateRange;
+end;
+
+function TDCHeaderFilterPage.get_Modified: Boolean;
+begin
+  Result := _modified;
+end;
+
+function TDCHeaderFilterPage.get_PropertyName: CString;
+begin
+  Result := _propertyName;
+end;
+
+function TDCHeaderFilterPage.get_Selected: List<CObject>;
+begin
+  Result := _selected;
+end;
+
+function TDCHeaderFilterPage.get_SelectNullValue: Boolean;
+begin
+  Result := _selectNullValue;
+end;
+
+function TDCHeaderFilterPage.get_ShowNullValue: Boolean;
+begin
+  Result := _showNullValue;
+end;
+
+function TDCHeaderFilterPage.get_Start: CDateTime;
+begin
+  Result := _start;
+end;
+
+function TDCHeaderFilterPage.get_Stop: CDateTime;
+begin
+  Result := _stop;
+end;
+
+function TDCHeaderFilterPage.get_UseTextCompare: Boolean;
+begin
+  Result := _useTextCompare;
+end;
+
+procedure TDCHeaderFilterPage.set_Modified(const Value: Boolean);
+begin
+  _modified := Value;
+end;
+
+procedure TDCHeaderFilterPage.set_Selected(const Value: List<CObject>);
+begin
+  _selected := Value;
+end;
+
+procedure TDCHeaderFilterPage.set_SelectNullValue(const Value: Boolean);
+begin
+  _selectNullValue := Value;
+end;
+
+procedure TDCHeaderFilterPage.set_Start(const Value: CDateTime);
+begin
+  _start := Value;
+end;
+
+procedure TDCHeaderFilterPage.set_Stop(const Value: CDateTime);
+begin
+  _stop := Value;
+end;
 
 { TScrollControlWithCells }
 
@@ -1996,10 +2198,10 @@ begin
   end else
     sortDirection := ListSortDirection.Ascending;
 
-  UpdateColumnSort(flatColumn.Column, sortDirection, not (ssCtrl in Shift));
+  UpdateColumnSort(flatColumn.Column, sortDirection, not (ssCtrl in Shift), nil);
 end;
 
-procedure TScrollControlWithCells.UpdateColumnSort(const Column: IDCTreeColumn; SortDirection: ListSortDirection; ClearOtherSort: Boolean);
+procedure TScrollControlWithCells.UpdateColumnSort(const Column: IDCTreeColumn; SortDirection: ListSortDirection; ClearOtherSort: Boolean; const BoundPropertyName: CString);
 begin
   var flatColumn := Self.FlatColumnByColumn(Column);
   if flatColumn = nil then
@@ -2014,12 +2216,40 @@ begin
       Exit;
   end;
 
+  var boundName := BoundPropertyName;
+  {$IFDEF WEBASSEMBLY}
+  boundName := '';
+  {$ENDIF}
+
+  // One sort descriptor per column. Switching property replaces the previous descriptor.
+  if FlatColumn.ActiveSort <> nil then
+  begin
+    var currentName: CString := '';
+    var withProp: IListSortDescriptionWithProperty;
+    if Interfaces.Supports<IListSortDescriptionWithProperty>(FlatColumn.ActiveSort, withProp) then
+      currentName := withProp.PropertyDescriptor;
+
+    if not CString.Equals(currentName, boundName) then
+    begin
+      var oldSort := FlatColumn.ActiveSort;
+      FlatColumn.ActiveSort := nil;
+
+      var currentSorts := GetSorts;
+      if currentSorts <> nil then
+      begin
+        var sortIndex := currentSorts.IndexOf(oldSort);
+        if sortIndex >= 0 then
+          currentSorts.RemoveAt(sortIndex);
+      end;
+    end;
+  end;
+
   // keep this var in the methods scope
   // for "ActiveSort" is a weak referenced variable
   var sortDesc: IListSortDescription;
   if FlatColumn.ActiveSort = nil then
   begin
-    if FlatColumn.Column.SortType in [TSortType.ColumnCellComparer, TSortType.RowComparer] then
+    if CString.IsNullOrEmpty(boundName) and (FlatColumn.Column.SortType in [TSortType.ColumnCellComparer, TSortType.RowComparer]) then
     begin
       {$IFNDEF WEBASSEMBLY}
       var cmpDescriptor: IListSortDescriptionWithComparer := TTreeSortDescriptionWithComparer.Create(FlatColumn, OnGetCellDataForSorting);
@@ -2036,11 +2266,22 @@ begin
       sortDesc := cmpDescriptor;
     end else
     begin
+      var valueColumn := ResolveFilterLayoutColumn(FlatColumn, boundName);
       {$IFNDEF WEBASSEMBLY}
-      sortDesc := TTreeSortDescription.Create(FlatColumn, OnGetCellDataForSorting);
+      if CString.IsNullOrEmpty(boundName) or (valueColumn <> FlatColumn) then
+        sortDesc := TTreeSortDescription.Create(valueColumn, OnGetCellDataForSorting)
+      else
+        sortDesc := TTreeSortDescription.Create(FlatColumn, CellDataForProperty(boundName));
       {$ELSE}
-      sortDesc := TTreeSortDescription.Create(FlatColumn, @OnGetCellDataForSorting);
+      sortDesc := TTreeSortDescription.Create(valueColumn, @OnGetCellDataForSorting);
       {$ENDIF}
+
+      if not CString.IsNullOrEmpty(boundName) then
+      begin
+        var withProp: IListSortDescriptionWithProperty;
+        if Interfaces.Supports<IListSortDescriptionWithProperty>(sortDesc, withProp) then
+          withProp.PropertyDescriptor := boundName;
+      end;
     end;
 
     FlatColumn.ActiveSort := sortDesc;
@@ -2056,45 +2297,25 @@ begin
   ExecuteAfterRealignOnly(False);
 end;
 
-procedure TScrollControlWithCells.UpdateColumnFilter(const Column: IDCTreeColumn; const FilterText: CString; const FilterValues: List<CObject>; const NullValueSelected: Boolean);
+procedure TScrollControlWithCells.UpdateColumnFilter(const Column: IDCTreeColumn; const FilterText: CString; const FilterValues: List<CObject>; const NullValueSelected: Boolean; const BoundPropertyName: CString);
 begin
   var flatColumn := Self.FlatColumnByColumn(Column);
   if flatColumn = nil then
     Exit;
 
   if CString.IsNullOrEmpty(FilterText) and ((FilterValues = nil) or (FilterValues.Count = 0)) and not NullValueSelected then
-  begin
-    if flatColumn.ActiveFilter <> nil then
-    begin
-      var activeFilters: List<IListFilterDescription> := CList<IListFilterDescription>.Create;
-      var filterDescription: IListFilterDescription;
-      for filterDescription in _view.GetFilterDescriptions do
-        if filterDescription <> flatColumn.ActiveFilter then
-          activeFilters.Add(filterDescription);
-
-      flatColumn.ActiveFilter := nil;
-      GetInitializedWaitForRefreshInfo.FilterDescriptions := activeFilters;
-    end;
-  end
+    ReleaseColumnFilter(flatColumn, BoundPropertyName)
   else
   begin
     // keep this var in the methods scope
     // for "ActiveFilter" is a weak referenced variable
-    var filter: ITreeFilterDescription;
-    if flatColumn.ActiveFilter = nil then
-    begin
-      {$IFNDEF WEBASSEMBLY}
-      filter := TTreeFilterDescriptionWithRow.Create(flatColumn, OnGetCellDataForSorting);
-      {$ELSE}
-      filter := TTreeFilterDescriptionWithRow.Create(flatColumn, @OnGetCellDataForSorting);
-      {$ENDIF}
-      FlatColumn.ActiveFilter := filter;
-    end;
-
-    FlatColumn.ActiveFilter.FilterText := FilterText;
-    FlatColumn.ActiveFilter.FilterValues := FilterValues;
-    FlatColumn.ActiveFilter.NullValueSelected := NullValueSelected;
-    AddFilterDescription(FlatColumn.ActiveFilter, False);
+    var filter := EnsureColumnFilter(flatColumn, BoundPropertyName);
+    filter.FilterText := FilterText;
+    filter.FilterValues := FilterValues;
+    filter.NullValueSelected := NullValueSelected;
+    filter.Start := CDateTime.MinValue;
+    filter.Stop := CDateTime.MinValue;
+    AddFilterDescription(filter, False);
   end;
 
   if _headerRow <> nil then
@@ -2104,7 +2325,7 @@ begin
   end;
 end;
 
-procedure TScrollControlWithCells.UpdateColumnFilter(const Column: IDCTreeColumn; const Start: CDateTime; const Stop: CDateTime);
+procedure TScrollControlWithCells.UpdateColumnFilter(const Column: IDCTreeColumn; const Start: CDateTime; const Stop: CDateTime; const BoundPropertyName: CString);
 begin
   var flatColumn := Self.FlatColumnByColumn(Column);
   if flatColumn = nil then
@@ -2112,20 +2333,13 @@ begin
 
   // keep this var in the methods scope
   // for "ActiveFilter" is a weak referenced variable
-  var filter: ITreeFilterDescription;
-  if flatColumn.ActiveFilter = nil then
-  begin
-    {$IFNDEF WEBASSEMBLY}
-    filter := TTreeFilterDescriptionWithRow.Create(flatColumn, OnGetCellDataForSorting);
-    {$ELSE}
-    filter := TTreeFilterDescriptionWithRow.Create(flatColumn, @OnGetCellDataForSorting);
-    {$ENDIF}
-    FlatColumn.ActiveFilter := filter;
-  end;
-
-  FlatColumn.ActiveFilter.Start := Start;
-  FlatColumn.ActiveFilter.Stop := Stop;
-  AddFilterDescription(FlatColumn.ActiveFilter, False);
+  var filter := EnsureColumnFilter(flatColumn, BoundPropertyName);
+  filter.FilterText := '';
+  filter.FilterValues := nil;
+  filter.NullValueSelected := False;
+  filter.Start := Start;
+  filter.Stop := Stop;
+  AddFilterDescription(filter, False);
 
   if _headerRow <> nil then
   begin
@@ -2146,27 +2360,242 @@ begin
   TrySelectItem(_selectionInfo, [ssShift]);
 end;
 
-function TScrollControlWithCells.GetColumnValues(const LayoutColumn: IDCTreeLayoutColumn; out NullValueExists: Boolean): Dictionary<CObject, CString>;
+function TScrollControlWithCells.CellDataForProperty(const PropertyName: CString): TOnGetSortCellData;
+begin
+  var capturedName := PropertyName;
+  Result := function(const Cell: IDCTreeCell): CObject
+  begin
+    AtomicIncrement(_isSortingOrFiltering);
+    try
+      Result := Cell.Column.ProvideCellData(Cell, capturedName);
+    finally
+      AtomicDecrement(_isSortingOrFiltering);
+    end;
+  end;
+end;
+
+function TScrollControlWithCells.ResolveFilterLayoutColumn(const HostColumn: IDCTreeLayoutColumn; const PropertyName: CString): IDCTreeLayoutColumn;
+begin
+  Result := HostColumn;
+  if CString.IsNullOrEmpty(PropertyName) or (HostColumn = nil) or (HostColumn.Column = nil) then
+    Exit;
+  if CString.Equals(HostColumn.Column.PropertyName, PropertyName) then
+    Exit;
+  if (_treeLayout = nil) or (_treeLayout.LayoutColumns = nil) then
+    Exit;
+
+  var layoutColumn: IDCTreeLayoutColumn;
+  for layoutColumn in _treeLayout.LayoutColumns do
+    if (layoutColumn.Column <> nil) and CString.Equals(layoutColumn.Column.PropertyName, PropertyName) then
+      Exit(layoutColumn);
+end;
+
+function TScrollControlWithCells.CreateTreeFilter(const FlatColumn: IDCTreeLayoutColumn; const BoundPropertyName: CString): ITreeFilterDescription;
+begin
+  var valueColumn := ResolveFilterLayoutColumn(FlatColumn, BoundPropertyName);
+  {$IFNDEF WEBASSEMBLY}
+  if CString.IsNullOrEmpty(BoundPropertyName) or (valueColumn <> FlatColumn) then
+    Result := TTreeFilterDescriptionWithRow.Create(valueColumn, OnGetCellDataForSorting)
+  else
+    Result := TTreeFilterDescriptionWithRow.Create(FlatColumn, CellDataForProperty(BoundPropertyName));
+  {$ELSE}
+  Result := TTreeFilterDescriptionWithRow.Create(valueColumn, @OnGetCellDataForSorting);
+  {$ENDIF}
+end;
+
+function TScrollControlWithCells.EnsureColumnFilter(const FlatColumn: IDCTreeLayoutColumn; const BoundPropertyName: CString): ITreeFilterDescription;
+begin
+  var isPrimary := CString.IsNullOrEmpty(BoundPropertyName);
+  if isPrimary then
+    Result := FlatColumn.ActiveFilter
+  else
+    Result := FlatColumn.PropertyFilter(BoundPropertyName);
+
+  if Result = nil then
+  begin
+    Result := CreateTreeFilter(FlatColumn, BoundPropertyName);
+    if isPrimary then
+      FlatColumn.ActiveFilter := Result
+    else
+      FlatColumn.SetPropertyFilter(BoundPropertyName, Result);
+  end;
+end;
+
+procedure TScrollControlWithCells.ReleaseColumnFilter(const FlatColumn: IDCTreeLayoutColumn; const BoundPropertyName: CString);
+begin
+  var isPrimary := CString.IsNullOrEmpty(BoundPropertyName);
+  var active: ITreeFilterDescription;
+  if isPrimary then
+    active := FlatColumn.ActiveFilter
+  else
+    active := FlatColumn.PropertyFilter(BoundPropertyName);
+
+  if active = nil then
+    Exit;
+
+  var activeFilters: List<IListFilterDescription> := CList<IListFilterDescription>.Create;
+  var existing := _view.GetFilterDescriptions;
+  if existing <> nil then
+  begin
+    var filterDescription: IListFilterDescription;
+    for filterDescription in existing do
+      if filterDescription <> active then
+        activeFilters.Add(filterDescription);
+  end;
+
+  if isPrimary then
+    FlatColumn.ActiveFilter := nil
+  else
+    FlatColumn.SetPropertyFilter(BoundPropertyName, nil);
+
+  GetInitializedWaitForRefreshInfo.FilterDescriptions := activeFilters;
+end;
+
+procedure TScrollControlWithCells.ClearColumnFilters(const Column: IDCTreeColumn);
+begin
+  UpdateColumnFilter(Column, '', nil, False, nil);
+
+  var flatColumn := Self.FlatColumnByColumn(Column);
+  if flatColumn = nil then
+    Exit;
+
+  var names := flatColumn.ActivePropertyNames;
+  if names = nil then
+    Exit;
+
+  var name: CString;
+  for name in names do
+    UpdateColumnFilter(Column, '', nil, False, name);
+end;
+
+procedure TScrollControlWithCells.ClearColumnPropertySort(const FlatColumn: IDCTreeLayoutColumn);
+begin
+  if (FlatColumn = nil) or (FlatColumn.ActiveSort = nil) then
+    Exit;
+
+  var oldSort := FlatColumn.ActiveSort;
+  FlatColumn.ActiveSort := nil;
+
+  var sorts := GetSorts;
+  if sorts <> nil then
+  begin
+    var sortIndex := sorts.IndexOf(oldSort);
+    if sortIndex >= 0 then
+      sorts.RemoveAt(sortIndex);
+
+    GetInitializedWaitForRefreshInfo.SortDescriptions := sorts;
+    DoSortChanged;
+  end;
+
+  UpdateHeaderRowControls;
+end;
+
+procedure TScrollControlWithCells.ApplyHeaderFilterPages(const FlatColumn: IDCTreeLayoutColumn; const Pages: IList<IDCHeaderFilterPage>);
+begin
+  var page: IDCHeaderFilterPage;
+  for page in Pages do
+  begin
+    if not page.Modified then
+      Continue;
+
+    if page.IsDateRange then
+      UpdateColumnFilter(FlatColumn.Column, page.Start, page.Stop.AddDays(1), page.PropertyName)
+    else
+      UpdateColumnFilter(FlatColumn.Column, '', page.Selected, page.SelectNullValue, page.PropertyName);
+  end;
+end;
+
+function TScrollControlWithCells.CreateHeaderFilterPage(const LayoutColumn: IDCTreeLayoutColumn; const PropertyName, Caption: CString): IDCHeaderFilterPage;
+begin
+  var page := TDCHeaderFilterPage.Create(PropertyName, Caption);
+  Result := page;
+
+  var isPrimary := CString.IsNullOrEmpty(PropertyName);
+  var valueColumn := ResolveFilterLayoutColumn(LayoutColumn, PropertyName);
+  var comparer: IComparer<CObject> := nil;
+  var useTextComparer := False;
+  if isPrimary or (valueColumn <> LayoutColumn) then
+  begin
+    {$IFNDEF WEBASSEMBLY}
+    var descriptor: IListSortDescriptionWithComparer := TTreeSortDescriptionWithComparer.Create(valueColumn, OnGetCellDataForSorting);
+    {$ELSE}
+    var descriptor: IListSortDescriptionWithComparer := TTreeSortDescriptionWithComparer.Create(valueColumn, @OnGetCellDataForSorting);
+    {$ENDIF}
+    comparer := DoSortingGetComparer(descriptor);
+    useTextComparer := valueColumn.Column.SortType = TSortType.DisplayText;
+  end;
+
+  var showNullValue := False;
+  var dataValues := GetColumnValues(LayoutColumn, {var} showNullValue, PropertyName);
+  var useDateFilter := (dataValues.Count > 0) and dataValues.Entries[0].Key.IsDateTime;
+
+  var filter: ITreeFilterDescription;
+  if isPrimary then
+    filter := LayoutColumn.ActiveFilter
+  else
+    filter := LayoutColumn.PropertyFilter(PropertyName);
+
+  var selectedItems: List<CObject> := nil;
+  var selectNullValue := False;
+  var start := CDateTime.MaxValue;
+  var stop := CDateTime.MinValue;
+
+  if filter <> nil then
+  begin
+    if useDateFilter then
+    begin
+      start := filter.Start;
+      stop := filter.Stop.AddDays(-1);
+    end
+    else
+    begin
+      selectedItems := filter.FilterValues;
+      showNullValue := filter.ShowEmptyValues and showNullValue;
+      selectNullValue := showNullValue and filter.NullValueSelected;
+    end;
+  end
+  else if useDateFilter then
+  begin
+    for var key in dataValues.Keys do
+    begin
+      var dt: CDateTime;
+      if key.TryGetValue<CDateTime>(dt) then
+      begin
+        start := CMath.Min(start, dt);
+        stop := CMath.Max(stop, dt);
+      end;
+    end;
+
+    if start.Equals(CDateTime.MaxValue) then
+      start := CDateTime.MinValue;
+  end;
+
+  page.SetContent(useDateFilter, dataValues, comparer, selectedItems, showNullValue, selectNullValue, useTextComparer, start, stop);
+end;
+
+function TScrollControlWithCells.GetColumnValues(const LayoutColumn: IDCTreeLayoutColumn; out NullValueExists: Boolean; const PropertyName: CString): Dictionary<CObject, CString>;
 var
   filterDescription: IListFilterDescription;
 
   function GetText(const obj: CObject) : CString;
   begin
-    var o := obj;
-    if DoCellFormatting(filterDescription as IDCTreeCell, False, False, {var} o) then
-      Result := o.ToString(True) else
-      Result := LayoutColumn.Column.GetFormattedValue(filterDescription as IDCTreeCell, o);
+    var textColumn := ResolveFilterLayoutColumn(LayoutColumn, PropertyName);
+    if not CString.IsNullOrEmpty(PropertyName) and (textColumn = LayoutColumn) then
+      Result := textColumn.Column.GetFormattedValue(filterDescription as IDCTreeCell, obj)
+    else
+    begin
+      var o := obj;
+      if DoCellFormatting(filterDescription as IDCTreeCell, False, False, {var} o) then
+        Result := o.ToString(True) else
+        Result := textColumn.Column.GetFormattedValue(filterDescription as IDCTreeCell, o);
+    end;
 
     if CString.IsNullOrEmpty(Result) then
       Result := NO_VALUE;
   end;
 
 begin
-  {$IFNDEF WEBASSEMBLY}
-  filterDescription := TTreeFilterDescriptionWithRow.Create(LayoutColumn, OnGetCellDataForSorting);
-  {$ELSE}
-  filterDescription := TTreeFilterDescriptionWithRow.Create(LayoutColumn, @OnGetCellDataForSorting);
-  {$ENDIF}
+  filterDescription := CreateTreeFilter(LayoutColumn, PropertyName);
 
   NullValueExists := False;
   var orgDataList := _view.OriginalData;
@@ -2204,7 +2633,6 @@ end;
 procedure TScrollControlWithCells.ShowHeaderPopupMenu(const LayoutColumn: IDCTreeLayoutColumn);
 var
   showFilter: Boolean;
-  dataValues: Dictionary<CObject, CString>;
 begin
   {$IFNDEF WEBASSEMBLY}
   _selectionInfo.Tag := LayoutColumn.Index;
@@ -2234,56 +2662,23 @@ begin
 
   if showFilter then
   begin
-    // Dummy descriptor
-    var descriptor: IListSortDescriptionWithComparer := TTreeSortDescriptionWithComparer.Create(LayoutColumn, OnGetCellDataForSorting);
-    var comparer := DoSortingGetComparer(descriptor);
-    var filter := LayoutColumn.ActiveFilter;
-    var showNullValue := False;
-    var selectNullvalue := False;
-    var selectedItems: List<CObject> := nil;
-    var useTextComparer := LayoutColumn.Column.SortType = TSortType.DisplayText;
-    var start := CDateTime.MaxValue;
-    var stop := CDateTime.MinValue;
+    var pages: IList<IDCHeaderFilterPage> := CList<IDCHeaderFilterPage>.Create;
 
-    dataValues := GetColumnValues(LayoutColumn, {var} showNullValue);
+    var primaryCaption := LayoutColumn.Column.Caption;
+    if CString.IsNullOrEmpty(primaryCaption) then
+      primaryCaption := 'Values';
+    pages.Add(CreateHeaderFilterPage(LayoutColumn, '', primaryCaption));
 
-    var useDateFilter := (dataValues.Count > 0) and dataValues.Entries[0].Key.IsDateTime;
-
-    if filter <> nil then
+    var extraFilters := LayoutColumn.Column.FilterProperties;
+    if extraFilters <> nil then
     begin
-      if useDateFilter then
-      begin
-        start := filter.Start;
-        stop := filter.Stop.AddDays(-1);
-      end
-      else
-      begin
-        selectedItems := filter.FilterValues;
-        showNullValue := filter.ShowEmptyValues and showNullValue;
-        selectNullValue := showNullValue and filter.NullValueSelected;
-      end;
-    end
-    else if useDateFilter then
-    begin
-      for var key in dataValues.Keys do
-      begin
-        var dt: CDateTime;
-        if key.TryGetValue<CDateTime>(dt) then
-        begin
-          start := CMath.Min(start, dt);
-          stop := CMath.Max(stop, dt);
-        end;
-      end;
-
-      if start.Equals(CDateTime.MaxValue) then
-        start := CDateTime.MinValue;
+      var extra: IDCColumnFilterProperty;
+      for extra in extraFilters do
+        pages.Add(CreateHeaderFilterPage(LayoutColumn, extra.PropertyName, extra.Caption));
     end;
 
-    if useDateFilter then
-      popupMenu.LoadDateRange(start, stop, False) else
-      popupMenu.LoadFilterItems(dataValues, comparer, selectedItems, showNullValue, selectNullValue, useTextComparer);
-
-    popupMenu.AllowClearColumnFilter := (filter <> nil);
+    popupMenu.LoadFilterPages(pages);
+    popupMenu.AllowClearColumnFilter := LayoutColumn.HasActiveFilter;
   end;
   {$ELSE}
   raise NotImplementedException.Create('procedure TScrollControlWithCells.ShowHeaderPopupMenu(const LayoutColumn: IDCTreeLayoutColumn)');
@@ -2310,23 +2705,28 @@ begin
 
     TDCHeaderPopupResult.ptSortAscending:
     begin
-      UpdateColumnSort(flatColumn.Column, ListSortDirection.Ascending, True);
+      UpdateColumnSort(flatColumn.Column, ListSortDirection.Ascending, True, popupForm.ActiveFilterPropertyName);
     end;
 
     TDCHeaderPopupResult.ptSortDescending:
     begin
-      UpdateColumnSort(flatColumn.Column, ListSortDirection.Descending, True);
+      UpdateColumnSort(flatColumn.Column, ListSortDirection.Descending, True, popupForm.ActiveFilterPropertyName);
     end;
 
-    TDCHeaderPopupResult.ptFilter:
-    begin
-      var nullValueSelected: Boolean;
-      var filterValues := popupForm.SelectedItems({out} nullValueSelected);
-      UpdateColumnFilter(flatColumn.Column, nil, filterValues, nullValueSelected);
-    end;
-
+    TDCHeaderPopupResult.ptFilter,
     TDCHeaderPopupResult.ptFilterDateRange:
-      UpdateColumnFilter(flatColumn.Column, popupForm.Start, popupForm.Stop.AddDays(1));
+    begin
+      if (popupForm.FilterPages <> nil) and (popupForm.FilterPages.Count > 1) then
+        ApplyHeaderFilterPages(flatColumn, popupForm.FilterPages)
+      else if popupForm.PopupResult = TDCHeaderPopupResult.ptFilterDateRange then
+        UpdateColumnFilter(flatColumn.Column, popupForm.Start, popupForm.Stop.AddDays(1), nil)
+      else
+      begin
+        var nullValueSelected: Boolean;
+        var filterValues := popupForm.SelectedItems({out} nullValueSelected);
+        UpdateColumnFilter(flatColumn.Column, nil, filterValues, nullValueSelected, nil);
+      end;
+    end;
 
     TDCHeaderPopupResult.ptHideColumn:
     begin
@@ -2348,15 +2748,15 @@ begin
     end;
 
     TDCHeaderPopupResult.ptClearFilter:
-    begin
-      UpdateColumnFilter(flatColumn.Column, nil, nil, False);
-    end;
+      ClearColumnFilters(flatColumn.Column);
+
+    TDCHeaderPopupResult.ptClearSort:
+      ClearColumnPropertySort(flatColumn);
 
     TDCHeaderPopupResult.ptClearSortAndFilter:
     begin
-      ClearTreeSorts;
-      ClearTreeFilters;
-      UpdateHeaderRowControls;
+      ClearColumnPropertySort(flatColumn);
+      ClearColumnFilters(flatColumn.Column);
     end;
   end;
   {$ELSE}
@@ -4809,6 +5209,13 @@ begin
   Result.propertyName := _propertyName;
   Result.tag := _tag;
 
+  if _filterProperties <> nil then
+  begin
+    var filterProperty: IDCColumnFilterProperty;
+    for filterProperty in _filterProperties do
+      Result.AddFilterProperty(filterProperty.PropertyName, filterProperty.Caption);
+  end;
+
   Result.SortAndFilter := _SortAndFilter.Clone;
   Result.WidthSettings := _WidthSettings.Clone;
   Result.SubControlSettings := _SubControlSettings.Clone;
@@ -5171,6 +5578,27 @@ begin
   end;
 end;
 
+function TDCTreeColumn.get_FilterProperties: IList<IDCColumnFilterProperty>;
+begin
+  if _filterProperties = nil then
+    _filterProperties := CList<IDCColumnFilterProperty>.Create;
+  Result := _filterProperties;
+end;
+
+procedure TDCTreeColumn.AddFilterProperty(const PropertyName, Caption: CString);
+begin
+  if CString.IsNullOrEmpty(PropertyName) then
+    Exit;
+
+  var filters := get_FilterProperties;
+  var existing: IDCColumnFilterProperty;
+  for existing in filters do
+    if CString.Equals(existing.PropertyName, PropertyName) then
+      Exit;
+
+  filters.Add(TDCColumnFilterProperty.Create(PropertyName, Caption));
+end;
+
 procedure TDCTreeColumn.set_SortAndFilter(const Value: IDCColumnSortAndFilter);
 begin
   _sortAndFilter := Value;
@@ -5260,10 +5688,12 @@ begin
     var sortAscIndex: Integer := -1;
     var sortDescIndex: Integer := -1;
 
-    if (_activeFilter <> nil) or (_activeSort <> nil) then
+    var columnHasFilter := HasActiveFilter;
+
+    if columnHasFilter or (_activeSort <> nil) then
       _treeControl.GetSortAndFilterImages({out} imgList, {out} filterIndex, {out} sortAscIndex, {out} sortDescIndex);
 
-    if (_activeFilter <> nil) and (headerCell.FilterControl = nil) then
+    if columnHasFilter and (headerCell.FilterControl = nil) then
     begin
       headerCell.FilterControl := TGlyph.Create(Cell.Control);
       headerCell.FilterControl.Align := TAlignLayout.None;
@@ -5275,7 +5705,7 @@ begin
 
       Cell.Control.AddObject(headerCell.FilterControl);
     end
-    else if (_activeFilter = nil) and (headerCell.FilterControl <> nil) then
+    else if (not columnHasFilter) and (headerCell.FilterControl <> nil) then
     begin
       headerCell.FilterControl.Free;
       headerCell.FilterControl := nil;
@@ -5618,8 +6048,80 @@ end;
 
 destructor TTreeLayoutColumn.Destroy;
 begin
+  if _propertyFilters <> nil then
+  begin
+    var filterIndex: Integer;
+    for filterIndex := 0 to _propertyFilters.Count - 1 do
+      _propertyFilters[filterIndex].Free;
+  end;
 
   inherited;
+end;
+
+function TTreeLayoutColumn.PropertyFilter(const PropertyName: CString): ITreeFilterDescription;
+begin
+  Result := nil;
+  if _propertyFilters = nil then
+    Exit;
+
+  var filterIndex: Integer;
+  for filterIndex := 0 to _propertyFilters.Count - 1 do
+    if CString.Equals(_propertyFilters[filterIndex].PropertyName, PropertyName) then
+      Exit(_propertyFilters[filterIndex].Filter);
+end;
+
+procedure TTreeLayoutColumn.SetPropertyFilter(const PropertyName: CString; const Value: ITreeFilterDescription);
+begin
+  if _propertyFilters = nil then
+    _propertyFilters := CList<TColumnPropertyFilterRef>.Create;
+
+  var found: TColumnPropertyFilterRef := nil;
+  var filterIndex: Integer;
+  for filterIndex := 0 to _propertyFilters.Count - 1 do
+    if CString.Equals(_propertyFilters[filterIndex].PropertyName, PropertyName) then
+    begin
+      found := _propertyFilters[filterIndex];
+      Break;
+    end;
+
+  if found = nil then
+  begin
+    if Value = nil then
+      Exit;
+
+    found := TColumnPropertyFilterRef.Create;
+    found.PropertyName := PropertyName;
+    _propertyFilters.Add(found);
+  end;
+
+  found.Filter := Value;
+end;
+
+function TTreeLayoutColumn.HasActiveFilter: Boolean;
+begin
+  if _activeFilter <> nil then
+    Exit(True);
+
+  Result := False;
+  if _propertyFilters = nil then
+    Exit;
+
+  var filterIndex: Integer;
+  for filterIndex := 0 to _propertyFilters.Count - 1 do
+    if _propertyFilters[filterIndex].Filter <> nil then
+      Exit(True);
+end;
+
+function TTreeLayoutColumn.ActivePropertyNames: List<CString>;
+begin
+  Result := CList<CString>.Create;
+  if _propertyFilters = nil then
+    Exit;
+
+  var filterIndex: Integer;
+  for filterIndex := 0 to _propertyFilters.Count - 1 do
+    if _propertyFilters[filterIndex].Filter <> nil then
+      Result.Add(_propertyFilters[filterIndex].PropertyName);
 end;
 
 procedure TTreeLayoutColumn.CreateCellBase(const ShowVertGrid: Boolean; const Cell: IDCTreeCell);
