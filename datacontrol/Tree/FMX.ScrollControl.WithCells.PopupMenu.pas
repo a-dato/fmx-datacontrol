@@ -71,6 +71,7 @@ type
     lbiDelimiter: TListBoxItem;
     lbiAddColumnAfter: TListBoxItem;
     lbiDelimiter2: TListBoxItem;
+    lbiClearSort: TListBoxItem;
     filterlist: TRectangle;
     Layout1: TLayout;
     cbSelectAll: TCheckBox;
@@ -98,6 +99,7 @@ type
     procedure lbiAddColumnAfterClick(Sender: TObject);
     procedure lbiHideColumnClick(Sender: TObject);
     procedure lbiClearFilterClick(Sender: TObject);
+    procedure lbiClearSortClick(Sender: TObject);
     procedure lbiClearSortAndFilterClick(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
@@ -119,11 +121,27 @@ type
     _PopupResult: TPopupResult;
     _dataControl: TDataControl;
     _data: Dictionary<CObject, CString>;
+    _filterPages: IList<IDCHeaderFilterPage>;
+    _propertyTabs: TTabControl;
+    _loadingPage: Boolean;
+    _activePageIndex: Integer;
 
     [unsafe] _LayoutColumn: IDCTreeLayoutColumn;
 
     procedure CreateItemFiltersControls;
     procedure SetAllowClearColumnFilter(Value: Boolean);
+    procedure EnsurePropertyTabs;
+    function  VisibleListHeight(const List: TListBox): Single;
+    procedure SetItemEnabled(const Item: TListBoxItem; Value: Boolean);
+    procedure UpdateSortFilterActions;
+    procedure UpdateActionCaptions;
+    procedure ClearFilterPage(const PageIndex: Integer);
+    function  IndexOfActiveFilterPage: Integer;
+    procedure SaveActiveFilterPage;
+    procedure ShowFilterPage(const PageIndex: Integer);
+    procedure PropertyTabsChange(Sender: TObject);
+    procedure CloseWithFilterResult(const SingleResult: TPopupResult);
+    procedure MarkActivePageModified;
 
     function  get_LayoutColumn: IDCTreeLayoutColumn;
     procedure set_LayoutColumn(const Value: IDCTreeLayoutColumn);
@@ -132,6 +150,8 @@ type
     function  get_Stop: CDateTime;
     procedure set_Stop(const Value: CDateTime);
     function  get_PopupResult: TDCHeaderPopupResult;
+    function  get_FilterPages: IList<IDCHeaderFilterPage>;
+    function  get_ActiveFilterPropertyName: CString;
     function  get_ImageList: TCustomImageList;
 
     procedure IHeaderPopupMenu.set_AllowClearColumnFilter = SetAllowClearColumnFilter;
@@ -148,8 +168,11 @@ type
     procedure EnableItem(Index: integer; Value: boolean);
     procedure LoadFilterItems(const Data: Dictionary<CObject, CString>; const Comparer: IComparer<CObject>; const Selected: List<CObject>; ShowNullValue: Boolean; SelectNullValue: Boolean; UseTextCompare: Boolean);
     procedure LoadDateRange(const Start: CDateTime; const Stop: CDateTime; ShowTimeValue: Boolean);
+    procedure LoadFilterPages(const Pages: IList<IDCHeaderFilterPage>);
 
     property  PopupResult: TPopupResult read _PopupResult;
+    property  FilterPages: IList<IDCHeaderFilterPage> read get_FilterPages;
+    property  ActiveFilterPropertyName: CString read get_ActiveFilterPropertyName;
     property  AllowClearColumnFilter: Boolean write SetAllowClearColumnFilter;
     property  Start: CDateTime read get_Start write set_Start;
     property  Stop: CDateTime read get_Stop write set_Stop;
@@ -183,36 +206,99 @@ begin
   end;
 end;
 
-procedure TfrmFMXPopupMenuDataControl.ShowPopupMenu(const ScreenPos: TPointF; ShowItemFilters, ShowItemSortOptions, ShowItemAddColumAfter, ShowItemHideColumn: Boolean);
-{ • ShowItemFilters - Tree and filters search box, Clear Filter
-  • ShowItemSortOptions - Sort items(2), Clear All (Filter + Sort) }
-
-  procedure CalculateMenuHeight;
-  var
-    item: TListBoxItem;
+function TfrmFMXPopupMenuDataControl.VisibleListHeight(const List: TListBox): Single;
+begin
+  Result := 0;
+  var itemIndex: Integer;
+  for itemIndex := 0 to List.Count - 1 do
   begin
-    var lbHeight: Double := 6;
-    var filterListHeight := 0;
+    var item := List.ListItems[itemIndex];
+    if item.IsSelected then
+      item.IsSelected := False;
+    if item.Visible then
+      Result := Result + item.Height;
+  end;
+end;
 
-    var i: Integer;
-    for i := 0 to PopupListBox.Count - 1 do
-    begin
-      item := PopupListBox.ListItems[i];
-      if item.Visible then
-        lbHeight := lbHeight + PopupListBox.ListItems[i].Height;
-      if item.IsSelected then
-        item.IsSelected := false;
-    end;
+procedure TfrmFMXPopupMenuDataControl.SetItemEnabled(const Item: TListBoxItem; Value: Boolean);
+begin
+  Item.Enabled := Value;
+  Item.Selectable := Value;
+end;
 
-    if filterlist.Visible then
-      filterListHeight := 202;
+function TfrmFMXPopupMenuDataControl.IndexOfActiveFilterPage: Integer;
+begin
+  Result := 0;
+  if (_LayoutColumn = nil) or (_filterPages = nil) then
+    Exit;
 
-    lyListBoxBackGround.Height := lbHeight;
-    Height := Ceil(lbHeight + filterListHeight + {Padding.Bottom + Padding.Top + 1 +} 20);
+  var pageIndex: Integer;
+  for pageIndex := 0 to _filterPages.Count - 1 do
+  begin
+    var page := _filterPages[pageIndex];
+    var active: ITreeFilterDescription;
+    if CString.IsNullOrEmpty(page.PropertyName) then
+      active := _LayoutColumn.ActiveFilter
+    else
+      active := _LayoutColumn.PropertyFilter(page.PropertyName);
+
+    if active <> nil then
+      Exit(pageIndex);
+  end;
+end;
+
+procedure TfrmFMXPopupMenuDataControl.ClearFilterPage(const PageIndex: Integer);
+begin
+  if (_filterPages = nil) or (PageIndex < 0) or (PageIndex >= _filterPages.Count) then
+    Exit;
+
+  var page := _filterPages[PageIndex];
+  page.Selected := nil;
+  page.SelectNullValue := False;
+  page.Modified := False;
+
+  if (_LayoutColumn = nil) or (_LayoutColumn.Column = nil) or (_LayoutColumn.Column.TreeControl = nil) then
+    Exit;
+
+  var tree := _LayoutColumn.Column.TreeControl.Control as TScrollControlWithCells;
+  tree.UpdateColumnFilter(_LayoutColumn.Column, '', nil, False, page.PropertyName);
+end;
+
+procedure TfrmFMXPopupMenuDataControl.UpdateSortFilterActions;
+begin
+  var hasFilter := (_LayoutColumn <> nil) and _LayoutColumn.HasActiveFilter;
+  var hasSort := (_LayoutColumn <> nil) and (_LayoutColumn.ActiveSort <> nil);
+
+  SetItemEnabled(lbiClearFilter, hasFilter);
+  SetItemEnabled(lbiClearSort, hasSort);
+  SetItemEnabled(lbiClearSortAndFilter, hasFilter or hasSort);
+  UpdateActionCaptions;
+end;
+
+procedure TfrmFMXPopupMenuDataControl.UpdateActionCaptions;
+begin
+  var suffix: CString := '';
+  if (_filterPages <> nil) and (_filterPages.Count > 1) and (_activePageIndex >= 0) and (_activePageIndex < _filterPages.Count) then
+  begin
+    var tabCaption := _filterPages[_activePageIndex].Caption;
+    if not CString.IsNullOrEmpty(tabCaption) then
+      suffix := CString.Concat(' (', tabCaption, ')');
   end;
 
+  lbiSortSmallToLarge.Text := CString.Concat('Sort smallest to largest', suffix);
+  lbiSortLargeToSmall.Text := CString.Concat('Sort largest to smallest', suffix);
+  lbiClearSort.Text := 'Clear sort';
+  lbiClearFilter.Text := 'Clear filter';
+  lbiClearSortAndFilter.Text := 'Clear sort and filter';
+end;
+
+procedure TfrmFMXPopupMenuDataControl.ShowPopupMenu(const ScreenPos: TPointF; ShowItemFilters, ShowItemSortOptions, ShowItemAddColumAfter, ShowItemHideColumn: Boolean);
 begin
   _PopupResult := TPopupResult.ptCancel;
+  _filterPages := nil;
+  _activePageIndex := -1;
+  if _propertyTabs <> nil then
+    _propertyTabs.Visible := False;
 
   Timer1.Enabled := True;
 
@@ -226,9 +312,9 @@ begin
   if ShowItemFilters then
     CreateItemFiltersControls;
 
-  // ShowItemSortOptions
   lbiSortSmallToLarge.Visible := ShowItemSortOptions;
   lbiSortLargeToSmall.Visible := ShowItemSortOptions;
+  lbiClearSort.Visible := ShowItemSortOptions;
   lbiClearFilter.Visible := ShowItemFilters;
   filterlist.Visible := ShowItemFilters;
   lbiClearSortAndFilter.Visible := ShowItemFilters or ShowItemSortOptions;
@@ -236,7 +322,18 @@ begin
   lbiAddColumnAfter.Visible := ShowItemAddColumAfter;
   lbiHideColumn.Visible := ShowItemHideColumn;
 
-  CalculateMenuHeight;
+  UpdateActionCaptions;
+
+  var menuHeight := VisibleListHeight(PopupListBox);
+  if menuHeight > 0 then
+    menuHeight := menuHeight + 6;
+  lyListBoxBackGround.Height := menuHeight;
+
+  var filterListHeight: Single := 0;
+  if filterlist.Visible then
+    filterListHeight := 202;
+
+  Height := Ceil(menuHeight + filterListHeight + 20);
 
   Show;
 end;
@@ -279,8 +376,157 @@ end;
 
 procedure TfrmFMXPopupMenuDataControl.btnApplyDateRangeClick(Sender: TObject);
 begin
-  _PopupResult := TPopupResult.ptFilterDateRange;
+  CloseWithFilterResult(TPopupResult.ptFilterDateRange);
+end;
+
+procedure TfrmFMXPopupMenuDataControl.EnsurePropertyTabs;
+begin
+  if _propertyTabs <> nil then
+    Exit;
+
+  _propertyTabs := TTabControl.Create(Self);
+  _propertyTabs.Parent := Self;
+  _propertyTabs.Align := TAlignLayout.Top;
+  _propertyTabs.TabHeight := 28;
+  _propertyTabs.Height := 32;
+  _propertyTabs.TabPosition := TTabPosition.Top;
+  _propertyTabs.OnChange := PropertyTabsChange;
+  _propertyTabs.Visible := False;
+  if lyListBoxBackGround.Index >= 0 then
+    _propertyTabs.Index := lyListBoxBackGround.Index + 1;
+end;
+
+procedure TfrmFMXPopupMenuDataControl.MarkActivePageModified;
+begin
+  if _loadingPage then
+    Exit;
+
+  if (_filterPages <> nil) and (_activePageIndex >= 0) and (_activePageIndex < _filterPages.Count) then
+    _filterPages[_activePageIndex].Modified := True;
+end;
+
+procedure TfrmFMXPopupMenuDataControl.SaveActiveFilterPage;
+begin
+  if (_filterPages = nil) or (_activePageIndex < 0) or (_activePageIndex >= _filterPages.Count) then
+    Exit;
+
+  var page := _filterPages[_activePageIndex];
+  if page.IsDateRange then
+  begin
+    page.Start := get_Start;
+    page.Stop := get_Stop;
+  end
+  else
+  begin
+    var nullSelected := False;
+    page.Selected := SelectedItems(nullSelected);
+    page.SelectNullValue := nullSelected;
+  end;
+end;
+
+procedure TfrmFMXPopupMenuDataControl.ShowFilterPage(const PageIndex: Integer);
+begin
+  if (_filterPages = nil) or (PageIndex < 0) or (PageIndex >= _filterPages.Count) then
+    Exit;
+
+  _loadingPage := True;
+  try
+    _activePageIndex := PageIndex;
+    var page := _filterPages[PageIndex];
+
+    if edSearch.Text <> '' then
+      edSearch.Text := '';
+
+    if page.IsDateRange then
+      LoadDateRange(page.Start, page.Stop, False)
+    else
+      LoadFilterItems(page.Data, page.Comparer, page.Selected, page.ShowNullValue, page.SelectNullValue, page.UseTextCompare);
+  finally
+    _loadingPage := False;
+  end;
+
+  UpdateSortFilterActions;
+end;
+
+procedure TfrmFMXPopupMenuDataControl.PropertyTabsChange(Sender: TObject);
+begin
+  if _loadingPage or (_propertyTabs = nil) then
+    Exit;
+
+  var previousIndex := _activePageIndex;
+  if previousIndex <> _propertyTabs.TabIndex then
+    ClearFilterPage(previousIndex);
+
+  ShowFilterPage(_propertyTabs.TabIndex);
+end;
+
+procedure TfrmFMXPopupMenuDataControl.CloseWithFilterResult(const SingleResult: TPopupResult);
+begin
+  SaveActiveFilterPage;
+  if (_filterPages <> nil) and (_filterPages.Count > 1) then
+    _PopupResult := TPopupResult.ptFilter
+  else
+    _PopupResult := SingleResult;
   Close;
+end;
+
+procedure TfrmFMXPopupMenuDataControl.LoadFilterPages(const Pages: IList<IDCHeaderFilterPage>);
+begin
+  _filterPages := Pages;
+  if (Pages = nil) or (Pages.Count = 0) then
+    Exit;
+
+  if Pages.Count = 1 then
+  begin
+    if _propertyTabs <> nil then
+      _propertyTabs.Visible := False;
+    ShowFilterPage(0);
+    Exit;
+  end;
+
+  EnsurePropertyTabs;
+
+  _loadingPage := True;
+  try
+    while _propertyTabs.TabCount > 0 do
+      _propertyTabs.Tabs[0].Free;
+
+    var page: IDCHeaderFilterPage;
+    for page in Pages do
+    begin
+      var tabItem := _propertyTabs.Add;
+      tabItem.Text := page.Caption;
+    end;
+
+    _propertyTabs.Visible := True;
+    _propertyTabs.TabIndex := IndexOfActiveFilterPage;
+  finally
+    _loadingPage := False;
+  end;
+
+  ShowFilterPage(_propertyTabs.TabIndex);
+
+  if Width < 280 then
+  begin
+    var grow := Trunc(280 - Width);
+    Left := Left - grow;
+    if Left < 0 then
+      Left := 0;
+    Width := 280;
+  end;
+  Height := Height + Trunc(_propertyTabs.Height);
+end;
+
+function TfrmFMXPopupMenuDataControl.get_FilterPages: IList<IDCHeaderFilterPage>;
+begin
+  Result := _filterPages;
+end;
+
+function TfrmFMXPopupMenuDataControl.get_ActiveFilterPropertyName: CString;
+begin
+  Result := '';
+  if (_filterPages <> nil) and (_activePageIndex >= 0) and (_activePageIndex < _filterPages.Count) then
+    Result := _filterPages[_activePageIndex].PropertyName;
 end;
 
 procedure TfrmFMXPopupMenuDataControl.LoadFilterItems(const Data: Dictionary<CObject, CString>; const Comparer: IComparer<CObject>; const Selected: List<CObject>; ShowNullValue: Boolean; SelectNullValue: Boolean; UseTextCompare: Boolean);
@@ -305,6 +551,7 @@ begin
     items.Insert(0, NO_VALUE);
 
   _dataControl.DataList := items as IList;
+  _dataControl.ClearSelectedItems;
 
   if Selected <> nil then
     _dataControl.AssignSelection(Selected as IList);
@@ -318,6 +565,7 @@ end;
 procedure TfrmFMXPopupMenuDataControl.LoadDateRange(const Start: CDateTime; const Stop: CDateTime; ShowTimeValue: Boolean);
 begin
   tcFilterControls.ActiveTab := tsDateRange;
+  dtpTo.OnChange := dtpFromChange;
   dtpFrom.Date := Start;
   dtpTo.Date := Stop;
   btnApplyDateRange.Enabled := False;
@@ -350,11 +598,10 @@ end;
 
 function TfrmFMXPopupMenuDataControl.SelectedItems(out NullValueSelected: Boolean) : List<CObject>;
 begin
+  NullValueSelected := False;
   var selected := _dataControl.SelectedItems(False);
   if selected = nil then
     Exit(nil);
-
-  NullValueSelected := False;
 
   Result := CList<CObject>.Create(selected.Count);
 
@@ -371,7 +618,7 @@ end;
 
 procedure TfrmFMXPopupMenuDataControl.SetAllowClearColumnFilter(Value: Boolean);
 begin
-  EnableItem(lbiClearFilter.Index, Value);
+  UpdateSortFilterActions;
 end;
 
 procedure TfrmFMXPopupMenuDataControl.set_LayoutColumn(const Value: IDCTreeLayoutColumn);
@@ -397,8 +644,7 @@ end;
 
 procedure TfrmFMXPopupMenuDataControl.btnApplyFiltersClick(Sender: TObject);
 begin
-  _PopupResult := TPopupResult.ptFilter;
-  Close;
+  CloseWithFilterResult(TPopupResult.ptFilter);
 end;
 
 procedure TfrmFMXPopupMenuDataControl.cbSelectAllClick(Sender: TObject);
@@ -413,11 +659,13 @@ end;
 
 procedure TfrmFMXPopupMenuDataControl.dtpFromChange(Sender: TObject);
 begin
+  MarkActivePageModified;
   btnApplyDateRange.Enabled := True;
 end;
 
 procedure TfrmFMXPopupMenuDataControl.TreeCellSelected(const Sender: TObject; e: DCSelectionEvent);
 begin
+  MarkActivePageModified;
   btnApplyFilters.Enabled := True;
 end;
 
@@ -428,7 +676,7 @@ begin
 //
 //  _dataControl.AddFilterDescription(filterByText, True);
 
-  _dataControl.UpdateColumnFilter(_dataControl.Columns[1], edSearch.Text.ToLower, nil, False);
+  _dataControl.UpdateColumnFilter(_dataControl.Columns[1], edSearch.Text.ToLower, nil, False, nil);
 end;
 
 procedure TfrmFMXPopupMenuDataControl.FormCloseQuery(Sender: TObject; var CanClose: Boolean);
@@ -466,6 +714,12 @@ end;
 procedure TfrmFMXPopupMenuDataControl.lbiHideColumnClick(Sender: TObject);
 begin
  _PopupResult := TPopupResult.ptHideColumn;
+  Close;
+end;
+
+procedure TfrmFMXPopupMenuDataControl.lbiClearSortClick(Sender: TObject);
+begin
+  _PopupResult := TPopupResult.ptClearSort;
   Close;
 end;
 

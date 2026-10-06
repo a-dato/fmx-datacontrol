@@ -742,11 +742,12 @@ begin
     try
       {$IFDEF APP_PLATFORM}
       var descriptor: IPropertyDescriptor;
-      var value_string: CString;
+      var value_string: CString := nil;
 
       if TryGetPropertyDescriptor(descriptor) and (descriptor.Formatter <> nil) then
-        value_string := descriptor.Formatter.Format(Obj, Value, nil) else
-        Value.TryGetValue<CString>(value_string);
+        value_string := descriptor.Formatter.Format(Obj, Value, nil)
+      else if not TryConvertToUserFriendlyText(Value, __PropertyInfo, value_string) and (Value <> nil) then
+        value_string := Value.ToString;
 
       if not CString.Equals(value_string, _Control.Text) then
         _Control.Text := CStringToString(value_string);
