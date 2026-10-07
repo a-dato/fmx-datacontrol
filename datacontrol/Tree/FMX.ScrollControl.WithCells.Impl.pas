@@ -1344,7 +1344,8 @@ end;
 function TScrollControlWithCells.TreeInnerXPosition: Single;
 begin
   if _autoCenterTree then
-    Result := CMath.Max((Self.Width-_totalColumnWidth)/2, 0) else
+    Result := CMath.Max((Self.Width-_totalColumnWidth-IfThen(_vertScrollBar.Visible, _vertScrollBar.Width, 0))/2, 0)
+  else
     Result := 0;
 end;
 

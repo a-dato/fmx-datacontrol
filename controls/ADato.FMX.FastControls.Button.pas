@@ -18,6 +18,7 @@ uses
   FMX.Layouts,
   FMX.TabControl,
   FMX.Graphics,
+  FMX.TextLayout,
   System.ImageList,
   {$ELSE}
   Wasm.System.Math.Vectors,
@@ -33,6 +34,7 @@ uses
   Wasm.FMX.Layouts,
   Wasm.FMX.TabControl,
   Wasm.FMX.Graphics,
+  Wasm.FMX.TextLayout,
   Wasm.System.ImageList,
   {$ENDIF}
   System_, ADato.FMX.FastControls.Text, FMX.ScrollControl.ControlClasses.Intf;
@@ -81,6 +83,12 @@ type
 
     _innerFillColor: TAlphaColor;
     _innerStrokeColor: TAlphaColor;
+
+    // Canvas.FillText creates and shapes a new layout on every call
+    _textLayout: TTextLayout;
+    _subTextLayout: TTextLayout;
+
+    procedure RenderText(var Layout: TTextLayout; const ARect: TRectF; const AText: string; const AOpacity: Single; const HorzAlign, VertAlign: TTextAlign);
 
     // ICaption
     function  GetText: String;
@@ -418,6 +426,27 @@ begin
   Result := (lighter + 0.05) / (darker + 0.05) >= MINIMUM_TEXT_CONTRAST_RATIO;
 end;
 
+var
+  _lineHeightFamily: string;
+  _lineHeightSize: Single;
+  _lineHeightStyle: TFontStyleExt;
+  _lineHeight: Single = -1;
+
+// Most buttons share the same font, measuring 'Gg' requires a full text layout each time
+function CachedLineHeight(const ACanvas: TCanvas): Single;
+begin
+  var font := ACanvas.Font;
+  if (_lineHeight < 0) or (_lineHeightFamily <> font.Family) or not SameValue(_lineHeightSize, font.Size) or not (_lineHeightStyle = font.StyleExt) then
+  begin
+    _lineHeight := ACanvas.TextHeight('Gg');
+    _lineHeightFamily := font.Family;
+    _lineHeightSize := font.Size;
+    _lineHeightStyle := font.StyleExt;
+  end;
+
+  Result := _lineHeight;
+end;
+
 { TADatoClickLayout }
 
 function TADatoClickLayout.HasButtonEvent: Boolean;
@@ -483,7 +512,7 @@ begin
 
   cv.Font.SetSettings(APPLICATION_FONT_FAMILY, _config.FontSize, _config.FontStyleExt);
 
-  var textHeight := cv.TextHeight('Gg'); // > in case of empty text we need a height.
+  var textHeight := CachedLineHeight(cv); // > in case of empty text we need a height.
   var subTextHeight := 0.0;
   if HasText then
   begin
@@ -494,7 +523,7 @@ begin
       cv.Font.Size := 10;
       var w2 := cv.TextWidth(Self.SubText);
       w := System.Math.Max(w, w2);
-      subTextHeight := cv.TextHeight('Gg');
+      subTextHeight := CachedLineHeight(cv);
     end;
 
 //    if get_TagType <> TTagType.NoBounds then
@@ -743,7 +772,41 @@ begin
     FreeAndNil(_config);
   end;
 
+  FreeAndNil(_textLayout);
+  FreeAndNil(_subTextLayout);
+
   inherited;
+end;
+
+procedure TADatoClickLayout.RenderText(var Layout: TTextLayout; const ARect: TRectF; const AText: string; const AOpacity: Single; const HorzAlign, VertAlign: TTextAlign);
+begin
+  // printing uses another canvas type, which needs its own layout class
+  var layoutClass := TTextLayoutManager.TextLayoutByCanvas(Canvas.ClassType);
+  if (Layout = nil) or (Layout.ClassType <> layoutClass) then
+  begin
+    FreeAndNil(Layout);
+    Layout := layoutClass.Create(Canvas);
+  end
+  else if Layout.LayoutCanvas <> Canvas then
+    Layout.LayoutCanvas := Canvas;
+
+  // setters only invalidate the layout when a value really changes
+  Layout.BeginUpdate;
+  try
+    Layout.TopLeft := ARect.TopLeft;
+    Layout.MaxSize := PointF(ARect.Width, ARect.Height);
+    Layout.Text := AText;
+    Layout.WordWrap := False;
+    Layout.Opacity := AOpacity;
+    Layout.HorizontalAlign := HorzAlign;
+    Layout.VerticalAlign := VertAlign;
+    Layout.Font := Canvas.Font;
+    Layout.Color := Canvas.Fill.Color;
+  finally
+    Layout.EndUpdate;
+  end;
+
+  Layout.RenderLayout(Canvas);
 end;
 
 function TADatoClickLayout.get_DCControl: IDCControl;
@@ -875,12 +938,12 @@ begin
   var localY: Single := (bounds.Height / 2) + 10;
 
   // Prefer the underline just below the inner bounds, if it fits inside the button
-  localY := Min(Max(localY, _innerBounds.Bottom + 2), bounds.Height - bounds.Top - 3);
-
-  var y := localY + bounds.Top;
+  localY := Min(Max(localY, _innerBounds.Bottom + 2), bounds.Height - 3);
 
   if LocalUnderlinePoints then
     bounds := TRectF.Empty;
+
+  var y := localY + bounds.Top;
 
   if HasText then
   begin
@@ -966,16 +1029,13 @@ begin
   if (_imageIndex = -1) then
     Exit;
 
+  // owned by the image list cache (or image helper), freeing it forces a re-render on every paint
   var bitmap := GetBitmap(get_Images, bitmapSize, _imageIndex);
-  try
-    if bitmap <> nil then
-    begin
-      var bitmapRect := TRectF.Create(0, 0, Bitmap.Width, Bitmap.Height);
-      var imgRect := _imageBounds.Round; //TRectF.Create(CenteredRect(_imageBounds.Round, TRectF.Create(0, 0, Bitmap.Width / ScreenScale, Bitmap.Height/ ScreenScale).Round));
-      Canvas.DrawBitmap(Bitmap, BitmapRect, imgRect, GetPaintOpacity, False);
-    end;
-  finally
-    bitmap.Free;
+  if bitmap <> nil then
+  begin
+    var bitmapRect := TRectF.Create(0, 0, Bitmap.Width, Bitmap.Height);
+    var imgRect := _imageBounds.Round; //TRectF.Create(CenteredRect(_imageBounds.Round, TRectF.Create(0, 0, Bitmap.Width / ScreenScale, Bitmap.Height/ ScreenScale).Round));
+    Canvas.DrawBitmap(Bitmap, BitmapRect, imgRect, GetPaintOpacity, False);
   end;
   {$ENDIF}
 end;
@@ -1071,7 +1131,7 @@ begin
 
       Canvas.Fill.Color := fontColor;
       bounds.Offset(0, -OpticalTextYOffset(_config.FontSize));
-      Canvas.FillText(bounds, Text, False, GetPaintOpacity, [], horzAlign, TTextAlign.Center);
+      RenderText(_textLayout, bounds, Text, GetPaintOpacity, horzAlign, TTextAlign.Center);
 
 //      {$IFDEF DEBUG}
 //      Self.Canvas.Fill.Color := TAlphaColors.Mediumpurple;
@@ -1085,7 +1145,7 @@ begin
 
       PrepareCanvasForSubText;
       bounds.Offset(0, -OpticalTextYOffset(Canvas.Font.Size));
-      Canvas.FillText(bounds, SubText, False, GetPaintOpacity, [], horzAlign, TTextAlign.Leading);
+      RenderText(_subTextLayout, bounds, SubText, GetPaintOpacity, horzAlign, TTextAlign.Leading);
     end;
   end;
 
@@ -1240,9 +1300,9 @@ end;
 
 procedure TFastButton.DoPaint;
 begin
-  // wait for the repaint..
+  // a recalc requested while painting the children; a skipped paint would not be repainted
   if ShouldRecalculate then
-    Exit;
+    Calculate;
 
   _waitForRepaint := False;
 

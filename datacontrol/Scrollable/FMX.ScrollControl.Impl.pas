@@ -74,15 +74,18 @@ type
 
     _mousePositionOnMouseDown: TPointF;
     _scrollbarPositionsOnMouseDown: TPointF;
-    _mouseRollingBoostTimer: TTimer;
-    _mouseRollingBoostDistanceToGo: Integer;
     _mouseRollingLastPoints: array of TPointF;
+    _mouseRollingLastTicks: array of Int64;
+    _mouseRollingSampleCount: Integer;
 
-    _mouseWheelDistanceToGo: Integer;
-    _mouseWheelDistanceTotal: Integer;
+    // Pixels still to travel. Positive moves toward the top, same sign as ScrollManualInstant.
+    // Wheel input and touch flings share this so both ease out the same way.
+    _scrollDistanceToGo: Single;
+    _scrollSubPixel: Single;
+    _scrollTau: Single;
+    _scrollAnimClock: TStopwatch;
+    _applyingSmoothScroll: Boolean;
     _mouseWheelSmoothScrollTimer: TTimer;
-
-    _lastMouseWheel1, _lastMouseWheel2, _lastMouseWheel3: Integer;
 
     _controlWasFocusedBeforeMouseDown: Boolean;
     _rightClickPopupIsOpen: Boolean;
@@ -95,6 +98,9 @@ type
     procedure HandleRightClick(Shift: TShiftState; X, Y: Single);
 
     procedure MouseRollingBoostTimer(Sender: TObject);
+    procedure StopSmoothScroll(const FinishScrolling: Boolean = True);
+    procedure AddSmoothScrollDistance(const DistancePx, Tau: Single);
+    procedure ApplySmoothScrollFrame(const DtSeconds: Single);
 
     function  CanRealignScrollCheck(ForceOnScrollbarEnds: Boolean = False): Boolean;
     function  RealignContentTime: Integer; virtual;
@@ -297,17 +303,6 @@ begin
   {$ENDIF}
   Self.AddObject(_content);
 
-  _mouseRollingBoostTimer := TTimer.Create(Self);
-  _mouseRollingBoostTimer.Stored := False;
-  {$IFNDEF WEBASSEMBLY}
-  _mouseRollingBoostTimer.OnTimer := MouseRollingBoostTimer;
-  {$ELSE}
-  _mouseRollingBoostTimer.OnTimer := @MouseRollingBoostTimer;
-  {$ENDIF}
-  _mouseRollingBoostTimer.Interval := 20;
-  _mouseRollingBoostTimer.Enabled := False;
-  Self.AddObject(_mouseRollingBoostTimer);
-
   SetBasicVertScrollBarValues;
   SetBasicHorzScrollBarValues;
 
@@ -331,8 +326,9 @@ begin
   {$ELSE}
   _mouseWheelSmoothScrollTimer.OnTimer := @MouseWheelSmoothScrollingTimer;
   {$ENDIF}
-  _mouseWheelSmoothScrollTimer.Interval := 25;
+  _mouseWheelSmoothScrollTimer.Interval := 16;
   _mouseWheelSmoothScrollTimer.Enabled := False;
+  _scrollTau := 0.12;
 
   _customHintTimer := TTimer.Create(Self);
   _customHintTimer.Stored := False;
@@ -345,6 +341,7 @@ begin
   _customHintTimer.Enabled := False;
 
   SetLength(_mouseRollingLastPoints, 3);
+  SetLength(_mouseRollingLastTicks, 3);
   UpdateMouseScrollingLastMoves(True, TPointF.Zero);
 end;
 
@@ -352,7 +349,6 @@ destructor TScrollControl.Destroy;
 begin
   _safeObj := nil;
 
-  FreeAndNil(_mouseRollingBoostTimer);
   FreeAndNil(_mouseWheelSmoothScrollTimer);
   FreeAndNil(_checkWaitForRealignTimer);
 
@@ -428,8 +424,11 @@ begin
   end else
   begin
     // still scrolling, so nothing to do now
-    if _timerDoRealignWhenScrollingStopped and (_mouseWheelDistanceToGo <> 0) then
+    if _timerDoRealignWhenScrollingStopped and (Abs(_scrollDistanceToGo) > 0.5) then
     begin
+      if not _scrollAnimClock.IsRunning then
+        _scrollAnimClock := TStopwatch.StartNew;
+
       _mouseWheelSmoothScrollTimer.Enabled := True;
       Exit;
     end;
@@ -590,17 +589,18 @@ begin
   if ScrollbarOnly then
     Exit(False);
 
-  // finger scroll change (only when boost is active)
-  if _mouseRollingBoostTimer.Enabled then
-    Exit(True);
-
-  // check mouse wheel change
-  if (_lastMouseWheel3 <> 0) {and (_lastMouseWheel3 > Environment.TickCount - 500)} then
+  // Wheel or finger fling still moving quickly. The slow tail is not "fast":
+  // that last part should realign at full quality.
+  if _mouseWheelSmoothScrollTimer.Enabled or (Abs(_scrollDistanceToGo) > 1) then
   begin
-//    if _tickAtStart = 0 then
-//      _tickAtStart := Environment.TickCount;
+    var tau := _scrollTau;
+    if tau < 0.04 then
+      tau := 0.12;
 
-    if _lastMouseWheel3 > _lastMouseWheel1 - 500 then
+    if (Abs(_scrollDistanceToGo) / tau) > 900 then
+      Exit(True);
+
+    if _scrollStopWatch_wheel_lastSpin.IsRunning and (_scrollStopWatch_wheel_lastSpin.ElapsedMilliseconds < 200) then
       Exit(True);
   end;
 
@@ -619,16 +619,30 @@ end;
 
 function TScrollControl.MouseScrollingBoostDistance: Single;
 begin
-  var item: TPointF;
-  for item in _mouseRollingLastPoints do
-    if item.IsZero then
-      Exit(0);
+  // Pixels per second of the finger. Positive means the finger moved down.
+  Result := 0;
 
-  var latestYChanges := _mouseRollingLastPoints[2].Y + _mouseRollingLastPoints[1].Y - (2*_mouseRollingLastPoints[0].Y);
+  if _mouseRollingSampleCount < 2 then
+    Exit;
 
-  if (latestYChanges < -10) or (latestYChanges > 10) then
-    Result := latestYChanges else
-    Result := 0; // no mouse boost
+  var newest := _mouseRollingSampleCount - 1;
+  var oldest := newest - 1;
+
+  // Prefer a window of about 80ms so a slow start doesn't dilute a fast release.
+  var ix: Integer;
+  for ix := newest - 1 downto 0 do
+  begin
+    if (_mouseRollingLastTicks[newest] - _mouseRollingLastTicks[ix]) > 80 then
+      Break;
+
+    oldest := ix;
+  end;
+
+  var dtMs := _mouseRollingLastTicks[newest] - _mouseRollingLastTicks[oldest];
+  if dtMs < 8 then
+    Exit;
+
+  Result := ((_mouseRollingLastPoints[newest].Y - _mouseRollingLastPoints[oldest].Y) / dtMs) * 1000;
 end;
 
 function TScrollControl.IsUpdating: Boolean;
@@ -651,17 +665,28 @@ end;
 
 procedure TScrollControl.UpdateMouseScrollingLastMoves(Reset: Boolean; LastPoint: TPointF);
 begin
-  if Reset or LastPoint.IsZero then
+  if Reset then
   begin
-    _mouseRollingLastPoints[0] := TPointF.Zero;
-    _mouseRollingLastPoints[1] := TPointF.Zero;
-  end else
-  begin
-    _mouseRollingLastPoints[0] := _mouseRollingLastPoints[1];
-    _mouseRollingLastPoints[1] := _mouseRollingLastPoints[2];
+    _mouseRollingSampleCount := 0;
+    Exit;
   end;
 
+  var tick := _scrollStopWatch_mouse.ElapsedMilliseconds;
+
+  if _mouseRollingSampleCount < Length(_mouseRollingLastPoints) then
+  begin
+    _mouseRollingLastPoints[_mouseRollingSampleCount] := LastPoint;
+    _mouseRollingLastTicks[_mouseRollingSampleCount] := tick;
+    Inc(_mouseRollingSampleCount);
+    Exit;
+  end;
+
+  _mouseRollingLastPoints[0] := _mouseRollingLastPoints[1];
+  _mouseRollingLastPoints[1] := _mouseRollingLastPoints[2];
+  _mouseRollingLastTicks[0] := _mouseRollingLastTicks[1];
+  _mouseRollingLastTicks[1] := _mouseRollingLastTicks[2];
   _mouseRollingLastPoints[2] := LastPoint;
+  _mouseRollingLastTicks[2] := tick;
 end;
 
 procedure TScrollControl.MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Single);
@@ -678,9 +703,10 @@ begin
 
   _controlWasFocusedBeforeMouseDown := FIsFocused;
 
-  inherited;
+  // A finger down grabs the content. The coast stops, otherwise it fights the drag.
+  StopSmoothScroll(False);
 
-  _mouseRollingBoostTimer.Enabled := False;
+  inherited;
 
   _mousePositionOnMouseDown := PointF(X, Y - _content.Position.Y);
   _scrollbarPositionsOnMouseDown := GetViewPortPosition;
@@ -690,7 +716,11 @@ begin
 
   _scrollStopWatch_mouse.Start;
 
+  if _scrollStopWatch_mouse_lastMove.IsRunning then
+    _scrollStopWatch_mouse_lastMove.Reset;
+
   UpdateMouseScrollingLastMoves(True, PointF(X, Y));
+  UpdateMouseScrollingLastMoves(False, PointF(X, Y));
 end;
 
 function TScrollControl.MouseIsDown: Boolean;
@@ -785,38 +815,150 @@ begin
   end;
 end;
 
-procedure TScrollControl.MouseRollingBoostTimer(Sender: TObject);
+procedure TScrollControl.StopSmoothScroll(const FinishScrolling: Boolean);
 begin
-  var scrollBy := Round(_mouseRollingBoostDistanceToGo * 0.1);
-  if scrollBy < (_mouseRollingBoostDistanceToGo / 2) then
-    scrollBy := _mouseRollingBoostDistanceToGo;
+  _mouseWheelSmoothScrollTimer.Enabled := False;
+  _scrollDistanceToGo := 0;
+  _scrollSubPixel := 0;
+  _scrollAnimClock.Reset;
 
-  _mouseRollingBoostDistanceToGo := _mouseRollingBoostDistanceToGo - scrollBy;
+  if _scrollStopWatch_wheel_lastSpin.IsRunning then
+    _scrollStopWatch_wheel_lastSpin.Reset;
 
-  if not IsScrolling then
+  if FinishScrolling and IsScrolling and not MouseIsDown then
+    AfterScrolling;
+end;
+
+procedure TScrollControl.AddSmoothScrollDistance(const DistancePx, Tau: Single);
+begin
+  if (_scrollingType = TScrollingType.WithScrollBar) or (Abs(DistancePx) < 0.01) then
+    Exit;
+
+  // A direction change drops the old coast. Stacking against it feels sticky.
+  if (_scrollDistanceToGo <> 0) and ((_scrollDistanceToGo > 0) <> (DistancePx > 0)) then
+  begin
+    _scrollDistanceToGo := 0;
+    _scrollSubPixel := 0;
+  end;
+
+  _scrollDistanceToGo := _scrollDistanceToGo + DistancePx;
+  _scrollTau := Tau;
+
+  // Caps the speed, not the duration. The ease always settles in a few tau.
+  var maxQueue := _content.Height * 3;
+  if maxQueue < 360 then
+    maxQueue := 360;
+
+  if _scrollDistanceToGo > maxQueue then
+    _scrollDistanceToGo := maxQueue
+  else if _scrollDistanceToGo < -maxQueue then
+    _scrollDistanceToGo := -maxQueue;
+
+  if _scrollingType = TScrollingType.None then
     _scrollingType := TScrollingType.Other;
 
-  var oldVal := _vertScrollbar.Value;
-  ScrollManualInstant(scrollBy);
-  if SameValue(_vertScrollbar.Value, oldVal, 0.5) then
-    _mouseRollingBoostDistanceToGo := 0;
+  if not _scrollAnimClock.IsRunning then
+    _scrollAnimClock := TStopwatch.StartNew;
 
-  if (_mouseRollingBoostDistanceToGo >= -5) and (_mouseRollingBoostDistanceToGo <= 5) then
+  _mouseWheelSmoothScrollTimer.Enabled := True;
+end;
+
+procedure TScrollControl.ApplySmoothScrollFrame(const DtSeconds: Single);
+
+  function WheelInputIsArriving: Boolean;
   begin
-    _mouseRollingBoostTimer.Enabled := False;
-    AfterScrolling;
+    // Physical notches and trackpad packets arrive in bursts. Keep a fraction of a pixel
+    // so the next packet adds to it, instead of rounding it away and ending the gesture.
+    Result := _scrollStopWatch_wheel_lastSpin.IsRunning and (_scrollStopWatch_wheel_lastSpin.ElapsedMilliseconds < 90);
   end;
+
+  procedure MovePixels(Pixels: Integer);
+  begin
+    if Pixels = 0 then
+      Exit;
+
+    _applyingSmoothScroll := True;
+    try
+      var oldVal := _vertScrollBar.Value;
+      ScrollManualInstant(Pixels);
+      if SameValue(oldVal, _vertScrollBar.Value, 0.5) then
+        StopSmoothScroll(True);
+    finally
+      _applyingSmoothScroll := False;
+    end;
+  end;
+
+begin
+  var dt := DtSeconds;
+  if dt < 0.001 then
+    Exit;
+
+  // A stalled frame must not teleport. 80ms is about five vsyncs.
+  if dt > 0.08 then
+    dt := 0.08;
+
+  var pending := _scrollDistanceToGo + _scrollSubPixel;
+
+  // Trunc never emits a leftover under 1px, so the timer would spin forever.
+  // While the wheel is still sending, that leftover has to stay queued.
+  if Abs(pending) < 1 then
+  begin
+    if WheelInputIsArriving then
+      Exit;
+
+    var rest := Round(pending);
+    _scrollDistanceToGo := 0;
+    _scrollSubPixel := 0;
+    MovePixels(rest);
+
+    if _mouseWheelSmoothScrollTimer.Enabled then
+      StopSmoothScroll(True);
+
+    Exit;
+  end;
+
+  var tau := _scrollTau;
+  if tau < 0.04 then
+    tau := 0.12;
+
+  // Exponential ease: step = remaining * (1 - e^(-dt/tau)).
+  // New wheel or fling distance extends "remaining", so the speed follows the input
+  // and the release still coasts out. This is independent of the timer interval.
+  var step := _scrollDistanceToGo * (1 - Exp(-dt / tau));
+  _scrollDistanceToGo := _scrollDistanceToGo - step;
+  _scrollSubPixel := _scrollSubPixel + step;
+
+  var pixels := Trunc(_scrollSubPixel);
+  _scrollSubPixel := _scrollSubPixel - pixels;
+  if pixels = 0 then
+    Exit;
+
+  MovePixels(pixels);
+end;
+
+procedure TScrollControl.MouseRollingBoostTimer(Sender: TObject);
+begin
+  // Touch fling and mouse wheel share one clock.
+  MouseWheelSmoothScrollingTimer(Sender);
 end;
 
 procedure TScrollControl.MouseWheel(Shift: TShiftState; WheelDelta: Integer; var Handled: Boolean);
 const
-  ScrollBigStepsDivider = 5;
-  WheelDeltaDivider = 120;
+  WheelTau = 0.11;
+  RowsPerNotch = 2;
+  StandardNotch = 120;
 begin
   inherited;
 
-  if Handled or (_scrollingType = TScrollingType.WithScrollBar) then
+  if Handled or (_scrollingType = TScrollingType.WithScrollBar) or (WheelDelta = 0) then
     Exit;
+
+  // The finger already owns the position. A wheel coast here would fight the drag.
+  if MouseIsDown then
+  begin
+    Handled := True;
+    Exit;
+  end;
 
   var goUp := WheelDelta > 0;
   var scrollingIsDone := False;
@@ -827,8 +969,9 @@ begin
 
   if scrollingIsDone then
   begin
-    if _scrollingType <> TScrollingType.None then
-      AfterScrolling;
+    var queuedOpposite := (goUp and (_scrollDistanceToGo < 0)) or ((not goUp) and (_scrollDistanceToGo > 0));
+    if not queuedOpposite then
+      StopSmoothScroll(True);
 
     Exit;
   end;
@@ -838,115 +981,61 @@ begin
   if not CanRealignContent then
     Exit;
 
-  var wasGoUp := _mouseWheelDistanceTotal > 0;
-  if goUp <> wasGoUp then
+  // One notch (WheelDelta 120) travels the same 2 rows as before.
+  // Smaller deltas (trackpad, smooth wheel) scale with that, instead of each counting as a full notch.
+  var scrollDown := WheelDelta < 0;
+  var pixels := DefaultMoveDistance(scrollDown, RowsPerNotch) * (Abs(WheelDelta) / StandardNotch);
+  if scrollDown then
+    pixels := -pixels;
+
+  var timerWasRunning := _mouseWheelSmoothScrollTimer.Enabled;
+  AddSmoothScrollDistance(pixels, WheelTau);
+  _scrollStopWatch_wheel_lastSpin := TStopwatch.StartNew;
+
+  // Distance is queued before the first realign. Realign sets _paintTime to -1,
+  // and doing that first used to make CanRealignScrollCheck reject the rest of the gesture.
+  if (not timerWasRunning) and CanRealignScrollCheck then
   begin
-    _mouseWheelDistanceToGo := 0;
-    _mouseWheelDistanceTotal := 0;
+    ApplySmoothScrollFrame(1 / 60);
+    if _mouseWheelSmoothScrollTimer.Enabled then
+      _scrollAnimClock := TStopwatch.StartNew;
   end;
-
-  var distance := WheelDelta;
-  if IsFastScrolling then
-  begin
-    distance := Round(DefaultMoveDistance(WheelDelta > 0, 3));
-    if (WheelDelta < 0) then
-      distance := -distance;
-
-    _mouseWheelDistanceTotal := distance;
-    _mouseWheelDistanceToGo := distance;
-
-    if CanRealignScrollCheck then
-    begin
-      ScrollManualInstant(_mouseWheelDistanceToGo);
-      Exit;
-    end;
-  end else
-  begin
-    // how bigger this number, the more&longer the scrollcontrol keeps scrolling after mousewheel already stopped after a mousewheel boost
-    var maxLeftToScroll := 200;
-    var posIntToGo := IfThen(_mouseWheelDistanceToGo > 0, _mouseWheelDistanceToGo, -_mouseWheelDistanceToGo);
-
-    var posWheelDelta := Trunc(DefaultMoveDistance(distance < 0, 2));
-//    var posWheelDelta := Round(IfThen(distance > 0, distance, -distance) * 1.0);
-    var delta := CMath.Min(Trunc(_content.Height), CMath.Min(posWheelDelta, maxLeftToScroll - posIntToGo));
-
-    if delta > 0 then
-    begin
-      if not goUp then
-        delta := -delta;
-
-      _mouseWheelDistanceToGo := _mouseWheelDistanceToGo + delta;
-      _mouseWheelDistanceTotal := _mouseWheelDistanceTotal + delta;
-    end;
-  end;
-
-  // must go after _mouseWheelDistanceToGo :=, because otherwise _PaintTIme can be set to -1 and the scrolling will be killed...
-  if not CanRealignScrollCheck then
-    Exit;
-
-  _lastMouseWheel3 := _lastMouseWheel2;
-  _lastMouseWheel2 := _lastMouseWheel1;
-  _lastMouseWheel1 := Environment.TickCount;
-
-  _mouseWheelSmoothScrollTimer.Enabled := True;
 end;
 
 procedure TScrollControl.MouseWheelSmoothScrollingTimer(Sender: TObject);
-
-  procedure InternalOnScrollingEnded;
-  begin
-    _mouseWheelSmoothScrollTimer.Enabled := False;
-    _mouseWheelDistanceToGo := 0;
-    _mouseWheelDistanceTotal := 0;
-    AfterScrolling;
-  end;
-
 begin
-  if _scrollStopWatch_wheel_lastSpin.IsRunning then
+  if _scrollingType = TScrollingType.WithScrollBar then
   begin
-    if (_scrollStopWatch_wheel_lastSpin.ElapsedMilliseconds > 250) then
-    begin
-      _mouseWheelSmoothScrollTimer.Enabled := False;
-      _scrollStopWatch_wheel_lastSpin.Reset;
-    end;
-
-    exit;
+    StopSmoothScroll(False);
+    Exit;
   end;
 
-  var wasAbove := _mouseWheelDistanceToGo > 0;
-  var scrollPart: Integer;
-
-  var posIntTotal := IfThen(wasAbove, _mouseWheelDistanceTotal, -_mouseWheelDistanceTotal);
-  var posIntToGo := IfThen(wasAbove, _mouseWheelDistanceToGo, -_mouseWheelDistanceToGo);
-
-  var scrollSpeed := posIntTotal / 3.5;
-  scrollPart := Round(CMath.Min(scrollSpeed, posIntToGo * 0.7));
-
-  // otherwise scrolling looks like its going backwards and too fast..
-  if scrollPart > 75 then
-    scrollPart := 75;
-
-  if not wasAbove then
-    scrollPart := -scrollPart;
-
-  var newDistanceToGo := _mouseWheelDistanceToGo - scrollPart;
-
-  var isAbove := _mouseWheelDistanceToGo > 0;
-
-  if (wasAbove <> isAbove) or ((newDistanceToGo > -1) and (newDistanceToGo < 1)) or SameValue(scrollPart, 0, 0.5) then
-    InternalOnScrollingEnded
-  else begin
-    var oldVal := _vertScrollbar.Value;
-    if not IsScrolling then
-      _scrollingType := TScrollingType.Other;
-
-    if IsFastScrolling then
-      ScrollManualInstant(_mouseWheelDistanceToGo) else
-      ScrollManualInstant(scrollPart);
-
-    if SameValue(_vertScrollbar.Value, oldVal, 0.5) then
-      InternalOnScrollingEnded;
+  if (Abs(_scrollDistanceToGo) < 0.01) and (Abs(_scrollSubPixel) < 0.01) then
+  begin
+    StopSmoothScroll(True);
+    Exit;
   end;
+
+  if not _scrollAnimClock.IsRunning then
+  begin
+    _scrollAnimClock := TStopwatch.StartNew;
+    Exit;
+  end;
+
+  var dtMs := _scrollAnimClock.ElapsedMilliseconds;
+  if dtMs < 8 then
+    Exit;
+
+  // While a realign is still on screen, wait. After 250ms apply anyway so a missed paint cannot freeze the coast.
+  if not CanRealignScrollCheck then
+  begin
+    if _scrollStopWatch_scrollbar.IsRunning and (_scrollStopWatch_scrollbar.ElapsedMilliseconds < 250) then
+      Exit;
+  end;
+
+  var dt: Single := dtMs / 1000;
+  _scrollAnimClock := TStopwatch.StartNew;
+  ApplySmoothScrollFrame(dt);
 end;
 
 procedure TScrollControl.OnContentResized(Sender: TObject);
@@ -1007,6 +1096,10 @@ begin
 
   if _scrollUpdateCount <> 0 then
     Exit;
+
+  // The user grabbed the bar. A running coast would fight that drag.
+  if (_vertScrollBar as TCustomSmallScrollBar).IsTracking then
+    StopSmoothScroll(False);
 
   if CanRealignScrollCheck(True {force realign at scrollbar ends}) then
   begin
@@ -1149,7 +1242,18 @@ procedure TScrollControl.ScrollManualInstant(YChange: Integer);
 begin
   Assert(_scrollingType <> TScrollingType.WithScrollBar);
 
-  _mouseWheelDistanceToGo := _mouseWheelDistanceToGo - YChange;
+  // Drag and other instant moves cancel a coast. The animator itself is the exception:
+  // it owns _scrollDistanceToGo and must not clear it by applying a frame.
+  if not _applyingSmoothScroll then
+  begin
+    var cancelAnimation := _mouseWheelSmoothScrollTimer.Enabled or (Abs(_scrollDistanceToGo) > 0.01);
+    if cancelAnimation then
+    begin
+      StopSmoothScroll(False);
+      if not MouseIsDown and (_scrollingType = TScrollingType.Other) then
+        _scrollingType := TScrollingType.None;
+    end;
+  end;
 
   if YChange <> 0 then
   begin
@@ -1182,20 +1286,24 @@ end;
 
 procedure TScrollControl.ScrollManualTryAnimated;
 begin
-  _mouseWheelSmoothScrollTimer.Enabled := False;
-
-  if IsFastScrolling then
-  begin
-    ScrollManualInstant(_mouseWheelDistanceToGo);
-
-    RestartWaitForRealignTimer(True);
-    TryStartWaitForRealignTimer;
-
+  if (Abs(_scrollDistanceToGo) < 0.5) and (Abs(_scrollSubPixel) < 0.5) then
     Exit;
-  end;
 
-  MouseWheelSmoothScrollingTimer(nil);
+  var timerWasRunning := _mouseWheelSmoothScrollTimer.Enabled;
+  if _scrollingType = TScrollingType.None then
+    _scrollingType := TScrollingType.Other;
+
+  if not _scrollAnimClock.IsRunning then
+    _scrollAnimClock := TStopwatch.StartNew;
+
   _mouseWheelSmoothScrollTimer.Enabled := True;
+
+  if (not timerWasRunning) and CanRealignScrollCheck then
+  begin
+    ApplySmoothScrollFrame(1 / 60);
+    if _mouseWheelSmoothScrollTimer.Enabled then
+      _scrollAnimClock := TStopwatch.StartNew;
+  end;
 end;
 
 //function TScrollControl.VertScrollbarIsTracking: Boolean;
@@ -1216,23 +1324,27 @@ begin
 end;
 
 function TScrollControl.TryExecuteMouseScrollBoostOnMouseEventStopped: Boolean;
+const
+  TouchTau = 0.32;
+  MinFlingSpeed = 160; // px/s, a slow release should stop with the finger
 begin
   Result := False;
 
-  var pixelPerSecond := MouseScrollingBoostDistance;
-  if not SameValue(pixelPerSecond, 0) and _scrollStopWatch_mouse.IsRunning and (_scrollStopWatch_mouse_lastMove.ElapsedMilliseconds < 150) then
-  begin
-    // give scrolling a boost after faste scroll
-    _mouseRollingBoostDistanceToGo := Round(pixelPerSecond * 10);
-    _mouseRollingBoostTimer.Enabled := True;
+  if _scrollingType = TScrollingType.WithScrollBar then
+    Exit;
 
+  var pixelPerSecond := MouseScrollingBoostDistance;
+  if (Abs(pixelPerSecond) >= MinFlingSpeed) and _scrollStopWatch_mouse.IsRunning and (_scrollStopWatch_mouse_lastMove.ElapsedMilliseconds < 150) then
+  begin
+    // Distance of an exponential coast equals speed * tau.
+    AddSmoothScrollDistance(pixelPerSecond * TouchTau, TouchTau);
     Result := True;
   end;
 
   if _scrollStopWatch_mouse.IsRunning then
   begin
     _scrollStopWatch_mouse.Reset;
-    if not _mouseRollingBoostTimer.Enabled and IsScrolling then
+    if not _mouseWheelSmoothScrollTimer.Enabled and IsScrolling then
       AfterScrolling;
   end;
 end;

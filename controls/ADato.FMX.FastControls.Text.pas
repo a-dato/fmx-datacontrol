@@ -60,14 +60,26 @@ type
     _recalcNeeded: Boolean;
     _autoSize: TAutoSize;
     _autoSizeNeeded: Boolean;
+    _applyingAutoSize: Boolean;
+    _layoutScheduled: Boolean;
     _forbiddenAutoSizeOptions: TAutoSizes;
     _internalUpdateCount: Integer;
 
     _recalcIndex: Integer;
 
     procedure Loaded; override;
+    procedure ParentChanged; override;
+    procedure SetVisible(const Value: Boolean); override;
+    procedure AncestorVisibleChanged(const Visible: Boolean); override;
+
     procedure RepaintNeeded;
     procedure RecalcNeeded; virtual;
+
+    procedure ScheduleLayout;
+    procedure ProcessScheduledLayout;
+    function  IsOnScreen: Boolean;
+    function  SizeAffectsCalculation: Boolean; virtual;
+    procedure PrepareLayout;
 
     function  ShouldRecalculate: Boolean;
     procedure ControlLoadedCalculate;
@@ -75,10 +87,9 @@ type
     procedure InternalCalculate;
     procedure Calculate; virtual;
 
-    procedure ImmidiateAutoSize; virtual;
-    procedure CalculateSafeAutoSize;
     function  DoAutoSize: Boolean; //virtual;
     procedure ApplyAutoSize; virtual;
+    procedure SafeApplyAutoSize;
     procedure set_AutoSize(const Value: TAutoSize); virtual;
 
     procedure DoResized; override;
@@ -208,6 +219,7 @@ type
     function  GetDefaultSize: TSizeF; override;
 
     procedure Calculate; override;
+    function  SizeAffectsCalculation: Boolean; override;
     function  EnsureLayoutForCanvas(const ACanvas: TCanvas): Boolean;
     procedure InvalidateBoundsChange(const OldBounds, NewBounds: TRectF);
     procedure ApplyAutoSize; override;
@@ -391,6 +403,124 @@ uses
   , FMX.Skia
   {$ENDIF}
   , ADato.TraceEvents.intf;
+
+{ Layout scheduler }
+
+// All pending TFastControl calculations are handled in one queued pass. On Windows the
+// queued call is processed before WM_PAINT, so resizes still end up in the same paint region.
+var
+  _pendingLayouts: TArray<TFastControl>;
+  _pendingLayoutCount: Integer;
+  _flushBatch: TArray<TFastControl>;
+  _layoutFlushQueued: Boolean;
+  _layoutFlushing: Boolean;
+
+procedure FlushPendingLayouts; forward;
+
+procedure QueueLayoutFlush;
+begin
+  if _layoutFlushQueued then
+    Exit;
+
+  _layoutFlushQueued := True;
+  TThread.ForceQueue(nil, procedure
+  begin
+    FlushPendingLayouts;
+  end);
+end;
+
+procedure AddPendingLayout(const Control: TFastControl);
+begin
+  if _pendingLayoutCount = Length(_pendingLayouts) then
+  begin
+    if Length(_pendingLayouts) = 0 then
+      SetLength(_pendingLayouts, 64) else
+      SetLength(_pendingLayouts, 2 * Length(_pendingLayouts));
+  end;
+
+  _pendingLayouts[_pendingLayoutCount] := Control;
+  inc(_pendingLayoutCount);
+
+  if not _layoutFlushing then
+    QueueLayoutFlush;
+end;
+
+procedure RemovePendingLayout(const Control: TFastControl);
+begin
+  for var ix := 0 to _pendingLayoutCount - 1 do
+    if _pendingLayouts[ix] = Control then
+      _pendingLayouts[ix] := nil;
+
+  for var ix := 0 to High(_flushBatch) do
+    if _flushBatch[ix] = Control then
+      _flushBatch[ix] := nil;
+end;
+
+function ControlDepth(const Control: TControl): Integer;
+begin
+  Result := 0;
+  var parentCtrl := Control.ParentControl;
+  while parentCtrl <> nil do
+  begin
+    inc(Result);
+    parentCtrl := parentCtrl.ParentControl;
+  end;
+end;
+
+procedure FlushPendingLayouts;
+begin
+  _layoutFlushQueued := False;
+  _layoutFlushing := True;
+  try
+    var pass := 0;
+    while (_pendingLayoutCount > 0) and (pass < 3) do
+    begin
+      inc(pass);
+
+      _flushBatch := Copy(_pendingLayouts, 0, _pendingLayoutCount);
+      for var ix := 0 to _pendingLayoutCount - 1 do
+        _pendingLayouts[ix] := nil;
+      _pendingLayoutCount := 0;
+
+      var depths: TArray<Integer>;
+      SetLength(depths, Length(_flushBatch));
+      var maxDepth := 0;
+      for var ix := 0 to High(_flushBatch) do
+        if _flushBatch[ix] <> nil then
+        begin
+          depths[ix] := ControlDepth(_flushBatch[ix]);
+          if depths[ix] > maxDepth then
+            maxDepth := depths[ix];
+        end;
+
+      // deepest first: a parent's autosize depends on the size of its children
+      for var depth := maxDepth downto 0 do
+        for var ix := 0 to High(_flushBatch) do
+          if (_flushBatch[ix] <> nil) and (depths[ix] = depth) then
+          begin
+            var ctrl := _flushBatch[ix];
+            _flushBatch[ix] := nil;
+            ctrl._layoutScheduled := False;
+            ctrl.ProcessScheduledLayout;
+          end;
+
+      _flushBatch := nil;
+    end;
+  finally
+    _flushBatch := nil;
+    _layoutFlushing := False;
+  end;
+
+  // Controls that keep rescheduling themselves are not queued again: a continuous ForceQueue
+  // starves WM_TIMER / WM_PAINT. They stay dirty and are handled by PrepareForPaint.
+  for var ix := 0 to _pendingLayoutCount - 1 do
+    if _pendingLayouts[ix] <> nil then
+    begin
+      _pendingLayouts[ix]._layoutScheduled := False;
+      _pendingLayouts[ix] := nil;
+    end;
+  _pendingLayoutCount := 0;
+end;
 
 { TDateTimeEditOnKeyDownOverride }
 
@@ -601,8 +731,9 @@ begin
         contentBottom := CMath.Max(contentBottom, _imageBounds.Bottom);
       end;
 
-      var p1 := PointF(contentLeft - TAG_HORZ_MARGIN, contentTop - tagVerticalMargin);
-      var p2 := PointF(contentRight + TAG_HORZ_MARGIN, contentBottom + tagVerticalMargin);
+      // pixels outside the control bounds are not invalidated when the control moves or resizes
+      var p1 := PointF(CMath.Max(0, contentLeft - TAG_HORZ_MARGIN), CMath.Max(0, contentTop - tagVerticalMargin));
+      var p2 := PointF(CMath.Min(Self.Width, contentRight + TAG_HORZ_MARGIN), CMath.Min(Self.Height, contentBottom + tagVerticalMargin));
 
       var rad := CMath.Min(10, (p2.Y - p1.Y) / 2);
       var rect := TRectF.Create(p1.X, p1.Y, p2.X, p2.Y);
@@ -875,6 +1006,13 @@ begin
   {$ENDIF}
 end;
 
+function TFastText.SizeAffectsCalculation: Boolean;
+begin
+  // Without WordWrap the text is measured unbounded; trimming and alignment are applied in DoPaint.
+  // Child controls (e.g. subtext of a checkbox) are positioned relative to the size.
+  Result := get_WordWrap or not _calcAsAutoHeight or (ControlsCount > 0);
+end;
+
 procedure TFastText.SetLeftRightPadding;
 begin
   if not ShouldRecalculate then
@@ -1082,15 +1220,12 @@ begin
   if _imageIndex = -1 then
     Exit;
 
+  // owned by the image list cache (or image helper), freeing it forces a re-render on every paint
   var bitmap := GetBitmap(get_Images, bitmapSize, _imageIndex);
-  try
-    if bitmap <> nil then
-    begin
-      var bitmapRect := TRectF.Create(0, 0, bitmap.Width, bitmap.Height);
-      Canvas.DrawBitmap(bitmap, bitmapRect, _imageBounds.Round, AbsoluteOpacity, False);
-    end;
-  finally
-    bitmap.Free;
+  if bitmap <> nil then
+  begin
+    var bitmapRect := TRectF.Create(0, 0, bitmap.Width, bitmap.Height);
+    Canvas.DrawBitmap(bitmap, bitmapRect, _imageBounds.Round, AbsoluteOpacity, False);
   end;
 end;
 
@@ -1636,6 +1771,12 @@ end;
 
 destructor TFastControl.Destroy;
 begin
+  if _layoutScheduled then
+  begin
+    _layoutScheduled := False;
+    RemovePendingLayout(Self);
+  end;
+
   _isAlive := nil;
   inherited;
 end;
@@ -1644,17 +1785,103 @@ procedure TFastControl.Loaded;
 begin
   _controlIsLoaded := True;
   inherited;
+
+  if _recalcNeeded then
+    ScheduleLayout;
+end;
+
+procedure TFastControl.ParentChanged;
+begin
+  inherited;
+
+  if _recalcNeeded or _autoSizeNeeded then
+    ScheduleLayout;
+end;
+
+procedure TFastControl.SetVisible(const Value: Boolean);
+begin
+  inherited;
+
+  if Value and (_recalcNeeded or _autoSizeNeeded) then
+    ScheduleLayout;
+end;
+
+procedure TFastControl.AncestorVisibleChanged(const Visible: Boolean);
+begin
+  inherited;
+
+  if Visible and (_recalcNeeded or _autoSizeNeeded) then
+    ScheduleLayout;
 end;
 
 procedure TFastControl.RepaintNeeded;
 begin
+  // Invalidations while drawing are ignored by FMX. Do not postpone them: controls that change
+  // properties on every paint (e.g. grids in BeforePainting) would cause an endless paint loop,
+  // starving WM_TIMER (animations, TLineAnimation of the tab control).
   if not FInPaintTo then
-    Repaint
-//    and not _waitingForRepaint then
-//  begin
-//    _waitingForRepaint := True;
-//    Repaint;
-//  end;
+    Repaint;
+end;
+
+procedure TFastControl.ScheduleLayout;
+begin
+  if _layoutScheduled or (csLoading in ComponentState) or (csDestroying in ComponentState) then
+    Exit;
+
+  _layoutScheduled := True;
+  AddPendingLayout(Self);
+end;
+
+procedure TFastControl.ProcessScheduledLayout;
+begin
+  // controls outside the visible area stay dirty and are calculated in PrepareForPaint
+  // or when their measurements are requested (TextWidth etc.)
+  if (_recalcNeeded or _autoSizeNeeded) and IsOnScreen then
+    PrepareLayout;
+end;
+
+function TFastControl.IsOnScreen: Boolean;
+begin
+  // UpdateRect is clipped by ClipChildren parents (scrollboxes), so scrolled out controls are empty.
+  // Autosize controls need their size for aligning, even when they currently have no size.
+  Result := (Scene <> nil) and not IsUpdating and ParentedVisible and (DoAutoSize or not UpdateRect.IsEmpty);
+end;
+
+function TFastControl.SizeAffectsCalculation: Boolean;
+begin
+  Result := True;
+end;
+
+procedure TFastControl.PrepareLayout;
+begin
+  if not (csLoading in ComponentState) then
+    _controlIsLoaded := True;
+
+  if ShouldRecalculate then
+  begin
+    if DoAutoSize then
+      _autoSizeNeeded := True;
+
+    Calculate;
+  end;
+
+  if _autoSizeNeeded and (Scene <> nil) and (_recalcIndex = 0) then
+    SafeApplyAutoSize;
+end;
+
+procedure TFastControl.SafeApplyAutoSize;
+begin
+  _autoSizeNeeded := False;
+
+  if not DoAutoSize then
+    Exit;
+
+  _applyingAutoSize := True;
+  try
+    ApplyAutoSize;
+  finally
+    _applyingAutoSize := False;
+  end;
 end;
 
 procedure TFastControl.ForceRealign(OnlyWhenRealignNeeded: Boolean = False);
@@ -1685,17 +1912,30 @@ end;
 
 procedure TFastControl.Painting;
 begin
-  _waitingForRepaint := False;
-  ControlLoadedCalculate;
+  // Normally already handled by the scheduled layout pass or PrepareForPaint.
+  // Size changes are not allowed here: FMX ignores invalidations while drawing.
+  if not (csLoading in ComponentState) then
+    _controlIsLoaded := True;
+
+  if ShouldRecalculate then
+  begin
+    if DoAutoSize then
+      _autoSizeNeeded := True;
+
+    Calculate;
+  end;
+
+  // the size is applied after drawing; ApplyAutoSize repaints only when the size really changes
+  if _autoSizeNeeded then
+    ScheduleLayout;
 
   inherited;
 end;
 
 procedure TFastControl.PrepareForPaint;
 begin
-  if ShouldRecalculate and _autoSizeNeeded and DoAutoSize then
-    ImmidiateAutoSize else
-    InternalCalculate;
+  // fallback for controls missed by the scheduled layout pass (e.g. scrolled into view)
+  PrepareLayout;
 
   inherited;
 end;
@@ -1713,10 +1953,10 @@ procedure TFastControl.InternalCalculate;
     for var ctrl in Parent.Controls do
       if ctrl.Visible and (ctrl.Opacity > 0) then
       begin
-        CalculateFastControlChildren(ctrl);
-
+        // a TFastControl handles its own subtree
         if ctrl is TFastControl then
-          TFastControl(ctrl).InternalCalculate;
+          TFastControl(ctrl).InternalCalculate else
+          CalculateFastControlChildren(ctrl);
       end;
   end;
 
@@ -1746,27 +1986,36 @@ end;
 
 procedure TFastControl.ControlLoadedCalculate;
 
-  procedure CalculateFastControlChildren(const Parent: TControl);
+  procedure MarkFastControlChildrenLoaded(const Parent: TControl);
   begin
     for var ctrl in Parent.Controls do
       if ctrl.Visible and (ctrl.Opacity > 0) then
       begin
-        CalculateFastControlChildren(ctrl);
+        MarkFastControlChildrenLoaded(ctrl);
 
         if ctrl is TFastControl then
-          TFastControl(ctrl).DirectControlLoadedCalculate;
+          TFastControl(ctrl)._controlIsLoaded := True;
       end;
   end;
 
 begin
-  CalculateFastControlChildren(Self);
+  MarkFastControlChildrenLoaded(Self);
+  // InternalCalculate calculates the children first
   DirectControlLoadedCalculate;
 end;
 
 procedure TFastControl.RecalcNeeded;
 begin
   _recalcNeeded := True;
-  CalculateSafeAutoSize;
+
+  // getters like TextWidth can calculate earlier, the autosize must still be applied
+  if DoAutoSize then
+    _autoSizeNeeded := True;
+
+  // within Calculate (_recalcIndex > 0) the pending flag is reset by Calculate itself
+  if _recalcIndex = 0 then
+    ScheduleLayout;
+
   RepaintNeeded;
 end;
 
@@ -1816,44 +2065,12 @@ begin
   end;
 end;
 
-procedure TFastControl.ImmidiateAutoSize;
-begin
-  if _autoSizeNeeded and (Scene <> nil) and DoAutoSize then
-  begin
-    _autoSizeNeeded := False;
-
-    InternalCalculate;
-    ApplyAutoSize;
-    RepaintNeeded;
-  end;
-end;
-
-procedure TFastControl.CalculateSafeAutoSize;
-
-  procedure SafeForceQueue([weak] Alive: IInterface);
-  begin
-    TThread.ForceQueue(nil, procedure
-    begin
-      // PrepareForPaint normally handles the pending autosize. This queued
-      // call is only a fallback for controls that do not enter that path.
-      if (Alive <> nil) and _autoSizeNeeded then
-        ImmidiateAutoSize;
-    end);
-  end;
-
-begin
-  if not ShouldRecalculate or not DoAutoSize then
-    Exit;
-
-  _autoSizeNeeded := True;
-  SafeForceQueue(_isAlive);
-end;
-
 procedure TFastControl.DoResized;
 begin
   inherited;
 
-  if not IsUpdating then
+  // a resize caused by our own autosize does not change the calculation outcome
+  if not IsUpdating and not _applyingAutoSize and SizeAffectsCalculation then
     RecalcNeeded;
 end;
 
@@ -1861,12 +2078,11 @@ procedure TFastControl.EndUpdate;
 begin
   inherited;
 
-  if not IsUpdating and (_internalUpdateCount = 0) and ShouldRecalculate then
+  if not IsUpdating and (_internalUpdateCount = 0) and (_recalcNeeded or _autoSizeNeeded) then
   begin
-    CalculateSafeAutoSize;
+    ScheduleLayout;
     RepaintNeeded;
   end;
-//    RecalcNeeded;
 end;
 
 initialization
