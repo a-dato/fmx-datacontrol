@@ -32,7 +32,8 @@ uses
   FMX.ScrollControl.Events, FireDAC.Stan.ExprFuncs,
   FireDAC.Phys.SQLiteWrapper.Stat, FireDAC.Phys.SQLiteDef, FireDAC.Phys.SQLite,
   FireDAC.Phys.PGDef, FireDAC.Phys.PG, FMX.Objects, FMX.Memo.Types,
-  FMX.ScrollBox, FMX.Memo;
+  FMX.ScrollBox, FMX.Memo, FireDAC.Phys.ODBCDef, FireDAC.Phys.ODBCBase,
+  FireDAC.Phys.ODBC;
 
 type
   {$M+} // Load RTTI information for IDBItem interface
@@ -94,6 +95,7 @@ type
     Rectangle3: TRectangle;
     Rectangle4: TRectangle;
     Rectangle5: TRectangle;
+    FDPhysODBCDriverLink1: TFDPhysODBCDriverLink;
 
     procedure FormDestroy(Sender: TObject);
     procedure acAddConnectionExecute(Sender: TObject);
