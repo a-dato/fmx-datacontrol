@@ -28,12 +28,25 @@ uses
   {$ENDIF}
   System_,
   System.Diagnostics,
-  FMX.ScrollControl.Intf;
+  FMX.ScrollControl.Intf,
+  FMX.ScrollControl.ControlClasses.Intf;
 
 type
   TCustomSmallScrollBar = class(TSmallScrollBar)
+  private
+    [weak] _thumb: IDCScrollThumb;
+
+    procedure set_Thumb(const Value: IDCScrollThumb);
+    procedure ValueRangeChanged(Sender: TObject);
+  protected
+    procedure ApplyStyle; override;
+    procedure Resize; override;
   public
+    constructor Create(AOwner: TComponent); override;
+
     function IsTracking: Boolean;
+
+    property Thumb: IDCScrollThumb read _thumb write set_Thumb;
   end;
 
   TScrollControl = class(TLayout, IRefreshControl, IScrollControl)
@@ -243,7 +256,7 @@ uses
   {$ELSE}
   Wasm.System.Math,
   {$ENDIF}
-  FMX.ControlCalculations, ADato.TraceEvents.intf;
+  FMX.ControlCalculations, ADato.TraceEvents.intf, FMX.ScrollControl.ControlClasses;
 
 { TScrollControl }
 
@@ -290,6 +303,9 @@ begin
   {$ENDIF}
   _horzScrollBar.Visible := False;
   Self.AddObject(_horzScrollBar);
+
+  (_vertScrollBar as TCustomSmallScrollBar).Thumb := DataControlClassFactory.CreateScrollThumb(_vertScrollBar);
+  (_horzScrollBar as TCustomSmallScrollBar).Thumb := DataControlClassFactory.CreateScrollThumb(_horzScrollBar);
 
   _content := TLayout.Create(Self);
   _content.Stored := False;
@@ -1394,9 +1410,49 @@ end;
 
 { TCustomSmallScrollBar }
 
+constructor TCustomSmallScrollBar.Create(AOwner: TComponent);
+begin
+  inherited;
+  {$IFNDEF WEBASSEMBLY}
+  ValueRange.OnChanged := ValueRangeChanged;
+  {$ELSE}
+  ValueRange.OnChanged := @ValueRangeChanged;
+  {$ENDIF}
+end;
+
+procedure TCustomSmallScrollBar.ApplyStyle;
+begin
+  inherited;
+  if _thumb <> nil then
+    _thumb.StyleApplied;
+end;
+
+procedure TCustomSmallScrollBar.Resize;
+begin
+  inherited;
+  if _thumb <> nil then
+    _thumb.UpdateBar;
+end;
+
+procedure TCustomSmallScrollBar.ValueRangeChanged(Sender: TObject);
+begin
+  if _thumb <> nil then
+    _thumb.UpdateBar;
+end;
+
+procedure TCustomSmallScrollBar.set_Thumb(const Value: IDCScrollThumb);
+begin
+  _thumb := Value;
+  if _thumb = nil then
+    Exit;
+
+  _thumb.AsControl.Parent := Self;
+  _thumb.StyleApplied;
+end;
+
 function TCustomSmallScrollBar.IsTracking: Boolean;
 begin
-  Result := (Self.Track <> nil) and Self.Track.IsTracking;
+  Result := ((Self.Track <> nil) and Self.Track.IsTracking) or ((_thumb <> nil) and _thumb.IsTracking);
 end;
 
 end.

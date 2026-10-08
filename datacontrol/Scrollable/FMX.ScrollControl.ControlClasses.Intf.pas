@@ -12,9 +12,11 @@ uses
   FMX.Types,
   FMX.Controls,
   FMX.Objects,
+  FMX.StdCtrls,
   FMX.Forms
   {$ELSE}
   Wasm.FMX.Controls,
+  Wasm.FMX.StdCtrls,
   Wasm.FMX.Types,
   Wasm.System.Classes,
   Wasm.System.Types,
@@ -268,6 +270,16 @@ type
     property Sides: TSides read get_Sides write set_Sides;
   end;
 
+  // Custom drawn thumb placed on top of a scrollbar. The scrollbar stays in charge of scrolling;
+  // the thumb only mirrors Min, Max, Value and ViewportSize.
+  IDCScrollThumb = interface
+    ['{5E3C1B7A-8F2D-4C6E-9A41-2B7D0E6F3C85}']
+    function  AsControl: TControl;
+    function  IsTracking: Boolean;
+    procedure StyleApplied;
+    procedure UpdateBar;
+  end;
+
   IDCControlClassFactory = interface
     ['{08ADE46F-92EA-4A14-9208-51FD5347C754}']
     function CreateHeaderRect(const Owner: TComponent): IBackgroundControl;
@@ -294,6 +306,7 @@ type
     procedure HandleRowBackground(const RowRect: IBackgroundControl; AlternateAvailable: Boolean; Alternate: Boolean; ColorOpacity: Single);
     procedure HandleRowChildRelation(const RowLayout: IRowLayout; IsOpenParent, IsOpenChild: Boolean; AWidth: Single);
     function  CreateHeaderPopupMenu(const Owner: TComponent): TForm;
+    function  CreateScrollThumb(const ScrollBar: TScrollBar): IDCScrollThumb;
   end;
 
 implementation

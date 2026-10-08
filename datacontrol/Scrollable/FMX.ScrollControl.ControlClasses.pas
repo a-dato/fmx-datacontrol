@@ -347,6 +347,21 @@ type
     property Sides: TSides read get_Sides write set_Sides;
   end;
 
+  // Empty base for a custom drawn scrollbar thumb, see IDCScrollThumb.
+  TDCScrollThumb = class(TLayout, IDCScrollThumb)
+  protected
+    [weak] _scrollbar: TScrollBar;
+  public
+    constructor Create(const ScrollBar: TScrollBar); reintroduce; virtual;
+
+    function  AsControl: TControl;
+    function  IsTracking: Boolean; virtual;
+    procedure StyleApplied; virtual;
+    procedure UpdateBar; virtual;
+
+    property ScrollBar: TScrollBar read _scrollbar;
+  end;
+
   TDataControlClassFactory = class(TInterfacedObject, IDCControlClassFactory)
   public
     class constructor Create;
@@ -376,6 +391,8 @@ type
     procedure HandleRowBackground(const RowRect: IBackgroundControl; AlternateAvailable: Boolean; Alternate: Boolean; ColorOpacity: Single); virtual;
     procedure HandleRowChildRelation(const RowLayout: IRowLayout; IsOpenParent, IsOpenChild: Boolean; AWidth: Single); virtual;
     function  CreateHeaderPopupMenu(const Owner: TComponent): TForm; virtual;
+    // Returns nil by default: the styled scrollbar is shown as is
+    function  CreateScrollThumb(const ScrollBar: TScrollBar): IDCScrollThumb; virtual;
   end;
 
 var
@@ -566,9 +583,43 @@ begin
   {$ENDIF}
 end;
 
+function TDataControlClassFactory.CreateScrollThumb(const ScrollBar: TScrollBar): IDCScrollThumb;
+begin
+  Result := nil;
+end;
+
 function TDataControlClassFactory.IsCustomFactory: Boolean;
 begin
   Result := Self.ClassType <> TDataControlClassFactory;
+end;
+
+{ TDCScrollThumb }
+
+constructor TDCScrollThumb.Create(const ScrollBar: TScrollBar);
+begin
+  inherited Create(ScrollBar);
+  _scrollbar := ScrollBar;
+  Stored := False;
+end;
+
+function TDCScrollThumb.AsControl: TControl;
+begin
+  Result := Self;
+end;
+
+function TDCScrollThumb.IsTracking: Boolean;
+begin
+  Result := False;
+end;
+
+procedure TDCScrollThumb.StyleApplied;
+begin
+
+end;
+
+procedure TDCScrollThumb.UpdateBar;
+begin
+
 end;
 
 { TEditControl }
