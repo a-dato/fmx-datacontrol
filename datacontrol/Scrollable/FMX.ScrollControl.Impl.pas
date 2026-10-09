@@ -13,6 +13,7 @@ uses
   FMX.Types,
   FMX.Controls,
   FMX.Objects,
+  FMX.Graphics,
   {$ELSE}
   Wasm.System,
   Wasm.System.SysUtils,
@@ -24,6 +25,7 @@ uses
   Wasm.FMX.Types,
   Wasm.FMX.Controls,
   Wasm.FMX.Objects,
+  Wasm.FMX.Graphics,
   Wasm.System.Math,
   {$ENDIF}
   System_,
@@ -55,7 +57,10 @@ type
     _safeObj: IBaseInterface;
     _checkWaitForRealignTimer: TTimer; // for info see: WaitForRealignEndedWithoutAnotherScrollTimer
     _oldViewPortPos: TPointF;
+    _showShadowOnScroll: Boolean;
+    _shadowBrush: TBrush;
 
+    procedure set_ShowShadowOnScroll(const Value: Boolean);
     function get_Content: TControl;
     function get_Control: TControl;
     function get_VertScrollBar: TSmallScrollBar;
@@ -128,6 +133,8 @@ type
 
     procedure DoHorzScrollBarChanged; virtual;
     function  GetViewPortPosition: TPointF;
+    // Whether the content can be scrolled vertically (by dragging), independent of how the scrollbar is shown
+    function  CanScrollVertically: Boolean; virtual;
 
     function  TryExecuteMouseScrollBoostOnMouseEventStopped: Boolean;
     function  MouseScrollingBoostDistance: Single;
@@ -222,6 +229,7 @@ type
     procedure Painting; override;
     procedure Paint; override;
     procedure PaintChildren; override;
+    procedure AfterPaint; override;
     procedure PrepareForPaint; override;
     function  IsUpdating: Boolean; override;
     procedure RefreshControl(const DataChanged: Boolean = False); virtual;
@@ -243,6 +251,8 @@ type
 
   public
     // designer properties & events
+    // Shows a fading shadow at the top of the viewport when the content is scrolled down (visual only)
+    property ShowShadowOnScroll: Boolean read _showShadowOnScroll write set_ShowShadowOnScroll default True;
     property OnViewPortPositionChanged: TOnViewportPositionChange read _onViewPortPositionChanged write _onViewPortPositionChanged;
     property OnCustomToolTipEvent: TCustomToolTipEvent read _onCustomToolTipEvent write _onCustomToolTipEvent;
     property OnStickyClick: TNotifyEvent read _onStickyClick write _onStickyClick;
@@ -266,6 +276,7 @@ begin
   _safeObj := TBaseInterfacedObject.Create;
   _realignState := TRealignState.Waiting;
   _realignContentRequested := True;
+  _showShadowOnScroll := True;
 
   {$IFDEF DEBUG}
   _debugCheck := True;
@@ -367,6 +378,7 @@ begin
 
   FreeAndNil(_mouseWheelSmoothScrollTimer);
   FreeAndNil(_checkWaitForRealignTimer);
+  FreeAndNil(_shadowBrush);
 
   inherited;
 end;
@@ -556,10 +568,15 @@ begin
     horzScrollBarPos := _horzScrollBar.Value;
 
   var vertScrollBarPos := 0.0;
-  if _vertScrollBar.Visible then
+  if CanScrollVertically then
     vertScrollBarPos := _vertScrollBar.Value;
 
   Result := PointF(horzScrollBarPos, vertScrollBarPos);
+end;
+
+function TScrollControl.CanScrollVertically: Boolean;
+begin
+  Result := _vertScrollBar.Visible;
 end;
 
 function TScrollControl.get_Content: TControl;
@@ -768,7 +785,7 @@ begin
   if not _scrollStopWatch_mouse.IsRunning then
     Exit;
 
-  if _vertScrollBar.Visible then
+  if CanScrollVertically then
   begin
     UpdateMouseScrollingLastMoves(False, PointF(X, Y));
 
@@ -806,7 +823,7 @@ begin
     inherited;
 
     var doMouseClick := True;
-    if _vertScrollBar.Visible then
+    if CanScrollVertically then
       doMouseClick := not TryExecuteMouseScrollBoostOnMouseEventStopped;
 
     if doMouseClick then
@@ -1143,6 +1160,50 @@ begin
 
   stopwatch.Stop;
   _paintTime := stopwatch.ElapsedMilliseconds;
+end;
+
+procedure TScrollControl.set_ShowShadowOnScroll(const Value: Boolean);
+begin
+  if _showShadowOnScroll = Value then
+    Exit;
+
+  _showShadowOnScroll := Value;
+  Repaint;
+end;
+
+procedure TScrollControl.AfterPaint;
+const
+  SHADOW_HEIGHT = 10;
+  SHADOW_FADE_DISTANCE = 20;
+begin
+  inherited;
+
+  if not _showShadowOnScroll or (_content = nil) then
+    Exit;
+
+  var scrolled := _vertScrollBar.Value - _vertScrollBar.Min;
+  if scrolled <= 0.5 then
+    Exit;
+
+  if _shadowBrush = nil then
+  begin
+    _shadowBrush := TBrush.Create(TBrushKind.Gradient, TAlphaColors.Null);
+    _shadowBrush.Gradient.Style := TGradientStyle.Linear;
+    _shadowBrush.Gradient.StartPosition.Point := PointF(0, 0);
+    _shadowBrush.Gradient.StopPosition.Point := PointF(0, 1);
+    _shadowBrush.Gradient.Color := $30000000;
+    _shadowBrush.Gradient.Color1 := $00000000;
+  end;
+
+  // Drawn after the children, so it overlays the content without being a control itself
+  var r := RectF(
+    _content.Position.X,
+    _content.Position.Y,
+    _content.Position.X + _content.Width, // + IfThen(_vertScrollBar.Visible, _vertScrollBar.Width, 0),
+    _content.Position.Y + SHADOW_HEIGHT);
+
+  var opacity := AbsoluteOpacity * Min(1, scrolled / SHADOW_FADE_DISTANCE);
+  Canvas.FillRect(r, 6, 10, [TCorner.BottomLeft, TCorner.BottomRight], opacity, _shadowBrush);
 end;
 
 procedure SafeForceQueue([weak] IsAlive: IBaseInterface; Captured: Exception);
