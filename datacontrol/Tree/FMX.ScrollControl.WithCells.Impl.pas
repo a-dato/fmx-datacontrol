@@ -299,7 +299,8 @@ type
 
   protected
     procedure PositionTree;
-    function  TreeInnerXPosition: Single;
+    function  VisibleHorzContentPosition: Single; override; // for shadow
+    function  VisibleContentWidth: Single; override; // for shadow
 
     {$IFDEF WEBASSEMBLY}
     function  GetItemType: &Type;
@@ -1341,7 +1342,7 @@ begin
   RefreshControl;
 end;
 
-function TScrollControlWithCells.TreeInnerXPosition: Single;
+function TScrollControlWithCells.VisibleHorzContentPosition: Single;
 begin
   if _autoCenterTree then
     Result := CMath.Max((Self.Width-_totalColumnWidth-IfThen(_vertScrollBar.Visible, _vertScrollBar.Width, 0))/2, 0)
@@ -1365,7 +1366,7 @@ begin
 
   if _autoCenterTree then
   begin
-    var startFromX := TreeInnerXPosition;
+    var startFromX := VisibleHorzContentPosition;
     var row: IDCTreeRow;
     for row in HeaderAndTreeRows(False) do
       row.Control.Position.X := startFromX;
@@ -1756,7 +1757,7 @@ begin
     virtualMouseposition := X + (_horzScrollBar.Value - _horzScrollBar.Min {frozen width if set}) else
     virtualMouseposition := X;
 
-//  virtualMouseposition := virtualMouseposition + TreeInnerXPosition;
+//  virtualMouseposition := virtualMouseposition + VisibleHorzContentPosition;
   if _autoCenterTree and not IsInnerControlX then
   begin
     if _headerRow <> nil then
@@ -2647,9 +2648,9 @@ begin
   popupMenu.LayoutColumn := LayoutColumn;
 
   var leftPos: Single;
-  if LayoutColumn.Left + TreeInnerXPosition + _frmHeaderPopupMenu.Width > (Self.Width - 10) then
+  if LayoutColumn.Left + VisibleHorzContentPosition + _frmHeaderPopupMenu.Width > (Self.Width - 10) then
     leftPos := (Self.Width - 10) - _frmHeaderPopupMenu.Width else
-    leftPos := LayoutColumn.Left + TreeInnerXPosition;
+    leftPos := LayoutColumn.Left + VisibleHorzContentPosition;
 
   var localPos := PointF(leftPos, _headerRow.Height);
   var screenPos := Self.LocalToScreen(localPos);
@@ -4567,6 +4568,18 @@ begin
     Exit(bounds.Height);
 
   Result := ctrl.Height;
+end;
+
+function TScrollControlWithCells.VisibleContentWidth: Single;
+begin
+  // we want the width of the last column
+  var clmnWidth := CalculateRowControlWidth(False);
+  var default := inherited; // content width
+
+  if SameValue(clmnWidth, 0) then
+    Exit(default);
+
+  Result := CMath.Min(clmnWidth, default);
 end;
 
 function TScrollControlWithCells.CalculateRowControlWidth(const ForceRealContentWidth: Boolean): Single;

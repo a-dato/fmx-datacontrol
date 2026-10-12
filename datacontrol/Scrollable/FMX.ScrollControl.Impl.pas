@@ -207,6 +207,7 @@ type
     _logs: TStringList;
     class var _logIx: Integer;
     procedure Log(const Message: CString);
+
   public
     procedure SaveLog;
 
@@ -232,7 +233,10 @@ type
     procedure AfterPaint; override;
     procedure PrepareForPaint; override;
     function  IsUpdating: Boolean; override;
+
     procedure RefreshControl(const DataChanged: Boolean = False); virtual;
+    function  VisibleHorzContentPosition: Single; virtual; // for shadow
+    function  VisibleContentWidth: Single; virtual; // for shadow
 
     function  TryHandleKeyNavigation(var Key: Word; Shift: TShiftState): Boolean;
 
@@ -1197,9 +1201,9 @@ begin
 
   // Drawn after the children, so it overlays the content without being a control itself
   var r := RectF(
-    _content.Position.X,
+    _content.Position.X + VisibleHorzContentPosition,
     _content.Position.Y,
-    _content.Position.X + _content.Width, // + IfThen(_vertScrollBar.Visible, _vertScrollBar.Width, 0),
+    _content.Position.X + VisibleHorzContentPosition + VisibleContentWidth, // + IfThen(_vertScrollBar.Visible, _vertScrollBar.Width, 0),
     _content.Position.Y + SHADOW_HEIGHT);
 
   var opacity := AbsoluteOpacity * Min(1, scrolled / SHADOW_FADE_DISTANCE);
@@ -1240,6 +1244,16 @@ begin
   end;
 
   inherited;
+end;
+
+function TScrollControl.VisibleContentWidth: Single;
+begin
+  Result := _content.Width;
+end;
+
+function TScrollControl.VisibleHorzContentPosition: Single;
+begin
+  Result := 0;
 end;
 
 procedure TScrollControl.RealignContent;
