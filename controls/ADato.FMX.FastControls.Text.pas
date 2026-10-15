@@ -51,6 +51,10 @@ type
   TAutoSize = (None, AutoWidth, AutoHeight);
   TAutoSizes = set of TAutoSize;
 
+  {$SCOPEDENUMS ON}
+  TTextTagType = (None, Tag, DotTag);
+  {$SCOPEDENUMS OFF}
+
   TFastControl = class(TLayout)
   protected
     _controlIsLoaded: Boolean;
@@ -160,9 +164,11 @@ type
 
     _mouseIsDown: Boolean;
     _hover: Boolean;
-    _showTag: Boolean;
+    _tagType: TTextTagType;
     _tagColor: TAlphaColor;
     _tagOpacity: Single;
+    _dot: TRectangle;
+    _dotBounds: TRectF;
 
     // for checkbox ctrl
     _internalLeftPadding: Single;
@@ -211,11 +217,20 @@ type
     procedure set_CalcAsAutoHeight(const Value: Boolean);
     function  get_Trimming: TTextTrimming;
     function  get_WordWrap: Boolean;
-    procedure set_ShowTag(const Value: Boolean);
+    procedure set_TagType(const Value: TTextTagType);
     procedure set_TagOpacity(const Value: Single);
+    function  ShowsTag: Boolean;
+    function  HasDot: Boolean;
+    function  DotContentWidth: Single;
+    function  ContentHeight: Single;
+    procedure EnsureDot;
+    procedure UpdateDot;
 
   protected
+    procedure Painting; override;
     procedure DoPaint; override;
+    procedure PreparePaintLayout;
+    procedure PaintTagBackground;
     function  GetDefaultSize: TSizeF; override;
 
     procedure Calculate; override;
@@ -273,7 +288,7 @@ type
     property MaxWidth: Integer read get_MaxWidth write set_MaxWidth default 0;
     property CalcAsAutoHeight: Boolean read get_calcAsAutoHeight write set_CalcAsAutoHeight default True;
     property UnderlineOnHover: Boolean read _underlineOnHover write _underlineOnHover default False;
-    property ShowTag: Boolean read _showTag write set_ShowTag default False;
+    property TagType: TTextTagType read _tagType write set_TagType default TTextTagType.None;
     property TagOpacity: Single read _tagOpacity write set_TagOpacity;
 
     property HitTest {$IFNDEF WEBASSEMBLY}default False{$ENDIF};
@@ -367,9 +382,12 @@ type
   end;
 
 const
-  TAG_VERT_MARGIN = 3.0;
-  TAG_HORZ_MARGIN = 6.0;
+  TAG_VERT_MARGIN = 5.0;
+  TAG_HORZ_MARGIN = 8.0;
   IMAGE_TEXT_MARGIN = 5.0;
+  DOT_SIZE = 8.0;
+  DOT_RADIUS = 4.0;
+  DOT_TEXT_MARGIN = 6.0;
 
 var
   {$IFDEF MSWINDOWS}
@@ -581,7 +599,7 @@ begin
 
   _calcAsAutoHeight := True;
 
-  _showTag := False;
+  _tagType := TTextTagType.None;
   _tagColor := TAlphaColors.Grey;
   _tagOpacity := 0.15;
 end;
@@ -631,16 +649,17 @@ end;
 function TFastText.CalculateTextXPos: Single;
 begin
 //  Result := Padding.Left + _internalLeftPadding;
+  var prefixWidth := ImageContentWidth + DotContentWidth;
   case get_HorzTextAlign of
-    TTextAlign.Center: Result := ((Self.Width - (_textBounds.Width + ImageContentWidth)) / 2) + ImageContentWidth;
-    TTextAlign.Leading: Result := Padding.Left + _internalLeftPadding + IfThen(_showTag, TAG_HORZ_MARGIN, 0) + ImageContentWidth;
-    TTextAlign.Trailing: Result := Self.Width - _textBounds.Width - Padding.Right - _internalRightPadding - IfThen(_showTag, TAG_HORZ_MARGIN, 0);
+    TTextAlign.Center: Result := ((Self.Width - (_textBounds.Width + prefixWidth)) / 2) + prefixWidth;
+    TTextAlign.Leading: Result := Padding.Left + _internalLeftPadding + IfThen(ShowsTag, TAG_HORZ_MARGIN, 0) + prefixWidth;
+    TTextAlign.Trailing: Result := Self.Width - _textBounds.Width - Padding.Right - _internalRightPadding - IfThen(ShowsTag, TAG_HORZ_MARGIN, 0);
   end;
 end;
 
 function TFastText.CalculateContentYPos: Single;
 begin
-  var totHeight := CMath.Max(_textBounds.Height, IfThen(HasImage, _imageSizeInt, 0));
+  var totHeight := ContentHeight;
   var tagVerticalMargin := CalculateTagVerticalMargin;
   case get_VertTextAlign of
     TTextAlign.Center: Result := (Self.Height - totHeight - _internalBottomPadding) / 2;
@@ -653,7 +672,7 @@ end;
 
 function TFastText.CalculateTextYPos: Single;
 begin
-  var totHeight := CMath.Max(_textBounds.Height, IfThen(HasImage, _imageSizeInt, 0));
+  var totHeight := ContentHeight;
   Result := CalculateContentYPos + CMath.Max(0, (totHeight - _textBounds.Height) / 2);
 end;
 
@@ -665,8 +684,8 @@ begin
     Exit;
   end;
 
-  var imageLeft := CalculateTextXPos - _imageSizeInt - ImageTextMargin;
-  var totHeight := CMath.Max(_textBounds.Height, _imageSizeInt);
+  var imageLeft := CalculateTextXPos - DotContentWidth - _imageSizeInt - ImageTextMargin;
+  var totHeight := CMath.Max(ContentHeight, _imageSizeInt);
   var imageY := CalculateContentYPos + CMath.Max(0, (totHeight - _imageSizeInt) / 2);
 
   _imageBounds := RectF(imageLeft, imageY, imageLeft + _imageSizeInt, imageY + _imageSizeInt);
@@ -674,15 +693,88 @@ end;
 
 function TFastText.CalculateTagVerticalMargin: Single;
 begin
-  if not _showTag then
+  if not ShowsTag then
     Exit(0);
 
   if _calcAsAutoHeight then
     Exit(TAG_VERT_MARGIN);
 
-  var contentHeight := CMath.Max(_textBounds.Height, IfThen(HasImage, _imageSizeInt, 0));
+  var contentHeight := ContentHeight;
   var availableTagHeight := Self.Height - contentHeight - Padding.Top - Padding.Bottom - _internalBottomPadding;
   Result := CMath.Max(0, CMath.Min(TAG_VERT_MARGIN, availableTagHeight / 2));
+end;
+
+procedure TFastText.PreparePaintLayout;
+begin
+  // Printing uses a different canvas (SKIA). Layout must match that canvas type.
+  // Only when the layout got recreated the Calculate is needed.
+  if EnsureLayoutForCanvas(Canvas) then
+    Calculate;
+
+  _layout.Opacity := AbsoluteOpacity;
+  _layout.TopLeft := PointF(CalculateTextXPos, CalculateTextYPos);
+  CalculateImageBounds;
+
+  // Keep room for the tag's right margin, otherwise a trimmed text pushes the tag outside the control bounds
+  var maxW := CMath.Min(_textBounds.Width + Padding.Left + Padding.Right, Self.Width - _layout.TopLeft.X - IfThen(ShowsTag, TAG_HORZ_MARGIN, 0));
+  var maxH := CMath.Min(_textBounds.Height + Self.Padding.Top + Self.Padding.Bottom, Self.Height - _layout.TopLeft.Y);
+
+  _layout.MaxSize := PointF(maxW, maxH);
+  UpdateDot;
+end;
+
+procedure TFastText.PaintTagBackground;
+begin
+  if not ShowsTag then
+    Exit;
+
+  var tagVerticalMargin := CalculateTagVerticalMargin;
+  var contentLeft := _layout.TopLeft.X;
+  var contentRight := _layout.TopLeft.X + _layout.MaxSize.X;
+  if HasImage then
+  begin
+    contentLeft := _imageBounds.Left;
+    contentRight := CMath.Max(contentRight, _imageBounds.Right);
+  end;
+  if HasDot then
+    contentLeft := CMath.Min(contentLeft, _dotBounds.Left);
+
+  var contentTop := _layout.TopLeft.Y;
+  var contentBottom := _layout.TopLeft.Y + _textBounds.Height;
+  if HasImage then
+  begin
+    contentTop := CMath.Min(contentTop, _imageBounds.Top);
+    contentBottom := CMath.Max(contentBottom, _imageBounds.Bottom);
+  end;
+  if HasDot then
+  begin
+    contentTop := CMath.Min(contentTop, _dotBounds.Top);
+    contentBottom := CMath.Max(contentBottom, _dotBounds.Bottom);
+  end;
+
+  // pixels outside the control bounds are not invalidated when the control moves or resizes
+  var p1 := PointF(CMath.Max(0, contentLeft - TAG_HORZ_MARGIN), CMath.Max(0, contentTop - tagVerticalMargin));
+  var p2 := PointF(CMath.Min(Self.Width, contentRight + TAG_HORZ_MARGIN), CMath.Min(Self.Height, contentBottom + tagVerticalMargin));
+
+  var rad := CMath.Min(10, (p2.Y - p1.Y) / 2);
+  var rect := TRectF.Create(p1.X, p1.Y, p2.X, p2.Y);
+  Canvas.Fill.Color := _tagColor;
+  Canvas.FillRect(rect, rad, rad*1.2, AllCorners, AbsoluteOpacity * _tagOpacity, TCornerType.Round);
+end;
+
+procedure TFastText.Painting;
+begin
+  inherited;
+
+  // FMX paints children before DoPaint. The tag background has to be drawn first,
+  // otherwise it covers the dot rectangle.
+  if not _ignoreDefaultPaint then
+  begin
+    PreparePaintLayout;
+    PaintTagBackground;
+  end
+  else if _dot <> nil then
+    _dot.Visible := False;
 end;
 
 procedure TFastText.DoPaint;
@@ -696,51 +788,6 @@ begin
 
   if not _ignoreDefaultPaint then
   begin
-    // Printing uses a different canvas (SKIA). Layout must match that canvas type.
-    // Only when the layout got recreated the Calculate is needed.
-    if EnsureLayoutForCanvas(Canvas) then
-      Calculate;
-
-    _layout.Opacity := AbsoluteOpacity;
-    _layout.TopLeft := PointF(CalculateTextXPos, CalculateTextYPos);
-    CalculateImageBounds;
-
-    // Keep room for the tag's right margin, otherwise a trimmed text pushes the tag outside the control bounds
-    var maxW := CMath.Min(_textBounds.Width + Padding.Left + Padding.Right, Self.Width - _layout.TopLeft.X - IfThen(_showTag, TAG_HORZ_MARGIN, 0));
-    var maxH := CMath.Min(_textBounds.Height + Self.Padding.Top + Self.Padding.Bottom, Self.Height - _layout.TopLeft.Y);
-
-    _layout.MaxSize := PointF(maxW, maxH);
-
-    // first show tag..
-    if _showTag then
-    begin
-      var tagVerticalMargin := CalculateTagVerticalMargin;
-      var contentLeft := _layout.TopLeft.X;
-      var contentRight := _layout.TopLeft.X + _layout.MaxSize.X;
-      if HasImage then
-      begin
-        contentLeft := _imageBounds.Left;
-        contentRight := CMath.Max(contentRight, _imageBounds.Right);
-      end;
-
-      var contentTop := _layout.TopLeft.Y;
-      var contentBottom := _layout.TopLeft.Y + _textBounds.Height;
-      if HasImage then
-      begin
-        contentTop := CMath.Min(contentTop, _imageBounds.Top);
-        contentBottom := CMath.Max(contentBottom, _imageBounds.Bottom);
-      end;
-
-      // pixels outside the control bounds are not invalidated when the control moves or resizes
-      var p1 := PointF(CMath.Max(0, contentLeft - TAG_HORZ_MARGIN), CMath.Max(0, contentTop - tagVerticalMargin));
-      var p2 := PointF(CMath.Min(Self.Width, contentRight + TAG_HORZ_MARGIN), CMath.Min(Self.Height, contentBottom + tagVerticalMargin));
-
-      var rad := CMath.Min(10, (p2.Y - p1.Y) / 2);
-      var rect := TRectF.Create(p1.X, p1.Y, p2.X, p2.Y);
-      Canvas.Fill.Color := _tagColor;
-      Canvas.FillRect(rect, rad*0.75, rad*1.2, AllCorners, AbsoluteOpacity * _tagOpacity, TCornerType.Round);
-    end;
-
 //    {$IFDEF DEBUG}
 //    Self.Canvas.Fill.Color := TAlphaColors.Mediumpurple;
 //    Self.Canvas.FillRect(RectF(0, 0, Self.Width, Self.Height), 0.2);
@@ -970,8 +1017,9 @@ begin
 
   inherited;
 
-  var maxInternalWidth := _maxWidth - Padding.Left - Padding.Right - _internalLeftPadding - _internalRightPadding - ImageContentWidth;
-  var maxWidth := IfThen(_maxWidth > 0, CMath.Max(0, maxInternalWidth), IfThen(get_WordWrap, CMath.Max(0, Self.Width - _internalLeftPadding - _internalRightPadding - ImageContentWidth), 9999));
+  var prefixWidth := ImageContentWidth + DotContentWidth;
+  var maxInternalWidth := _maxWidth - Padding.Left - Padding.Right - _internalLeftPadding - _internalRightPadding - prefixWidth;
+  var maxWidth := IfThen(_maxWidth > 0, CMath.Max(0, maxInternalWidth), IfThen(get_WordWrap, CMath.Max(0, Self.Width - _internalLeftPadding - _internalRightPadding - prefixWidth), 9999));
   var maxHeight := IfThen(get_WordWrap or _calcAsAutoHeight, 9999, Self.Height - Padding.Top - Padding.Bottom);
 
   // italic and Trailing horz align does not work together because of the extra space italic text needs.. This is not calculated correctly..
@@ -1010,7 +1058,12 @@ function TFastText.SizeAffectsCalculation: Boolean;
 begin
   // Without WordWrap the text is measured unbounded; trimming and alignment are applied in DoPaint.
   // Child controls (e.g. subtext of a checkbox) are positioned relative to the size.
-  Result := get_WordWrap or not _calcAsAutoHeight or (ControlsCount > 0);
+  // The dot is an internal decoration and must not force a resize recalculation.
+  var childCount := ControlsCount;
+  if _dot <> nil then
+    Dec(childCount);
+
+  Result := get_WordWrap or not _calcAsAutoHeight or (childCount > 0);
 end;
 
 procedure TFastText.SetLeftRightPadding;
@@ -1018,8 +1071,8 @@ begin
   if not ShouldRecalculate then
     Exit;
 
-  _internalLeftPadding := 0; //IfThen(_showTag, TAG_MARGIN, 0);
-  _internalRightPadding := 0; //IfThen(_showTag, TAG_MARGIN, 0);
+  _internalLeftPadding := 0;
+  _internalRightPadding := 0;
 end;
 
 procedure TFastText.SetStyledSettings(const Value: TStyledSettings);
@@ -1072,14 +1125,82 @@ begin
   end;
 end;
 
-procedure TFastText.set_ShowTag(const Value: Boolean);
+procedure TFastText.set_TagType(const Value: TTextTagType);
 begin
-  if _showTag = Value then
+  if _tagType = Value then
     Exit;
 
-  _showTag := Value;
+  _tagType := Value;
+  if HasDot then
+    EnsureDot
+  else if _dot <> nil then
+    _dot.Visible := False;
 
   RecalcNeeded;
+end;
+
+function TFastText.ShowsTag: Boolean;
+begin
+  Result := _tagType <> TTextTagType.None;
+end;
+
+function TFastText.HasDot: Boolean;
+begin
+  Result := _tagType = TTextTagType.DotTag;
+end;
+
+function TFastText.DotContentWidth: Single;
+begin
+  Result := IfThen(HasDot, DOT_SIZE + DOT_TEXT_MARGIN, 0);
+end;
+
+function TFastText.ContentHeight: Single;
+begin
+  Result := _textBounds.Height;
+  if HasImage then
+    Result := CMath.Max(Result, _imageSizeInt);
+  if HasDot then
+    Result := CMath.Max(Result, DOT_SIZE);
+end;
+
+procedure TFastText.EnsureDot;
+begin
+  if _dot <> nil then
+    Exit;
+
+  _dot := TRectangle.Create(Self);
+  _dot.Parent := Self;
+  _dot.Stored := False;
+  _dot.HitTest := False;
+  _dot.Align := TAlignLayout.None;
+  _dot.Width := DOT_SIZE;
+  _dot.Height := DOT_SIZE;
+  _dot.XRadius := DOT_RADIUS;
+  _dot.YRadius := DOT_RADIUS;
+  _dot.Stroke.Kind := TBrushKind.None;
+  _dot.Fill.Kind := TBrushKind.Solid;
+  _dot.Visible := False;
+end;
+
+procedure TFastText.UpdateDot;
+begin
+  if not HasDot then
+  begin
+    _dotBounds := TRectF.Empty;
+    if _dot <> nil then
+      _dot.Visible := False;
+    Exit;
+  end;
+
+  EnsureDot;
+
+  var dotLeft := CalculateTextXPos - DOT_SIZE - DOT_TEXT_MARGIN;
+  var dotTop := CalculateTextYPos + ((_textBounds.Height - DOT_SIZE) / 2);
+  _dotBounds := RectF(dotLeft, dotTop, dotLeft + DOT_SIZE, dotTop + DOT_SIZE);
+
+  _dot.Visible := True;
+  _dot.SetBounds(dotLeft, dotTop, DOT_SIZE, DOT_SIZE);
+  _dot.Fill.Color := _settings.FontColor;
 end;
 
 procedure TFastText.set_TagOpacity(const Value: Single);
@@ -1181,7 +1302,7 @@ end;
 function TFastText.TextHeight: Single;
 begin
   ControlLoadedCalculate;
-  Result := CMath.Max(_textBounds.Height, IfThen(HasImage, _imageSizeInt, 0)) + IfThen(_showTag, 2*TAG_VERT_MARGIN, 0);
+  Result := ContentHeight + IfThen(ShowsTag, (2*TAG_VERT_MARGIN), 0);
 end;
 
 function TFastText.TextHeightWithPadding: Single;
@@ -1197,7 +1318,7 @@ end;
 function TFastText.TextWidth: Single;
 begin
   ControlLoadedCalculate;
-  Result := _textBounds.Width + ImageContentWidth + IfThen(_showTag, 2*TAG_HORZ_MARGIN, 0);
+  Result := _textBounds.Width + ImageContentWidth + DotContentWidth + IfThen(ShowsTag, 2*TAG_HORZ_MARGIN, 0);
 end;
 
 function TFastText.TextWidthWithPadding: Single;
