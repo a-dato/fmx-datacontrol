@@ -1165,6 +1165,8 @@ type
     function  get_Comparer: IComparer<CObject>;
     procedure set_Comparer(const Value: IComparer<CObject>);
     function  get_LayoutColumn: ITreeLayoutColumn;
+    procedure set_LayoutColumn(const Value: ITreeLayoutColumn);
+
     function  get_FilterText: CString;
     procedure set_FilterText(const Value: CString);
     function  get_FilterType: FilterType;
@@ -5765,8 +5767,43 @@ begin
 
     // Columns did not change. Keep current layout in place
     Exit;
-  end else
+  end
+  else
+  begin
     _Layout := newLayout;
+
+    if _sortDescriptions <> nil then
+    begin
+      for var sort in _sortDescriptions do
+      begin
+        if sort.LayoutColumn <> nil then
+        begin
+          for columnIndex := 0 to _Layout.Columns.Count - 1 do
+          begin
+            lc := _Layout.Columns[columnIndex];
+            if lc.Equals(sort.LayoutColumn) then
+              sort.LayoutColumn := lc;
+          end;
+        end;
+      end;
+    end;
+
+    if _filterDescriptions <> nil then
+    begin
+      for var filter in _filterDescriptions do
+      begin
+        if filter.LayoutColumn <> nil then
+        begin
+          for columnIndex := 0 to _Layout.Columns.Count - 1 do
+          begin
+            lc := _Layout.Columns[columnIndex];
+            if lc.Equals(filter.LayoutColumn) then
+              filter.LayoutColumn := lc;
+          end;
+        end;
+      end;
+    end;
+  end;
 
   DoLayoutColumnsComplete;
 end;
@@ -11337,6 +11374,11 @@ end;
 function TTreeFilterDescription.get_LayoutColumn: ITreeLayoutColumn;
 begin
   Result := _LayoutColumn;
+end;
+
+procedure TTreeFilterDescription.set_LayoutColumn(const Value: ITreeLayoutColumn);
+begin
+  _LayoutColumn := Value;
 end;
 
 function TTreeFilterDescription.get_Comparer: IComparer<CObject>;

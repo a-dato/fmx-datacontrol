@@ -2084,6 +2084,7 @@ type
     function  get_Comparer: IComparer<CObject>;
     procedure set_Comparer(const Value: IComparer<CObject>);
     function  get_LayoutColumn: ITreeLayoutColumn;
+    procedure set_LayoutColumn(const Value: ITreeLayoutColumn);
     function  get_FilterText: CString;
     procedure set_FilterText(const Value: CString);
     function  get_FilterType: FilterType;
@@ -2127,7 +2128,8 @@ type
       write set_Stop;
 
     property LayoutColumn: ITreeLayoutColumn
-      read get_LayoutColumn;
+      read  get_LayoutColumn
+      write set_LayoutColumn;
   end;
 
   ColumnComparerEventArgs = {$IFDEF DOTNET}public{$ENDIF} class(EventArgs)
