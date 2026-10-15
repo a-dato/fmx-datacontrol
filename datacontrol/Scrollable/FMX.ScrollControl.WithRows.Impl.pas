@@ -347,9 +347,6 @@ type
 
     function  CalculatedHeight: Single;
 
-    // drag & drop
-    procedure BeginDrag;
-
     // IFocusableControlsContainer
     function  FirstFocusableControl: TControl;
     procedure ExecuteKeyFromExternal(var Key: Word; var KeyChar: WideChar; Shift: TShiftState; const ActiveChild: TControl = nil);
@@ -1305,6 +1302,9 @@ begin
   if ViewIsDataModelView and (GetDataModelView.CurrencyManager.Current <> -1) and (_view.ActiveViewRows.Count > 0) then
     InternalSetCurrent(GetDataModelView.CurrencyManager.Current, TSelectionEventTrigger.External, []);
   {$ENDIF}
+
+  if (_referenceRowViewListIndex <> -1) and (_referenceRowViewListIndex > _view.ViewCount - 1) then
+    _referenceRowViewListIndex := -1;
 
   if GetDataModelView <> nil then
   begin
@@ -2339,11 +2339,6 @@ begin
   // otherwise nothing is done till the endedit is called
   if _resetViewRec.DoResetView then
     ResetView(_resetViewRec.FromIndex, _resetViewRec.OneRowOnly);
-end;
-
-procedure TScrollControlWithRows.BeginDrag;
-begin
-  BeginAutoDrag;
 end;
 
 procedure TScrollControlWithRows.AlignRowsFromReferenceToBottom(const TopReferenceRow: IDCRow; var SpaceForRows: Single);
@@ -3990,7 +3985,10 @@ begin
         UpdateVirtualYPositions(referenceRow, heightChangeAboveRef);
             
         CalculateScrollBarMax;  
-        var newScrollVal := _vertScrollBar.Value + (startY - _vertScrollBar.Value {for reference row height change}) + heightChangeAboveRef;
+        var newScrollVal := _vertScrollBar.Value + (startY - _vertScrollBar.Value {for reference row height change});
+        if referenceRow.VirtualYPosition + referenceRow.Height > newScrollVal + _vertScrollBar.ViewportSize then
+          newScrollVal := newScrollVal + heightChangeAboveRef;
+
         if alignBottomToTop and (referenceRow.VirtualYPosition + referenceRow.Height > newScrollVal + _vertScrollBar.ViewportSize) then
           newScrollVal := (referenceRow.VirtualYPosition + referenceRow.Height) - _vertScrollBar.ViewportSize;
 

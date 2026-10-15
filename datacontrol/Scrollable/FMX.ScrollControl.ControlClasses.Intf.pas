@@ -169,9 +169,15 @@ type
     ['{87A26C96-F3EE-4929-8936-979FBED812FF}']
     function  get_Date: CDateTime;
     procedure set_Date(const Value: CDateTime);
+    function  get_StopFocusOnPopupClosed: Boolean;
+    procedure set_StopFocusOnPopupClosed(const Value: Boolean);
 
     procedure OpenPicker;
     property Date: CDateTime read get_Date write set_Date;
+
+    // When True the control gives up focus (Root.SetFocused(nil)) as soon as the picker closes,
+    // so a date picked with the mouse ends the edit like leaving the control does. Default False
+    property StopFocusOnPopupClosed: Boolean read get_StopFocusOnPopupClosed write set_StopFocusOnPopupClosed;
   end;
 
   ICheckBoxControl = interface(IDCEditControl)
@@ -204,6 +210,8 @@ type
     procedure set_PickList(const Value: IList);
     function  get_Text: CString;
     procedure set_Text(const Value: CString);
+    function  get_StopFocusOnPopupClosed: Boolean;
+    procedure set_StopFocusOnPopupClosed(const Value: Boolean);
 
     function  FindBestMatch(const Text: String) : Integer;
     procedure RefreshItems;
@@ -218,9 +226,13 @@ type
     property FormatItem: TFormatItem read get_FormatItem write set_FormatItem;
     property PickList: IList read get_PickList write set_PickList;
     property Text: CString read get_Text write set_Text;
+
+    // When True the control gives up focus (Root.SetFocused(nil)) as soon as the dropdown closes,
+    // so an item picked with the mouse ends the edit like leaving the control does. Default False
+    property StopFocusOnPopupClosed: Boolean read get_StopFocusOnPopupClosed write set_StopFocusOnPopupClosed;
   end;
 
-  TBackgroundScene = (NoScene, Slash, BackSlash, Dots, HBars, VBars, ArrowRight);
+  TBackgroundScene = (NoScene, Slash, BackSlash, Dots, HBars, VBars, ArrowRight, Disable);
   IBackgroundControl = interface
     ['{C0F12B2D-7C93-478F-809F-BC8A66166F84}']
     function  GetXRadius: Single;

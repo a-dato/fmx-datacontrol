@@ -8,11 +8,15 @@ uses
   System.Classes, 
   FMX.Types,
   System.UITypes,
+  FMX.Graphics,
+  System.Types,
   {$ELSE}
   Wasm.FMX.Controls,
   Wasm.System.Classes,
   Wasm.FMX.Types,
   Wasm.System.UITypes,
+  Wasm.FMX.Graphics,
+  Wasm.System.Types,
   {$ENDIF}
   System_,
   ADato.ComponentModel,
@@ -71,6 +75,8 @@ type
     function  ProvideCellData(const Cell: IDCTreeCell; const PropName: CString; const IsSubProp: Boolean): CObject; override;
 
     procedure OnNonPropertyCheckBoxChange(Sender: TObject);
+    procedure OnCellControlPaintDropDown(Sender: TObject; Canvas: TCanvas; const ARect: TRectF);
+    procedure DoCellLoaded(const Cell: IDCTreeCell; RequestForSort: Boolean; var PerformanceModeWhileScrolling: Boolean; var OverrideRowHeight: Single); override;
 
     procedure UpdateColumnCheck(const DataIndex: Integer; const Column: IDCTreeColumn; IsChecked: Boolean); overload;
     procedure UpdateColumnCheck(const DataItem: CObject; const Column: IDCTreeColumn; IsChecked: Boolean); overload;
@@ -351,9 +357,7 @@ uses
   FMX.Memo,
   FMX.Text, 
   FMX.StdCtrls, 
-  FMX.Graphics, 
   FMX.ActnList,
-  System.Types,
   System.Character,
   FMX.Platform,
   System.SysUtils,
@@ -367,10 +371,7 @@ uses
   Wasm.FMX.Memo,
   Wasm.FMX.Text, 
   Wasm.FMX.StdCtrls,
-  Wasm.FMX.Graphics,
   Wasm.FMX.ActnList,
-  Wasm.System.UITypes,
-  Wasm.System.Types,
   Wasm.FMX.Platform,
   Wasm.System.SysUtils,
   {$ENDIF}
@@ -623,6 +624,58 @@ begin
     end;
   finally
     EventTracer.PauseTimer('TDataControl', Self.ClassName + '.LoadDefaultDataIntoControl');
+  end;
+end;
+
+procedure TScrollControlWithEditableCells.DoCellLoaded(const Cell: IDCTreeCell; RequestForSort: Boolean; var PerformanceModeWhileScrolling: Boolean; var OverrideRowHeight: Single);
+begin
+  inherited;
+
+  if RequestForSort then
+    Exit;
+
+  var cellCtrl := Cell.Control;
+  if cellCtrl = nil then
+    Exit;
+
+  if Cell.DrawDropDown then
+    {$IFNDEF WEBASSEMBLY}
+    cellCtrl.OnPaint := OnCellControlPaintDropDown
+    {$ELSE}
+    cellCtrl.OnPaint := @OnCellControlPaintDropDown
+    {$ENDIF}
+  else if Assigned(cellCtrl.OnPaint) and (TMethod(cellCtrl.OnPaint).Data = Pointer(Self)) then
+    cellCtrl.OnPaint := nil;
+end;
+
+procedure TScrollControlWithEditableCells.OnCellControlPaintDropDown(Sender: TObject; Canvas: TCanvas; const ARect: TRectF);
+begin
+  var ctrl := Sender as TControl;
+  if (_cellEditor <> nil) and (_cellEditor.Cell.Control = ctrl) then
+    Exit;
+
+  var arrowWidth: Single := 8;
+  var arrowHeight: Single := 4;
+  var rightPadding: Single := 6;
+
+  if ARect.Width < arrowWidth + (2 * rightPadding) then
+    Exit;
+
+  var arrowLeft := ARect.Right - rightPadding - arrowWidth;
+  var arrowTop := ARect.Top + ((ARect.Height - arrowHeight) / 2);
+
+  var path := TPathData.Create;
+  try
+    path.MoveTo(PointF(arrowLeft, arrowTop));
+    path.LineTo(PointF(arrowLeft + arrowWidth, arrowTop));
+    path.LineTo(PointF(arrowLeft + (arrowWidth / 2), arrowTop + arrowHeight));
+    path.ClosePath;
+
+    Canvas.Fill.Kind := TBrushKind.Solid;
+    Canvas.Fill.Color := TAlphaColors.Gray;
+    Canvas.FillPath(path, ctrl.AbsoluteOpacity);
+  finally
+    path.Free;
   end;
 end;
 
@@ -1726,6 +1779,9 @@ begin
 
   if (UserValue = nil) or not _CellEditor.TryBeginEditWithUserKey(StartEditArgs.Value, UserValue) then
     _cellEditor.BeginEdit(StartEditArgs.Value);
+
+  if Cell.DrawDropDown and (Cell.Control <> nil) then
+    Cell.Control.Repaint;
 end;
 
 procedure TScrollControlWithEditableCells.HandleTreeOptionsChange(const OldFlags, NewFlags: TDCTreeOptions);
@@ -1744,6 +1800,9 @@ begin
 
   _cellEditor.EndEdit;
   _cellEditor := nil;
+
+  if cell.DrawDropDown and (cell.Control <> nil) then
+    cell.Control.Repaint;
 
   Self.SetFocus;
 

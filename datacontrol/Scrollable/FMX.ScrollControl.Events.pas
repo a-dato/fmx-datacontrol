@@ -320,6 +320,11 @@ type
   CellSelectedEvent = procedure(const Sender: TObject; e: DCCellSelectedEventArgs) of object;
   SelectionChangedEvent = procedure(const Sender: TObject; e: DCSelectionEvent) of object;
 
+  // Called on every cell right-click, before the popup opens.
+  // AddPopupOption(Caption, Action, Enabled) appends one item; Enabled is evaluated at that moment.
+  TCellPopupAddOption = reference to procedure(const Caption: CString; const Action: TProc; const Enabled: Boolean);
+  CellPopupEvent = procedure(const Sender: TObject; const Cell: IDCTreeCell; const AddPopupOption: TCellPopupAddOption) of object;
+
   GetColumnComparerEvent  = procedure(const Sender: TObject; e: DCColumnComparerEventArgs) of object;
   TOnCompareRows = function (Sender: TObject; const Left, Right: CObject): Integer of object;
   TOnCompareColumnCells = function(Sender: TObject; const TreeColumn: IDCTreeColumn; const Left, Right: CObject): Integer of object;
