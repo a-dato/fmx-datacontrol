@@ -588,8 +588,22 @@ type
 //    property PlaceInnerRowAtBottom: Boolean read get_PlaceInnerRowAtBottom write set_PlaceInnerRowAtBottom;
   end;
 
+  // Situation of the row when its cells were last positioned by the tree. Version 0 = never / content reloaded.
+  TRowCellsPositionInfo = record
+  public
+    Version: Integer;
+    Height: Single;
+    ViewListIndex: Integer;
+
+    class function Default: TRowCellsPositionInfo; static;
+  end;
+
   IDCTreeRow = interface(IDCCellRow<IDCTreeCell>)
     ['{1D5492C6-FE87-4B68-A5CD-6780CBFE85AC}']
+    function  get_CellsPositionInfo: TRowCellsPositionInfo;
+    procedure set_CellsPositionInfo(const Value: TRowCellsPositionInfo);
+
+    property CellsPositionInfo: TRowCellsPositionInfo read get_CellsPositionInfo write set_CellsPositionInfo;
   end;
 
   IDCHeaderRow = interface(IDCTreeRow)
@@ -695,6 +709,15 @@ resourcestring
   COLUMN_SHOW_DEFAULT_OBJECT_TEXT = '[object]';
 
 implementation
+
+{ TRowCellsPositionInfo }
+
+class function TRowCellsPositionInfo.Default: TRowCellsPositionInfo;
+begin
+  Result.Version := 0;
+  Result.Height := 0;
+  Result.ViewListIndex := -1;
+end;
 
 end.
 

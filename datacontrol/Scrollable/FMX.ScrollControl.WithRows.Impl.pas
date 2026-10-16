@@ -1024,6 +1024,9 @@ begin
     AutoObject.Guard(DCRowEventArgs.Create(ARow), rowEventArgs);
 
     _rowLoaded(Self, rowEventArgs);
+
+    if rowEventArgs.RealignAfterScrolling and IsScrolling then
+      _view.NotifyRowControlsNeedReload(ARow, True {force reload after scrolling is done});
   end;
   {$ELSE}
   //raise NotImplementedException.Create('procedure TScrollControlWithRows.DoRowLoaded(const ARow: IDCRow)');
@@ -2423,12 +2426,18 @@ end;
 procedure TScrollControlWithRows.InitRow(const Row: IDCRow);
 begin
   var rowInfo := _view.RowLoadedInfo(Row.ViewListIndex);
-  var isFastScrollbarScrolling := IsFastScrolling(True);
   var rowNeedsReload := IsPrinting or Row.IsScrollingIntoView or not rowInfo.InnerCellsAreApplied or (rowInfo.ControlNeedsResizeSoft and (GetScrollingType <> TScrollingType.WithScrollBar));
+
+  // Wheel / drag: content deferred "until after scrolling" is deferred again on every reload while scrolling,
+  // so reloading before the scroll ends only costs time. Scrollbar: reload as soon as the thumb slows down.
+  var canReloadDeferredContent: Boolean;
+  if GetScrollingType = TScrollingType.WithScrollBar then
+    canReloadDeferredContent := not IsFastScrolling(True) else
+    canReloadDeferredContent := not IsScrolling;
 
   var oldRowHeight: Single := -1;
 
-  if rowInfo.ReloadAfterScroll and not isFastScrollbarScrolling {(_scrollingType = TScrollingType.None)} then
+  if rowInfo.ReloadAfterScroll and canReloadDeferredContent then
   begin
     oldRowHeight := _view.GetRowHeight(Row.ViewListIndex);
 

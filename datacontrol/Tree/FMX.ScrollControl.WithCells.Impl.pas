@@ -53,10 +53,34 @@ uses
 type
   TRightLeftScroll = (None, FullLeft, Left, Right, FullRight);
 
+  TCellsPositionColumnState = record
+    Index: Integer;
+    Left: Single;
+    Width: Single;
+  end;
+
+  // Everything outside a row that influences the positions of the cells inside that row
+  TCellsPositionLayoutState = record
+  public
+    Valid: Boolean;
+    RowWidth: Single;
+    FrozenColumnWidth: Single;
+    HorzScrollActive: Boolean;
+    HorzScrollValue: Single;
+    Options: TDCTreeOptions;
+    HasHeaderRow: Boolean;
+    Columns: TArray<TCellsPositionColumnState>;
+
+    function SameAs(const Other: TCellsPositionLayoutState): Boolean;
+  end;
+
   TScrollControlWithCells = class(TScrollControlWithRows, IRowAndCellCompare, IColumnsControl)
   private
     _headerRow: IDCHeaderRow;
     _treeLayout: IDCTreeLayout;
+
+    _cellsPositionVersion: Integer;
+    _cellsPositionLayoutState: TCellsPositionLayoutState;
 
     _frozenRectLine: TRectangle;
 
@@ -72,6 +96,8 @@ type
 
     function  get_Layout: IDCTreeLayout;
     function  get_SelectedColumn: IDCTreeLayoutColumn;
+
+    function  GetCellsPositionLayoutState(const RowWidth, FrozenColumnWidth: Single): TCellsPositionLayoutState;
 
     procedure ColumnsChanged(Sender: TObject; e: NotifyCollectionChangedEventArgs);
     procedure OnHeaderCellResizeClicked(const HeaderCell: IHeaderCell);
@@ -963,10 +989,14 @@ type
     _frozenColumnRowControl: TControl;
     _nonFrozenColumnRowControl: TControl;
 
+    _cellsPositionInfo: TRowCellsPositionInfo;
+
   protected
 //    _innerRowControl: TControl;
     _placeInnerRowAtBottom: Boolean;
 
+    function  get_CellsPositionInfo: TRowCellsPositionInfo;
+    procedure set_CellsPositionInfo(const Value: TRowCellsPositionInfo);
     function  get_Cells: Dictionary<Integer, IDCTreeCell>;
     function  get_ContentCellSizes: Dictionary<Integer, Single>;
     function  get_FrozenColumnRowControl: TControl;
@@ -1264,7 +1294,51 @@ begin
   _stop := Value;
 end;
 
+{ TCellsPositionLayoutState }
+
+function TCellsPositionLayoutState.SameAs(const Other: TCellsPositionLayoutState): Boolean;
+begin
+  Result := Valid and Other.Valid and
+    SameValue(RowWidth, Other.RowWidth) and
+    SameValue(FrozenColumnWidth, Other.FrozenColumnWidth) and
+    (HorzScrollActive = Other.HorzScrollActive) and
+    SameValue(HorzScrollValue, Other.HorzScrollValue) and
+    (Options = Other.Options) and
+    (HasHeaderRow = Other.HasHeaderRow) and
+    (Length(Columns) = Length(Other.Columns));
+
+  if not Result then
+    Exit;
+
+  for var i := 0 to High(Columns) do
+    if (Columns[i].Index <> Other.Columns[i].Index) or
+       not SameValue(Columns[i].Left, Other.Columns[i].Left) or
+       not SameValue(Columns[i].Width, Other.Columns[i].Width) then
+      Exit(False);
+end;
+
 { TScrollControlWithCells }
+
+function TScrollControlWithCells.GetCellsPositionLayoutState(const RowWidth, FrozenColumnWidth: Single): TCellsPositionLayoutState;
+begin
+  Result.Valid := True;
+  Result.RowWidth := RowWidth;
+  Result.FrozenColumnWidth := FrozenColumnWidth;
+  Result.HorzScrollActive := _horzScrollBar.Visible and (_horzScrollBar.Opacity > 0);
+  Result.HorzScrollValue := _horzScrollBar.Value;
+  Result.Options := _options;
+  Result.HasHeaderRow := _headerRow <> nil;
+
+  var flatColumns := _treeLayout.FlatColumns;
+  SetLength(Result.Columns, flatColumns.Count);
+  for var i := 0 to flatColumns.Count - 1 do
+  begin
+    var flatClmn := flatColumns[i];
+    Result.Columns[i].Index := flatClmn.Index;
+    Result.Columns[i].Left := flatClmn.Left;
+    Result.Columns[i].Width := flatClmn.Width;
+  end;
+end;
 
 procedure TScrollControlWithCells.AfterScrolling;
 begin
@@ -1560,10 +1634,32 @@ begin
   var showVertGrid := TDCTreeOption.ShowVertGrid in _options;
   var showHorzGrid := TDCTreeOption.ShowHorzGrid in _options;
 
+  // While scrolling, rows whose cells are already positioned for the current layout can be skipped.
+  // Outside scrolling everything is repositioned, for other changes (templates, refresh) can be involved
+  var layoutState := GetCellsPositionLayoutState(rowWidth, frozenColumnWidth);
+  if not IsScrolling or not layoutState.SameAs(_cellsPositionLayoutState) then
+  begin
+    inc(_cellsPositionVersion);
+    _cellsPositionLayoutState := layoutState;
+  end;
+
   var row: IDCTreeRow;
   for row in HeaderAndTreeRows(False{not _fullRepositionCellsNeeded}) do
   begin
     var treeRow := row as IDCTreeRow;
+
+    var positionInfo := treeRow.CellsPositionInfo;
+    if not treeRow.IsHeaderRow and
+       (positionInfo.Version = _cellsPositionVersion) and
+       (positionInfo.ViewListIndex = treeRow.ViewListIndex) and
+       SameValue(positionInfo.Height, treeRow.Control.Height) then
+      Continue;
+
+    positionInfo.Version := _cellsPositionVersion;
+    positionInfo.ViewListIndex := treeRow.ViewListIndex;
+    positionInfo.Height := treeRow.Control.Height;
+    treeRow.CellsPositionInfo := positionInfo;
+
     treeRow.Control.Width := rowWidth;
     treeRow.Control.Position.X := 0.0;
 
@@ -4864,6 +4960,8 @@ begin
   var cell: IDCTreeCell;
   var treeRow := Row as IDCTreeRow;
 
+  treeRow.CellsPositionInfo := TRowCellsPositionInfo.Default;
+
   // if we do horz lines, we do them on cell controls..
   if (TreeOption_ShowVertGrid in _options) then
     treeRow.ControlAsRowLayout.Sides := [];
@@ -7509,6 +7607,8 @@ begin
   for cell in get_Cells.Values do
     cell.ClearCellForReassignment;
 
+  _cellsPositionInfo := TRowCellsPositionInfo.Default;
+
 //  if _innerRowControl <> nil then
 //    _innerRowControl.Visible := False;
 end;
@@ -7517,6 +7617,16 @@ destructor TDCTreeRow.Destroy;
 begin
   get_Cells.Clear;
   inherited;
+end;
+
+function TDCTreeRow.get_CellsPositionInfo: TRowCellsPositionInfo;
+begin
+  Result := _cellsPositionInfo;
+end;
+
+procedure TDCTreeRow.set_CellsPositionInfo(const Value: TRowCellsPositionInfo);
+begin
+  _cellsPositionInfo := Value;
 end;
 
 function TDCTreeRow.get_Cells: Dictionary<Integer, IDCTreeCell>;
