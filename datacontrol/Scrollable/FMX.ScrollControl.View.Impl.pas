@@ -483,8 +483,10 @@ end;
 
 function TDataViewList.GetRowHeight(const ViewListIndex: Integer): Single;
 begin
-  Result := CachedRowHeight(ViewListIndex);
-  if Result = -1 then
+  // A row that still needs a recalc keeps its last known height for positioning,
+  // just like TotalDataHeight does. Only rows that were never measured use the default height
+  Result := _viewRowHeights[ViewListIndex].GetCalculatedHeight;
+  if Result <= 0 then
     Result := _defaultRowHeight;
 end;
 

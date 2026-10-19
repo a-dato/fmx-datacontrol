@@ -171,11 +171,10 @@ end;
 function TRowInfoRecord.UpdateForceReloadAfterScrolling(DoForce: Boolean): TRowInfoRecord;
 begin
   Result.ForceReloadAfterScroll := DoForce;
-  if Self.ForceReloadAfterScroll and not DoForce then
-    Result.CalculatedHeight := -1 else
-    Result.CalculatedHeight := Self.CalculatedHeight;
+  Result.CalculatedHeight := Self.CalculatedHeight;
 
-  Result.NeedsResize := Self.NeedsResize;
+  // keep the known height (it is still used for positioning), but let it be recalculated
+  Result.NeedsResize := Self.NeedsResize or (Self.ForceReloadAfterScroll and not DoForce);
   Result.CellsApplied := Self.CellsApplied;
   Result.RowInActiveView := Self.RowInActiveView;
 end;

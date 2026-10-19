@@ -76,6 +76,7 @@ type
     property CellChanging;
     property CellChanged;
     property CellSelected;
+    property CellPopup;
     property SortingGetComparer;
     property OnCompareRows;
     property OnCompareColumnCells;

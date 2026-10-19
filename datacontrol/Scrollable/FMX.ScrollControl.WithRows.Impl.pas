@@ -347,9 +347,6 @@ type
 
     function  CalculatedHeight: Single;
 
-    // drag & drop
-    procedure BeginDrag;
-
     // IFocusableControlsContainer
     function  FirstFocusableControl: TControl;
     procedure ExecuteKeyFromExternal(var Key: Word; var KeyChar: WideChar; Shift: TShiftState; const ActiveChild: TControl = nil);
@@ -1027,6 +1024,9 @@ begin
     AutoObject.Guard(DCRowEventArgs.Create(ARow), rowEventArgs);
 
     _rowLoaded(Self, rowEventArgs);
+
+    if rowEventArgs.RealignAfterScrolling and IsScrolling then
+      _view.NotifyRowControlsNeedReload(ARow, True {force reload after scrolling is done});
   end;
   {$ELSE}
   //raise NotImplementedException.Create('procedure TScrollControlWithRows.DoRowLoaded(const ARow: IDCRow)');
@@ -1305,6 +1305,9 @@ begin
   if ViewIsDataModelView and (GetDataModelView.CurrencyManager.Current <> -1) and (_view.ActiveViewRows.Count > 0) then
     InternalSetCurrent(GetDataModelView.CurrencyManager.Current, TSelectionEventTrigger.External, []);
   {$ENDIF}
+
+  if (_referenceRowViewListIndex <> -1) and (_referenceRowViewListIndex > _view.ViewCount - 1) then
+    _referenceRowViewListIndex := -1;
 
   if GetDataModelView <> nil then
   begin
@@ -2341,11 +2344,6 @@ begin
     ResetView(_resetViewRec.FromIndex, _resetViewRec.OneRowOnly);
 end;
 
-procedure TScrollControlWithRows.BeginDrag;
-begin
-  BeginAutoDrag;
-end;
-
 procedure TScrollControlWithRows.AlignRowsFromReferenceToBottom(const TopReferenceRow: IDCRow; var SpaceForRows: Single);
 begin
   var thisRow := TopReferenceRow;
@@ -2428,12 +2426,18 @@ end;
 procedure TScrollControlWithRows.InitRow(const Row: IDCRow);
 begin
   var rowInfo := _view.RowLoadedInfo(Row.ViewListIndex);
-  var isFastScrollbarScrolling := IsFastScrolling(True);
   var rowNeedsReload := IsPrinting or Row.IsScrollingIntoView or not rowInfo.InnerCellsAreApplied or (rowInfo.ControlNeedsResizeSoft and (GetScrollingType <> TScrollingType.WithScrollBar));
+
+  // Wheel / drag: content deferred "until after scrolling" is deferred again on every reload while scrolling,
+  // so reloading before the scroll ends only costs time. Scrollbar: reload as soon as the thumb slows down.
+  var canReloadDeferredContent: Boolean;
+  if GetScrollingType = TScrollingType.WithScrollBar then
+    canReloadDeferredContent := not IsFastScrolling(True) else
+    canReloadDeferredContent := not IsScrolling;
 
   var oldRowHeight: Single := -1;
 
-  if rowInfo.ReloadAfterScroll and not isFastScrollbarScrolling {(_scrollingType = TScrollingType.None)} then
+  if rowInfo.ReloadAfterScroll and canReloadDeferredContent then
   begin
     oldRowHeight := _view.GetRowHeight(Row.ViewListIndex);
 
@@ -3990,7 +3994,10 @@ begin
         UpdateVirtualYPositions(referenceRow, heightChangeAboveRef);
             
         CalculateScrollBarMax;  
-        var newScrollVal := _vertScrollBar.Value + (startY - _vertScrollBar.Value {for reference row height change}) + heightChangeAboveRef;
+        var newScrollVal := _vertScrollBar.Value + (startY - _vertScrollBar.Value {for reference row height change});
+        if referenceRow.VirtualYPosition + referenceRow.Height > newScrollVal + _vertScrollBar.ViewportSize then
+          newScrollVal := newScrollVal + heightChangeAboveRef;
+
         if alignBottomToTop and (referenceRow.VirtualYPosition + referenceRow.Height > newScrollVal + _vertScrollBar.ViewportSize) then
           newScrollVal := (referenceRow.VirtualYPosition + referenceRow.Height) - _vertScrollBar.ViewportSize;
 

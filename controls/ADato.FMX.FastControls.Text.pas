@@ -51,6 +51,10 @@ type
   TAutoSize = (None, AutoWidth, AutoHeight);
   TAutoSizes = set of TAutoSize;
 
+  {$SCOPEDENUMS ON}
+  TTextTagType = (None, Tag, DotTag);
+  {$SCOPEDENUMS OFF}
+
   TFastControl = class(TLayout)
   protected
     _controlIsLoaded: Boolean;
@@ -60,14 +64,26 @@ type
     _recalcNeeded: Boolean;
     _autoSize: TAutoSize;
     _autoSizeNeeded: Boolean;
+    _applyingAutoSize: Boolean;
+    _layoutScheduled: Boolean;
     _forbiddenAutoSizeOptions: TAutoSizes;
     _internalUpdateCount: Integer;
 
     _recalcIndex: Integer;
 
     procedure Loaded; override;
+    procedure ParentChanged; override;
+    procedure SetVisible(const Value: Boolean); override;
+    procedure AncestorVisibleChanged(const Visible: Boolean); override;
+
     procedure RepaintNeeded;
     procedure RecalcNeeded; virtual;
+
+    procedure ScheduleLayout;
+    procedure ProcessScheduledLayout;
+    function  IsOnScreen: Boolean;
+    function  SizeAffectsCalculation: Boolean; virtual;
+    procedure PrepareLayout;
 
     function  ShouldRecalculate: Boolean;
     procedure ControlLoadedCalculate;
@@ -75,10 +91,9 @@ type
     procedure InternalCalculate;
     procedure Calculate; virtual;
 
-    procedure ImmidiateAutoSize; virtual;
-    procedure CalculateSafeAutoSize;
     function  DoAutoSize: Boolean; //virtual;
     procedure ApplyAutoSize; virtual;
+    procedure SafeApplyAutoSize;
     procedure set_AutoSize(const Value: TAutoSize); virtual;
 
     procedure DoResized; override;
@@ -149,9 +164,11 @@ type
 
     _mouseIsDown: Boolean;
     _hover: Boolean;
-    _showTag: Boolean;
+    _tagType: TTextTagType;
     _tagColor: TAlphaColor;
     _tagOpacity: Single;
+    _dot: TRectangle;
+    _dotBounds: TRectF;
 
     // for checkbox ctrl
     _internalLeftPadding: Single;
@@ -200,14 +217,24 @@ type
     procedure set_CalcAsAutoHeight(const Value: Boolean);
     function  get_Trimming: TTextTrimming;
     function  get_WordWrap: Boolean;
-    procedure set_ShowTag(const Value: Boolean);
+    procedure set_TagType(const Value: TTextTagType);
     procedure set_TagOpacity(const Value: Single);
+    function  ShowsTag: Boolean;
+    function  HasDot: Boolean;
+    function  DotContentWidth: Single;
+    function  ContentHeight: Single;
+    procedure EnsureDot;
+    procedure UpdateDot;
 
   protected
+    procedure Painting; override;
     procedure DoPaint; override;
+    procedure PreparePaintLayout;
+    procedure PaintTagBackground;
     function  GetDefaultSize: TSizeF; override;
 
     procedure Calculate; override;
+    function  SizeAffectsCalculation: Boolean; override;
     function  EnsureLayoutForCanvas(const ACanvas: TCanvas): Boolean;
     procedure InvalidateBoundsChange(const OldBounds, NewBounds: TRectF);
     procedure ApplyAutoSize; override;
@@ -261,7 +288,7 @@ type
     property MaxWidth: Integer read get_MaxWidth write set_MaxWidth default 0;
     property CalcAsAutoHeight: Boolean read get_calcAsAutoHeight write set_CalcAsAutoHeight default True;
     property UnderlineOnHover: Boolean read _underlineOnHover write _underlineOnHover default False;
-    property ShowTag: Boolean read _showTag write set_ShowTag default False;
+    property TagType: TTextTagType read _tagType write set_TagType default TTextTagType.None;
     property TagOpacity: Single read _tagOpacity write set_TagOpacity;
 
     property HitTest {$IFNDEF WEBASSEMBLY}default False{$ENDIF};
@@ -355,9 +382,12 @@ type
   end;
 
 const
-  TAG_VERT_MARGIN = 3.0;
-  TAG_HORZ_MARGIN = 6.0;
+  TAG_VERT_MARGIN = 5.0;
+  TAG_HORZ_MARGIN = 8.0;
   IMAGE_TEXT_MARGIN = 5.0;
+  DOT_SIZE = 8.0;
+  DOT_RADIUS = 4.0;
+  DOT_TEXT_MARGIN = 6.0;
 
 var
   {$IFDEF MSWINDOWS}
@@ -391,6 +421,124 @@ uses
   , FMX.Skia
   {$ENDIF}
   , ADato.TraceEvents.intf;
+
+{ Layout scheduler }
+
+// All pending TFastControl calculations are handled in one queued pass. On Windows the
+// queued call is processed before WM_PAINT, so resizes still end up in the same paint region.
+var
+  _pendingLayouts: TArray<TFastControl>;
+  _pendingLayoutCount: Integer;
+  _flushBatch: TArray<TFastControl>;
+  _layoutFlushQueued: Boolean;
+  _layoutFlushing: Boolean;
+
+procedure FlushPendingLayouts; forward;
+
+procedure QueueLayoutFlush;
+begin
+  if _layoutFlushQueued then
+    Exit;
+
+  _layoutFlushQueued := True;
+  TThread.ForceQueue(nil, procedure
+  begin
+    FlushPendingLayouts;
+  end);
+end;
+
+procedure AddPendingLayout(const Control: TFastControl);
+begin
+  if _pendingLayoutCount = Length(_pendingLayouts) then
+  begin
+    if Length(_pendingLayouts) = 0 then
+      SetLength(_pendingLayouts, 64) else
+      SetLength(_pendingLayouts, 2 * Length(_pendingLayouts));
+  end;
+
+  _pendingLayouts[_pendingLayoutCount] := Control;
+  inc(_pendingLayoutCount);
+
+  if not _layoutFlushing then
+    QueueLayoutFlush;
+end;
+
+procedure RemovePendingLayout(const Control: TFastControl);
+begin
+  for var ix := 0 to _pendingLayoutCount - 1 do
+    if _pendingLayouts[ix] = Control then
+      _pendingLayouts[ix] := nil;
+
+  for var ix := 0 to High(_flushBatch) do
+    if _flushBatch[ix] = Control then
+      _flushBatch[ix] := nil;
+end;
+
+function ControlDepth(const Control: TControl): Integer;
+begin
+  Result := 0;
+  var parentCtrl := Control.ParentControl;
+  while parentCtrl <> nil do
+  begin
+    inc(Result);
+    parentCtrl := parentCtrl.ParentControl;
+  end;
+end;
+
+procedure FlushPendingLayouts;
+begin
+  _layoutFlushQueued := False;
+  _layoutFlushing := True;
+  try
+    var pass := 0;
+    while (_pendingLayoutCount > 0) and (pass < 3) do
+    begin
+      inc(pass);
+
+      _flushBatch := Copy(_pendingLayouts, 0, _pendingLayoutCount);
+      for var ix := 0 to _pendingLayoutCount - 1 do
+        _pendingLayouts[ix] := nil;
+      _pendingLayoutCount := 0;
+
+      var depths: TArray<Integer>;
+      SetLength(depths, Length(_flushBatch));
+      var maxDepth := 0;
+      for var ix := 0 to High(_flushBatch) do
+        if _flushBatch[ix] <> nil then
+        begin
+          depths[ix] := ControlDepth(_flushBatch[ix]);
+          if depths[ix] > maxDepth then
+            maxDepth := depths[ix];
+        end;
+
+      // deepest first: a parent's autosize depends on the size of its children
+      for var depth := maxDepth downto 0 do
+        for var ix := 0 to High(_flushBatch) do
+          if (_flushBatch[ix] <> nil) and (depths[ix] = depth) then
+          begin
+            var ctrl := _flushBatch[ix];
+            _flushBatch[ix] := nil;
+            ctrl._layoutScheduled := False;
+            ctrl.ProcessScheduledLayout;
+          end;
+
+      _flushBatch := nil;
+    end;
+  finally
+    _flushBatch := nil;
+    _layoutFlushing := False;
+  end;
+
+  // Controls that keep rescheduling themselves are not queued again: a continuous ForceQueue
+  // starves WM_TIMER / WM_PAINT. They stay dirty and are handled by PrepareForPaint.
+  for var ix := 0 to _pendingLayoutCount - 1 do
+    if _pendingLayouts[ix] <> nil then
+    begin
+      _pendingLayouts[ix]._layoutScheduled := False;
+      _pendingLayouts[ix] := nil;
+    end;
+  _pendingLayoutCount := 0;
+end;
 
 { TDateTimeEditOnKeyDownOverride }
 
@@ -451,7 +599,7 @@ begin
 
   _calcAsAutoHeight := True;
 
-  _showTag := False;
+  _tagType := TTextTagType.None;
   _tagColor := TAlphaColors.Grey;
   _tagOpacity := 0.15;
 end;
@@ -501,16 +649,17 @@ end;
 function TFastText.CalculateTextXPos: Single;
 begin
 //  Result := Padding.Left + _internalLeftPadding;
+  var prefixWidth := ImageContentWidth + DotContentWidth;
   case get_HorzTextAlign of
-    TTextAlign.Center: Result := ((Self.Width - (_textBounds.Width + ImageContentWidth)) / 2) + ImageContentWidth;
-    TTextAlign.Leading: Result := Padding.Left + _internalLeftPadding + IfThen(_showTag, TAG_HORZ_MARGIN, 0) + ImageContentWidth;
-    TTextAlign.Trailing: Result := Self.Width - _textBounds.Width - Padding.Right - _internalRightPadding - IfThen(_showTag, TAG_HORZ_MARGIN, 0);
+    TTextAlign.Center: Result := ((Self.Width - (_textBounds.Width + prefixWidth)) / 2) + prefixWidth;
+    TTextAlign.Leading: Result := Padding.Left + _internalLeftPadding + IfThen(ShowsTag, TAG_HORZ_MARGIN, 0) + prefixWidth;
+    TTextAlign.Trailing: Result := Self.Width - _textBounds.Width - Padding.Right - _internalRightPadding - IfThen(ShowsTag, TAG_HORZ_MARGIN, 0);
   end;
 end;
 
 function TFastText.CalculateContentYPos: Single;
 begin
-  var totHeight := CMath.Max(_textBounds.Height, IfThen(HasImage, _imageSizeInt, 0));
+  var totHeight := ContentHeight;
   var tagVerticalMargin := CalculateTagVerticalMargin;
   case get_VertTextAlign of
     TTextAlign.Center: Result := (Self.Height - totHeight - _internalBottomPadding) / 2;
@@ -523,7 +672,7 @@ end;
 
 function TFastText.CalculateTextYPos: Single;
 begin
-  var totHeight := CMath.Max(_textBounds.Height, IfThen(HasImage, _imageSizeInt, 0));
+  var totHeight := ContentHeight;
   Result := CalculateContentYPos + CMath.Max(0, (totHeight - _textBounds.Height) / 2);
 end;
 
@@ -535,8 +684,8 @@ begin
     Exit;
   end;
 
-  var imageLeft := CalculateTextXPos - _imageSizeInt - ImageTextMargin;
-  var totHeight := CMath.Max(_textBounds.Height, _imageSizeInt);
+  var imageLeft := CalculateTextXPos - DotContentWidth - _imageSizeInt - ImageTextMargin;
+  var totHeight := CMath.Max(ContentHeight, _imageSizeInt);
   var imageY := CalculateContentYPos + CMath.Max(0, (totHeight - _imageSizeInt) / 2);
 
   _imageBounds := RectF(imageLeft, imageY, imageLeft + _imageSizeInt, imageY + _imageSizeInt);
@@ -544,15 +693,88 @@ end;
 
 function TFastText.CalculateTagVerticalMargin: Single;
 begin
-  if not _showTag then
+  if not ShowsTag then
     Exit(0);
 
   if _calcAsAutoHeight then
     Exit(TAG_VERT_MARGIN);
 
-  var contentHeight := CMath.Max(_textBounds.Height, IfThen(HasImage, _imageSizeInt, 0));
+  var contentHeight := ContentHeight;
   var availableTagHeight := Self.Height - contentHeight - Padding.Top - Padding.Bottom - _internalBottomPadding;
   Result := CMath.Max(0, CMath.Min(TAG_VERT_MARGIN, availableTagHeight / 2));
+end;
+
+procedure TFastText.PreparePaintLayout;
+begin
+  // Printing uses a different canvas (SKIA). Layout must match that canvas type.
+  // Only when the layout got recreated the Calculate is needed.
+  if EnsureLayoutForCanvas(Canvas) then
+    Calculate;
+
+  _layout.Opacity := AbsoluteOpacity;
+  _layout.TopLeft := PointF(CalculateTextXPos, CalculateTextYPos);
+  CalculateImageBounds;
+
+  // Keep room for the tag's right margin, otherwise a trimmed text pushes the tag outside the control bounds
+  var maxW := CMath.Min(_textBounds.Width + Padding.Left + Padding.Right, Self.Width - _layout.TopLeft.X - IfThen(ShowsTag, TAG_HORZ_MARGIN, 0));
+  var maxH := CMath.Min(_textBounds.Height + Self.Padding.Top + Self.Padding.Bottom, Self.Height - _layout.TopLeft.Y);
+
+  _layout.MaxSize := PointF(maxW, maxH);
+  UpdateDot;
+end;
+
+procedure TFastText.PaintTagBackground;
+begin
+  if not ShowsTag then
+    Exit;
+
+  var tagVerticalMargin := CalculateTagVerticalMargin;
+  var contentLeft := _layout.TopLeft.X;
+  var contentRight := _layout.TopLeft.X + _layout.MaxSize.X;
+  if HasImage then
+  begin
+    contentLeft := _imageBounds.Left;
+    contentRight := CMath.Max(contentRight, _imageBounds.Right);
+  end;
+  if HasDot then
+    contentLeft := CMath.Min(contentLeft, _dotBounds.Left);
+
+  var contentTop := _layout.TopLeft.Y;
+  var contentBottom := _layout.TopLeft.Y + _textBounds.Height;
+  if HasImage then
+  begin
+    contentTop := CMath.Min(contentTop, _imageBounds.Top);
+    contentBottom := CMath.Max(contentBottom, _imageBounds.Bottom);
+  end;
+  if HasDot then
+  begin
+    contentTop := CMath.Min(contentTop, _dotBounds.Top);
+    contentBottom := CMath.Max(contentBottom, _dotBounds.Bottom);
+  end;
+
+  // pixels outside the control bounds are not invalidated when the control moves or resizes
+  var p1 := PointF(CMath.Max(0, contentLeft - TAG_HORZ_MARGIN), CMath.Max(0, contentTop - tagVerticalMargin));
+  var p2 := PointF(CMath.Min(Self.Width, contentRight + TAG_HORZ_MARGIN), CMath.Min(Self.Height, contentBottom + tagVerticalMargin));
+
+  var rad := CMath.Min(10, (p2.Y - p1.Y) / 2);
+  var rect := TRectF.Create(p1.X, p1.Y, p2.X, p2.Y);
+  Canvas.Fill.Color := _tagColor;
+  Canvas.FillRect(rect, rad, rad*1.2, AllCorners, AbsoluteOpacity * _tagOpacity, TCornerType.Round);
+end;
+
+procedure TFastText.Painting;
+begin
+  inherited;
+
+  // FMX paints children before DoPaint. The tag background has to be drawn first,
+  // otherwise it covers the dot rectangle.
+  if not _ignoreDefaultPaint then
+  begin
+    PreparePaintLayout;
+    PaintTagBackground;
+  end
+  else if _dot <> nil then
+    _dot.Visible := False;
 end;
 
 procedure TFastText.DoPaint;
@@ -566,50 +788,6 @@ begin
 
   if not _ignoreDefaultPaint then
   begin
-    // Printing uses a different canvas (SKIA). Layout must match that canvas type.
-    // Only when the layout got recreated the Calculate is needed.
-    if EnsureLayoutForCanvas(Canvas) then
-      Calculate;
-
-    _layout.Opacity := AbsoluteOpacity;
-    _layout.TopLeft := PointF(CalculateTextXPos, CalculateTextYPos);
-    CalculateImageBounds;
-
-    // Keep room for the tag's right margin, otherwise a trimmed text pushes the tag outside the control bounds
-    var maxW := CMath.Min(_textBounds.Width + Padding.Left + Padding.Right, Self.Width - _layout.TopLeft.X - IfThen(_showTag, TAG_HORZ_MARGIN, 0));
-    var maxH := CMath.Min(_textBounds.Height + Self.Padding.Top + Self.Padding.Bottom, Self.Height - _layout.TopLeft.Y);
-
-    _layout.MaxSize := PointF(maxW, maxH);
-
-    // first show tag..
-    if _showTag then
-    begin
-      var tagVerticalMargin := CalculateTagVerticalMargin;
-      var contentLeft := _layout.TopLeft.X;
-      var contentRight := _layout.TopLeft.X + _layout.MaxSize.X;
-      if HasImage then
-      begin
-        contentLeft := _imageBounds.Left;
-        contentRight := CMath.Max(contentRight, _imageBounds.Right);
-      end;
-
-      var contentTop := _layout.TopLeft.Y;
-      var contentBottom := _layout.TopLeft.Y + _textBounds.Height;
-      if HasImage then
-      begin
-        contentTop := CMath.Min(contentTop, _imageBounds.Top);
-        contentBottom := CMath.Max(contentBottom, _imageBounds.Bottom);
-      end;
-
-      var p1 := PointF(contentLeft - TAG_HORZ_MARGIN, contentTop - tagVerticalMargin);
-      var p2 := PointF(contentRight + TAG_HORZ_MARGIN, contentBottom + tagVerticalMargin);
-
-      var rad := CMath.Min(10, (p2.Y - p1.Y) / 2);
-      var rect := TRectF.Create(p1.X, p1.Y, p2.X, p2.Y);
-      Canvas.Fill.Color := _tagColor;
-      Canvas.FillRect(rect, rad*0.75, rad*1.2, AllCorners, AbsoluteOpacity * _tagOpacity, TCornerType.Round);
-    end;
-
 //    {$IFDEF DEBUG}
 //    Self.Canvas.Fill.Color := TAlphaColors.Mediumpurple;
 //    Self.Canvas.FillRect(RectF(0, 0, Self.Width, Self.Height), 0.2);
@@ -839,8 +1017,9 @@ begin
 
   inherited;
 
-  var maxInternalWidth := _maxWidth - Padding.Left - Padding.Right - _internalLeftPadding - _internalRightPadding - ImageContentWidth;
-  var maxWidth := IfThen(_maxWidth > 0, CMath.Max(0, maxInternalWidth), IfThen(get_WordWrap, CMath.Max(0, Self.Width - _internalLeftPadding - _internalRightPadding - ImageContentWidth), 9999));
+  var prefixWidth := ImageContentWidth + DotContentWidth;
+  var maxInternalWidth := _maxWidth - Padding.Left - Padding.Right - _internalLeftPadding - _internalRightPadding - prefixWidth;
+  var maxWidth := IfThen(_maxWidth > 0, CMath.Max(0, maxInternalWidth), IfThen(get_WordWrap, CMath.Max(0, Self.Width - _internalLeftPadding - _internalRightPadding - prefixWidth), 9999));
   var maxHeight := IfThen(get_WordWrap or _calcAsAutoHeight, 9999, Self.Height - Padding.Top - Padding.Bottom);
 
   // italic and Trailing horz align does not work together because of the extra space italic text needs.. This is not calculated correctly..
@@ -875,13 +1054,25 @@ begin
   {$ENDIF}
 end;
 
+function TFastText.SizeAffectsCalculation: Boolean;
+begin
+  // Without WordWrap the text is measured unbounded; trimming and alignment are applied in DoPaint.
+  // Child controls (e.g. subtext of a checkbox) are positioned relative to the size.
+  // The dot is an internal decoration and must not force a resize recalculation.
+  var childCount := ControlsCount;
+  if _dot <> nil then
+    Dec(childCount);
+
+  Result := get_WordWrap or not _calcAsAutoHeight or (childCount > 0);
+end;
+
 procedure TFastText.SetLeftRightPadding;
 begin
   if not ShouldRecalculate then
     Exit;
 
-  _internalLeftPadding := 0; //IfThen(_showTag, TAG_MARGIN, 0);
-  _internalRightPadding := 0; //IfThen(_showTag, TAG_MARGIN, 0);
+  _internalLeftPadding := 0;
+  _internalRightPadding := 0;
 end;
 
 procedure TFastText.SetStyledSettings(const Value: TStyledSettings);
@@ -934,14 +1125,82 @@ begin
   end;
 end;
 
-procedure TFastText.set_ShowTag(const Value: Boolean);
+procedure TFastText.set_TagType(const Value: TTextTagType);
 begin
-  if _showTag = Value then
+  if _tagType = Value then
     Exit;
 
-  _showTag := Value;
+  _tagType := Value;
+  if HasDot then
+    EnsureDot
+  else if _dot <> nil then
+    _dot.Visible := False;
 
   RecalcNeeded;
+end;
+
+function TFastText.ShowsTag: Boolean;
+begin
+  Result := _tagType <> TTextTagType.None;
+end;
+
+function TFastText.HasDot: Boolean;
+begin
+  Result := _tagType = TTextTagType.DotTag;
+end;
+
+function TFastText.DotContentWidth: Single;
+begin
+  Result := IfThen(HasDot, DOT_SIZE + DOT_TEXT_MARGIN, 0);
+end;
+
+function TFastText.ContentHeight: Single;
+begin
+  Result := _textBounds.Height;
+  if HasImage then
+    Result := CMath.Max(Result, _imageSizeInt);
+  if HasDot then
+    Result := CMath.Max(Result, DOT_SIZE);
+end;
+
+procedure TFastText.EnsureDot;
+begin
+  if _dot <> nil then
+    Exit;
+
+  _dot := TRectangle.Create(Self);
+  _dot.Parent := Self;
+  _dot.Stored := False;
+  _dot.HitTest := False;
+  _dot.Align := TAlignLayout.None;
+  _dot.Width := DOT_SIZE;
+  _dot.Height := DOT_SIZE;
+  _dot.XRadius := DOT_RADIUS;
+  _dot.YRadius := DOT_RADIUS;
+  _dot.Stroke.Kind := TBrushKind.None;
+  _dot.Fill.Kind := TBrushKind.Solid;
+  _dot.Visible := False;
+end;
+
+procedure TFastText.UpdateDot;
+begin
+  if not HasDot then
+  begin
+    _dotBounds := TRectF.Empty;
+    if _dot <> nil then
+      _dot.Visible := False;
+    Exit;
+  end;
+
+  EnsureDot;
+
+  var dotLeft := CalculateTextXPos - DOT_SIZE - DOT_TEXT_MARGIN;
+  var dotTop := CalculateTextYPos + ((_textBounds.Height - DOT_SIZE) / 2);
+  _dotBounds := RectF(dotLeft, dotTop, dotLeft + DOT_SIZE, dotTop + DOT_SIZE);
+
+  _dot.Visible := True;
+  _dot.SetBounds(dotLeft, dotTop, DOT_SIZE, DOT_SIZE);
+  _dot.Fill.Color := _settings.FontColor;
 end;
 
 procedure TFastText.set_TagOpacity(const Value: Single);
@@ -1043,7 +1302,7 @@ end;
 function TFastText.TextHeight: Single;
 begin
   ControlLoadedCalculate;
-  Result := CMath.Max(_textBounds.Height, IfThen(HasImage, _imageSizeInt, 0)) + IfThen(_showTag, 2*TAG_VERT_MARGIN, 0);
+  Result := ContentHeight + IfThen(ShowsTag, (2*TAG_VERT_MARGIN), 0);
 end;
 
 function TFastText.TextHeightWithPadding: Single;
@@ -1059,7 +1318,7 @@ end;
 function TFastText.TextWidth: Single;
 begin
   ControlLoadedCalculate;
-  Result := _textBounds.Width + ImageContentWidth + IfThen(_showTag, 2*TAG_HORZ_MARGIN, 0);
+  Result := _textBounds.Width + ImageContentWidth + DotContentWidth + IfThen(ShowsTag, 2*TAG_HORZ_MARGIN, 0);
 end;
 
 function TFastText.TextWidthWithPadding: Single;
@@ -1082,15 +1341,12 @@ begin
   if _imageIndex = -1 then
     Exit;
 
+  // owned by the image list cache (or image helper), freeing it forces a re-render on every paint
   var bitmap := GetBitmap(get_Images, bitmapSize, _imageIndex);
-  try
-    if bitmap <> nil then
-    begin
-      var bitmapRect := TRectF.Create(0, 0, bitmap.Width, bitmap.Height);
-      Canvas.DrawBitmap(bitmap, bitmapRect, _imageBounds.Round, AbsoluteOpacity, False);
-    end;
-  finally
-    bitmap.Free;
+  if bitmap <> nil then
+  begin
+    var bitmapRect := TRectF.Create(0, 0, bitmap.Width, bitmap.Height);
+    Canvas.DrawBitmap(bitmap, bitmapRect, _imageBounds.Round, AbsoluteOpacity, False);
   end;
 end;
 
@@ -1636,6 +1892,12 @@ end;
 
 destructor TFastControl.Destroy;
 begin
+  if _layoutScheduled then
+  begin
+    _layoutScheduled := False;
+    RemovePendingLayout(Self);
+  end;
+
   _isAlive := nil;
   inherited;
 end;
@@ -1644,17 +1906,103 @@ procedure TFastControl.Loaded;
 begin
   _controlIsLoaded := True;
   inherited;
+
+  if _recalcNeeded then
+    ScheduleLayout;
+end;
+
+procedure TFastControl.ParentChanged;
+begin
+  inherited;
+
+  if _recalcNeeded or _autoSizeNeeded then
+    ScheduleLayout;
+end;
+
+procedure TFastControl.SetVisible(const Value: Boolean);
+begin
+  inherited;
+
+  if Value and (_recalcNeeded or _autoSizeNeeded) then
+    ScheduleLayout;
+end;
+
+procedure TFastControl.AncestorVisibleChanged(const Visible: Boolean);
+begin
+  inherited;
+
+  if Visible and (_recalcNeeded or _autoSizeNeeded) then
+    ScheduleLayout;
 end;
 
 procedure TFastControl.RepaintNeeded;
 begin
+  // Invalidations while drawing are ignored by FMX. Do not postpone them: controls that change
+  // properties on every paint (e.g. grids in BeforePainting) would cause an endless paint loop,
+  // starving WM_TIMER (animations, TLineAnimation of the tab control).
   if not FInPaintTo then
-    Repaint
-//    and not _waitingForRepaint then
-//  begin
-//    _waitingForRepaint := True;
-//    Repaint;
-//  end;
+    Repaint;
+end;
+
+procedure TFastControl.ScheduleLayout;
+begin
+  if _layoutScheduled or (csLoading in ComponentState) or (csDestroying in ComponentState) then
+    Exit;
+
+  _layoutScheduled := True;
+  AddPendingLayout(Self);
+end;
+
+procedure TFastControl.ProcessScheduledLayout;
+begin
+  // controls outside the visible area stay dirty and are calculated in PrepareForPaint
+  // or when their measurements are requested (TextWidth etc.)
+  if (_recalcNeeded or _autoSizeNeeded) and IsOnScreen then
+    PrepareLayout;
+end;
+
+function TFastControl.IsOnScreen: Boolean;
+begin
+  // UpdateRect is clipped by ClipChildren parents (scrollboxes), so scrolled out controls are empty.
+  // Autosize controls need their size for aligning, even when they currently have no size.
+  Result := (Scene <> nil) and not IsUpdating and ParentedVisible and (DoAutoSize or not UpdateRect.IsEmpty);
+end;
+
+function TFastControl.SizeAffectsCalculation: Boolean;
+begin
+  Result := True;
+end;
+
+procedure TFastControl.PrepareLayout;
+begin
+  if not (csLoading in ComponentState) then
+    _controlIsLoaded := True;
+
+  if ShouldRecalculate then
+  begin
+    if DoAutoSize then
+      _autoSizeNeeded := True;
+
+    Calculate;
+  end;
+
+  if _autoSizeNeeded and (Scene <> nil) and (_recalcIndex = 0) then
+    SafeApplyAutoSize;
+end;
+
+procedure TFastControl.SafeApplyAutoSize;
+begin
+  _autoSizeNeeded := False;
+
+  if not DoAutoSize then
+    Exit;
+
+  _applyingAutoSize := True;
+  try
+    ApplyAutoSize;
+  finally
+    _applyingAutoSize := False;
+  end;
 end;
 
 procedure TFastControl.ForceRealign(OnlyWhenRealignNeeded: Boolean = False);
@@ -1685,17 +2033,30 @@ end;
 
 procedure TFastControl.Painting;
 begin
-  _waitingForRepaint := False;
-  ControlLoadedCalculate;
+  // Normally already handled by the scheduled layout pass or PrepareForPaint.
+  // Size changes are not allowed here: FMX ignores invalidations while drawing.
+  if not (csLoading in ComponentState) then
+    _controlIsLoaded := True;
+
+  if ShouldRecalculate then
+  begin
+    if DoAutoSize then
+      _autoSizeNeeded := True;
+
+    Calculate;
+  end;
+
+  // the size is applied after drawing; ApplyAutoSize repaints only when the size really changes
+  if _autoSizeNeeded then
+    ScheduleLayout;
 
   inherited;
 end;
 
 procedure TFastControl.PrepareForPaint;
 begin
-  if ShouldRecalculate and _autoSizeNeeded and DoAutoSize then
-    ImmidiateAutoSize else
-    InternalCalculate;
+  // fallback for controls missed by the scheduled layout pass (e.g. scrolled into view)
+  PrepareLayout;
 
   inherited;
 end;
@@ -1713,10 +2074,10 @@ procedure TFastControl.InternalCalculate;
     for var ctrl in Parent.Controls do
       if ctrl.Visible and (ctrl.Opacity > 0) then
       begin
-        CalculateFastControlChildren(ctrl);
-
+        // a TFastControl handles its own subtree
         if ctrl is TFastControl then
-          TFastControl(ctrl).InternalCalculate;
+          TFastControl(ctrl).InternalCalculate else
+          CalculateFastControlChildren(ctrl);
       end;
   end;
 
@@ -1746,27 +2107,36 @@ end;
 
 procedure TFastControl.ControlLoadedCalculate;
 
-  procedure CalculateFastControlChildren(const Parent: TControl);
+  procedure MarkFastControlChildrenLoaded(const Parent: TControl);
   begin
     for var ctrl in Parent.Controls do
       if ctrl.Visible and (ctrl.Opacity > 0) then
       begin
-        CalculateFastControlChildren(ctrl);
+        MarkFastControlChildrenLoaded(ctrl);
 
         if ctrl is TFastControl then
-          TFastControl(ctrl).DirectControlLoadedCalculate;
+          TFastControl(ctrl)._controlIsLoaded := True;
       end;
   end;
 
 begin
-  CalculateFastControlChildren(Self);
+  MarkFastControlChildrenLoaded(Self);
+  // InternalCalculate calculates the children first
   DirectControlLoadedCalculate;
 end;
 
 procedure TFastControl.RecalcNeeded;
 begin
   _recalcNeeded := True;
-  CalculateSafeAutoSize;
+
+  // getters like TextWidth can calculate earlier, the autosize must still be applied
+  if DoAutoSize then
+    _autoSizeNeeded := True;
+
+  // within Calculate (_recalcIndex > 0) the pending flag is reset by Calculate itself
+  if _recalcIndex = 0 then
+    ScheduleLayout;
+
   RepaintNeeded;
 end;
 
@@ -1816,44 +2186,12 @@ begin
   end;
 end;
 
-procedure TFastControl.ImmidiateAutoSize;
-begin
-  if _autoSizeNeeded and (Scene <> nil) and DoAutoSize then
-  begin
-    _autoSizeNeeded := False;
-
-    InternalCalculate;
-    ApplyAutoSize;
-    RepaintNeeded;
-  end;
-end;
-
-procedure TFastControl.CalculateSafeAutoSize;
-
-  procedure SafeForceQueue([weak] Alive: IInterface);
-  begin
-    TThread.ForceQueue(nil, procedure
-    begin
-      // PrepareForPaint normally handles the pending autosize. This queued
-      // call is only a fallback for controls that do not enter that path.
-      if (Alive <> nil) and _autoSizeNeeded then
-        ImmidiateAutoSize;
-    end);
-  end;
-
-begin
-  if not ShouldRecalculate or not DoAutoSize then
-    Exit;
-
-  _autoSizeNeeded := True;
-  SafeForceQueue(_isAlive);
-end;
-
 procedure TFastControl.DoResized;
 begin
   inherited;
 
-  if not IsUpdating then
+  // a resize caused by our own autosize does not change the calculation outcome
+  if not IsUpdating and not _applyingAutoSize and SizeAffectsCalculation then
     RecalcNeeded;
 end;
 
@@ -1861,12 +2199,11 @@ procedure TFastControl.EndUpdate;
 begin
   inherited;
 
-  if not IsUpdating and (_internalUpdateCount = 0) and ShouldRecalculate then
+  if not IsUpdating and (_internalUpdateCount = 0) and (_recalcNeeded or _autoSizeNeeded) then
   begin
-    CalculateSafeAutoSize;
+    ScheduleLayout;
     RepaintNeeded;
   end;
-//    RecalcNeeded;
 end;
 
 initialization

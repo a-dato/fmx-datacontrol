@@ -1,4 +1,4 @@
-{$I Adato.inc}
+﻿{$I Adato.inc}
 
 unit System_;
 {$WARN DUPLICATE_CTOR_DTOR OFF}        //[dcc64 Warning] System_.pas(14320): W1029 Duplicate constructor 'IntPtr.CreateUnmanagedPointer' with identical parameters will be inacessible from C++
@@ -747,6 +747,10 @@ type
     function IsTrue: Boolean;
     function IsFalse: Boolean;
     function IsAssigned: Boolean;
+
+    class function QNull: CQuantumBoolean; static;
+    class function QTrue: CQuantumBoolean; static;
+    class function QFalse: CQuantumBoolean; static;
 
     class operator Equal(L, R: CQuantumBoolean) : Boolean;
     class operator NotEqual(L, R: CQuantumBoolean) : Boolean;
@@ -15586,6 +15590,24 @@ begin
     Result := 'Unassigned'
   else
     Result := CBoolean(_value).ToString;
+end;
+
+class function CQuantumBoolean.QNull: CQuantumBoolean;
+begin
+  Result._assigned := False;
+  Result._value := False;
+end;
+
+class function CQuantumBoolean.QTrue: CQuantumBoolean;
+begin
+  Result._assigned := True;
+  Result._value := True;
+end;
+
+class function CQuantumBoolean.QFalse: CQuantumBoolean;
+begin
+  Result._assigned := True;
+  Result._value := False;
 end;
 
 end.

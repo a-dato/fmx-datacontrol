@@ -125,6 +125,9 @@ type
     procedure DoMouseClick(Button: TMouseButton; Shift: TShiftState; X, Y: Single); virtual;
     procedure DoKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState); virtual;
     procedure DoKeyUp(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState); virtual;
+
+    // Takes the focus away from the control (see StopFocusOnPopupClosed on combo / date controls)
+    procedure StopFocus;
   public
     constructor Create(AControl: TControl);
   end;
@@ -161,13 +164,19 @@ type
 
   TDateEditControlImpl = class(TEditControlImpl, IDateEditControl)
   protected
+    _stopFocusOnPopupClosed: Boolean;
+    _prevOnClosePicker: TNotifyEvent;
+
     function  get_Date: CDateTime;
     procedure set_Date(const Value: CDateTime);
+    function  get_StopFocusOnPopupClosed: Boolean;
+    procedure set_StopFocusOnPopupClosed(const Value: Boolean);
 
     function  get_Value: CObject; override;
     procedure set_Value(const Value: CObject); override;
 
     procedure OpenPicker;
+    procedure DatePickerClosed(Sender: TObject);
 
     procedure DoKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar; Shift: TShiftState); override;
   end;
@@ -197,6 +206,9 @@ type
     _BeforePopup: TComboBeforePopup;
     _AutoSort: Boolean;
     _CanAddCustomItem: Boolean;
+    _stopFocusOnPopupClosed: Boolean;
+    _prevOnClosePopup: TNotifyEvent;
+    _closingDropDownByCode: Boolean;
 
     function  get_AutoFilter: Boolean;
     procedure set_AutoFilter(const Value: Boolean);
@@ -215,8 +227,12 @@ type
     procedure set_PickList(const Value: IList);
     function  get_Text: CString; virtual;
     procedure set_Text(const Value: CString);
+    function  get_StopFocusOnPopupClosed: Boolean;
+    procedure set_StopFocusOnPopupClosed(const Value: Boolean);
     function  get_Value: CObject; override;
     procedure set_Value(const Value: CObject); override;
+
+    procedure ComboPopupClosed(Sender: TObject);
 
     function  ComboItems : List<String>; virtual;
     function  ComboIsDroppedDown : Boolean; virtual;
@@ -347,6 +363,21 @@ type
     property Sides: TSides read get_Sides write set_Sides;
   end;
 
+  // Empty base for a custom drawn scrollbar thumb, see IDCScrollThumb.
+  TDCScrollThumb = class(TLayout, IDCScrollThumb)
+  protected
+    [weak] _scrollbar: TScrollBar;
+  public
+    constructor Create(const ScrollBar: TScrollBar); reintroduce; virtual;
+
+    function  AsControl: TControl;
+    function  IsTracking: Boolean; virtual;
+    procedure StyleApplied; virtual;
+    procedure UpdateBar; virtual;
+
+    property ScrollBar: TScrollBar read _scrollbar;
+  end;
+
   TDataControlClassFactory = class(TInterfacedObject, IDCControlClassFactory)
   public
     class constructor Create;
@@ -376,6 +407,8 @@ type
     procedure HandleRowBackground(const RowRect: IBackgroundControl; AlternateAvailable: Boolean; Alternate: Boolean; ColorOpacity: Single); virtual;
     procedure HandleRowChildRelation(const RowLayout: IRowLayout; IsOpenParent, IsOpenChild: Boolean; AWidth: Single); virtual;
     function  CreateHeaderPopupMenu(const Owner: TComponent): TForm; virtual;
+    // Returns nil by default: the styled scrollbar is shown as is
+    function  CreateScrollThumb(const ScrollBar: TScrollBar): IDCScrollThumb; virtual;
   end;
 
 var
@@ -492,12 +525,20 @@ end;
 function TDataControlClassFactory.CreateComboEdit(const Owner: TComponent): IDCEditControl;
 begin
   Result := TComboEditControl.Create(Owner);
+
+  // Picking an item with the mouse ends the cell edit
+  var ce: IComboEditControl;
+  if Interfaces.Supports<IComboEditControl>(Result, ce) then
+    ce.StopFocusOnPopupClosed := True;
 end;
 
 function TDataControlClassFactory.CreateDateEdit(const Owner: TComponent): IDateEditControl;
 begin
   // Result := TDateTimeEditOnKeyDownOverride.Create(Owner);
   Result := TDateEditControl.Create(Owner);
+
+  // Picking a date with the mouse ends the cell edit
+  Result.StopFocusOnPopupClosed := True;
 end;
 
 function TDataControlClassFactory.CreateRadioButton(const Owner: TComponent): IDCEditControl;
@@ -566,9 +607,43 @@ begin
   {$ENDIF}
 end;
 
+function TDataControlClassFactory.CreateScrollThumb(const ScrollBar: TScrollBar): IDCScrollThumb;
+begin
+  Result := nil;
+end;
+
 function TDataControlClassFactory.IsCustomFactory: Boolean;
 begin
   Result := Self.ClassType <> TDataControlClassFactory;
+end;
+
+{ TDCScrollThumb }
+
+constructor TDCScrollThumb.Create(const ScrollBar: TScrollBar);
+begin
+  inherited Create(ScrollBar);
+  _scrollbar := ScrollBar;
+  Stored := False;
+end;
+
+function TDCScrollThumb.AsControl: TControl;
+begin
+  Result := Self;
+end;
+
+function TDCScrollThumb.IsTracking: Boolean;
+begin
+  Result := False;
+end;
+
+procedure TDCScrollThumb.StyleApplied;
+begin
+
+end;
+
+procedure TDCScrollThumb.UpdateBar;
+begin
+
 end;
 
 { TEditControl }
@@ -937,6 +1012,13 @@ end;
 procedure TEditControlImpl.set_OnKeyDown(const Value: TKeyEvent);
 begin
   _control.OnKeyDown := Value;
+end;
+
+procedure TEditControlImpl.StopFocus;
+begin
+  // Only when this control actually holds the focus, otherwise we would steal the focus from another control
+  if (_control <> nil) and (_control.Root <> nil) and _control.IsFocused then
+    _control.Root.SetFocused(nil);
 end;
 
 { TComboEditControlImpl }
@@ -1315,9 +1397,51 @@ begin
   if TComboEdit(_control).DroppedDown then
   begin
     Result := True;
-    TComboEdit(_control).CloseDropDown;
+
+    // Closed by code (Escape), not by the user picking an item: keep the focus
+    _closingDropDownByCode := True;
+    try
+      TComboEdit(_control).CloseDropDown;
+    finally
+      _closingDropDownByCode := False;
+    end;
   end else
     Result := False;
+end;
+
+function TComboEditControlImpl.get_StopFocusOnPopupClosed: Boolean;
+begin
+  Result := _stopFocusOnPopupClosed;
+end;
+
+procedure TComboEditControlImpl.set_StopFocusOnPopupClosed(const Value: Boolean);
+begin
+  if _stopFocusOnPopupClosed = Value then
+    Exit;
+
+  _stopFocusOnPopupClosed := Value;
+
+  // Hook OnClosePopup of the combo, chaining a handler that was already assigned
+  var ce := _control as TComboEdit;
+  if Value then
+  begin
+    _prevOnClosePopup := ce.OnClosePopup;
+    ce.OnClosePopup := ComboPopupClosed;
+  end
+  else
+  begin
+    ce.OnClosePopup := _prevOnClosePopup;
+    _prevOnClosePopup := nil;
+  end;
+end;
+
+procedure TComboEditControlImpl.ComboPopupClosed(Sender: TObject);
+begin
+  if Assigned(_prevOnClosePopup) then
+    _prevOnClosePopup(Sender);
+
+  if _stopFocusOnPopupClosed and not _closingDropDownByCode then
+    StopFocus;
 end;
 
 function TComboEditControlImpl.DropDown : Boolean;
@@ -1590,6 +1714,41 @@ end;
 procedure TDateEditControlImpl.OpenPicker;
 begin
   (_control as TDateEdit).OpenPicker;
+end;
+
+function TDateEditControlImpl.get_StopFocusOnPopupClosed: Boolean;
+begin
+  Result := _stopFocusOnPopupClosed;
+end;
+
+procedure TDateEditControlImpl.set_StopFocusOnPopupClosed(const Value: Boolean);
+begin
+  if _stopFocusOnPopupClosed = Value then
+    Exit;
+
+  _stopFocusOnPopupClosed := Value;
+
+  // Hook OnClosePicker of the date edit, chaining a handler that was already assigned
+  var de := _control as TDateEdit;
+  if Value then
+  begin
+    _prevOnClosePicker := de.OnClosePicker;
+    de.OnClosePicker := DatePickerClosed;
+  end
+  else
+  begin
+    de.OnClosePicker := _prevOnClosePicker;
+    _prevOnClosePicker := nil;
+  end;
+end;
+
+procedure TDateEditControlImpl.DatePickerClosed(Sender: TObject);
+begin
+  if Assigned(_prevOnClosePicker) then
+    _prevOnClosePicker(Sender);
+
+  if _stopFocusOnPopupClosed then
+    StopFocus;
 end;
 
 procedure TDateEditControlImpl.set_Date(const Value: CDateTime);

@@ -246,6 +246,16 @@ begin
           FBackgroundSceneBitmap.Canvas.DrawLine(PointF(point, 0), PointF(point, size), 1);
         end;
 
+        TBackgroundScene.Disable:
+        begin
+          var point := size;//Round(size / 4);
+
+          FBackgroundSceneBitmap.Canvas.Fill.Kind := TBrushKind.Solid;
+          FBackgroundSceneBitmap.Canvas.Fill.Color := Color;
+//          FBackgroundSceneBitmap.Canvas.Stroke.Thickness := 1;
+          FBackgroundSceneBitmap.Canvas.FillRect(TRectF.Create(PointF(0, 0), PointF(size, size)), 1);
+        end;
+
         TBackgroundScene.ArrowRight:
         begin
           var mid := size / 2;

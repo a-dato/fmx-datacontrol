@@ -19,6 +19,7 @@ uses
   FMX.Types,
   FMX.ActnList,
   FMX.Text,
+  FMX.Menus,
   {$ELSE}
   Wasm.FMX.Controls,
   Wasm.FMX.StdCtrls,
@@ -52,10 +53,34 @@ uses
 type
   TRightLeftScroll = (None, FullLeft, Left, Right, FullRight);
 
+  TCellsPositionColumnState = record
+    Index: Integer;
+    Left: Single;
+    Width: Single;
+  end;
+
+  // Everything outside a row that influences the positions of the cells inside that row
+  TCellsPositionLayoutState = record
+  public
+    Valid: Boolean;
+    RowWidth: Single;
+    FrozenColumnWidth: Single;
+    HorzScrollActive: Boolean;
+    HorzScrollValue: Single;
+    Options: TDCTreeOptions;
+    HasHeaderRow: Boolean;
+    Columns: TArray<TCellsPositionColumnState>;
+
+    function SameAs(const Other: TCellsPositionLayoutState): Boolean;
+  end;
+
   TScrollControlWithCells = class(TScrollControlWithRows, IRowAndCellCompare, IColumnsControl)
   private
     _headerRow: IDCHeaderRow;
     _treeLayout: IDCTreeLayout;
+
+    _cellsPositionVersion: Integer;
+    _cellsPositionLayoutState: TCellsPositionLayoutState;
 
     _frozenRectLine: TRectangle;
 
@@ -64,9 +89,15 @@ type
 
     _headerColumnResizeControl: IHeaderColumnResizeControl;
     _frmHeaderPopupMenu: TForm;
+    {$IFNDEF WEBASSEMBLY}
+    _cellPopupMenu: TPopupMenu;
+    _copyScratchRow: IDCTreeRow;
+    {$ENDIF}
 
     function  get_Layout: IDCTreeLayout;
     function  get_SelectedColumn: IDCTreeLayoutColumn;
+
+    function  GetCellsPositionLayoutState(const RowWidth, FrozenColumnWidth: Single): TCellsPositionLayoutState;
 
     procedure ColumnsChanged(Sender: TObject; e: NotifyCollectionChangedEventArgs);
     procedure OnHeaderCellResizeClicked(const HeaderCell: IHeaderCell);
@@ -97,6 +128,25 @@ type
     function  CreateHeaderFilterPage(const LayoutColumn: IDCTreeLayoutColumn; const PropertyName, Caption: CString): IDCHeaderFilterPage;
 
     procedure GetSortAndFilterImages(out ImageList: TCustomImageList; out FilterIndex, SortAscIndex, SortDescIndex: Integer);
+
+    {$IFNDEF WEBASSEMBLY}
+    procedure ClearCellPopupItems;
+    procedure AddCellPopupItem(const Caption: CString; const Action: TProc; const Enabled: Boolean; const ShortCut: TShortCut = 0);
+    procedure FillCellPopup(const Cell: IDCTreeCell);
+    function  ColumnProducesCaption(const LayoutColumn: IDCTreeLayoutColumn; const ProbeCell: IDCTreeCell): Boolean;
+    procedure AppendColumnCaptions(const LayoutColumn: IDCTreeLayoutColumn; const ViewListIndex: Integer; const Builder: StringBuilder; var HasValue: Boolean);
+    function  HeaderCaption(const LayoutColumn: IDCTreeLayoutColumn): CString;
+    procedure AppendHeaderCaptions(const Builder: StringBuilder; var HasValue: Boolean);
+    function  BuildCellText(const LayoutColumn: IDCTreeLayoutColumn; const ViewListIndex: Integer): CString;
+    function  BuildRowText(const ViewListIndex: Integer): CString;
+    function  BuildHeaderAndRowText(const ViewListIndex: Integer): CString;
+    function  BuildColumnText(const LayoutColumn: IDCTreeLayoutColumn): CString;
+    function  BuildGridText: CString;
+    function  SyntheticCaption(const LayoutColumn: IDCTreeLayoutColumn; const DataItem: CObject; const ViewListIndex, DataIndex: Integer; const IsSub: Boolean): CString;
+    procedure CopyTextToClipboard(const Text: CString);
+    procedure ResetCopyScratch;
+    function  ShowContextMenu(const ScreenPosition: TPointF): Boolean; override;
+    {$ENDIF}
 
   protected
     procedure DoHorzScrollBarChanged; override;
@@ -155,6 +205,7 @@ type
     _onTreePositioned: TreePositionedEvent;
 
     _popupMenuClosed: TNotifyEvent;
+    _cellPopup: CellPopupEvent;
 
     procedure DoCellLoaded(const Cell: IDCTreeCell; RequestForSort: Boolean; var PerformanceModeWhileScrolling: Boolean; var OverrideRowHeight: Single); virtual;
     function  DoCellLoading(const Cell: IDCTreeCell; RequestForSort: Boolean; var PerformanceModeWhileScrolling: Boolean; var OverrideRowHeight: Single): Boolean; virtual;
@@ -299,7 +350,8 @@ type
 
   protected
     procedure PositionTree;
-    function  TreeInnerXPosition: Single;
+    function  VisibleHorzContentPosition: Single; override; // for shadow
+    function  VisibleContentWidth: Single; override; // for shadow
 
     {$IFDEF WEBASSEMBLY}
     function  GetItemType: &Type;
@@ -354,6 +406,7 @@ type
     property CellTopBottomPadding: Single read get_CellTopBottomPadding write set_CellTopBottomPadding;
     property CellLeftRightPadding: Single read get_CellLeftRightPadding write set_CellLeftRightPadding;
     property PopupMenuClosed: TNotifyEvent read _popupMenuClosed write _popupMenuClosed;
+    property CellPopup: CellPopupEvent read _cellPopup write _cellPopup;
 
     // designer events
     property CellLoading: CellLoadingEvent read _cellLoading write _cellLoading;
@@ -847,6 +900,7 @@ type
 
     _performanceModeWhileScrolling: Boolean;
     _performanceLayout: TFastLayout;
+    _drawDropDown: Boolean;
 
     {$IFNDEF WEBASSEMBLY}[unsafe]{$ENDIF} _layoutColumn   : IDCTreeLayoutColumn;
 
@@ -876,6 +930,8 @@ type
     procedure set_CustomTag(const Value: CObject);
     function  get_PerformanceModeWhileScrolling: Boolean;
     procedure set_PerformanceModeWhileScrolling(const Value: Boolean);
+    function  get_DrawDropDown: Boolean;
+    procedure set_DrawDropDown(const Value: Boolean);
 
   protected
     function  InPerformanceMode: Boolean;
@@ -896,6 +952,7 @@ type
     property Row: IDCRow read get_Row;
     property Control: TControl read get_Control;
     property PerformanceModeWhileScrolling: Boolean read get_PerformanceModeWhileScrolling write set_PerformanceModeWhileScrolling;
+    property DrawDropDown: Boolean read get_DrawDropDown write set_DrawDropDown;
   end;
 
   THeaderCell = class(TDCTreeCell, IHeaderCell)
@@ -932,10 +989,14 @@ type
     _frozenColumnRowControl: TControl;
     _nonFrozenColumnRowControl: TControl;
 
+    _cellsPositionInfo: TRowCellsPositionInfo;
+
   protected
 //    _innerRowControl: TControl;
     _placeInnerRowAtBottom: Boolean;
 
+    function  get_CellsPositionInfo: TRowCellsPositionInfo;
+    procedure set_CellsPositionInfo(const Value: TRowCellsPositionInfo);
     function  get_Cells: Dictionary<Integer, IDCTreeCell>;
     function  get_ContentCellSizes: Dictionary<Integer, Single>;
     function  get_FrozenColumnRowControl: TControl;
@@ -1049,8 +1110,13 @@ uses
   , app.intf
   , app.PropertyDescriptor.intf
   {$ENDIF}
-  , FMX.ScrollControl.ControlClasses
-  , ADato.TraceEvents.intf;
+  ,   FMX.ScrollControl.ControlClasses
+  , ADato.TraceEvents.intf
+  {$IFNDEF WEBASSEMBLY}
+  , FMX.Platform
+  {$ELSE}
+  , Wasm.FMX.Platform
+  {$ENDIF};
 
 type
   TDCColumnFilterProperty = class(TBaseInterfacedObject, IDCColumnFilterProperty)
@@ -1228,7 +1294,51 @@ begin
   _stop := Value;
 end;
 
+{ TCellsPositionLayoutState }
+
+function TCellsPositionLayoutState.SameAs(const Other: TCellsPositionLayoutState): Boolean;
+begin
+  Result := Valid and Other.Valid and
+    SameValue(RowWidth, Other.RowWidth) and
+    SameValue(FrozenColumnWidth, Other.FrozenColumnWidth) and
+    (HorzScrollActive = Other.HorzScrollActive) and
+    SameValue(HorzScrollValue, Other.HorzScrollValue) and
+    (Options = Other.Options) and
+    (HasHeaderRow = Other.HasHeaderRow) and
+    (Length(Columns) = Length(Other.Columns));
+
+  if not Result then
+    Exit;
+
+  for var i := 0 to High(Columns) do
+    if (Columns[i].Index <> Other.Columns[i].Index) or
+       not SameValue(Columns[i].Left, Other.Columns[i].Left) or
+       not SameValue(Columns[i].Width, Other.Columns[i].Width) then
+      Exit(False);
+end;
+
 { TScrollControlWithCells }
+
+function TScrollControlWithCells.GetCellsPositionLayoutState(const RowWidth, FrozenColumnWidth: Single): TCellsPositionLayoutState;
+begin
+  Result.Valid := True;
+  Result.RowWidth := RowWidth;
+  Result.FrozenColumnWidth := FrozenColumnWidth;
+  Result.HorzScrollActive := _horzScrollBar.Visible and (_horzScrollBar.Opacity > 0);
+  Result.HorzScrollValue := _horzScrollBar.Value;
+  Result.Options := _options;
+  Result.HasHeaderRow := _headerRow <> nil;
+
+  var flatColumns := _treeLayout.FlatColumns;
+  SetLength(Result.Columns, flatColumns.Count);
+  for var i := 0 to flatColumns.Count - 1 do
+  begin
+    var flatClmn := flatColumns[i];
+    Result.Columns[i].Index := flatClmn.Index;
+    Result.Columns[i].Left := flatClmn.Left;
+    Result.Columns[i].Width := flatClmn.Width;
+  end;
+end;
 
 procedure TScrollControlWithCells.AfterScrolling;
 begin
@@ -1341,10 +1451,11 @@ begin
   RefreshControl;
 end;
 
-function TScrollControlWithCells.TreeInnerXPosition: Single;
+function TScrollControlWithCells.VisibleHorzContentPosition: Single;
 begin
   if _autoCenterTree then
-    Result := CMath.Max((Self.Width-_totalColumnWidth)/2, 0) else
+    Result := CMath.Max((Self.Width-_totalColumnWidth-IfThen(_vertScrollBar.Visible, _vertScrollBar.Width, 0))/2, 0)
+  else
     Result := 0;
 end;
 
@@ -1364,7 +1475,7 @@ begin
 
   if _autoCenterTree then
   begin
-    var startFromX := TreeInnerXPosition;
+    var startFromX := VisibleHorzContentPosition;
     var row: IDCTreeRow;
     for row in HeaderAndTreeRows(False) do
       row.Control.Position.X := startFromX;
@@ -1523,10 +1634,32 @@ begin
   var showVertGrid := TDCTreeOption.ShowVertGrid in _options;
   var showHorzGrid := TDCTreeOption.ShowHorzGrid in _options;
 
+  // While scrolling, rows whose cells are already positioned for the current layout can be skipped.
+  // Outside scrolling everything is repositioned, for other changes (templates, refresh) can be involved
+  var layoutState := GetCellsPositionLayoutState(rowWidth, frozenColumnWidth);
+  if not IsScrolling or not layoutState.SameAs(_cellsPositionLayoutState) then
+  begin
+    inc(_cellsPositionVersion);
+    _cellsPositionLayoutState := layoutState;
+  end;
+
   var row: IDCTreeRow;
   for row in HeaderAndTreeRows(False{not _fullRepositionCellsNeeded}) do
   begin
     var treeRow := row as IDCTreeRow;
+
+    var positionInfo := treeRow.CellsPositionInfo;
+    if not treeRow.IsHeaderRow and
+       (positionInfo.Version = _cellsPositionVersion) and
+       (positionInfo.ViewListIndex = treeRow.ViewListIndex) and
+       SameValue(positionInfo.Height, treeRow.Control.Height) then
+      Continue;
+
+    positionInfo.Version := _cellsPositionVersion;
+    positionInfo.ViewListIndex := treeRow.ViewListIndex;
+    positionInfo.Height := treeRow.Control.Height;
+    treeRow.CellsPositionInfo := positionInfo;
+
     treeRow.Control.Width := rowWidth;
     treeRow.Control.Position.X := 0.0;
 
@@ -1755,7 +1888,7 @@ begin
     virtualMouseposition := X + (_horzScrollBar.Value - _horzScrollBar.Min {frozen width if set}) else
     virtualMouseposition := X;
 
-//  virtualMouseposition := virtualMouseposition + TreeInnerXPosition;
+//  virtualMouseposition := virtualMouseposition + VisibleHorzContentPosition;
   if _autoCenterTree and not IsInnerControlX then
   begin
     if _headerRow <> nil then
@@ -2646,9 +2779,9 @@ begin
   popupMenu.LayoutColumn := LayoutColumn;
 
   var leftPos: Single;
-  if LayoutColumn.Left + TreeInnerXPosition + _frmHeaderPopupMenu.Width > (Self.Width - 10) then
+  if LayoutColumn.Left + VisibleHorzContentPosition + _frmHeaderPopupMenu.Width > (Self.Width - 10) then
     leftPos := (Self.Width - 10) - _frmHeaderPopupMenu.Width else
-    leftPos := LayoutColumn.Left + TreeInnerXPosition;
+    leftPos := LayoutColumn.Left + VisibleHorzContentPosition;
 
   var localPos := PointF(leftPos, _headerRow.Height);
   var screenPos := Self.LocalToScreen(localPos);
@@ -3267,6 +3400,11 @@ begin
   {$ELSE}
   (_columns as INotifyCollectionChanged).CollectionChanged += @ColumnsChanged;
   {$ENDIF}
+
+  {$IFNDEF WEBASSEMBLY}
+  _cellPopupMenu := TPopupMenu.Create(Self);
+  _cellPopupMenu.Stored := False;
+  {$ENDIF}
 end;
 
 procedure TScrollControlWithCells.CheckVertScrollbarVisibility;
@@ -3467,8 +3605,443 @@ begin
       (cell.ExpandButton as TExpandButton).ShowExpanded := not RowIsExpanded(drv.ViewIndex);
 end;
 
+{$IFNDEF WEBASSEMBLY}
+type
+  TCellPopupClick = class
+  private
+    _action: TProc;
+  public
+    constructor Create(const Action: TProc);
+    procedure Click(Sender: TObject);
+  end;
+
+constructor TCellPopupClick.Create(const Action: TProc);
+begin
+  inherited Create;
+  _action := Action;
+end;
+
+procedure TCellPopupClick.Click(Sender: TObject);
+begin
+  if Assigned(_action) then
+    _action();
+end;
+
+function CaptionText(const Ctrl: IDCControl; out Text: CString): Boolean;
+begin
+  var caption: ICaption;
+  Result := (Ctrl <> nil) and Interfaces.Supports<ICaption>(Ctrl, caption);
+  if Result then
+  begin
+    Text := caption.Text;
+    if Text = nil then
+      Text := '';
+  end
+  else
+    Text := '';
+end;
+
+procedure AppendCaptionValue(const Builder: StringBuilder; var HasValue: Boolean; const Value: CString);
+begin
+  if CString.IsNullOrEmpty(Value) then
+    Exit;
+
+  if HasValue then
+    Builder.Append(#9);
+  HasValue := True;
+  Builder.Append(Value);
+end;
+
+procedure TScrollControlWithCells.ResetCopyScratch;
+begin
+  _copyScratchRow := nil;
+end;
+
+function TScrollControlWithCells.SyntheticCaption(const LayoutColumn: IDCTreeLayoutColumn; const DataItem: CObject; const ViewListIndex, DataIndex: Integer; const IsSub: Boolean): CString;
+begin
+  if _copyScratchRow = nil then
+    _copyScratchRow := TDCTreeRow.Create(Self);
+
+  _copyScratchRow.DataItem := DataItem;
+  _copyScratchRow.DataIndex := DataIndex;
+  _copyScratchRow.ViewListIndex := ViewListIndex;
+
+  var cell: IDCTreeCell;
+  if not _copyScratchRow.Cells.TryGetValue(LayoutColumn.Index, cell) then
+  begin
+    cell := TDCTreeCell.Create(_copyScratchRow, LayoutColumn);
+    _copyScratchRow.Cells.Add(LayoutColumn.Index, cell);
+  end;
+
+  var propName: CString;
+  if IsSub then
+    propName := LayoutColumn.Column.SubPropertyName
+  else
+    propName := LayoutColumn.Column.PropertyName;
+
+  var cellValue := ProvideCellData(cell, propName, IsSub);
+  if DoCellFormatting(cell, False, IsSub, cellValue) then
+  begin
+    if cellValue = nil then
+      Result := ''
+    else
+      Result := cellValue.ToString(True);
+  end
+  else
+    Result := LayoutColumn.Column.GetFormattedValue(cell, cellValue);
+
+  if Result = nil then
+    Result := '';
+end;
+
+function TScrollControlWithCells.ColumnProducesCaption(const LayoutColumn: IDCTreeLayoutColumn; const ProbeCell: IDCTreeCell): Boolean;
+begin
+  if (ProbeCell <> nil) and ((ProbeCell.InfoControl <> nil) or (ProbeCell.SubInfoControl <> nil)) then
+  begin
+    var ignored: CString;
+    Exit(CaptionText(ProbeCell.InfoControl, ignored) or CaptionText(ProbeCell.SubInfoControl, ignored));
+  end;
+
+  Result := (LayoutColumn.Column.InfoControlClass = TInfoControlClass.Text) or (LayoutColumn.Column.SubInfoControlClass = TInfoControlClass.Text);
+end;
+
+procedure TScrollControlWithCells.AppendColumnCaptions(const LayoutColumn: IDCTreeLayoutColumn; const ViewListIndex: Integer; const Builder: StringBuilder; var HasValue: Boolean);
+
+  procedure AppendControl(const Ctrl: IDCControl);
+  begin
+    var text: CString;
+    if CaptionText(Ctrl, text) then
+      AppendCaptionValue(Builder, HasValue, text);
+  end;
+
+begin
+  var liveRow := _view.GetActiveRowIfExists(ViewListIndex) as IDCTreeRow;
+  var cell: IDCTreeCell := nil;
+  var hasLiveControls := (liveRow <> nil) and liveRow.Cells.TryGetValue(LayoutColumn.Index, cell) and (cell <> nil) and ((cell.InfoControl <> nil) or (cell.SubInfoControl <> nil));
+
+  if hasLiveControls then
+  begin
+    AppendControl(cell.InfoControl);
+    AppendControl(cell.SubInfoControl);
+    Exit;
+  end;
+
+  if (LayoutColumn.Column.InfoControlClass <> TInfoControlClass.Text) and (LayoutColumn.Column.SubInfoControlClass <> TInfoControlClass.Text) then
+    Exit;
+
+  var dataItem := _view.GetViewList[ViewListIndex];
+  var dataIndex := _view.GetDataIndex(ViewListIndex);
+  if LayoutColumn.Column.InfoControlClass = TInfoControlClass.Text then
+    AppendCaptionValue(Builder, HasValue, SyntheticCaption(LayoutColumn, dataItem, ViewListIndex, dataIndex, False));
+  if LayoutColumn.Column.SubInfoControlClass = TInfoControlClass.Text then
+    AppendCaptionValue(Builder, HasValue, SyntheticCaption(LayoutColumn, dataItem, ViewListIndex, dataIndex, True));
+end;
+
+function TScrollControlWithCells.BuildCellText(const LayoutColumn: IDCTreeLayoutColumn; const ViewListIndex: Integer): CString;
+begin
+  var strB: StringBuilder := CStringBuilder.Create;
+  var hasValue := False;
+  AppendColumnCaptions(LayoutColumn, ViewListIndex, strB, hasValue);
+  Result := strB.ToString;
+end;
+
+function TScrollControlWithCells.HeaderCaption(const LayoutColumn: IDCTreeLayoutColumn): CString;
+begin
+  if _headerRow <> nil then
+  begin
+    var headerCell: IDCTreeCell;
+    if _headerRow.Cells.TryGetValue(LayoutColumn.Index, headerCell) then
+    begin
+      var text: CString;
+      if CaptionText(headerCell.InfoControl, text) and not CString.IsNullOrEmpty(text) then
+        Exit(text);
+    end;
+  end;
+
+  Result := LayoutColumn.Column.Caption;
+  if Result = nil then
+    Result := '';
+end;
+
+procedure TScrollControlWithCells.AppendHeaderCaptions(const Builder: StringBuilder; var HasValue: Boolean);
+begin
+  var layoutColumn: IDCTreeLayoutColumn;
+  for layoutColumn in _treeLayout.LayoutColumns do
+    AppendCaptionValue(Builder, HasValue, HeaderCaption(layoutColumn));
+end;
+
+function TScrollControlWithCells.BuildRowText(const ViewListIndex: Integer): CString;
+begin
+  var strB: StringBuilder := CStringBuilder.Create;
+  var hasValue := False;
+  var layoutColumn: IDCTreeLayoutColumn;
+  for layoutColumn in _treeLayout.LayoutColumns do
+    AppendColumnCaptions(layoutColumn, ViewListIndex, strB, hasValue);
+  Result := strB.ToString;
+end;
+
+function TScrollControlWithCells.BuildHeaderAndRowText(const ViewListIndex: Integer): CString;
+begin
+  var strB: StringBuilder := CStringBuilder.Create;
+  var hasValue := False;
+  AppendHeaderCaptions(strB, hasValue);
+  strB.Append(#13).Append(#10);
+  hasValue := False;
+  var layoutColumn: IDCTreeLayoutColumn;
+  for layoutColumn in _treeLayout.LayoutColumns do
+    AppendColumnCaptions(layoutColumn, ViewListIndex, strB, hasValue);
+  Result := strB.ToString;
+end;
+
+function TScrollControlWithCells.BuildColumnText(const LayoutColumn: IDCTreeLayoutColumn): CString;
+begin
+  var strB: StringBuilder := CStringBuilder.Create;
+  var viewIndex: Integer;
+  for viewIndex := 0 to _view.ViewCount - 1 do
+  begin
+    if viewIndex > 0 then
+      strB.Append(#13).Append(#10);
+    var hasValue := False;
+    AppendColumnCaptions(LayoutColumn, viewIndex, strB, hasValue);
+  end;
+  Result := strB.ToString;
+end;
+
+function TScrollControlWithCells.BuildGridText: CString;
+begin
+  var strB: StringBuilder := CStringBuilder.Create;
+  var hasHeader := False;
+  AppendHeaderCaptions(strB, hasHeader);
+
+  var viewIndex: Integer;
+  for viewIndex := 0 to _view.ViewCount - 1 do
+  begin
+    if hasHeader or (viewIndex > 0) then
+      strB.Append(#13).Append(#10);
+    var hasValue := False;
+    var layoutColumn: IDCTreeLayoutColumn;
+    for layoutColumn in _treeLayout.LayoutColumns do
+      AppendColumnCaptions(layoutColumn, viewIndex, strB, hasValue);
+  end;
+  Result := strB.ToString;
+end;
+
+procedure TScrollControlWithCells.CopyTextToClipboard(const Text: CString);
+begin
+  var clipboard: IFMXClipboardService;
+  if TPlatformServices.Current.SupportsPlatformService(IFMXClipboardService, IInterface(clipboard)) then
+    clipboard.SetClipboard(CStringToString(Text));
+end;
+
+procedure TScrollControlWithCells.ClearCellPopupItems;
+begin
+  if _cellPopupMenu = nil then
+    Exit;
+
+  var itemIndex: Integer;
+  for itemIndex := 0 to _cellPopupMenu.ItemsCount - 1 do
+  begin
+    var clicker := _cellPopupMenu.Items[itemIndex].TagObject;
+    _cellPopupMenu.Items[itemIndex].TagObject := nil;
+    clicker.Free;
+  end;
+  _cellPopupMenu.Clear;
+end;
+
+procedure TScrollControlWithCells.AddCellPopupItem(const Caption: CString; const Action: TProc; const Enabled: Boolean; const ShortCut: TShortCut);
+begin
+  var item := TMenuItem.Create(_cellPopupMenu);
+  item.Text := CStringToString(Caption);
+  item.Enabled := Enabled;
+  item.ShortCut := ShortCut;
+  if Assigned(Action) then
+  begin
+    var clicker := TCellPopupClick.Create(Action);
+    item.TagObject := clicker;
+    item.OnClick := clicker.Click;
+  end;
+  _cellPopupMenu.AddObject(item);
+end;
+
+function TScrollControlWithCells.ShowContextMenu(const ScreenPosition: TPointF): Boolean;
+begin
+  if (_view = nil) or (_treeLayout = nil) or (_content = nil) or (_cellPopupMenu = nil) then
+    Exit(inherited);
+
+  var localPos := ScreenToLocal(ScreenPosition);
+  var row := GetRowByLocalY(localPos.Y - _content.Position.Y);
+  if row = nil then
+    Exit(inherited);
+
+  var flatColumn := GetFlatColumnByMouseX(localPos.X);
+  if flatColumn = nil then
+    Exit(inherited);
+
+  var viewListIndex := row.ViewListIndex;
+  TryHandleRightClickRowSelection(TMouseButton.mbRight, row);
+
+  var liveRow := _view.GetActiveRowIfExists(viewListIndex) as IDCTreeRow;
+  if liveRow = nil then
+    Exit(inherited);
+
+  var cell: IDCTreeCell;
+  if not liveRow.Cells.TryGetValue(flatColumn.Index, cell) then
+    Exit(inherited);
+
+  FillCellPopup(cell);
+  if _cellPopupMenu.ItemsCount = 0 then
+    Exit(inherited);
+
+  _cellPopupMenu.PopupComponent := Self;
+  _cellPopupMenu.Popup(ScreenPosition.X, ScreenPosition.Y);
+  Result := True;
+end;
+
+procedure TScrollControlWithCells.FillCellPopup(const Cell: IDCTreeCell);
+
+  function ClickOf(const Item: TMenuItem): TProc;
+  begin
+    Result := procedure
+    begin
+      if Assigned(Item.OnClick) then
+        Item.OnClick(Item);
+    end;
+  end;
+
+begin
+  ClearCellPopupItems;
+
+  var viewListIndex := Cell.Row.ViewListIndex;
+  var layoutColumn := Cell.LayoutColumn;
+  var treeRow := Cell.Row as IDCTreeRow;
+
+  var cellEnabled := False;
+  var ignored: CString;
+  cellEnabled := CaptionText(Cell.InfoControl, ignored) or CaptionText(Cell.SubInfoControl, ignored);
+
+  var rowEnabled := False;
+  var columnEnabled := False;
+  var gridEnabled := False;
+  var column: IDCTreeLayoutColumn;
+  for column in _treeLayout.LayoutColumns do
+  begin
+    var probe: IDCTreeCell := nil;
+    treeRow.Cells.TryGetValue(column.Index, probe);
+    var produces := ColumnProducesCaption(column, probe);
+    if produces then
+    begin
+      rowEnabled := True;
+      gridEnabled := True;
+    end;
+    if column.Index = layoutColumn.Index then
+      columnEnabled := produces;
+  end;
+
+  AddCellPopupItem('Copy text: cell',
+    procedure
+    begin
+      try
+        CopyTextToClipboard(BuildCellText(layoutColumn, viewListIndex));
+      finally
+        ResetCopyScratch;
+      end;
+    end, cellEnabled);
+
+  AddCellPopupItem('Copy text: row',
+    procedure
+    begin
+      try
+        CopyTextToClipboard(BuildRowText(viewListIndex));
+      finally
+        ResetCopyScratch;
+      end;
+    end, rowEnabled);
+
+  var headerEnabled := False;
+  for column in _treeLayout.LayoutColumns do
+    if not CString.IsNullOrEmpty(HeaderCaption(column)) then
+    begin
+      headerEnabled := True;
+      Break;
+    end;
+
+  AddCellPopupItem('Copy text: header + row',
+    procedure
+    begin
+      try
+        CopyTextToClipboard(BuildHeaderAndRowText(viewListIndex));
+      finally
+        ResetCopyScratch;
+      end;
+    end, rowEnabled or headerEnabled);
+
+  if headerEnabled then
+    gridEnabled := True;
+
+  AddCellPopupItem('Copy text: column',
+    procedure
+    begin
+      try
+        CopyTextToClipboard(BuildColumnText(layoutColumn));
+      finally
+        ResetCopyScratch;
+      end;
+    end, columnEnabled);
+
+  AddCellPopupItem('Copy text: full grid',
+    procedure
+    begin
+      try
+        CopyTextToClipboard(BuildGridText);
+      finally
+        ResetCopyScratch;
+      end;
+    end, gridEnabled);
+
+  var addedExtra := False;
+  if Assigned(_cellPopup) then
+    _cellPopup(Self, Cell,
+      procedure(const Caption: CString; const Action: TProc; const Enabled: Boolean)
+      begin
+        if not addedExtra then
+        begin
+          AddCellPopupItem('-', nil, True);
+          addedExtra := True;
+        end;
+        AddCellPopupItem(Caption, Action, Enabled);
+      end);
+
+  if (PopupMenu <> nil) and (PopupMenu <> _cellPopupMenu) and (PopupMenu is TPopupMenu) then
+  begin
+    var externalMenu := TPopupMenu(PopupMenu);
+    if Assigned(externalMenu.OnPopup) then
+      externalMenu.OnPopup(externalMenu);
+
+    if externalMenu.ItemsCount > 0 then
+    begin
+      if not addedExtra then
+        AddCellPopupItem('-', nil, True);
+
+      var itemIndex: Integer;
+      for itemIndex := 0 to externalMenu.ItemsCount - 1 do
+      begin
+        var source := externalMenu.Items[itemIndex];
+        if not source.Visible then
+          Continue;
+        AddCellPopupItem(source.Text, ClickOf(source), source.Enabled, source.ShortCut);
+      end;
+    end;
+  end;
+end;
+{$ENDIF}
+
 destructor TScrollControlWithCells.Destroy;
 begin
+  {$IFNDEF WEBASSEMBLY}
+  ClearCellPopupItems;
+  ResetCopyScratch;
+  {$ENDIF}
+
   _headerRow := nil;
   _treeLayout := nil;
 
@@ -4387,6 +4960,8 @@ begin
   var cell: IDCTreeCell;
   var treeRow := Row as IDCTreeRow;
 
+  treeRow.CellsPositionInfo := TRowCellsPositionInfo.Default;
+
   // if we do horz lines, we do them on cell controls..
   if (TreeOption_ShowVertGrid in _options) then
     treeRow.ControlAsRowLayout.Sides := [];
@@ -4566,6 +5141,18 @@ begin
     Exit(bounds.Height);
 
   Result := ctrl.Height;
+end;
+
+function TScrollControlWithCells.VisibleContentWidth: Single;
+begin
+  // we want the width of the last column
+  var clmnWidth := CalculateRowControlWidth(False);
+  var default := inherited; // content width
+
+  if SameValue(clmnWidth, 0) then
+    Exit(default);
+
+  Result := CMath.Min(clmnWidth, default);
 end;
 
 function TScrollControlWithCells.CalculateRowControlWidth(const ForceRealContentWidth: Boolean): Single;
@@ -5830,6 +6417,7 @@ begin
   Cell.Control.Position.Y := 0;
 
   var spaceUsed := 0.0;
+  var reservedRightSpace := 0.0;
 
   if Cell.IsHeaderCell then
   begin
@@ -5857,7 +6445,8 @@ begin
       glyphStartYPos := glyphStartYPos - HEADER_IMG_SIZE - (2*_treeControl.CellLeftRightPadding);
     end;
 
-    headerCell.InfoControl.Padding.Right := Cell.Control.Width - CELL_MIN_INDENT - (2*_treeControl.CellLeftRightPadding) - glyphStartYPos;
+    if (headerCell.FilterControl <> nil) or (headerCell.SortControl <> nil) then
+      reservedRightSpace := Cell.Control.Width - (glyphStartYPos + HEADER_IMG_SIZE + (2*_treeControl.CellLeftRightPadding));
   end
   else begin
     if Cell.ExpandButton <> nil then
@@ -5921,7 +6510,7 @@ begin
     end
     else if Cell.IsHeaderCell or (Cell.Column.InfoControlClass <> TInfoControlClass.Custom) or (Cell.Column.WidthType <> TDCColumnWidthType.AlignToContent) {or (Cell.Column.CustomWidth > 0) jva feels not logical} then
     begin
-      Cell.InfoControl.Width := get_Width - spaceUsed - (2*lr);
+      Cell.InfoControl.Width := CMath.Max(0, get_Width - spaceUsed - (2*lr) - reservedRightSpace);
       Cell.InfoControl.Position.X := spaceUsed + lr + Cell.InfoControl.Margins.Left;
     end else
       Cell.InfoControl.Position.X := spaceUsed + Cell.InfoControl.Margins.Left;
@@ -6826,6 +7415,11 @@ begin
   Result := _data;
 end;
 
+function TDCTreeCell.get_DrawDropDown: Boolean;
+begin
+  Result := _drawDropDown;
+end;
+
 function TDCTreeCell.get_ExpandButton: TLayout;
 begin
   Result := _expandButton;
@@ -6905,6 +7499,18 @@ end;
 procedure TDCTreeCell.set_Data(const Value: CObject);
 begin
   _data := Value;
+end;
+
+procedure TDCTreeCell.set_DrawDropDown(const Value: Boolean);
+begin
+  if _drawDropDown = Value then
+    Exit;
+
+  _drawDropDown := Value;
+
+  var ctrl := get_Control;
+  if ctrl <> nil then
+    ctrl.Repaint;
 end;
 
 procedure TDCTreeCell.set_ExpandButton(const Value: TLayout);
@@ -7001,6 +7607,8 @@ begin
   for cell in get_Cells.Values do
     cell.ClearCellForReassignment;
 
+  _cellsPositionInfo := TRowCellsPositionInfo.Default;
+
 //  if _innerRowControl <> nil then
 //    _innerRowControl.Visible := False;
 end;
@@ -7009,6 +7617,16 @@ destructor TDCTreeRow.Destroy;
 begin
   get_Cells.Clear;
   inherited;
+end;
+
+function TDCTreeRow.get_CellsPositionInfo: TRowCellsPositionInfo;
+begin
+  Result := _cellsPositionInfo;
+end;
+
+procedure TDCTreeRow.set_CellsPositionInfo(const Value: TRowCellsPositionInfo);
+begin
+  _cellsPositionInfo := Value;
 end;
 
 function TDCTreeRow.get_Cells: Dictionary<Integer, IDCTreeCell>;
