@@ -304,7 +304,28 @@ begin
 end;
 
 procedure TDataViewList.DataModelViewChanged(Sender: TObject; e: EventArgs);
+
+  {$IFDEF APP_PLATFORM_MD}
+  procedure QueueViewChanged([weak] View: IDataViewList);
+  begin
+    TThread.Queue(nil, procedure
+    begin
+      if View <> nil then
+        (View as TDataViewList).OnViewChanged;
+    end);
+  end;
+  {$ENDIF}
+
 begin
+  {$IFDEF APP_PLATFORM_MD}
+  // The data model can change on another thread (Lynx app scripts), the control must update on the main thread
+  if TThread.Current.ThreadID <> MainThreadID then
+  begin
+    QueueViewChanged(Self);
+    Exit;
+  end;
+  {$ENDIF}
+
   OnViewChanged;
 end;
 
