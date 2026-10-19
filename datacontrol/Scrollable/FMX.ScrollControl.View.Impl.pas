@@ -376,6 +376,9 @@ end;
 
 function TDataViewList.GetViewListIndex(const DataItem: CObject): Integer;
 begin
+  if DataItem = nil then
+    Exit(-1);
+
   if _comparer <> nil then
     Result := GetViewList.IndexOf(DataItem)
   else // datamodel
