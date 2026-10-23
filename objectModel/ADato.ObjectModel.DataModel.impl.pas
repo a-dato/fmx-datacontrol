@@ -24,7 +24,8 @@ uses
   ADato.ObjectModel.List.Tracking.intf,
   ADato.MultiObjectModelContextSupport.impl,
   ADato.MultiObjectModelContextSupport.intf,
-  ADato.EditableObjectModelContext.impl, System.ComponentModel;
+  ADato.EditableObjectModelContext.impl, System.ComponentModel,
+  ADato.ComponentModel;
 
 type
   TDataRowInfo = record
@@ -184,11 +185,12 @@ type
     procedure ResetModelProperties; virtual;
   end;
 
-  TDataModelPropertyForObjectModel = class(CPropertyInfo)
+  TDataModelPropertyForObjectModel = class(CPropertyInfo, IPropertyWrapper)
   protected
     {$IFNDEF WEBASSEMBLY}[unsafe]{$ENDIF} _datamodelColumn: IDataModelColumn;
     {$IFNDEF WEBASSEMBLY}[unsafe]{$ENDIF} _datamodel: IDataModel;
 
+    function  get_WrappedProperty: _PropertyInfo;
     function  get_Name: CString; override;
     function  get_CanRead: Boolean; override;
     function  get_CanWrite: Boolean; override;
@@ -1160,6 +1162,14 @@ end;
 function TDataModelPropertyForObjectModel.get_CanWrite: Boolean;
 begin
   Result := True; // check CanWrite will be done in function SetValue
+end;
+
+function TDataModelPropertyForObjectModel.get_WrappedProperty: _PropertyInfo;
+begin
+  var wrapper: IPropertyWrapper;
+  if Interfaces.Supports<IPropertyWrapper>(_datamodelColumn, wrapper) then
+    Result := wrapper.WrappedProperty else
+    Result := nil;
 end;
 
 function TDataModelPropertyForObjectModel.get_Name: CString;

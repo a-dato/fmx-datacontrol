@@ -124,6 +124,7 @@ type
     function  LoadDefaultPickListForCell(const Cell: IDCTreeCell; const CellValue: CObject) : IList;
     function  StartEditCell(const Cell: IDCTreeCell; CallShowEditor: Boolean; const UserValue: CString) : Boolean;
     function  EndEditCell(out ChangeUpdatedSort: Boolean): Boolean;
+    function  EndEditCellWithValue(const ACell: IDCTreeCell; const AValue, OriginalValue: CObject; const Editor: TControl; EndRowEdit: Boolean; out ChangeUpdatedSort: Boolean): Boolean;
     procedure SafeForcedEndEdit;
 
     function  DoEditRowStart(const ARow: IDCTreeRow; var DataItem: CObject; IsNew: Boolean) : Boolean;
@@ -143,6 +144,8 @@ type
   public
     procedure EndEditFromExternal;
     procedure CancelEditFromExternal;
+    // edits the active cell (or the cell of Column in the active row) without showing a cell editor
+    function  EditCellFromExternal(const NewValue: CObject; EndRowEdit: Boolean; const Column: IDCTreeColumn = nil): Boolean;
 
     procedure CancelEdit(CellOnly: Boolean = False); // canceling is difficult to only do the cell
     function  EditActiveCell(SetFocus: Boolean; const UserValue: CString): Boolean;
@@ -1562,88 +1565,144 @@ begin
   // stop cell editing
   if (_editingInfo <> nil) and _editingInfo.CellIsEditing and not _editingInfo.InsideEndEditCell then
   begin
-    _editingInfo.BeginEndEditCell;
-    try
-      var EditRowEnd := False;
-
-      var val := _cellEditor.Value;
-      var cell := _cellEditor.Cell;
-      if not DoCellParsing(cell, True, {var} val) or CObject.Equals(val, _cellEditor.OriginalValue) then
-      begin
-        CancelEdit(True);
-        Exit(False);
-      end;
-
-      var formattedVal: CObject := _cellEditor.OriginalValue;
-      if (_cellEditor.OriginalValue <> nil) and DoCellFormatting(cell, False, False, {var} formattedVal) and CObject.Equals(val, formattedVal) then
-      begin
-        CancelEdit(True);
-        Exit(False);
-      end;
-
-      if Assigned(_editCellEnd) then
-      begin
-        var endEditArgs: DCEndEditEventArgs;
-        AutoObject.Guard(DCEndEditEventArgs.Create(cell, val, _cellEditor.Editor, _editingInfo.EditItem), endEditArgs);
-        endEditArgs.EndRowEdit := False;
-
-        _editCellEnd(Self, endEditArgs);
-
-        if endEditArgs.Accept then
-          val := endEditArgs.Value
-        else
-        begin
-          CancelEdit(True);
-          Result := False;
-          if endEditArgs.EndRowEdit then
-          begin
-            Result := DoEditRowEnd(cell.Row as IDCTreeRow, {out} ChangeUpdatedSort);
-            DoDataItemChangedInternal(cell.Row.DataItem);
-          end;
-
-          Exit;
-        end;
-
-        EditRowEnd := endEditArgs.EndRowEdit;
-      end;
-
-      SetCellData(cell, val);
-
-      if (_model <> nil) and not CString.IsNullOrEmpty(cell.Column.PropertyName) and
-         CObject.Equals(_model.ObjectModelContext.Context, _editingInfo.EditItem) then
-        _model.ObjectModelContext.UpdatePropertyBindingValues(cell.Column.PropertyName);
-
-      var isDataItemChange := CString.Equals(cell.Column.PropertyName, COLUMN_SHOW_DEFAULT_OBJECT_TEXT);
-
-      if not isDataItemChange then
-      begin
-        // KV: 24/01/2025
-        // Update the actual contents of the cell after the data in the cell has changed
-        LoadDefaultDataIntoControl(cell, False);
-      end;
-
+    if _cellEditor = nil then
+    begin
       _editingInfo.CellEditingFinished;
-
-      var row := cell.Row as IDCTreeRow;
-
-      // reset width of all cells, because multiple columns can depend on this item
-      row.ContentCellSizes.Clear;
-//      if row.ContentCellSizes.ContainsKey(cell.Index) then
-//        row.ContentCellSizes.Remove(cell.Index);
-
-      // Hide Editor after clear row.ContentCellSizes
-      HideEditor;
-
-      DoDataItemChangedInternal(row.DataItem);
-
-      if EditRowEnd then
-        Exit(DoEditRowEnd(row, {out} ChangeUpdatedSort));
-    finally
-      _editingInfo.EndEndEditCell;
+      Exit(True);
     end;
+
+    Exit(EndEditCellWithValue(_cellEditor.Cell, _cellEditor.Value, _cellEditor.OriginalValue, _cellEditor.Editor, False, {out} ChangeUpdatedSort));
   end;
 
   Result := True;
+end;
+
+function TScrollControlWithEditableCells.EndEditCellWithValue(const ACell: IDCTreeCell; const AValue, OriginalValue: CObject; const Editor: TControl; EndRowEdit: Boolean; out ChangeUpdatedSort: Boolean): Boolean;
+begin
+  {out} ChangeUpdatedSort := False;
+
+  _editingInfo.BeginEndEditCell;
+  try
+    var EditRowEnd := EndRowEdit;
+
+    var val := AValue;
+    var cell := ACell;
+    if not DoCellParsing(cell, True, {var} val) or CObject.Equals(val, OriginalValue) then
+    begin
+      CancelEdit(True);
+      Exit(False);
+    end;
+
+    var formattedVal: CObject := OriginalValue;
+    if (OriginalValue <> nil) and DoCellFormatting(cell, False, False, {var} formattedVal) and CObject.Equals(val, formattedVal) then
+    begin
+      CancelEdit(True);
+      Exit(False);
+    end;
+
+    if Assigned(_editCellEnd) then
+    begin
+      var endEditArgs: DCEndEditEventArgs;
+      AutoObject.Guard(DCEndEditEventArgs.Create(cell, val, Editor, _editingInfo.EditItem), endEditArgs);
+      endEditArgs.EndRowEdit := EndRowEdit;
+
+      _editCellEnd(Self, endEditArgs);
+
+      if endEditArgs.Accept then
+        val := endEditArgs.Value
+      else
+      begin
+        CancelEdit(True);
+        Result := False;
+        if endEditArgs.EndRowEdit then
+        begin
+          Result := DoEditRowEnd(cell.Row as IDCTreeRow, {out} ChangeUpdatedSort);
+          DoDataItemChangedInternal(cell.Row.DataItem);
+        end;
+
+        Exit;
+      end;
+
+      EditRowEnd := endEditArgs.EndRowEdit;
+    end;
+
+    SetCellData(cell, val);
+
+    if (_model <> nil) and not CString.IsNullOrEmpty(cell.Column.PropertyName) and
+       CObject.Equals(_model.ObjectModelContext.Context, _editingInfo.EditItem) then
+      _model.ObjectModelContext.UpdatePropertyBindingValues(cell.Column.PropertyName);
+
+    var isDataItemChange := CString.Equals(cell.Column.PropertyName, COLUMN_SHOW_DEFAULT_OBJECT_TEXT);
+
+    if not isDataItemChange then
+    begin
+      // KV: 24/01/2025
+      // Update the actual contents of the cell after the data in the cell has changed
+      LoadDefaultDataIntoControl(cell, False);
+    end;
+
+    _editingInfo.CellEditingFinished;
+
+    var row := cell.Row as IDCTreeRow;
+
+    // reset width of all cells, because multiple columns can depend on this item
+    row.ContentCellSizes.Clear;
+//    if row.ContentCellSizes.ContainsKey(cell.Index) then
+//      row.ContentCellSizes.Remove(cell.Index);
+
+    // Hide Editor after clear row.ContentCellSizes
+    HideEditor;
+
+    DoDataItemChangedInternal(row.DataItem);
+
+    if EditRowEnd then
+      Exit(DoEditRowEnd(row, {out} ChangeUpdatedSort));
+  finally
+    _editingInfo.EndEndEditCell;
+  end;
+
+  Result := True;
+end;
+
+function TScrollControlWithEditableCells.EditCellFromExternal(const NewValue: CObject; EndRowEdit: Boolean; const Column: IDCTreeColumn): Boolean;
+
+  function FindCell: IDCTreeCell;
+  begin
+    Result := nil;
+    if Column = nil then
+      Exit(GetActiveCell);
+
+    var treeRow: IDCTreeRow;
+    if not Interfaces.Supports<IDCTreeRow>(GetActiveRow, treeRow) then
+      Exit;
+
+    var flatColumn := FlatColumnByColumn(Column);
+    if flatColumn <> nil then
+      treeRow.Cells.TryGetValue(flatColumn.Index, Result);
+  end;
+
+begin
+  Result := False;
+
+  // finish (or cancel) an edit the user is doing in the cell editor
+  if _editingInfo.CellIsEditing then
+    SafeForcedEndEdit;
+
+  var cell := FindCell;
+  if (cell = nil) or not CanEditCell(cell) then
+    Exit;
+
+  var originalValue := cell.Column.ProvideCellData(cell, cell.Column.PropertyName);
+
+  if not StartEditCell(cell, False {no editor}, nil) then
+    Exit;
+
+  var changeUpdatedSort: Boolean;
+  Result := EndEditCellWithValue(cell, NewValue, originalValue, nil, EndRowEdit, {out} changeUpdatedSort);
+
+  // value did not change: the cell edit is canceled, the row edit is still active
+  if EndRowEdit and IsEditOrNew then
+    Result := EndEdit;
 end;
 
 function TScrollControlWithEditableCells.CanEditCell(const Cell: IDCTreeCell): Boolean;
@@ -1796,6 +1855,10 @@ end;
 
 procedure TScrollControlWithEditableCells.HideEditor;
 begin
+  // EditCellFromExternal edits without an editor
+  if _cellEditor = nil then
+    Exit;
+
   var cell := _cellEditor.Cell;
 
   _cellEditor.EndEdit;

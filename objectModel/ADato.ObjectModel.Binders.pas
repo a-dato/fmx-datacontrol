@@ -356,6 +356,7 @@ uses
   {$ENDIF}
   ADato.Bitmap.intf,
   ADato.Duration,
+  ADato.ComponentModel,
   ADato.Data.DataModel.intf;
 
 function TryConvertToUserFriendlyText(const Value: CObject; const PropertyInfo: _PropertyInfo; out AResult: CString): Boolean;
@@ -431,9 +432,13 @@ begin
     end;
   end;
 
-  var omProp: IObjectModelProperty;
-  var cProp: ICustomProperty;
-  var readOnly := Interfaces.Supports<IObjectModelProperty>(__PropertyInfo, omProp) and Interfaces.Supports<ICustomProperty>(omProp.ContainedProperty, cProp) and cProp.ReadOnly;
+  var cProp: ICustomProperty := nil;
+  var prop := __PropertyInfo;
+  var wrapper: IPropertyWrapper;
+  while (prop <> nil) and not Interfaces.Supports<ICustomProperty>(prop, cProp) and Interfaces.Supports<IPropertyWrapper>(prop, wrapper) do
+    prop := wrapper.WrappedProperty;
+
+  var readOnly := (cProp <> nil) and cProp.ReadOnly;
 
   UpdateControlEditability(isEditable and not readOnly);
 
@@ -915,8 +920,8 @@ end;
 {$IFDEF APP_PLATFORM}
 function TPropertyBinding.TryGetPropertyDescriptor(out ADescriptor: IPropertyDescriptor) : Boolean;
 begin
-  var obj_prop: IObjectModelProperty;
-  Result := Interfaces.Supports<IObjectModelProperty>(__PropertyInfo, obj_prop) and Interfaces.Supports<IPropertyDescriptor>(obj_prop.ContainedProperty, ADescriptor);
+  var wrapper: IPropertyWrapper;
+  Result := Interfaces.Supports<IPropertyWrapper>(__PropertyInfo, wrapper) and Interfaces.Supports<IPropertyDescriptor>(wrapper.WrappedProperty, ADescriptor);
 end;
 {$ENDIF}
 

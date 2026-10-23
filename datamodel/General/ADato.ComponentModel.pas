@@ -48,10 +48,16 @@ type
     procedure EndUpdate(Flag: UpdateFlag);
   end;
 
-  IEditState = interface
-    ['{EC5D63DB-349F-4EE9-94F0-441DA3BA0158}']
-    function IsEditOrNew: Boolean;
-  end;
+//  IIsEditOrNew = interface
+//    ['{EC5D63DB-349F-4EE9-94F0-441DA3BA0158}']
+//    function IsEditOrNew: Boolean;
+//  end;
+
+  IPropertyWrapper = interface(IBaseInterface)
+    ['{F38B5FEB-93BC-4479-987D-04765E837223}']
+    function get_WrappedProperty: _PropertyInfo;
+    property WrappedProperty: _PropertyInfo read get_WrappedProperty;
+end;
 
   IListSortDescription = interface(IBaseInterface)
     ['{C8130412-27DD-40C2-B1BE-08CB37DB6E2F}']

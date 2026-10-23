@@ -142,11 +142,11 @@ type
   end;
 
   {$IFDEF APP_PLATFORM}
-  TObjectModelPropertyWrapper = class(CPropertyWrapper, IObjectModelProperty, IPropertyDescriptor)
+  TObjectModelPropertyWrapper = class(CPropertyWrapper, IObjectModelProperty, IPropertyWrapper, IPropertyDescriptor)
   protected
     FBindings: List<IPropertyBinding>;
 
-    function  get_ContainedProperty: _PropertyInfo; virtual;
+    function  get_WrappedProperty: _PropertyInfo; virtual;
     function  get_Bindings: List<IPropertyBinding>;
     function  get_PropertyDescriptor: IPropertyDescriptor;
 
@@ -172,12 +172,12 @@ type
 
   end;
   {$ELSE}
-  TObjectModelPropertyWrapper = class({$IFDEF DELPHI}TBaseInterfacedObject, _PropertyInfo{$ELSE}CPropertyInfo, ITBaseInterfacedObject{$ENDIF}, IObjectModelProperty)
+  TObjectModelPropertyWrapper = class({$IFDEF DELPHI}TBaseInterfacedObject, _PropertyInfo{$ELSE}CPropertyInfo, ITBaseInterfacedObject{$ENDIF}, IObjectModelProperty, IPropertyWrapper)
   public
-    FContainedProperty: _PropertyInfo;
+    FWrappedProperty: _PropertyInfo;
     FBindings: List<IPropertyBinding>;
 
-    function  get_ContainedProperty: _PropertyInfo; virtual;
+    function  get_WrappedProperty: _PropertyInfo; virtual;
     function  get_Bindings: List<IPropertyBinding>;
 
     function  get_CanRead: Boolean; {$IFDEF DOTNET} override;  {$ENDIF}
@@ -829,7 +829,7 @@ begin
   Interfaces.Supports<IPropertyDescriptor>(_property, Result);
 end;
 
-function TObjectModelPropertyWrapper.get_ContainedProperty: _PropertyInfo;
+function TObjectModelPropertyWrapper.get_WrappedProperty: _PropertyInfo;
 begin
   Result := _property;
 end;
@@ -851,7 +851,7 @@ end;
 
 function TObjectModelPropertyWrapper.GetObjectProperty(const obj: CObject): _PropertyInfo;
 begin
-  Result := get_ContainedProperty;
+  Result := get_WrappedProperty;
 end;
 
 procedure TObjectModelPropertyWrapper.SetValue(const Obj, Value: CObject; const Index: array of CObject; ExecuteTriggers: Boolean);
@@ -868,7 +868,7 @@ end;
 constructor TObjectModelPropertyWrapper.Create(const AProperty: _PropertyInfo);
 begin
   inherited Create;
-  FContainedProperty := AProperty;
+  FWrappedProperty := AProperty;
   FBindings := CList<IPropertyBinding>.Create;
 end;
 
@@ -930,50 +930,50 @@ end;
 {$IFDEF DELPHI}
 function TObjectModelPropertyWrapper.GetAttributes: TArray<TCustomAttribute>;
 begin
-  Result := FContainedProperty.GetAttributes;
+  Result := FWrappedProperty.GetAttributes;
 end;
 
 function TObjectModelPropertyWrapper.IsIndexedProperty: Boolean;
 begin
-  Result := FContainedProperty.IsIndexedProperty;
+  Result := FWrappedProperty.IsIndexedProperty;
 end;
 {$ENDIF}
 
 function TObjectModelPropertyWrapper.GetType: &Type;
 begin
-  Result := FContainedProperty.GetType;
+  Result := FWrappedProperty.GetType;
 end;
 
 function TObjectModelPropertyWrapper.get_CanRead: Boolean;
 begin
-  Result := FContainedProperty.get_Canread;
+  Result := FWrappedProperty.get_Canread;
 end;
 
 function TObjectModelPropertyWrapper.get_CanWrite: Boolean;
 begin
-  Result := FContainedProperty.get_CanWrite;
+  Result := FWrappedProperty.get_CanWrite;
 end;
 
 function TObjectModelPropertyWrapper.get_Name: CString;
 begin
-  Result := get_ContainedProperty.get_Name;
+  Result := get_WrappedProperty.get_Name;
 end;
 
 {$IFDEF DELPHI}
 function TObjectModelPropertyWrapper.get_OwnerType: &Type;
 begin
-  Result := FContainedProperty.get_OwnerType;
+  Result := FWrappedProperty.get_OwnerType;
 end;
 
 function TObjectModelPropertyWrapper.get_PropInfo: IPropInfo;
 begin
-  Result := FContainedProperty.get_PropInfo;
+  Result := FWrappedProperty.get_PropInfo;
 end;
 {$ENDIF}
 
-function TObjectModelPropertyWrapper.get_ContainedProperty: _PropertyInfo;
+function TObjectModelPropertyWrapper.get_WrappedProperty: _PropertyInfo;
 begin
-  Result := FContainedProperty;
+  Result := FWrappedProperty;
 end;
 
 {$IFDEF DELPHI}
@@ -995,7 +995,7 @@ end;
 
 function TObjectModelPropertyWrapper.GetObjectProperty(const obj: CObject): _PropertyInfo;
 begin
-  Result := get_ContainedProperty;
+  Result := get_WrappedProperty;
 end;
 
 procedure TObjectModelPropertyWrapper.SetValue(const Obj, Value: CObject; const Index: array of CObject; ExecuteTriggers: Boolean);

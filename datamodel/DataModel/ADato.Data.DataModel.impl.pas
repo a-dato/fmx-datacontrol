@@ -279,6 +279,15 @@ type
       write set_Name;
   end;
 
+  DataModelColumnWithProperty = class(DataModelColumn, IPropertyWrapper)
+  protected
+    _wrappedProperty: _PropertyInfo;
+
+    function  get_WrappedProperty: _PropertyInfo;
+  public
+    constructor Create(const WrappedProperty: _PropertyInfo); reintroduce;
+  end;
+
   DataModelColumnComparer = class(TInterfacedObject, IComparer<IDataModelColumn>)
     function Compare(const x, y: IDataModelColumn) : Integer;
   end;
@@ -1983,9 +1992,7 @@ begin
   {$IFDEF DELPHI}
   for prop in AObjectType.GetProperties do
   begin
-    column := DataModelColumn.Create;
-    column.Name := prop.Name;
-    column.DataType := prop.GetType;
+    column := DataModelColumnWithProperty.Create(prop);
     Result.Columns.Add(column);
   end;
   {$ELSE}
@@ -1993,9 +2000,7 @@ begin
   
   for prop in ADato.TypeCustomization.TypeExtensions(objType).GetProperties do
   begin
-    column := DataModelColumn.Create;
-    column.Name := prop.Name;
-    column.DataType := prop.GetType;
+    column := DataModelColumnWithProperty.Create(prop);
     Result.Columns.Add(column);
   end;
   {$ENDIF}
@@ -3037,6 +3042,22 @@ begin
   {$ENDIF}
 
   _ColumnMap := CList<IColumnMap>.Create;
+end;
+
+{ DataModelColumnWithProperty }
+
+constructor DataModelColumnWithProperty.Create(const WrappedProperty: _PropertyInfo);
+begin
+  inherited Create;
+
+  _wrappedProperty := WrappedProperty;
+  set_Name(WrappedProperty.Name);
+  set_DataType(WrappedProperty.GetType);
+end;
+
+function DataModelColumnWithProperty.get_WrappedProperty: _PropertyInfo;
+begin
+  Result := _wrappedProperty;
 end;
 
 function DataModelColumn.Clone: CObject;

@@ -913,6 +913,16 @@ begin
       if row = nil then
         Exit;
 
+      if (_model <> nil) and (_model.ObjectModelContext <> nil) then
+      begin
+        AtomicIncrement(_internalSelectCount);
+        try
+          _model.ObjectModelContext.Context := ConvertToDataItem(row.DataItem);
+        finally
+          AtomicDecrement(_internalSelectCount);
+        end;
+      end;
+
   //    Self.Root.BeginInternalDrag(Self, bm);
 
       // copied from FMX.Forms => .Root.BeginInternalDrag(Self, bm);

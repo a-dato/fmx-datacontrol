@@ -176,7 +176,6 @@ type
 
   IObjectModelProperty = interface(IBaseInterface)
     ['{70DEA9A5-A6F0-488D-A278-731E5CE23DC4}']
-    function  get_ContainedProperty: _PropertyInfo;
     function  get_Bindings: List<IPropertyBinding>;
 
     procedure AddBinding(const ABinding: IPropertyBinding);
@@ -187,7 +186,6 @@ type
     procedure RemoveLink(const ABinding: IPropertyBinding);
     procedure NotifyBindings(const Context, Value: CObject; NotifyLinks: Boolean);
 
-    property  ContainedProperty: _PropertyInfo read get_ContainedProperty;
     property  Bindings: List<IPropertyBinding> read get_Bindings;
 
     function  GetValue(const obj: CObject; const index: array of CObject): CObject;

@@ -99,7 +99,7 @@ type
     function  get_TagType: TTagType;
     procedure set_TagType(const Value: TTagType);
     function  get_SubText: String;
-    procedure set_SubText(const Value: String);
+    procedure set_SubText(const Value: String); virtual;
     function  get_SwabTextSubText: Boolean;
     procedure set_SwabTextSubText(const Value: Boolean);
     function  get_ImageName: String;
@@ -129,6 +129,8 @@ type
     procedure PaintSideButton; virtual;
     function  MouseIsDown: Boolean; virtual; abstract;
     procedure PrepareCanvasForSubText; virtual;
+    // also used by Calculate to measure the subtext, so it may only change the font
+    procedure PrepareFontForSubText(const AFont: TFont); virtual;
     function  OpticalTextYOffset(const FontSize: Single): Single;
 
     function  CreateConfig: TFastButtonConfig; virtual;
@@ -520,7 +522,7 @@ begin
 
     if HasSubText then
     begin
-      cv.Font.Size := 10;
+      PrepareFontForSubText(cv.Font);
       var w2 := cv.TextWidth(Self.SubText);
       w := System.Math.Max(w, w2);
       subTextHeight := CachedLineHeight(cv);
@@ -794,7 +796,16 @@ begin
   Layout.BeginUpdate;
   try
     Layout.TopLeft := ARect.TopLeft;
-    Layout.MaxSize := PointF(ARect.Width, ARect.Height);
+
+    // TTextLayout.SetMaxSize skips the relayout for top-left aligned text when the new size equals the
+    // current text size, even when the previous layout was clipped by a smaller MaxSize
+    var maxSize := PointF(ARect.Width, ARect.Height);
+    if Layout.MaxSize <> maxSize then
+    begin
+      Layout.MaxSize := maxSize;
+      Layout.Text := '';
+    end;
+
     Layout.Text := AText;
     Layout.WordWrap := False;
     Layout.Opacity := AOpacity;
@@ -1061,8 +1072,13 @@ end;
 procedure TADatoClickLayout.PrepareCanvasForSubText;
 begin
   Canvas.Fill.Color := TAlphaColors.Lightslategray;
-  Canvas.Font.Style := [];
-  Canvas.Font.Size := 10;
+  PrepareFontForSubText(Canvas.Font);
+end;
+
+procedure TADatoClickLayout.PrepareFontForSubText(const AFont: TFont);
+begin
+  AFont.Style := [];
+  AFont.Size := 10;
 end;
 
 function TADatoClickLayout.ConvertedBounds(const OrgBounds: TRectF; ConvertLeft, ConvertRight: Boolean; SpaceOver: Single = 0): TRectF;
