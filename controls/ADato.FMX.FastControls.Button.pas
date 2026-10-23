@@ -1493,6 +1493,11 @@ begin
   Self.Width := newWidth;
   var newBounds := BoundsRect;
 
+  // Calculate positioned the content with the old width, and a resize caused by the autosize itself
+  // does not recalculate (see TFastControl.DoResized). Position the content again with the new width.
+  RecalcNeeded;
+  Calculate;
+
   InvalidateBoundsChange(oldBounds, newBounds);
 end;
 

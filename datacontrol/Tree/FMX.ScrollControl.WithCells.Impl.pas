@@ -1085,6 +1085,13 @@ const
   SUBCONTROL_TOP_MARGIN = 6.0;
   SELECT_ALL_COLUMNS_INDEX = -2;
 
+type
+  THeaderCellCreatedProc = procedure(const HeaderCell: IHeaderCell);
+
+var
+  // Called for every header cell of every control, before its caption is set.
+  // An application can use it to prepare the caption control, for example to make it translatable.
+  HeaderCellCreated: THeaderCellCreatedProc = nil;
 
 implementation
 
@@ -4771,6 +4778,9 @@ begin
         headerCell.Control.Height := _headerRow.Height;
 
         flatColumn.UpdateCellControlsByRow(headerCell);
+
+        if Assigned(HeaderCellCreated) then
+          HeaderCellCreated(headerCell);
 
         (headerCell.InfoControl as ICaption).Text := CStringToString(flatColumn.Column.Caption);
 
