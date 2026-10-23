@@ -10107,7 +10107,7 @@ var
     column.Format := StringToCString(format);
     column.Tag := StringToCString(tag_string);
 
-    Insert(Index, column);
+    Insert(CMath.Min(Index, Count), column);
   end;
 
 begin
