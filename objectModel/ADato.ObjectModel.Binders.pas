@@ -431,7 +431,11 @@ begin
     end;
   end;
 
-  UpdateControlEditability(isEditable);
+  var omProp: IObjectModelProperty;
+  var cProp: ICustomProperty;
+  var readOnly := Interfaces.Supports<IObjectModelProperty>(__PropertyInfo, omProp) and Interfaces.Supports<ICustomProperty>(omProp.ContainedProperty, cProp) and cProp.ReadOnly;
+
+  UpdateControlEditability(isEditable and not readOnly);
 
   // do not set Visibility, for code can already make controls (in)visible
   // it is better to interfere with the Opacity
