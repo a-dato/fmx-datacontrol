@@ -151,7 +151,7 @@ type
 
     procedure OnCustomHintTimer(Sender: TObject);
 
-    procedure DoHintChange(DoShow: Boolean);
+    procedure DoHintChange(DoShow: Boolean); virtual;
 
   protected
     _vertScrollBar: TSmallScrollBar;

@@ -183,6 +183,20 @@ type
 
     function  IsScrollingHideColumnsFromIndexStored: Boolean;
 
+  // default hint
+  protected
+    _showDefaultHint: Boolean;
+    _defaultHintText: CString;
+
+    procedure set_ShowDefaultHint(const Value: Boolean);
+    procedure DoHintChange(DoShow: Boolean); override;
+    function  DefaultHintTextAt(const LocalPoint: TPointF): CString;
+    procedure UpdateDefaultHintText(const Value: CString);
+    {$IFNDEF WEBASSEMBLY}
+    function  HasHint: Boolean; override;
+    function  GetHintString: string; override;
+    {$ENDIF}
+
   // events
   protected
     _cellLoading: CellLoadingEvent;
@@ -405,6 +419,8 @@ type
     property ScrollingHideColumnsFromIndex: Integer read _scrollingHideColumnsFromIndex write _scrollingHideColumnsFromIndex {$IFNDEF WEBASSEMBLY}stored IsScrollingHideColumnsFromIndexStored{$ENDIF};
     property CellTopBottomPadding: Single read get_CellTopBottomPadding write set_CellTopBottomPadding;
     property CellLeftRightPadding: Single read get_CellLeftRightPadding write set_CellLeftRightPadding;
+    // Shows the text of the hovered text cell as hint, but only when that text does not fit in the cell
+    property ShowDefaultHint: Boolean read _showDefaultHint write set_ShowDefaultHint default True;
     property PopupMenuClosed: TNotifyEvent read _popupMenuClosed write _popupMenuClosed;
     property CellPopup: CellPopupEvent read _cellPopup write _cellPopup;
 
@@ -3399,6 +3415,8 @@ begin
   _cellTopBottomPadding := ROW_CONTENT_MARGIN;
   _cellLeftRightPadding := ROW_CONTENT_MARGIN;
 
+  _showDefaultHint := True;
+
   _headerColumnResizeControl := THeaderColumnResizeControl.Create(Self);
 
   _columns := TDCTreeColumnList.Create(Self);
@@ -4891,6 +4909,95 @@ begin
   if (clmn = nil) or not (row as IDCTreeRow).Cells.TryGetValue(clmn.Index, Result) then
     Exit(nil);
 end;
+
+procedure TScrollControlWithCells.set_ShowDefaultHint(const Value: Boolean);
+begin
+  if _showDefaultHint = Value then
+    Exit;
+
+  _showDefaultHint := Value;
+  if not _showDefaultHint then
+    UpdateDefaultHintText(nil);
+end;
+
+procedure TScrollControlWithCells.DoHintChange(DoShow: Boolean);
+begin
+  inherited;
+
+  // a custom hint always wins over the default hint
+  if DoShow and _showDefaultHint and not _customHintShowing then
+    UpdateDefaultHintText(DefaultHintTextAt(_lastMousePos)) else
+    UpdateDefaultHintText(nil);
+end;
+
+function TScrollControlWithCells.DefaultHintTextAt(const LocalPoint: TPointF): CString;
+
+  function TryGetTruncatedText(const CtrlClass: TInfoControlClass; const Ctrl: IDCControl; out Text: CString): Boolean;
+  begin
+    Result := False;
+    if (CtrlClass <> TInfoControlClass.Text) or (Ctrl = nil) or not Ctrl.Visible then
+      Exit;
+
+    var txt: ITextControl;
+    if not interfaces.Supports<ITextControl>(Ctrl, txt) or (Length(txt.Text) = 0) then
+      Exit;
+
+    // small tolerance for rounding differences between measured text and control size
+    var fitsInCell := (txt.TextWidthWithPadding <= Ctrl.Width + 0.5) and (txt.TextHeight <= Ctrl.Height + 0.5);
+    if fitsInCell then
+      Exit;
+
+    Text := txt.Text;
+    Result := True;
+  end;
+
+begin
+  Result := nil;
+
+  var cell := GetCellByMousePos(PointF(LocalPoint.X, LocalPoint.Y - _content.Position.Y));
+  if (cell = nil) or cell.IsHeaderCell or (cell.Column = nil) then
+    Exit;
+
+  var mainText: CString;
+  var hasMain := TryGetTruncatedText(cell.Column.InfoControlClass, cell.InfoControl, mainText);
+
+  var subText: CString;
+  var hasSub := TryGetTruncatedText(cell.Column.SubInfoControlClass, cell.SubInfoControl, subText);
+
+  if hasMain and hasSub then
+    Result := CString.Concat(mainText, #13#10, subText)
+  else if hasMain then
+    Result := mainText
+  else if hasSub then
+    Result := subText;
+end;
+
+procedure TScrollControlWithCells.UpdateDefaultHintText(const Value: CString);
+begin
+  if CString.Equals(_defaultHintText, Value) then
+    Exit;
+
+  _defaultHintText := Value;
+
+  {$IFNDEF WEBASSEMBLY}
+  // FMX only re-reads the hint when the hovered control changes, so moving between cells of this control needs a reset
+  Application.CancelHint;
+  {$ENDIF}
+end;
+
+{$IFNDEF WEBASSEMBLY}
+function TScrollControlWithCells.HasHint: Boolean;
+begin
+  Result := (_showDefaultHint and not CString.IsNullOrEmpty(_defaultHintText)) or inherited;
+end;
+
+function TScrollControlWithCells.GetHintString: string;
+begin
+  if _showDefaultHint and not CString.IsNullOrEmpty(_defaultHintText) then
+    Result := CStringToString(_defaultHintText) else
+    Result := inherited;
+end;
+{$ENDIF}
 
 function TScrollControlWithCells.RadioInsteadOfCheck: Boolean;
 begin
