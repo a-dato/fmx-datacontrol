@@ -65,6 +65,7 @@ type
     property ScrollingHideColumnsFromIndex;
     property CellTopBottomPadding;
     property CellLeftRightPadding;
+    property ShowDefaultHint;
     property PopupMenuClosed;
     property VisualizeParentChilds;
 
