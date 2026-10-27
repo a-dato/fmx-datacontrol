@@ -3352,7 +3352,12 @@ begin
       begin
         viewListIndex := _view.GetViewListIndex(get_DataItem);
         if viewListIndex = -1 then
-          viewListIndex := _view.ViewCount - 1; // newly added item revert..
+        begin
+          // item is deleted or new added item got reverted..
+          if (_selectionInfo.ViewListIndex <= _view.ViewCount - 1) and (_selectionInfo.ViewListIndex >= 0) then
+            viewListIndex := _selectionInfo.ViewListIndex else
+            viewListIndex := _view.ViewCount - 1;
+        end;
       end;
 
       var dataIndex := _view.GetDataIndex(viewListIndex);
