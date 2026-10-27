@@ -60,11 +60,24 @@ type
     ['{FE2F086F-B0CD-4CF8-9994-ADF8DC4F2756}']
     function  get_OnChange: TNotifyEvent;
     procedure set_OnChange(const Value: TNotifyEvent);
+    function  get_OnMouseDown: TMouseEvent;
+    procedure set_OnMouseDown(const Value: TMouseEvent);
     function  get_Value: CObject;
     procedure set_Value(const Value: CObject);
 
     property OnChange: TNotifyEvent read get_OnChange write set_OnChange;
+    property OnMouseDown: TMouseEvent read get_OnMouseDown write set_OnMouseDown;
     property Value: CObject read get_Value write set_Value;
+  end;
+
+  // A control with binding support that lets the user choose a value from a list
+  IComboboxControlWithBindingSupport = interface(IControlWithBindingSupport)
+    ['{6D0C5E2A-4B7F-4C1D-9A3E-8F2B5D7C1E94}']
+    function  get_Picklist: List<CObject>;
+    procedure set_Picklist(const Value: List<CObject>);
+
+    // The items the user can choose from
+    property Picklist: List<CObject> read get_Picklist write set_Picklist;
   end;
 
   IControlBinding = interface(IBaseInterface)
@@ -844,23 +857,7 @@ constructor TGenericControlBinding.Create(const AControl: IControlWithBindingSup
 begin
   inherited Create;
   _control := AControl;
-
-  // Same check as TControlBinding<T>.ValidateControl: binding twice would make OnChange call itself
-  var controlEvent := _control.OnChange;
-  {$IFDEF DELPHI}
-  var notifyEvent: TNotifyEvent := NotifyModel;
-  if Assigned(controlEvent) and (TMethod(controlEvent).Code = TMethod(notifyEvent).Code) then
-    raise Exception.Create('Events are getting strangled');
-  _orgChangeEvent := controlEvent;
-
   _control.OnChange := NotifyModel;
-  {$ELSE}
-  var notifyEvent: TNotifyEvent := @NotifyModel;
-  if Assigned(controlEvent) and System.Delegate.Equals(controlEvent, notifyEvent) then
-    raise Exception.Create('Events are getting strangled');
-
-  _control.OnChange := @NotifyModel;
-  {$ENDIF}
 end;
 
 destructor TGenericControlBinding.Destroy;
