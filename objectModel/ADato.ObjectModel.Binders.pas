@@ -56,6 +56,30 @@ uses
   {$ENDIF};
 
 type
+  IControlWithBindingSupport = interface(IBaseInterface)
+    ['{FE2F086F-B0CD-4CF8-9994-ADF8DC4F2756}']
+    function  get_OnChange: TNotifyEvent;
+    procedure set_OnChange(const Value: TNotifyEvent);
+    function  get_OnMouseDown: TMouseEvent;
+    procedure set_OnMouseDown(const Value: TMouseEvent);
+    function  get_Value: CObject;
+    procedure set_Value(const Value: CObject);
+
+    property OnChange: TNotifyEvent read get_OnChange write set_OnChange;
+    property OnMouseDown: TMouseEvent read get_OnMouseDown write set_OnMouseDown;
+    property Value: CObject read get_Value write set_Value;
+  end;
+
+  // A control with binding support that lets the user choose a value from a list
+  IComboboxControlWithBindingSupport = interface(IControlWithBindingSupport)
+    ['{6D0C5E2A-4B7F-4C1D-9A3E-8F2B5D7C1E94}']
+    function  get_Picklist: List<CObject>;
+    procedure set_Picklist(const Value: List<CObject>);
+
+    // The items the user can choose from
+    property Picklist: List<CObject> read get_Picklist write set_Picklist;
+  end;
+
   IControlBinding = interface(IBaseInterface)
     ['{DCA5D541-5A9E-4D24-A0E1-DE880E1FB520}']
     function get_Control: TControl;
@@ -206,6 +230,28 @@ type
     {$IFDEF DELPHI}
     destructor Destroy; override;
     {$ENDIF}
+  end;
+
+  // Two way binding between a property and any control implementing IControlWithBindingSupport
+  // (for example controls that are not a TControl, like elements inside a web page)
+  TGenericControlBinding = class(TPropertyBinding)
+  protected
+    _control: IControlWithBindingSupport;
+    _orgChangeEvent: TNotifyEvent;
+
+    function TryConvertFromUserFriendlyText(const Value: CObject; out AResult: CObject): Boolean;
+
+    function  GetValue: CObject; override;
+    procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject); override;
+    procedure ExecuteOriginalOnChangeEvent; override;
+
+  public
+    constructor Create(const AControl: IControlWithBindingSupport);
+    destructor Destroy; override;
+
+    function Equals(const other: CObject): Boolean; override;
+
+    property Control: IControlWithBindingSupport read _control;
   end;
 
   TNumberBoxControlBinding = class(TControlBinding<TNumberBox>)
@@ -803,6 +849,107 @@ begin
 
   Result := False; //_Control.IsFocused and _Control.HasSelection;
   {$ENDIF}
+end;
+
+{ TGenericControlBinding }
+
+constructor TGenericControlBinding.Create(const AControl: IControlWithBindingSupport);
+begin
+  inherited Create;
+  _control := AControl;
+  _control.OnChange := NotifyModel;
+end;
+
+destructor TGenericControlBinding.Destroy;
+begin
+  set_ObjectModelContext(nil);
+
+  if _control <> nil then
+  begin
+    _control.OnChange := _orgChangeEvent;
+    _control := nil;
+  end;
+
+  inherited;
+end;
+
+function TGenericControlBinding.Equals(const other: CObject): Boolean;
+begin
+  var binding: IPropertyBinding;
+  Result := (other <> nil) and other.TryAsType<IPropertyBinding>(binding) and
+            (binding.GetObject is TGenericControlBinding) and
+            (TGenericControlBinding(binding.GetObject)._control = _control);
+end;
+
+procedure TGenericControlBinding.ExecuteOriginalOnChangeEvent;
+begin
+  if Assigned(_orgChangeEvent) and (_control <> nil) then
+    _orgChangeEvent(_control.GetObject);
+end;
+
+function TGenericControlBinding.GetValue: CObject;
+begin
+  if _control = nil then
+    Exit(nil);
+
+  Result := _control.Value;
+
+  var converted: CObject;
+  if TryConvertFromUserFriendlyText(Result, {out} converted) then
+    Result := converted;
+end;
+
+procedure TGenericControlBinding.SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject);
+begin
+  if IsUpdating or (_control = nil) then Exit;
+
+  if IsBoundProperty(AProperty) then
+  begin
+    BeginUpdate;
+    try
+      // Values that have a text representation (formatter, timespan) are passed as text,
+      // all other values are passed to the control as is
+      var newValue := Value;
+
+      {$IFDEF APP_PLATFORM}
+      var descriptor: IPropertyDescriptor;
+      if TryGetPropertyDescriptor(descriptor) and (descriptor.Formatter <> nil) then
+        newValue := descriptor.Formatter.Format(Obj, Value, nil)
+      else
+      {$ENDIF}
+      begin
+        var value_string: CString;
+        if TryConvertToUserFriendlyText(Value, __PropertyInfo, value_string) then
+          newValue := value_string;
+      end;
+
+      if not CObject.Equals(newValue, _control.Value) then
+        _control.Value := newValue;
+    finally
+      EndUpdate;
+    end;
+  end
+  else
+  begin
+    // Same as TControlBinding<T>.ExecuteFromLink, without the visual 'Updated' indicator
+    SetValue(__PropertyInfo, Obj, __PropertyInfo.GetValue(Obj, []));
+
+    var linkChangeListener: IPropertyLinkChangeListener;
+    if (Obj <> nil) and Obj.TryAsType<IPropertyLinkChangeListener>(linkChangeListener) then
+      linkChangeListener.PropertyLinkChanged(AProperty, __PropertyInfo);
+  end;
+end;
+
+function TGenericControlBinding.TryConvertFromUserFriendlyText(const Value: CObject; out AResult: CObject): Boolean;
+begin
+  Result := False;
+
+  if (Value <> nil) and __PropertyInfo.GetType.IsOfType<CTimeSpan> and not Value.GetType.IsOfType<CTimeSpan> then
+  try
+    AResult := Duration.Parse(Value.ToString, DurationSettings.Default);
+    Result := True;
+  except
+  end;
 end;
 
 { TPropertyBinding }
