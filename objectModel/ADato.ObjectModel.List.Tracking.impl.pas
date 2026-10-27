@@ -566,16 +566,26 @@ procedure TObjectListModelWithChangeTracking<T>.Remove(const Item: CObject);
 begin
   if Item = nil then Exit;
 
-  // if IsNew item then insert it into the _changedItems this way
-  // it will be removed properly in NotifyRemoved
-  UpdateEditContext(nil, not get_IsNew);
+  var removeItemWithCorrectVersion := Item;
+  if CObject.Equals(Item, get_ObjectContext) then
+  begin
+    // when item is deleted, and it is in Edit mode, we have to retrieve the original version of the item to remove
+    // so when we cancel after, we get the original version back..
+    UpdateEditContext(nil, not get_IsNew);
+    removeItemWithCorrectVersion := get_ObjectContext; // this gets back the original version
+  end else
+  begin
+    // if IsNew item then insert it into the _changedItems this way
+    // it will be removed properly in NotifyRemoved
+    UpdateEditContext(nil, not get_IsNew);
+  end;
 
   var ix: Integer;
   var newSelected: CObject;
 
   BeginUpdate;
   try
-    ix := _Context.IndexOf(Item);
+    ix := _Context.IndexOf(removeItemWithCorrectVersion);
     if ix <> -1 then
     begin
       if ix > 0 then
@@ -586,10 +596,15 @@ begin
       _Context.RemoveAt(ix);
     end;
 
-    NotifyRemoved(Item, ix);
+    NotifyRemoved(removeItemWithCorrectVersion, ix);
   finally
     EndUpdate;
   end;
+
+  // a bound control can already have selected a new (valid) item during EndUpdate
+  var current := get_ObjectContext;
+  if (current <> nil) and (_Context <> nil) and (_Context.IndexOf(current) <> -1) then
+    Exit;
 
   inherited set_ObjectContext(newSelected);
 end;
