@@ -238,12 +238,24 @@ type
   protected
     _control: IControlWithBindingSupport;
     _orgChangeEvent: TNotifyEvent;
+    _orgMouseDownEvent: TMouseEvent;
+
+    {$IFDEF APP_PLATFORM}
+    // Picklist of the bound property (comboboxes only), loaded on the first mouse down.
+    // _pickListItems[i] is shown in the control as _pickListTexts[i].
+    _pickListItems: List<CObject>;
+    _pickListTexts: List<CObject>;
+
+    procedure LoadPicklist(const Combobox: IComboboxControlWithBindingSupport);
+    {$ENDIF}
 
     function TryConvertFromUserFriendlyText(const Value: CObject; out AResult: CObject): Boolean;
 
     function  GetValue: CObject; override;
     procedure SetValue(const AProperty: _PropertyInfo; const Obj, Value: CObject); override;
     procedure ExecuteOriginalOnChangeEvent; override;
+
+    procedure ControlMouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Single);
 
   public
     constructor Create(const AControl: IControlWithBindingSupport);
@@ -858,6 +870,9 @@ begin
   inherited Create;
   _control := AControl;
   _control.OnChange := NotifyModel;
+
+  _orgMouseDownEvent := _control.OnMouseDown;
+  _control.OnMouseDown := ControlMouseDown;
 end;
 
 destructor TGenericControlBinding.Destroy;
@@ -867,11 +882,68 @@ begin
   if _control <> nil then
   begin
     _control.OnChange := _orgChangeEvent;
+    _control.OnMouseDown := _orgMouseDownEvent;
     _control := nil;
   end;
 
   inherited;
 end;
+
+procedure TGenericControlBinding.ControlMouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Single);
+begin
+  {$IFDEF APP_PLATFORM}
+  var combobox: IComboboxControlWithBindingSupport;
+  if (Button = TMouseButton.mbLeft) and Interfaces.Supports<IComboboxControlWithBindingSupport>(_control, combobox) then
+    LoadPicklist(combobox);
+  {$ENDIF}
+
+  if Assigned(_orgMouseDownEvent) then
+    _orgMouseDownEvent(Sender, Button, Shift, X, Y);
+end;
+
+{$IFDEF APP_PLATFORM}
+procedure TGenericControlBinding.LoadPicklist(const Combobox: IComboboxControlWithBindingSupport);
+begin
+  // Same as TComboBoxControlBinding.ComboBoxMouseDown
+  var descriptor: IPropertyDescriptor;
+  if not TryGetPropertyDescriptor(descriptor) or (descriptor.Picklist = nil) then
+    Exit;
+
+  var pickList: IList;
+  if not descriptor.Picklist.Items(nil).TryGetValue<IList>(pickList) then
+    Exit;
+
+  var formatter := descriptor.Formatter;
+  var context: CObject := nil;
+  if get_ObjectModelContext <> nil then
+    context := get_ObjectModelContext.Context;
+
+  _pickListItems := CList<CObject>.Create;
+  _pickListTexts := CList<CObject>.Create;
+
+  var item: CObject;
+  for item in pickList do
+  begin
+    var s: CString;
+    if formatter <> nil then
+      s := formatter.Format(context, item, nil) else
+      s := item.ToString();
+
+    if not CString.IsNullOrEmpty(s) then
+    begin
+      _pickListItems.Add(item);
+      _pickListTexts.Add(s);
+    end;
+  end;
+
+  BeginUpdate;
+  try
+    Combobox.Picklist := _pickListTexts;
+  finally
+    EndUpdate;
+  end;
+end;
+{$ENDIF}
 
 function TGenericControlBinding.Equals(const other: CObject): Boolean;
 begin
@@ -893,6 +965,17 @@ begin
     Exit(nil);
 
   Result := _control.Value;
+
+  {$IFDEF APP_PLATFORM}
+  // A combobox shows the picklist as text, return the item behind the selected text
+  if (_pickListTexts <> nil) and (Result <> nil) then
+  begin
+    var text := Result.ToString;
+    for var i := 0 to _pickListTexts.Count - 1 do
+      if CString.Equals(_pickListTexts[i].ToString, text) then
+        Exit(_pickListItems[i]);
+  end;
+  {$ENDIF}
 
   var converted: CObject;
   if TryConvertFromUserFriendlyText(Result, {out} converted) then
@@ -922,6 +1005,19 @@ begin
         if TryConvertToUserFriendlyText(Value, __PropertyInfo, value_string) then
           newValue := value_string;
       end;
+
+      {$IFDEF APP_PLATFORM}
+      // Like TComboBoxControlBinding.SetValue: until the picklist is loaded (on mouse down)
+      // the combobox only holds the current value
+      var combobox: IComboboxControlWithBindingSupport;
+      if (_pickListTexts = nil) and Interfaces.Supports<IComboboxControlWithBindingSupport>(_control, combobox) then
+      begin
+        var items: List<CObject> := CList<CObject>.Create;
+        if newValue <> nil then
+          items.Add(newValue);
+        combobox.Picklist := items;
+      end;
+      {$ENDIF}
 
       if not CObject.Equals(newValue, _control.Value) then
         _control.Value := newValue;
