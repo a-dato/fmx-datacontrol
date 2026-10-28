@@ -119,7 +119,7 @@ type
     procedure KeyDown(var Key: Word; var KeyChar: System.WideChar; Shift: TShiftState); override;
   end;
 
-  TCheckPosition = (Left, Right);
+  TObjectPosition = (Left, Right);
 
   TFastText = class(TFastControl, IDCControl, ITextControl, ICaption, ITextSettings, ITextActions)
   protected
@@ -151,11 +151,18 @@ type
 
     _textBounds: TRectF;
     _onChange: TNotifyEvent;
+    _onCopy: TNotifyEvent;
+    _copyOnClick: Boolean;
+    _textTrimmed: Boolean;
+    _trimmedByMaxWidth: Boolean;
+    // HitTest was switched on only to show the hint of a trimmed text
+    _hitTestForHint: Boolean;
     _maxWidth: Integer;
     _imagesLink: TImageLink;
     _imageName: String;
     _imageIndex: Integer;
     _imageSizeInt: Single;
+    _imagePosition: TObjectPosition;
     _imageBounds: TRectF;
 
     {$IFNDEF WEBASSEMBLY}
@@ -213,6 +220,10 @@ type
     procedure set_ImageName(const Value: String);
     function  get_ImageSizeInt: Single;
     procedure set_ImageSizeInt(const Value: Single);
+    procedure set_ImagePosition(const Value: TObjectPosition);
+    procedure set_CopyOnClick(const Value: Boolean);
+    procedure DoCopy;
+    procedure UpdateTextTrimmed(const IsTrimmed: Boolean);
     function  get_CalcAsAutoHeight: Boolean;
     procedure set_CalcAsAutoHeight(const Value: Boolean);
     function  get_Trimming: TTextTrimming;
@@ -245,6 +256,8 @@ type
     function  CalculateTagVerticalMargin: Single;
     function  HasImage: Boolean;
     function  ImageContentWidth: Single;
+    function  LeadingImageWidth: Single;
+    function  TrailingImageWidth: Single;
     function  ImageTextMargin: Single;
     procedure CalculateImageBounds;
     function  GetBitmap(const Images: TCustomImageList; const BitmapSize: TSize; const BitmapIndex: Integer): TBitmap; virtual;
@@ -256,7 +269,12 @@ type
     procedure MouseMove(Shift: TShiftState; X, Y: Single); override;
     procedure MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Single); override;
     procedure MouseUp(Button: TMouseButton; Shift: TShiftState; X, Y: Single); override;
+    procedure Click; override;
     procedure SetVisible(const Value: Boolean); override;
+    {$IFNDEF WEBASSEMBLY}
+    function  HasHint: Boolean; override;
+    function  GetHintString: string; override;
+    {$ENDIF}
 
   public
     constructor Create(AOwner: TComponent); override;
@@ -290,10 +308,14 @@ type
     property UnderlineOnHover: Boolean read _underlineOnHover write _underlineOnHover default False;
     property TagType: TTextTagType read _tagType write set_TagType default TTextTagType.None;
     property TagOpacity: Single read _tagOpacity write set_TagOpacity;
+    property ImagePosition: TObjectPosition read _imagePosition write set_ImagePosition default TObjectPosition.Left;
+    // a click (and the "Copy" popup menu) copies the text to the clipboard, OnCopy is called afterwards
+    property CopyOnClick: Boolean read _copyOnClick write set_CopyOnClick default False;
 
     property HitTest {$IFNDEF WEBASSEMBLY}default False{$ENDIF};
 
     property OnChange: TNotifyEvent read _onChange write _onChange;
+    property OnCopy: TNotifyEvent read _onCopy write _onCopy;
   end;
 
   TFastCheckbox = class(TFastText, IDCEditControl, ITextControl, IIsChecked, IIsSemiChecked)
@@ -309,7 +331,7 @@ type
     _checkAnimationToState: TCheckState;
     _checkAnimationProgress: Single;
   private
-    _checkPosition: TCheckPosition;
+    _checkPosition: TObjectPosition;
     _checkState: TCheckState;
     _checkSize: Single;
     _checkTextMargin: Single;
@@ -327,7 +349,7 @@ type
 
     function  get_EditControl: IDCEditControl;
     function  get_CheckState: TCheckState;
-    procedure set_CheckPosition(const Value: TCheckPosition);
+    procedure set_CheckPosition(const Value: TObjectPosition);
 
     function  IsCheckedStored: Boolean;
     procedure SetLeftRightPadding; override;
@@ -358,7 +380,7 @@ type
     property EditControl: IDCEditControl read get_EditControl implements IDCEditControl;
 
   published
-    property CheckPosition: TCheckPosition read _checkPosition write set_CheckPosition default TCheckPosition.Left;
+    property CheckPosition: TObjectPosition read _checkPosition write set_CheckPosition default TObjectPosition.Left;
     property CheckState: TCheckState read get_CheckState write set_CheckState default TCheckState.Unchecked;
     property OnCheckChange: TNotifyEvent read _onCheckChange write _onCheckChange;
 
@@ -596,6 +618,7 @@ begin
   _imagesLink := TImageLink.Create;
   _imageIndex := -1;
   _imageSizeInt := 16;
+  _imagePosition := TObjectPosition.Left;
 
   _calcAsAutoHeight := True;
 
@@ -626,7 +649,7 @@ end;
 {$IFNDEF WEBASSEMBLY}
 procedure TFastText.CopyMenuItemClick(Sender: TObject);
 begin
-  CopyToClipboard;
+  DoCopy;
 end;
 
 procedure TFastText.CreateCopyPopupMenu;
@@ -649,11 +672,12 @@ end;
 function TFastText.CalculateTextXPos: Single;
 begin
 //  Result := Padding.Left + _internalLeftPadding;
-  var prefixWidth := ImageContentWidth + DotContentWidth;
+  var prefixWidth := LeadingImageWidth + DotContentWidth;
+  var suffixWidth := TrailingImageWidth;
   case get_HorzTextAlign of
-    TTextAlign.Center: Result := ((Self.Width - (_textBounds.Width + prefixWidth)) / 2) + prefixWidth;
+    TTextAlign.Center: Result := ((Self.Width - (_textBounds.Width + prefixWidth + suffixWidth)) / 2) + prefixWidth;
     TTextAlign.Leading: Result := Padding.Left + _internalLeftPadding + IfThen(ShowsTag, TAG_HORZ_MARGIN, 0) + prefixWidth;
-    TTextAlign.Trailing: Result := Self.Width - _textBounds.Width - Padding.Right - _internalRightPadding - IfThen(ShowsTag, TAG_HORZ_MARGIN, 0);
+    TTextAlign.Trailing: Result := Self.Width - _textBounds.Width - suffixWidth - Padding.Right - _internalRightPadding - IfThen(ShowsTag, TAG_HORZ_MARGIN, 0);
   end;
 end;
 
@@ -684,7 +708,16 @@ begin
     Exit;
   end;
 
-  var imageLeft := CalculateTextXPos - DotContentWidth - _imageSizeInt - ImageTextMargin;
+  var textX := CalculateTextXPos;
+  var imageLeft: Single;
+  if _imagePosition = TObjectPosition.Right then
+  begin
+    // directly after the (possibly trimmed) text, but always inside the control
+    var availableTextWidth := Self.Width - textX - TrailingImageWidth - Padding.Right - _internalRightPadding - IfThen(ShowsTag, TAG_HORZ_MARGIN, 0);
+    imageLeft := textX + CMath.Max(0, CMath.Min(_textBounds.Width, availableTextWidth)) + ImageTextMargin;
+  end else
+    imageLeft := textX - DotContentWidth - _imageSizeInt - ImageTextMargin;
+
   var totHeight := CMath.Max(ContentHeight, _imageSizeInt);
   var imageY := CalculateContentYPos + CMath.Max(0, (totHeight - _imageSizeInt) / 2);
 
@@ -716,10 +749,11 @@ begin
   CalculateImageBounds;
 
   // Keep room for the tag's right margin, otherwise a trimmed text pushes the tag outside the control bounds
-  var maxW := CMath.Min(_textBounds.Width + Padding.Left + Padding.Right, Self.Width - _layout.TopLeft.X - IfThen(ShowsTag, TAG_HORZ_MARGIN, 0));
+  var maxW := CMath.Min(_textBounds.Width + Padding.Left + Padding.Right, Self.Width - _layout.TopLeft.X - TrailingImageWidth - IfThen(ShowsTag, TAG_HORZ_MARGIN, 0));
   var maxH := CMath.Min(_textBounds.Height + Self.Padding.Top + Self.Padding.Bottom, Self.Height - _layout.TopLeft.Y);
 
   _layout.MaxSize := PointF(maxW, maxH);
+  UpdateTextTrimmed(_trimmedByMaxWidth or (maxW < _textBounds.Width - 0.5) or (maxH < _textBounds.Height - 0.5));
   UpdateDot;
 end;
 
@@ -733,7 +767,7 @@ begin
   var contentRight := _layout.TopLeft.X + _layout.MaxSize.X;
   if HasImage then
   begin
-    contentLeft := _imageBounds.Left;
+    contentLeft := CMath.Min(contentLeft, _imageBounds.Left);
     contentRight := CMath.Max(contentRight, _imageBounds.Right);
   end;
   if HasDot then
@@ -920,6 +954,16 @@ begin
   Result := IfThen(HasImage, _imageSizeInt + ImageTextMargin, 0);
 end;
 
+function TFastText.LeadingImageWidth: Single;
+begin
+  Result := IfThen(_imagePosition = TObjectPosition.Left, ImageContentWidth, 0);
+end;
+
+function TFastText.TrailingImageWidth: Single;
+begin
+  Result := IfThen(_imagePosition = TObjectPosition.Right, ImageContentWidth, 0);
+end;
+
 procedure TFastText.DoMouseLeave;
 begin
   inherited;
@@ -954,6 +998,77 @@ begin
 
   _mouseIsDown := False;
   RepaintNeeded;
+end;
+
+procedure TFastText.Click;
+begin
+  inherited;
+
+  if _copyOnClick then
+    DoCopy;
+end;
+
+procedure TFastText.UpdateTextTrimmed(const IsTrimmed: Boolean);
+begin
+  _textTrimmed := IsTrimmed and HasText;
+
+  // HitTest is stored, the designer may not change it
+  if csDesigning in ComponentState then
+    Exit;
+
+  if _textTrimmed and not HitTest then
+  begin
+    HitTest := True;
+    _hitTestForHint := True;
+  end
+  else if not _textTrimmed and _hitTestForHint then
+  begin
+    _hitTestForHint := False;
+    HitTest := False;
+  end;
+end;
+
+{$IFNDEF WEBASSEMBLY}
+function TFastText.HasHint: Boolean;
+begin
+  Result := inherited HasHint or _textTrimmed;
+end;
+
+function TFastText.GetHintString: string;
+begin
+  Result := inherited GetHintString;
+  if (Result = '') and _textTrimmed then
+    Result := GetText;
+end;
+{$ENDIF}
+
+procedure TFastText.DoCopy;
+begin
+  if not HasText then
+    Exit;
+
+  CopyToClipboard;
+  if Assigned(_onCopy) then
+    _onCopy(Self);
+end;
+
+procedure TFastText.set_CopyOnClick(const Value: Boolean);
+begin
+  if _copyOnClick = Value then
+    Exit;
+
+  _copyOnClick := Value;
+  if _copyOnClick then
+  begin
+    HitTest := True;
+    _hitTestForHint := False;
+    Cursor := crHandPoint;
+    {$IFNDEF WEBASSEMBLY}
+    CreateCopyPopupMenu;
+    {$ENDIF}
+  end
+  else if Cursor = crHandPoint then
+    Cursor := crDefault;
 end;
 
 procedure TFastText.InvalidateBoundsChange(const OldBounds, NewBounds: TRectF);
@@ -1045,6 +1160,8 @@ begin
   end;
 
   _textBounds := _layout.TextRect;
+  // the layout already trims to MaxWidth, so _textBounds can not show that the text does not fit
+  _trimmedByMaxWidth := (_maxWidth > 0) and not get_WordWrap and (_textBounds.Width >= maxWidth - 0.5);
   CalculateImageBounds;
 
   {$IFDEF SKIA}
@@ -1250,6 +1367,15 @@ begin
   end;
 end;
 
+procedure TFastText.set_ImagePosition(const Value: TObjectPosition);
+begin
+  if _imagePosition <> Value then
+  begin
+    _imagePosition := Value;
+    RecalcNeeded;
+  end;
+end;
+
 procedure TFastText.set_Images(const Value: TCustomImageList);
 begin
   if _imagesLink.Images <> Value then
@@ -1420,7 +1546,7 @@ begin
   HitTest := True;
   CanFocus := True;
 
-  _checkPosition := TCheckPosition.Left;
+  _checkPosition := TObjectPosition.Left;
   _checkState := TCheckState.Unchecked;
   _checkSize := 12;
   _checkTextMargin := 10;
@@ -1606,7 +1732,7 @@ begin
   Canvas.Stroke.Thickness := 1 + (0.5 * CMath.Max(CMath.Max(checkedProgress, grayedProgress), highlightProgress));
 
   var startYPos := Padding.Top + (availableHeight - checkSize) / 2;
-  var startXPos := IfThen(_checkPosition = TCheckPosition.Left, CMath.Max(Padding.Left, Canvas.Stroke.Thickness/2), Width - CMath.Max(Padding.Right, Canvas.Stroke.Thickness/2) - checkSize);
+  var startXPos := IfThen(_checkPosition = TObjectPosition.Left, CMath.Max(Padding.Left, Canvas.Stroke.Thickness/2), Width - CMath.Max(Padding.Right, Canvas.Stroke.Thickness/2) - checkSize);
 
   var rect := RectF(startXPos, startYPos, startXPos + checkSize, startYPos + checkSize);
   var innerRect := RectF(startXPos + 2, startYPos + 2, startXPos + checkSize - 2, startYPos + checkSize - 2);
@@ -1726,14 +1852,14 @@ begin
   Result := _checkState;
 end;
 
-procedure TFastCheckBox.set_CheckPosition(const Value: TCheckPosition);
+procedure TFastCheckBox.set_CheckPosition(const Value: TObjectPosition);
 begin
   if _checkPosition <> Value then
   begin
     _checkPosition := Value;
     case _checkPosition of
-      TCheckPosition.Left: set_HorzTextAlign(TTextAlign.Leading);
-      TCheckPosition.Right: set_HorzTextAlign(TTextAlign.Trailing);
+      TObjectPosition.Left: set_HorzTextAlign(TTextAlign.Leading);
+      TObjectPosition.Right: set_HorzTextAlign(TTextAlign.Trailing);
     end;
 
     RecalcNeeded;
@@ -1778,8 +1904,8 @@ begin
     inherited;
 
     // 2 is for extra stroke..
-    _internalLeftPadding := _internalLeftPadding + IfThen(_checkPosition = TCheckPosition.Left, _checkSize + {2 *} _checkTextMargin, 0);
-    _internalRightPadding := _internalRightPadding + IfThen(_checkPosition = TCheckPosition.Right, _checkSize + {2 *} _checkTextMargin, 0);
+    _internalLeftPadding := _internalLeftPadding + IfThen(_checkPosition = TObjectPosition.Left, _checkSize + {2 *} _checkTextMargin, 0);
+    _internalRightPadding := _internalRightPadding + IfThen(_checkPosition = TObjectPosition.Right, _checkSize + {2 *} _checkTextMargin, 0);
   end;
 end;
 

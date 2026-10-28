@@ -49,6 +49,9 @@ uses
   function  ControlVertSpace(AControl: TControl; IgnoreHeightItself: Boolean = False): Single;
   function  ControlHorzSpace(AControl: TControl; IgnoreWidthItself: Boolean = False): Single;
 
+  procedure PositionControls(const SortedControls: TArray<TControl>; const Orientation: TOrientation = TOrientation.Vertical);
+  procedure UpdateLineVisibility(const Line: TLine; const DependingOnControls: TArray<TControl>);
+
   function  ProvideAnimation(const Control: TControl; const PropertyName: CString; const NewValue: Single; const Duration: Single = 0.22): TFloatAnimation;
   function  ProvideAnimationDelay(const Control: TControl; const PropertyName: CString; const NewValue: Single; const Delay: Single = 0.2; const Duration: Single = 0.22): TFloatAnimation;
 
@@ -356,6 +359,45 @@ begin
   Result := AControl.Margins.Left + AControl.Margins.Right;
   if not IgnoreWidthItself then
     Result := Result + AControl.Width;
+end;
+
+procedure PositionControls(const SortedControls: TArray<TControl>; const Orientation: TOrientation = TOrientation.Vertical);
+begin
+  var prevBtn: TControl := nil;
+  for var button in SortedControls do
+  begin
+    if not button.Visible then
+      continue;
+
+    if prevBtn = nil then
+    begin
+      prevBtn := button;
+      continue;
+    end;
+
+    if Orientation = TOrientation.Horizontal then
+    begin
+      if button.Position.X < prevBtn.Position.X then
+        button.Position.X := prevBtn.Position.X + prevBtn.Width;
+    end
+    else if button.Position.Y < prevBtn.Position.Y then
+      button.Position.Y := prevBtn.Position.Y + prevBtn.Height;
+
+    prevBtn := button;
+  end;
+end;
+
+procedure UpdateLineVisibility(const Line: TLine; const DependingOnControls: TArray<TControl>);
+begin
+  var visibleControlsExist := False;
+  for var ctrl in DependingOnControls do
+    if ctrl.Visible then
+    begin
+      visibleControlsExist := True;
+      Break;
+    end;
+
+  Line.Visible := visibleControlsExist;
 end;
 
 function ProvideAnimation(const Control: TControl; const PropertyName: CString; const NewValue: Single; const Duration: Single = 0.22): TFloatAnimation;
